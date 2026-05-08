@@ -1,9 +1,10 @@
 /**
- * Shared `.env` load + `--provider` / `--model` / `--help` for eval CLIs (same as dev server env).
+ * Shared `.env` load + `--provider` / `--model` / `--fastLlm` / `--help` for eval CLIs (same as dev server env).
  */
 import { parseArgs } from 'node:util'
 import { resolve } from 'node:path'
 import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
+import { getDefaultLlmModelForProvider } from './supportedLlmModels.js'
 
 /**
  * `node:util` parseArgs maps option `brainWikiRoot` to CLI `--brainWikiRoot` for string values.
@@ -33,6 +34,8 @@ export function extractBrainWikiRootFromArgv(argv: string[]): string | undefined
 export const evalCliParseOptions = {
   provider: { type: 'string' as const, short: 'p' as const },
   model: { type: 'string' as const, short: 'm' as const },
+  /** Optional fast tier (same as `BRAIN_FAST_LLM`), e.g. `haiku` or `openai/gpt-5.4-nano`. */
+  fastLlm: { type: 'string' as const },
   help: { type: 'boolean' as const, short: 'h' as const },
   /** Run a single case by `id` from the JSONL (sets `EVAL_CASE_ID` for the harness). */
   id: { type: 'string' as const },
@@ -46,15 +49,28 @@ export const evalCliParseOptions = {
 export function applyEvalCliParsedValues(values: {
   provider?: boolean | string
   model?: boolean | string
+  fastLlm?: boolean | string
   id?: boolean | string
   brainWikiRoot?: boolean | string
 }): void {
-  if (typeof values.provider === 'string' && values.provider.trim()) {
-    process.env.LLM_PROVIDER = values.provider.trim()
+  const p = typeof values.provider === 'string' && values.provider.trim() ? values.provider.trim() : undefined
+  const m = typeof values.model === 'string' && values.model.trim() ? values.model.trim() : undefined
+  const fast = typeof values.fastLlm === 'string' && values.fastLlm.trim() ? values.fastLlm.trim() : undefined
+
+  if (p && m) {
+    process.env.BRAIN_LLM = `${p}/${m}`
+  } else if (m && !p) {
+    process.env.BRAIN_LLM = m
+  } else if (p && !m) {
+    const def = getDefaultLlmModelForProvider(p)
+    if (def) process.env.BRAIN_LLM = `${p}/${def}`
+    else process.env.BRAIN_LLM = p
   }
-  if (typeof values.model === 'string' && values.model.trim()) {
-    process.env.LLM_MODEL = values.model.trim()
+
+  if (fast) {
+    process.env.BRAIN_FAST_LLM = fast
   }
+
   if (typeof values.id === 'string' && values.id.trim()) {
     process.env.EVAL_CASE_ID = values.id.trim()
   }
@@ -64,7 +80,7 @@ export function applyEvalCliParsedValues(values: {
 }
 
 /**
- * Load `./.env` from cwd, then apply CLI flags to `LLM_PROVIDER` / `LLM_MODEL`. Exits 0 on `--help`.
+ * Load `./.env` from cwd, then apply CLI flags to `BRAIN_LLM` / `BRAIN_FAST_LLM`. Exits 0 on `--help`.
  */
 export function loadEvalEnvAndLlmCli(helpText: string): void {
   loadDotEnv()

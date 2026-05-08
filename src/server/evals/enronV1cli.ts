@@ -9,12 +9,13 @@ loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/
 Loads ./.env from the current working directory (same as the dev server).
 
 Options:
-  --provider, -p   LLM_PROVIDER (e.g. anthropic, openai, xai)
-  --model, -m       LLM_MODEL (provider-specific id)
+  --provider, -p   Provider key (merged into BRAIN_LLM with --model or default model from supported-llm-models.json)
+  --model, -m      Model id or shorthand (merged into BRAIN_LLM)
+  --fastLlm        Optional fast tier (sets BRAIN_FAST_LLM), e.g. haiku or openai/gpt-5.4-nano
   --id              Run only this task id (sets EVAL_CASE_ID); exits 1 if not in the Enron file
   -h, --help        Show this message
 
-Env still applies (CLI overrides LLM_PROVIDER / LLM_MODEL only).
+CLI flags override BRAIN_LLM / BRAIN_FAST_LLM for this process (after ./.env is loaded).
 Example: npx tsx --tsconfig tsconfig.server.json src/server/evals/enronV1cli.ts --provider xai --model grok-4-1-fast
 
 Full eval (Vitest + Enron + Wiki JSONL): npm run eval:run

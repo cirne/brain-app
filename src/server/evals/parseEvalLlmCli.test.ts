@@ -29,7 +29,7 @@ describe('extractBrainWikiRootFromArgv', () => {
 })
 
 describe('applyEvalCliParsedValues', () => {
-  const keys = ['LLM_PROVIDER', 'LLM_MODEL', 'EVAL_CASE_ID', 'BRAIN_WIKI_ROOT'] as const
+  const keys = ['BRAIN_LLM', 'BRAIN_FAST_LLM', 'EVAL_CASE_ID', 'BRAIN_WIKI_ROOT'] as const
   let prev: Partial<Record<(typeof keys)[number], string | undefined>> = {}
 
   beforeEach(() => {
@@ -44,6 +44,30 @@ describe('applyEvalCliParsedValues', () => {
       if (prev[k] === undefined) delete process.env[k]
       else process.env[k] = prev[k]
     }
+  })
+
+  it('sets BRAIN_LLM from -p and -m', () => {
+    delete process.env.BRAIN_LLM
+    applyEvalCliParsedValues({ provider: 'xai', model: 'grok-4-1-fast' })
+    expect(process.env.BRAIN_LLM).toBe('xai/grok-4-1-fast')
+  })
+
+  it('sets BRAIN_LLM from -m only (bare token / shorthand)', () => {
+    delete process.env.BRAIN_LLM
+    applyEvalCliParsedValues({ model: 'haiku' })
+    expect(process.env.BRAIN_LLM).toBe('haiku')
+  })
+
+  it('sets BRAIN_LLM from -p only using registry default model', () => {
+    delete process.env.BRAIN_LLM
+    applyEvalCliParsedValues({ provider: 'openai' })
+    expect(process.env.BRAIN_LLM).toBe('openai/gpt-5.4-mini')
+  })
+
+  it('sets BRAIN_FAST_LLM from fastLlm', () => {
+    delete process.env.BRAIN_FAST_LLM
+    applyEvalCliParsedValues({ fastLlm: 'gpt-5.4-nano' })
+    expect(process.env.BRAIN_FAST_LLM).toBe('gpt-5.4-nano')
   })
 
   it('sets BRAIN_WIKI_ROOT and resolves relative path', () => {

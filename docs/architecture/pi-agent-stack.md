@@ -16,7 +16,7 @@
 
 ## LLM providers (pi-ai)
 
-The server resolves `**LLM_PROVIDER`** + `**LLM_MODEL**` via `resolveModel()` (see [configuration.md](./configuration.md)). For pi-ai backends, the provider must be a `**KnownProvider**` string (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts`). **Brain-only:** `**mlx-local**` — Qwen 3.6 on Apple Silicon via `mlx_lm.server` (OpenAI-compatible HTTP); see `.env.example` and `supported-llm-models.json`.
+The server parses **`BRAIN_LLM`** (and optional **`BRAIN_FAST_LLM`**) into `provider` + `modelId`, then resolves via `resolveModel()` (see [configuration.md](./configuration.md)). For pi-ai backends, the provider must be a `**KnownProvider**` string (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts`). **Brain-only:** `**mlx-local**` — Qwen 3.6 on Apple Silicon via `mlx_lm.server` (OpenAI-compatible HTTP); see `.env.example` and `supported-llm-models.json`.
 
 `**KnownProvider` (union as shipped in the current dependency):** `amazon-bedrock`, `anthropic`, `azure-openai-responses`, `cerebras`, `github-copilot`, `google`, `google-antigravity`, `google-gemini-cli`, `google-vertex`, `groq`, `huggingface`, `kimi-coding`, `minimax`, `minimax-cn`, `mistral`, `openai`, `openai-codex`, `openrouter`, `opencode`, `opencode-go`, `vercel-ai-gateway`, `xai`, `zai`.
 
@@ -25,13 +25,13 @@ The server resolves `**LLM_PROVIDER`** + `**LLM_MODEL**` via `resolveModel()` (s
 
 | Provider    | Notes                                                                                                                                  |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `openai`    | Default `LLM_PROVIDER` in the server (`**gpt-5.4-mini**` by default; see [configuration.md](./configuration.md)); uses `OPENAI_API_KEY`. |
+| `openai`    | Default standard tier when `BRAIN_LLM` is unset (`**gpt-5.4-mini**`; see [configuration.md](./configuration.md)); uses `OPENAI_API_KEY`. |
 | `anthropic` | Uses `ANTHROPIC_API_KEY` (or `ANTHROPIC_OAUTH_TOKEN` if using OAuth) — see pi-ai `getEnvApiKey`. |
 | `xai`       | xAI (Grok, etc.); uses `XAI_API_KEY`.                                                                                                  |
 | `mlx-local` | Local **mlx_lm.server** (default base `http://localhost:11444/v1`); optional `MLX_LOCAL_BASE_URL`, `MLX_LOCAL_API_KEY` (defaults to `local`). **`MLX_LOCAL_THINKING=1`** enables Qwen extended thinking; unset/false = off (default, lower latency). Not a pi-ai `KnownProvider`. |
 
 
-**Future candidates (Google):** The same `KnownProvider` set includes `google` (Generative AI), `google-vertex`, `google-gemini-cli`, and related entries. We do not yet have project-standard **Google / Gemini** API credentials for the agent (`GEMINI_API_KEY` and related env vars in pi-ai); when we do, these become viable `LLM_PROVIDER` options alongside the table above.
+**Future candidates (Google):** The same `KnownProvider` set includes `google` (Generative AI), `google-vertex`, `google-gemini-cli`, and related entries. We do not yet have project-standard **Google / Gemini** API credentials for the agent (`GEMINI_API_KEY` and related env vars in pi-ai); when they are set, `BRAIN_LLM=google/...` becomes viable alongside the table above.
 
 **Other `KnownProvider` values** (e.g. `openrouter`, `groq`, `mistral`, Bedrock) use the env mappings in pi-ai’s `getEnvApiKey` implementation; some use OAuth or cloud ADC instead of a single API key. Prefer the type definition and `getEnvApiKey` in `node_modules/@mariozechner/pi-ai` for details.
 
@@ -44,13 +44,13 @@ In this repo, `convertToLlm` from `@mariozechner/pi-coding-agent` only shapes **
 
 | Situation                                                                                                 | What happens                                                                                                                                                                                                                                                                                                |
 | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getModel` returns `undefined` (unknown id for that `LLM_PROVIDER`)                                       | Startup: `[brain-app] … unknown provider/model … (not in pi-ai registry)` — see `verifyLlmAtStartup` in `[src/server/lib/llmStartupSmoke.ts](../../src/server/lib/llmStartupSmoke.ts)`.                                                                                                                     |
+| `getModel` returns `undefined` (unknown id for that provider)                                       | Startup: `[brain-app] … unknown provider/model … (not in pi-ai registry)` — see `verifyLlmAtStartup` in `[src/server/lib/llm/llmStartupSmoke.ts](../../src/server/lib/llm/llmStartupSmoke.ts)`.                                                                                                                     |
 | Id is in `MODELS` but API rejects parameters (e.g. some OpenAI **Responses** / **reasoning** constraints) | Startup smoke or first completion may throw; this repo maps some cases via `patchOpenAiReasoning…` in `[openAiResponsePayload` helpers](../../src/server/lib/openAiResponsesPayload.ts).                                                                                                                    |
 | Text-only smoke passes but **tool calls** break                                                           | `[verifyLlmAtStartup](../../src/server/lib/llmStartupSmoke.ts)` uses a **single** `completeSimple` user message — **no tools**. A model can pass that and still be a poor or broken fit for the agent loop. Prefer models Pi treats as **tool-capable** for your provider, not an arbitrary `MODELS` entry. |
 | OpenRouter / Vercel AI Gateway, etc.                                                                      | Many routed models; backends differ (tools, message shapes). Default to the **same** model ids the Pi CLI would list with `pi --list-models` (see upstream CLI docs in the [same README](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md)) once keys are set.                 |
 
 
-**Evals / `.env`:** For `LLM_PROVIDER` + `LLM_MODEL`, use **proven tool/agent** model ids (e.g. **Claude Sonnet 4.6** / Haiku / Opus for `anthropic`, **`gpt-5.4*`** for `openai`, **Grok 4.1 fast** / Grok 4 for `xai`) — see [`src/server/evals/supported-llm-models.json`](../../src/server/evals/supported-llm-models.json) for a curated 2026 list. Custom and compat options for edge servers are documented in pi-mono: [docs/models.md](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md).
+**Evals / `.env`:** Set **`BRAIN_LLM`** to **proven tool/agent** configurations (e.g. **`anthropic/claude-sonnet-4-6`**, **`openai/gpt-5.4`**, **`xai/grok-4-1-fast`**) — see [`src/server/evals/supported-llm-models.json`](../../src/server/evals/supported-llm-models.json). Custom and compat options for edge servers are documented in pi-mono: [docs/models.md](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md).
 
 Session construction: `[src/server/agent/agentFactory.ts](../../src/server/agent/agentFactory.ts)`, `[src/server/agent/assistantAgent.ts](../../src/server/agent/assistantAgent.ts)`. SSE bridge: `[src/server/lib/streamAgentSse.ts](../../src/server/lib/streamAgentSse.ts)`.
 

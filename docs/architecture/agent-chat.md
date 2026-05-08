@@ -3,7 +3,7 @@
 ## Stack
 
 - **Runtime:** `@mariozechner/pi-agent-core` `Agent` with `convertToLlm` from `@mariozechner/pi-coding-agent`. **Package options, events, and metering context:** [pi-agent-stack.md](./pi-agent-stack.md) (usage / cost: [OPP-072](../opportunities/OPP-072-llm-usage-token-metering.md)).
-- **Model:** `@mariozechner/pi-ai` `getModel(provider, modelId)` — provider and model from `LLM_PROVIDER` / `LLM_MODEL` (see [configuration.md](./configuration.md)).
+- **Model:** `@mariozechner/pi-ai` `getModel(provider, modelId)` — `provider` and `modelId` come from **`BRAIN_LLM`** (and optional fast tier for some paths); see [configuration.md](./configuration.md).
 - **Tools:** Built in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts)` — see below.
 
 Session factory: `[src/server/agent/index.ts](../../src/server/agent/index.ts)`.

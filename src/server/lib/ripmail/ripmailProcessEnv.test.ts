@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
 
-const keys = ['RIPMAIL_LLM_PROVIDER', 'LLM_PROVIDER'] as const
+const keys = ['RIPMAIL_LLM_PROVIDER', 'BRAIN_LLM', 'LLM_PROVIDER'] as const
 let saved: Record<string, string | undefined> = {}
 
 beforeEach(() => {
@@ -10,6 +10,7 @@ beforeEach(() => {
     saved[k] = process.env[k]
   }
   delete process.env.RIPMAIL_LLM_PROVIDER
+  delete process.env.BRAIN_LLM
   delete process.env.LLM_PROVIDER
 })
 
@@ -21,25 +22,31 @@ afterEach(() => {
 })
 
 describe('ripmailProcessEnv', () => {
-  it('sets RIPMAIL_LLM_PROVIDER to openai when LLM_PROVIDER and RIPMAIL_LLM_PROVIDER are unset', () => {
+  it('sets RIPMAIL_LLM_PROVIDER to openai when BRAIN_LLM and RIPMAIL_LLM_PROVIDER are unset', () => {
     const env = ripmailProcessEnv()
     expect(env.RIPMAIL_LLM_PROVIDER).toBe('openai')
   })
 
-  it('sets RIPMAIL_LLM_PROVIDER from LLM_PROVIDER (lowercased) when RIPMAIL_LLM_PROVIDER is unset', () => {
-    process.env.LLM_PROVIDER = 'openai'
+  it('sets RIPMAIL_LLM_PROVIDER from BRAIN_LLM provider (lowercased) when RIPMAIL_LLM_PROVIDER is unset', () => {
+    process.env.BRAIN_LLM = 'xai/grok-4-1-fast'
     const env = ripmailProcessEnv()
-    expect(env.RIPMAIL_LLM_PROVIDER).toBe('openai')
+    expect(env.RIPMAIL_LLM_PROVIDER).toBe('xai')
   })
 
-  it('trims and lowercases LLM_PROVIDER', () => {
-    process.env.LLM_PROVIDER = '  OpenAI  '
+  it('sets RIPMAIL_LLM_PROVIDER from BRAIN_LLM shorthand (e.g. haiku → anthropic)', () => {
+    process.env.BRAIN_LLM = 'haiku'
+    const env = ripmailProcessEnv()
+    expect(env.RIPMAIL_LLM_PROVIDER).toBe('anthropic')
+  })
+
+  it('does not read deprecated LLM_PROVIDER when BRAIN_LLM is unset', () => {
+    process.env.LLM_PROVIDER = 'anthropic'
     const env = ripmailProcessEnv()
     expect(env.RIPMAIL_LLM_PROVIDER).toBe('openai')
   })
 
   it('does not override a non-empty RIPMAIL_LLM_PROVIDER', () => {
-    process.env.LLM_PROVIDER = 'openai'
+    process.env.BRAIN_LLM = 'openai/gpt-5.4'
     process.env.RIPMAIL_LLM_PROVIDER = 'ollama'
     const env = ripmailProcessEnv()
     expect(env.RIPMAIL_LLM_PROVIDER).toBe('ollama')

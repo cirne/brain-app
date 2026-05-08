@@ -13,8 +13,8 @@ unless you pass --id, in which case Vitest is skipped for a fast single-case run
 
 Loads ./.env from the repo root (same as the dev server), then runs every
 JSONL agent eval in order (each suite skips itself when --id is set and that
-id is not in its task file). Note: .env overwrites existing LLM_* in the
-process environment; use --provider / --model to force a provider for this run.
+id is not in its task file). Note: .env overwrites matching keys in the
+process environment; use --provider / --model to set BRAIN_LLM for this run.
   1. Enron v1 — assistant / mail tasks → data-eval/eval-runs/enron-v1-*.json
   2. Wiki v1 — buildout + cleanup → data-eval/eval-runs/wiki-v1-*.json
 
@@ -22,8 +22,9 @@ Both use BRAIN_HOME (default ./data-eval/brain via npm script) and the Enron
 ripmail index from npm run eval:build.
 
 Options:
-  --provider, -p   LLM_PROVIDER (e.g. openai, anthropic)
-  --model, -m      LLM_MODEL
+  --provider, -p   Merged into BRAIN_LLM (with --model or registry default)
+  --model, -m      Merged into BRAIN_LLM
+  --fastLlm        Optional: sets BRAIN_FAST_LLM
   --brain-wiki-root   Parent of wiki/ (sets BRAIN_WIKI_ROOT for this process, resolved absolute; ignored by Enron-only phases)
   --id            Run only the task with this id (e.g. enron-022-suggest-reply-chips);
                   also sets EVAL_CASE_ID. Exits 1 if the id is missing from both suites.

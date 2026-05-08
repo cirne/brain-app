@@ -1,6 +1,7 @@
 import { completeSimple } from '@mariozechner/pi-ai'
-import type { AssistantMessage, Context, KnownProvider } from '@mariozechner/pi-ai'
+import type { AssistantMessage, Context } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { getFastBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { randomUUID } from 'node:crypto'
 import { createAgentTools } from '@server/agent/tools.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
@@ -189,11 +190,13 @@ export async function runSuggestReplyRepairIfNeeded(options: {
   const parentAgentTurnId = options.parentAgentTurnId?.trim()
   const repairStartedAt = performance.now()
 
-  const provider = (process.env.BRAIN_SUGGEST_REPLY_REPAIR_PROVIDER?.trim() ||
-    process.env.LLM_PROVIDER ||
-    'openai') as KnownProvider
-  const modelId =
-    process.env.BRAIN_SUGGEST_REPLY_REPAIR_MODEL?.trim() || process.env.LLM_MODEL || 'gpt-5.4-mini'
+  const fast = getFastBrainLlm()
+  let provider = fast.provider
+  let modelId = fast.modelId
+  const rP = process.env.BRAIN_SUGGEST_REPLY_REPAIR_PROVIDER?.trim()
+  const rM = process.env.BRAIN_SUGGEST_REPLY_REPAIR_MODEL?.trim()
+  if (rP) provider = rP
+  if (rM) modelId = rM
   const model = resolveModel(provider, modelId)
   if (!model) {
     const durationMs = Math.round(performance.now() - repairStartedAt)

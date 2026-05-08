@@ -1,10 +1,8 @@
-import { completeSimple, type KnownProvider } from '@mariozechner/pi-ai'
+import { completeSimple } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { getFastBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { browseHubRipmailFolders, type HubBrowseFolderRow } from './hubRipmailSources.js'
-
-const DEFAULT_PROVIDER = 'openai' as KnownProvider
-const DEFAULT_MODEL = 'gpt-5.4-mini'
 
 export type DriveFolderSuggestion = {
   id: string
@@ -101,8 +99,7 @@ export async function suggestDriveFolders(sourceId: string): Promise<DriveSugges
     return { ok: true, suggestions: [], ignoreGlobs: [], ignoreSummary: '' }
   }
 
-  const provider = (process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER) as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? DEFAULT_MODEL
+  const { provider, modelId } = getFastBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) return { ok: false, error: 'LLM not configured' }
   const apiKey = resolveLlmApiKey(provider)

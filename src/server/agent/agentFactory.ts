@@ -1,6 +1,6 @@
 import { Agent } from '@mariozechner/pi-agent-core'
-import type { KnownProvider } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import {
@@ -87,12 +87,11 @@ export function createOnboardingAgent(
       ? { calendarAllowedOps: ['list_calendars', 'configure_source'] as const }
       : {}),
   })
-  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
+  const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) {
     throw new Error(
-      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
     )
   }
 
@@ -120,12 +119,11 @@ export function createFinalizeAgent(systemPrompt: string, wikiRoot: string): Age
     includeLocalMessageTools: false,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
-  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
+  const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) {
     throw new Error(
-      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
     )
   }
 
@@ -146,12 +144,11 @@ export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agen
     extraOmit: WIKI_CLEANUP_OMIT,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
-  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
+  const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) {
     throw new Error(
-      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
     )
   }
 

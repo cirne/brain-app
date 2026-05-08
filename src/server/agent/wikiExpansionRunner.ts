@@ -36,6 +36,7 @@ import {
   sumUsageFromMessages,
   type LlmUsageSnapshot,
 } from '@server/lib/llm/llmUsage.js'
+import { tryStandardBrainLlmForTelemetry } from '@server/lib/llm/effectiveBrainLlm.js'
 import { logger } from '@server/lib/observability/logger.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
@@ -463,8 +464,9 @@ export function attachWikiBackgroundRunTracker(
           })
           {
             const { provider: pFromMsg, model: mFromMsg } = rollupAssistantLlmIds(end.messages)
-            const provider = pFromMsg ?? process.env.LLM_PROVIDER?.trim() ?? 'unknown'
-            const model = mFromMsg ?? process.env.LLM_MODEL?.trim() ?? 'unknown'
+            const fb = tryStandardBrainLlmForTelemetry()
+            const provider = pFromMsg ?? fb?.provider ?? 'unknown'
+            const model = mFromMsg ?? fb?.modelId ?? 'unknown'
             logger.info(
               {
                 source: nrOpts.source,

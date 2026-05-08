@@ -1,10 +1,9 @@
-import { completeSimple, type KnownProvider } from '@mariozechner/pi-ai'
+import { completeSimple } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 
-const DEFAULT_PROVIDER = 'openai' as KnownProvider
-const DEFAULT_MODEL = 'gpt-5.4-mini'
 const DRAFT_MAX_TRANSCRIPT_CHARS = 12_000
 
 function feedbackSystemPrompt(): string {
@@ -22,8 +21,7 @@ export async function composeFeedbackIssueMarkdown(input: {
   /** Optional structured hints (e.g. last tool error lines). */
   toolHints?: string
 }): Promise<{ markdown: string; error?: string }> {
-  const provider = (process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER) as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? DEFAULT_MODEL
+  const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) {
     return { markdown: '', error: 'LLM not configured' }

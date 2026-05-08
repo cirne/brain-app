@@ -1,6 +1,6 @@
 import { Agent } from '@mariozechner/pi-agent-core'
-import type { KnownProvider } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import Handlebars from 'handlebars'
 import { createAgentTools } from './tools.js'
@@ -156,13 +156,12 @@ ${dateTimeBlock}`
     systemPrompt += `\n\n${skillLibrary}`
   }
 
-  // Model from env vars — pi-ai registry + Brain-only providers (e.g. mlx-local)
-  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
+  // Model from BRAIN_LLM — pi-ai registry + Brain-only providers (e.g. mlx-local)
+  const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) {
     throw new Error(
-      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
     )
   }
 

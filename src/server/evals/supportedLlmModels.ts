@@ -60,7 +60,7 @@ export function getSupportedLlmForProvider(
 }
 
 /**
- * @returns the default `LLM_MODEL` for the given provider, or `undefined` if the provider is missing.
+ * @returns the default model id for the given provider key in this registry, or `undefined` if the provider is missing (used by eval CLI `-p` without `-m`).
  */
 export function getDefaultLlmModelForProvider(provider: string): string | undefined {
   return getSupportedLlmForProvider(provider)?.default

@@ -14,7 +14,7 @@ Automated coverage: **`openAiResponsesPayload.test.ts`**, **`llmOnPayloadChain.t
 
 Before merging a registry change or new default chat model:
 
-1. **`LLM_MODEL=<id>`** with keys set, **`npm run dev`**, send one chat message that triggers a trivial completion **without** tools (e.g. “Say hi in one word.”).
+1. **`BRAIN_LLM=<provider>/<id>`** (or bare id / nickname from [supported-llm-models.json](../../../evals/supported-llm-models.json)) with keys set, **`npm run dev`**, send one chat message that triggers a trivial completion **without** tools (e.g. “Say hi in one word.”).
 
    **Pass:** streamed reply completes; logs show **no API 4xx** on `responses`.
 
@@ -24,7 +24,7 @@ Before merging a registry change or new default chat model:
 
    **If the API rejects `reasoning.effort: none`:** add **`model.id`** to `MODEL_IDS_REJECTING_OPENAI_REASONING_EFFORT_NONE` and re-run (1)-(2).
 
-3. **Forced workaround path:** temporarily set **`LLM_MODEL`** to **`gpt-5-codex`** (or another id in the reject set), repeat (1)-(2).
+3. **Forced workaround path:** temporarily set **`BRAIN_LLM`** to **`openai/gpt-5-codex`** (or another id in the reject set), repeat (1)-(2).
 
    **Pass:** request still succeeds; payloads use **`reasoning.effort: "low"`** when thinking is off (see **`patchOpenAiReasoningNoneEffort`**).
 

@@ -1,9 +1,8 @@
-import { completeSimple, type KnownProvider } from '@mariozechner/pi-ai'
+import { completeSimple } from '@mariozechner/pi-ai'
+import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm, warnDeprecatedLlmEnvIfSet } from './effectiveBrainLlm.js'
 import { resolveLlmApiKey, resolveModel } from './resolveModel.js'
 import { chainLlmOnPayload } from './llmOnPayloadChain.js'
 
-const DEFAULT_PROVIDER = 'openai' as KnownProvider
-const DEFAULT_MODEL = 'gpt-5.4-mini'
 const SMOKE_TIMEOUT_MS = 60_000
 
 function hasCredentials(apiKey: string | undefined): boolean {
@@ -13,11 +12,11 @@ function hasCredentials(apiKey: string | undefined): boolean {
 }
 
 function llmEnvLabel(provider: string, modelId: string): string {
-  return `LLM_PROVIDER=${provider} LLM_MODEL=${modelId}`
+  return brainLlmEnvDiagnosticLabel(provider, modelId)
 }
 
 /**
- * Validates LLM_PROVIDER / LLM_MODEL and performs one minimal completion
+ * Validates `BRAIN_LLM` (standard tier) and performs one minimal completion
  * against the configured provider. Throws on failure.
  */
 export async function verifyLlmAtStartup(): Promise<void> {
@@ -25,8 +24,8 @@ export async function verifyLlmAtStartup(): Promise<void> {
     return
   }
 
-  const provider = (process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER) as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? DEFAULT_MODEL
+  warnDeprecatedLlmEnvIfSet()
+  const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
 
   if (!model) {

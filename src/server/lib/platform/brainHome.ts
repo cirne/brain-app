@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import {
   brainLayoutChatsDir,
   brainLayoutDirIconsCachePath,
@@ -83,8 +84,11 @@ export function ripmailProcessEnv(): typeof process.env {
   if (!gid && brid) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID = brid
   if (!gsec && bsec) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET = bsec
   if (!out.RIPMAIL_LLM_PROVIDER?.trim()) {
-    const fromBrain = process.env.LLM_PROVIDER?.trim().toLowerCase()
-    out.RIPMAIL_LLM_PROVIDER = fromBrain && fromBrain.length > 0 ? fromBrain : 'openai'
+    try {
+      out.RIPMAIL_LLM_PROVIDER = getStandardBrainLlm().provider.toLowerCase()
+    } catch {
+      out.RIPMAIL_LLM_PROVIDER = 'openai'
+    }
   }
   return out
 }

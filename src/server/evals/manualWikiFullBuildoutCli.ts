@@ -27,8 +27,8 @@ Runs one full wiki enrich pass (same user message as “Your Wiki” deepen lap)
 Requires BRAIN_HOME with Enron ripmail index (npm run eval:build).
 
 Options:
-  --provider, -p       LLM_PROVIDER
-  --model, -m          LLM_MODEL
+  --provider, -p       Merged into BRAIN_LLM (with --model or registry default)
+  --model, -m          Merged into BRAIN_LLM
   --brain-wiki-root    Parent directory of wiki/ (optional); overrides BRAIN_WIKI_ROOT for this process
   -h, --help
 `)

@@ -1,6 +1,6 @@
 ---
 name: model-eval-benchmark
-description: Runs brain-app JSONL agent evals (Enron v1, wiki v1) and compares model runs on pass rate, wall time, tokens, and estimated cost from report JSON. Use when benchmarking LLMs, comparing providers, price/performance analysis, or after changing supported-llm-models.json / LLM_PROVIDER + LLM_MODEL.
+description: Runs brain-app JSONL agent evals (Enron v1, wiki v1) and compares model runs on pass rate, wall time, tokens, and estimated cost from report JSON. Use when benchmarking LLMs, comparing providers, price/performance analysis, or after changing supported-llm-models.json / BRAIN_LLM (+ optional BRAIN_FAST_LLM).
 ---
 
 # Model eval benchmark (brain-app)
@@ -23,7 +23,7 @@ Reports are JSON under `data-eval/eval-runs/` (gitignored).
 1. **Node:** from repo root, `nvm use` before any `npm`/`npx` (see [`AGENTS.md`](../../../AGENTS.md)).
 2. **Enron index (Enron + wiki evals):** `npm run eval:build` once so `data-eval/brain/ripmail/ripmail.db` exists ([`eval/README.md`](../../../eval/README.md)).
 3. **API keys:** repo-root `.env` (same as `npm run dev`) with keys for each provider you run (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` for Gemini, etc. — matches [`@mariozechner/pi-ai`](../../../docs/architecture/pi-agent-stack.md) conventions).
-4. **Model IDs:** each `(LLM_PROVIDER, LLM_MODEL)` must resolve in `getModel()` from `@mariozechner/pi-ai`. Git-tracked lineup: [`src/server/evals/supported-llm-models.json`](../../../src/server/evals/supported-llm-models.json) (validated by `vitest.eval.config.ts` tests).
+4. **Model IDs:** each **`BRAIN_LLM`** value must resolve via `parseBrainLlmSpec` → `resolveModel()` / `getModel()` from `@mariozechner/pi-ai`. Git-tracked lineup: [`src/server/evals/supported-llm-models.json`](../../../src/server/evals/supported-llm-models.json) (validated by `vitest.eval.config.ts` tests).
 
 ## Commands
 

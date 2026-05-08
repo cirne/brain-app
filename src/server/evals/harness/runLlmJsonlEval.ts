@@ -29,7 +29,7 @@ export function getEvalRepoRoot(): string {
 
 export type LlmJsonlEvalConfig<TTask extends { id: string }> = {
   logPrefix: string
-  /** Used in report filename: `${outSlug}-<model-segment>-<timestamp>.json` (model from effective `LLM_MODEL`) */
+  /** Used in report filename: `${outSlug}-<model-segment>-<timestamp>.json` (model from effective `BRAIN_LLM`) */
   outSlug: string
   resolveTaskFilePath: (root: string) => string
   loadTasks: (absPath: string) => Promise<TTask[]>
@@ -153,8 +153,8 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
       model: effectiveModel,
     },
     env: {
-      LLM_PROVIDER: process.env.LLM_PROVIDER ?? null,
-      LLM_MODEL: process.env.LLM_MODEL ?? null,
+      BRAIN_LLM: process.env.BRAIN_LLM ?? null,
+      BRAIN_FAST_LLM: process.env.BRAIN_FAST_LLM ?? null,
     },
     reportFile: outFile,
     wallTotalMs: Math.round(wallTotalMs),

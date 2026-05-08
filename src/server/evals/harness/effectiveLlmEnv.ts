@@ -1,20 +1,22 @@
+import { DEFAULT_BRAIN_LLM_STRING, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
+
 /**
- * Effective LLM env for eval reports and filenames.
- * When unset, must match defaults in `assistantAgent` / `agentFactory` (`LLM_PROVIDER` / `LLM_MODEL`).
+ * Default when `BRAIN_LLM` is unset; must match {@link DEFAULT_BRAIN_LLM_STRING}.
  */
+export const EVAL_DEFAULT_BRAIN_LLM = DEFAULT_BRAIN_LLM_STRING
+
+/** @deprecated Use {@link EVAL_DEFAULT_BRAIN_LLM} */
 export const EVAL_DEFAULT_LLM_PROVIDER = 'openai'
+
+/** @deprecated Use {@link EVAL_DEFAULT_BRAIN_LLM} */
 export const EVAL_DEFAULT_LLM_MODEL = 'gpt-5.4-mini'
 
 export function getEffectiveLlmProviderForEval(): string {
-  const p = process.env.LLM_PROVIDER?.trim()
-  if (p) return p
-  return EVAL_DEFAULT_LLM_PROVIDER
+  return getStandardBrainLlm().provider
 }
 
 export function getEffectiveLlmModelForEval(): string {
-  const m = process.env.LLM_MODEL?.trim()
-  if (m) return m
-  return EVAL_DEFAULT_LLM_MODEL
+  return getStandardBrainLlm().modelId
 }
 
 /**

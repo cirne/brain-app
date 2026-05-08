@@ -25,6 +25,8 @@ describe('verifyLlmAtStartup', () => {
     delete process.env.LLM_SKIP_STARTUP_SMOKE
     delete process.env.LLM_PROVIDER
     delete process.env.LLM_MODEL
+    delete process.env.BRAIN_LLM
+    delete process.env.BRAIN_FAST_LLM
     mockGetModel.mockReturnValue(fakeModel as never)
     mockGetEnvApiKey.mockReturnValue('sk-test')
     mockCompleteSimple.mockResolvedValue({
@@ -62,7 +64,7 @@ describe('verifyLlmAtStartup', () => {
   it('rejects when no API credentials for provider', async () => {
     mockGetEnvApiKey.mockReturnValue(undefined)
     await expect(verifyLlmAtStartup()).rejects.toThrow(
-      /no API credentials for LLM_PROVIDER=openai LLM_MODEL=gpt-5.4-mini/,
+      /no API credentials for BRAIN_LLM effective openai\/gpt-5.4-mini/,
     )
     expect(mockCompleteSimple).not.toHaveBeenCalled()
   })
@@ -70,7 +72,7 @@ describe('verifyLlmAtStartup', () => {
   it('rejects when completeSimple throws', async () => {
     mockCompleteSimple.mockRejectedValue(new Error('401'))
     await expect(verifyLlmAtStartup()).rejects.toThrow(
-      /LLM startup check failed: 401 \(LLM_PROVIDER=openai LLM_MODEL=gpt-5.4-mini\)/,
+      /LLM startup check failed: 401 \(BRAIN_LLM effective openai\/gpt-5.4-mini\)/,
     )
   })
 
@@ -94,7 +96,7 @@ describe('verifyLlmAtStartup', () => {
       timestamp: Date.now(),
     })
     await expect(verifyLlmAtStartup()).rejects.toThrow(
-      /rate limit \(LLM_PROVIDER=openai LLM_MODEL=gpt-5.4-mini\)/,
+      /rate limit \(BRAIN_LLM effective openai\/gpt-5.4-mini\)/,
     )
   })
 

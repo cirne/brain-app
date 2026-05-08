@@ -57,8 +57,7 @@ Set these in the repo-root **`.env`** (see [`.env.example`](../../.env.example))
 **Required for MLX chat:**
 
 ```bash
-LLM_PROVIDER=mlx-local
-LLM_MODEL=mlx-community/Qwen3.6-27B-4bit
+BRAIN_LLM=mlx-local/mlx-community/Qwen3.6-27B-4bit
 ```
 
 **Optional:**
@@ -69,10 +68,10 @@ LLM_MODEL=mlx-community/Qwen3.6-27B-4bit
 | `MLX_LOCAL_API_KEY` | `local` (if unset) | Sent as the API key; `mlx_lm.server` typically ignores it. |
 | `MLX_LOCAL_THINKING` | off | Set to `1`, `true`, or `yes` to enable Qwen **extended thinking** (`chat_template_kwargs.enable_thinking`). **Unset = off** for lower latency (Brain patches every chat-completions payload for `mlx-local`; see [`mlxLocalChatPayload.ts`](../../src/server/lib/llm/mlxLocalChatPayload.ts)). |
 
-**8-bit variant:**
+**8-bit variant:** use the same `BRAIN_LLM` with the 8-bit model id:
 
 ```bash
-LLM_MODEL=mlx-community/Qwen3.6-27B-8bit
+BRAIN_LLM=mlx-local/mlx-community/Qwen3.6-27B-8bit
 ```
 
 **Cloud keys:** You do **not** need `OPENAI_API_KEY` (or similar) for the **agent** when using `mlx-local`. Other code paths (e.g. TTS, transcribe, hosted evals against OpenAI) may still expect keys—see [configuration.md](./configuration.md).
@@ -83,13 +82,13 @@ LLM_MODEL=mlx-community/Qwen3.6-27B-8bit
 
 If you use the **pi** coding agent on the same machine, you can register the same endpoint in **`~/.pi/agent/models.json`**: `baseUrl` `http://localhost:11444/v1`, `api` `openai-completions`, optional `apiKey` `local`, and `compat.thinkingFormat` `qwen-chat-template` (see upstream pi / MLX Qwen notes). That file affects **pi** only.
 
-Braintunnel does **not** read `models.json`; it uses **`LLM_*` and `MLX_LOCAL_*`** env vars and the catalog in [`mlxLocalModel.ts`](../../src/server/lib/llm/mlxLocalModel.ts).
+Braintunnel does **not** read `models.json`; it uses **`BRAIN_LLM`**, optional **`BRAIN_FAST_LLM`**, and **`MLX_LOCAL_*`** env vars and the catalog in [`mlxLocalModel.ts`](../../src/server/lib/llm/mlxLocalModel.ts).
 
 ---
 
 ## 4. Evals (JSONL)
 
-JSONL eval CLIs load `.env` **before** applying CLI flags. If `.env` still says `LLM_PROVIDER=openai`, **shell exports alone will not win**—pass explicit flags:
+JSONL eval CLIs load `.env` **before** applying CLI flags. If `.env` still pins a cloud default for `BRAIN_LLM`, **shell exports alone will not win**—pass explicit flags:
 
 ```sh
 npx tsx --tsconfig tsconfig.server.json src/server/evals/jsonlSuiteCli.ts \
