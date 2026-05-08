@@ -24,4 +24,23 @@ describe('extractEarlyRejectionFromAgentMessages', () => {
     expect(hit?.reason).toBe('violates_baseline_policy')
     expect(hit?.explanation).toContain('cannot share')
   })
+
+  it('maps model-emitted too_broad to overly_broad', () => {
+    const tr: ToolResultMessage = {
+      role: 'toolResult',
+      toolCallId: 'call_2',
+      toolName: REJECT_QUESTION_TOOL_NAME,
+      content: [{ type: 'text', text: 'Need more detail.' }],
+      details: {
+        rejected: true,
+        reason: 'too_broad',
+        explanation: 'Too vague.',
+      },
+      isError: false,
+      timestamp: Date.now(),
+    }
+    const hit = extractEarlyRejectionFromAgentMessages([tr] as AgentMessage[])
+    expect(hit?.reason).toBe('overly_broad')
+    expect(hit?.explanation).toContain('vague')
+  })
 })

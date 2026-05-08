@@ -8,6 +8,20 @@ export type EarlyRejectionExtract = {
   explanation: string
 }
 
+/** Models sometimes emit `too_broad`; the tool schema uses `overly_broad`. */
+function normalizeRejectReason(raw: unknown): RejectQuestionReason {
+  if (raw === 'too_broad') return 'overly_broad'
+  if (
+    raw === 'violates_baseline_policy' ||
+    raw === 'violates_custom_policy' ||
+    raw === 'overly_broad' ||
+    raw === 'other'
+  ) {
+    return raw
+  }
+  return 'other'
+}
+
 function isToolResultMessage(m: AgentMessage): m is ToolResultMessage {
   return (
     typeof m === 'object' &&
@@ -33,13 +47,7 @@ function detailsFromToolResult(tr: ToolResultMessage): EarlyRejectionExtract | n
   if (det?.rejected === true && typeof det.explanation === 'string') {
     const explanation = det.explanation.trim()
     if (!explanation) return null
-    const reason =
-      det.reason === 'violates_baseline_policy' ||
-      det.reason === 'violates_custom_policy' ||
-      det.reason === 'overly_broad' ||
-      det.reason === 'other'
-        ? det.reason
-        : ('other' as const)
+    const reason = normalizeRejectReason(det.reason)
     return { reason, explanation }
   }
   return null
@@ -55,13 +63,7 @@ function fromAssistantToolCalls(m: AssistantMessage): EarlyRejectionExtract | nu
     const reasonRaw = tc.arguments?.reason
     const explanation = typeof expl === 'string' ? expl.trim() : ''
     if (!explanation) continue
-    const reason =
-      reasonRaw === 'violates_baseline_policy' ||
-      reasonRaw === 'violates_custom_policy' ||
-      reasonRaw === 'overly_broad' ||
-      reasonRaw === 'other'
-        ? (reasonRaw as RejectQuestionReason)
-        : ('other' as const)
+    const reason = normalizeRejectReason(reasonRaw)
     return { reason, explanation }
   }
   return null

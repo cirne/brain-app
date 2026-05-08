@@ -29,7 +29,8 @@ export function createRejectQuestionTool() {
     description:
       'Decline this brain-query question and do not use mail, wiki, calendar, or other research tools for it. ' +
       'Use when the question is not appropriate under baseline rules, the owner\'s custom policy in your system prompt, ' +
-      'or because it is unreasonably broad or vague (e.g. dump inbox, all texts, unfocused calendar dump). ' +
+      'or because it is an unfocused bulk request with no topic (e.g. dump entire inbox, all emails, unfocused calendar with no timeframe). ' +
+      'Do not use this tool when the peer named a topic, timeframe, or document type but left details fuzzy—search first, then answer or say nothing matched. ' +
       'After calling this tool, do not call other tools for this question. ' +
       'The `explanation` is shown to the collaborator who asked: write **why** it cannot be answered—clear, polite, plain-language sentences—no internal codes, ' +
       'no quoting the owner\'s policy verbatim, and no sensitive content.',

@@ -30,6 +30,21 @@ describe('buildBrainQueryResearchSystemPrompt', () => {
     expect(p).toMatch(/MFA|one-time/i)
     expect(p).toMatch(/national ID|Social Security/i)
   })
+
+  it('defaults to search before reject and names topical trip-sheet style asks as allowed', () => {
+    const p = buildBrainQueryResearchSystemPrompt('UTC', 'Share trip logistics.')
+    expect(p).toMatch(/DEFAULT: Use research tools/)
+    expect(p).toContain('trip sheet for the July summer trip')
+    expect(p).toMatch(/unfocused bulk export/)
+    expect(p).not.toMatch(/Only use research tools when you have a specific/)
+  })
+
+  it('instructs wiki grep/find for travel alongside search_index and calendar', () => {
+    const p = buildBrainQueryResearchSystemPrompt('UTC', 'Share logistics.')
+    expect(p).toContain('Wiki vs indexed mail')
+    expect(p).toContain('travel/')
+    expect(p).toMatch(/search_index/)
+  })
 })
 
 describe('buildBrainQueryFilterSystemPrompt', () => {
