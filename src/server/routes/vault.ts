@@ -13,6 +13,7 @@ import {
 } from '@server/lib/tenant/tenantRegistry.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { executeVaultLogout } from '@server/lib/vault/vaultLogoutCore.js'
+import { B2B_ENABLED } from '@server/lib/features.js'
 
 const vault = new Hono()
 
@@ -23,6 +24,8 @@ type StatusBody = {
   workspaceHandle?: string
   userId?: string
   handleConfirmed?: boolean
+  /** Cross-workspace brain query (brain-to-brain); true only when `BRAIN_B2B_ENABLED` is `1` or `true`. */
+  brainQueryEnabled: boolean
 }
 
 async function vaultStatusHandler(c: Context) {
@@ -30,6 +33,7 @@ async function vaultStatusHandler(c: Context) {
     return c.json({
       unlocked: false,
       multiTenant: true,
+      brainQueryEnabled: B2B_ENABLED,
     } satisfies StatusBody)
   }
 
@@ -51,6 +55,7 @@ async function vaultStatusHandler(c: Context) {
   return c.json({
     unlocked,
     multiTenant: true as const,
+    brainQueryEnabled: B2B_ENABLED,
     ...(workspaceHandle ? { workspaceHandle } : {}),
     ...extraMt,
   } satisfies StatusBody)
@@ -94,6 +99,7 @@ vault.post('/delete-all-data', async (c) => {
     ok: true,
     unlocked: false,
     multiTenant: true as const,
+    brainQueryEnabled: B2B_ENABLED,
   } satisfies { ok: true } & StatusBody)
 })
 

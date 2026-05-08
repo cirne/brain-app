@@ -1,9 +1,8 @@
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALL_AGENT_TOOL_NAMES } from './agentToolSets.js'
-import { createAgentTools } from './tools.js'
 
 function namedTools(tools: { name?: string }[]): string[] {
   return tools.map((t) => t.name).filter((n): n is string => typeof n === 'string')
@@ -15,7 +14,21 @@ const LOCAL_OPTIONAL: readonly (typeof ALL_AGENT_TOOL_NAMES)[number][] = [
 ]
 
 describe('createAgentTools registry vs ALL_AGENT_TOOL_NAMES', () => {
+  const prevB2b = process.env.BRAIN_B2B_ENABLED
+
+  beforeEach(() => {
+    process.env.BRAIN_B2B_ENABLED = '1'
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.resetModules()
+    if (prevB2b === undefined) delete process.env.BRAIN_B2B_ENABLED
+    else process.env.BRAIN_B2B_ENABLED = prevB2b
+  })
+
   it('with includeLocalMessageTools true, every catalog name is registered exactly once', async () => {
+    const { createAgentTools } = await import('./tools.js')
     const dir = await mkdtemp(join(tmpdir(), 'brain-agent-tools-'))
     await writeFile(join(dir, 'stub.md'), '# stub\n', 'utf-8')
     const tools = createAgentTools(dir, { includeLocalMessageTools: true })
@@ -31,6 +44,7 @@ describe('createAgentTools registry vs ALL_AGENT_TOOL_NAMES', () => {
   })
 
   it('with includeLocalMessageTools false, omits only local message thread tools', async () => {
+    const { createAgentTools } = await import('./tools.js')
     const dir = await mkdtemp(join(tmpdir(), 'brain-agent-tools-'))
     await writeFile(join(dir, 'stub.md'), '# stub\n', 'utf-8')
     const tools = createAgentTools(dir, { includeLocalMessageTools: false })

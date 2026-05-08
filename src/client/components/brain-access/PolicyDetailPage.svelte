@@ -23,7 +23,6 @@
   import UserDetailRow from './UserDetailRow.svelte'
   import PolicyActivityList from './PolicyActivityList.svelte'
   import AddUserDropdown from './AddUserDropdown.svelte'
-  import PolicyEditor from './PolicyEditor.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
 
   type Props = {
@@ -32,7 +31,8 @@
     onBackToBrainAccessList: () => void
   }
 
-  let { policyId, onSettingsNavigate, onBackToBrainAccessList }: Props = $props()
+  /** Read props via proxy — do not destructure callbacks for async/use after await (Svelte 5 freezes destructured snapshots). */
+  let props: Props = $props()
 
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
 
@@ -43,7 +43,8 @@
   let customPolicies = $state<BrainAccessCustomPolicy[]>([])
   let profileByHandle = $state<Record<string, { displayName?: string; email?: string | null }>>({})
   let removeBusyId = $state<string | null>(null)
-  let editorOpen = $state(false)
+  let editingPolicyText = $state(false)
+  let draftPolicyText = $state('')
   let changeGrantId = $state<string | null>(null)
   let addBusy = $state(false)
 
@@ -159,7 +160,7 @@
       }
       grantedByMe = parsed.grantedByMe
       if (loRes.ok) logOwner = parseLog(await loRes.json())
-      const inPolicy = grantsMatchingPolicyId(grantedByMe, customs, policyId)
+      const inPolicy = grantsMatchingPolicyId(grantedByMe, customs, props.policyId)
       await hydrateProfiles(inPolicy)
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
@@ -192,9 +193,9 @@
   })
 
   const cardModels = $derived(buildPolicyCardModels(grantedByMe, customPolicies))
-  const card = $derived(cardModels.find((c) => c.policyId === policyId))
+  const card = $derived(cardModels.find((c) => c.policyId === props.policyId))
 
-  const grantsInPolicy = $derived(grantsMatchingPolicyId(grantedByMe, customPolicies, policyId))
+  const grantsInPolicy = $derived(grantsMatchingPolicyId(grantedByMe, customPolicies, props.policyId))
 
   const tone = $derived(
     card
@@ -204,10 +205,10 @@
           colorIndex: card.colorIndex,
           policyId: card.policyId,
         })
-      : policyCardTone({ kind: 'adhoc', policyId }),
+      : policyCardTone({ kind: 'adhoc', policyId: props.policyId }),
   )
 
-  const policyLog = $derived(ownerLogEntriesForPolicy(logOwner, grantedByMe, customPolicies, policyId))
+  const policyLog = $derived(ownerLogEntriesForPolicy(logOwner, grantedByMe, customPolicies, props.policyId))
 
   async function addUser(entry: WorkspaceHandleEntry): Promise<void> {
     const text = card?.canonicalText?.trim()
@@ -270,12 +271,12 @@
           return
         }
       }
-      editorOpen = false
+      editingPolicyText = false
       await reload()
       const customsNext = loadBrainAccessCustomPolicies()
       const nextBucket = classifyGrantPolicy(text, customsNext).policyId
-      if (nextBucket !== policyId) {
-        onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
+      if (nextBucket !== props.policyId) {
+        props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
       }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
@@ -301,8 +302,8 @@
       const customsNext = loadBrainAccessCustomPolicies()
       const nextBucket = classifyGrantPolicy(newText, customsNext).policyId
       changeGrantId = null
-      if (nextBucket !== policyId) {
-        onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
+      if (nextBucket !== props.policyId) {
+        props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
       }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
@@ -328,7 +329,7 @@
   <button
     type="button"
     class="inline-flex items-center gap-1 self-start border-none bg-transparent p-0 text-[0.875rem] font-semibold text-accent [font:inherit] hover:underline"
-    onclick={() => onBackToBrainAccessList()}
+    onclick={() => props.onBackToBrainAccessList()}
   >
     <ArrowLeft size={16} aria-hidden="true" />
     Back to Brain access
@@ -364,22 +365,66 @@
         <h2 id="policy-text-heading" class="m-0 text-[0.8125rem] font-bold uppercase tracking-wide text-muted">
           Policy text
         </h2>
-        <button
-          type="button"
-          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
-          disabled={busy || grantsInPolicy.length === 0}
-          onclick={() => {
-            editorOpen = true
-          }}
+        {#if !editingPolicyText}
+          <button
+            type="button"
+            class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
+            disabled={busy || grantsInPolicy.length === 0}
+            onclick={() => {
+              draftPolicyText = canonical
+              editingPolicyText = true
+            }}
+          >
+            Edit
+          </button>
+        {:else}
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
+              disabled={busy}
+              onclick={() => {
+                if (!busy) editingPolicyText = false
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded-md border border-transparent bg-accent px-2 py-1 text-[0.75rem] font-semibold text-white hover:brightness-105 disabled:opacity-50"
+              disabled={busy || draftPolicyText.trim().length === 0}
+              onclick={() => void saveAllPolicyText(draftPolicyText.trim())}
+            >
+              {busy ? 'Saving…' : 'Save policy'}
+            </button>
+          </div>
+        {/if}
+      </div>
+      {#if !editingPolicyText}
+        <div
+          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-foreground"
         >
-          Edit
-        </button>
-      </div>
-      <div
-        class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-foreground"
-      >
-        {canonical || '—'}
-      </div>
+          {canonical || '—'}
+        </div>
+      {:else}
+        <div
+          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed text-foreground"
+        >
+          <p class="m-0 text-[0.8125rem] text-muted">
+            This text is guidance for your assistant when someone queries your brain under this policy.
+          </p>
+          <label class="mt-2 flex flex-col gap-1">
+            <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">Privacy guidance</span>
+            <textarea
+              id="policy-text-draft"
+              class="min-h-[12rem] w-full rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-2 text-[0.8125rem] leading-snug text-foreground"
+              aria-labelledby="policy-text-heading"
+              bind:value={draftPolicyText}
+              disabled={busy}
+            ></textarea>
+          </label>
+        </div>
+      {/if}
     </section>
 
     <section class="flex flex-col gap-3" aria-labelledby="policy-users-heading">
@@ -435,21 +480,11 @@
   </button>
 </div>
 
-<PolicyEditor
-  open={editorOpen}
-  title="Edit policy text"
-  initialText={canonical}
-  onDismiss={() => {
-    editorOpen = false
-  }}
-  onSave={(t) => saveAllPolicyText(t)}
-/>
-
 <ChangePolicyDialog
   open={changeGrantId !== null}
   grantId={changeGrantId}
   customPolicies={customPolicies}
-  excludePolicyId={policyId}
+  excludePolicyId={props.policyId}
   onDismiss={() => {
     changeGrantId = null
   }}

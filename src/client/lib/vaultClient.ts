@@ -7,6 +7,8 @@ export type VaultStatus = {
   workspaceHandle?: string
   userId?: string
   handleConfirmed?: boolean
+  /** Cross-workspace brain query; omitted on older servers — treat as off. */
+  brainQueryEnabled?: boolean
 }
 
 export async function fetchVaultStatus(): Promise<VaultStatus> {

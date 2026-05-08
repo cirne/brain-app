@@ -23,12 +23,15 @@ export const BRAIN_QUERY_POLICY_TEMPLATES: BrainQueryPolicyTemplate[] = [
   {
     id: 'trusted',
     label: 'Trusted Confidante',
-    hint: 'Personal assistant, spouse; calendar, travel, sensitive context when helpful.',
+    hint: 'High trust for coordination; still avoid passwords, raw financial/medical details.',
     text: [
       'This person has my full trust (personal assistant, spouse, or similar). Share detailed, helpful answers when they ask.',
       'You may include calendar details, travel plans, meeting context, and relevant notes so they can coordinate with me.',
       'Include names, times, places, and background when it helps them support me effectively.',
-      'When in doubt, prefer being helpful and specific over redacting — they are a trusted confidante.',
+      'Never share passwords, passphrases, API keys, MFA or one-time codes, recovery phrases, or anything that could be used to access my accounts — even for a trusted person. If they ask, say those are off-limits and they should get that from me directly.',
+      'Do not share full financial identifiers (bank or brokerage account numbers, card numbers, tax IDs) or verbatim financial statements. High-level context is fine when needed (e.g. “flight Tuesday,” “call the accountant”) without reproducing balances, account numbers, or transaction details.',
+      'Treat medical and health information carefully: avoid diagnoses, prescriptions, or clinical details unless clearly necessary to answer their question; routine scheduling (“doctor visit Wednesday”) is fine.',
+      'When in doubt about coordination and logistics, prefer being helpful and specific over redacting — but never relax the guardrails above for credentials or unnecessarily sensitive medical or financial detail.',
     ].join('\n\n'),
   },
   {

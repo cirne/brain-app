@@ -1,47 +1,37 @@
 <script lang="ts">
-  import { ChevronDown, ChevronRight } from 'lucide-svelte'
-  import type { BrainAccessGrantRow } from '@client/lib/brainAccessPolicyGrouping.js'
+  import type { BrainAccessCustomPolicy } from '@client/lib/brainAccessCustomPolicies.js'
+  import {
+    classifyGrantPolicy,
+    type BrainAccessGrantRow,
+  } from '@client/lib/brainAccessPolicyGrouping.js'
 
   type Props = {
     grantedToMe: BrainAccessGrantRow[]
+    customPolicies: BrainAccessCustomPolicy[]
   }
 
-  let { grantedToMe }: Props = $props()
-
-  let expanded = $state(false)
+  let { grantedToMe, customPolicies }: Props = $props()
 </script>
 
-<section class="flex flex-col gap-3" aria-labelledby="brain-access-outbound-heading">
-  <button
-    type="button"
+<section class="flex flex-col gap-2" aria-labelledby="brain-access-outbound-heading">
+  <h2
     id="brain-access-outbound-heading"
-    class="flex w-full items-center justify-between border-none bg-transparent p-0 text-left [font:inherit]"
-    onclick={() => (expanded = !expanded)}
-    aria-expanded={expanded}
+    class="m-0 text-[0.9375rem] font-bold tracking-[0.02em] text-foreground"
   >
-    <span class="text-[0.9375rem] font-bold tracking-[0.02em] text-foreground">Brains you can ask</span>
-    {#if expanded}
-      <ChevronDown size={18} class="shrink-0 text-muted" aria-hidden="true" />
-    {:else}
-      <ChevronRight size={18} class="shrink-0 text-muted" aria-hidden="true" />
-    {/if}
-  </button>
-  {#if !expanded}
-    <p class="m-0 text-[0.8125rem] text-muted">
-      {grantedToMe.length === 0
-        ? 'No access yet.'
-        : `${grantedToMe.length} brain${grantedToMe.length === 1 ? '' : 's'} — tap to expand`}
-    </p>
-  {:else if grantedToMe.length === 0}
-    <p class="m-0 text-[0.8125rem] text-muted">No one has shared their brain with you yet.</p>
+    Brains you can ask
+  </h2>
+  {#if grantedToMe.length === 0}
+    <p class="m-0 text-[0.8125rem] text-muted">No access yet.</p>
   {:else}
-    <ul class="m-0 flex list-none flex-col gap-2 p-0">
+    <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
       {#each grantedToMe as row (row.id)}
+        {@const meta = classifyGrantPolicy(row.privacyPolicy, customPolicies)}
         <li
-          class="rounded-lg border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-2 px-3 py-2 text-[0.875rem]"
+          class="inline-flex max-w-full items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-2 px-3 py-1.5 text-[0.8125rem] text-foreground"
         >
-          <span class="font-medium font-mono">@{row.ownerHandle}</span>
-          <span class="text-muted"> — mention them in chat to ask their brain a question.</span>
+          <span class="truncate font-medium font-mono">@{row.ownerHandle}</span>
+          <span class="shrink-0 text-muted" aria-hidden="true">·</span>
+          <span class="min-w-0 truncate text-muted">{meta.label}</span>
         </li>
       {/each}
     </ul>

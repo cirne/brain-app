@@ -303,7 +303,7 @@
     </button>
   </section>
 
-  <OutboundGrantsList grantedToMe={grantedToMe} />
+  <OutboundGrantsList grantedToMe={grantedToMe} customPolicies={customPolicies} />
 
   <div class="flex flex-wrap gap-2">
     <button

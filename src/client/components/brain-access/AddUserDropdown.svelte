@@ -122,7 +122,7 @@
     disabled={disabled || busy}
     onclick={toggle}
   >
-    + Add user
+    Add
     <ChevronDown size={14} class="opacity-70" aria-hidden="true" />
   </button>
 

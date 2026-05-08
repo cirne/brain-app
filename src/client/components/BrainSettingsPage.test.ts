@@ -70,7 +70,7 @@ describe('BrainSettingsPage.svelte', () => {
 
   it('shows Settings title and handle', async () => {
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn() },
+      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
     })
     expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     await waitFor(() => {
@@ -82,7 +82,7 @@ describe('BrainSettingsPage.svelte', () => {
   it('shows banner and strips add-account query on /settings', async () => {
     window.history.replaceState(null, '', '/settings?addedAccount=second%40example.com')
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn() },
+      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByText(/Added second@example\.com/i)).toBeInTheDocument()
@@ -92,7 +92,7 @@ describe('BrainSettingsPage.svelte', () => {
 
   it('renders Add another Gmail account row', async () => {
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn() },
+      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByText(/Add another Gmail account/i)).toBeInTheDocument()
@@ -102,13 +102,23 @@ describe('BrainSettingsPage.svelte', () => {
   it('Collaboration brain-access row requests brain-access overlay', async () => {
     const onSettingsNavigate = vi.fn()
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate },
+      props: { onSettingsNavigate, brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Collaboration' })).toBeInTheDocument()
     })
     await fireEvent.click(screen.getByRole('button', { name: /brain to brain access/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access' })
+  })
+
+  it('hides Collaboration when brainQueryEnabled is false', async () => {
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: false },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('heading', { name: 'Collaboration' })).not.toBeInTheDocument()
   })
 
   it('renders chat tool display preference and persists when toggled', async () => {
@@ -127,7 +137,7 @@ describe('BrainSettingsPage.svelte', () => {
       } as Storage,
     )
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn() },
+      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: 'Chat' })).toBeInTheDocument()
@@ -175,7 +185,7 @@ describe('BrainSettingsPage.svelte', () => {
     )
     const onSettingsNavigate = vi.fn()
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate },
+      props: { onSettingsNavigate, brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /work@example\.com/i })).toBeInTheDocument()
@@ -224,7 +234,7 @@ describe('BrainSettingsPage.svelte', () => {
       }) as unknown as typeof fetch,
     )
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), selectedHubSourceId: 'cal_b' },
+      props: { onSettingsNavigate: vi.fn(), selectedHubSourceId: 'cal_b', brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /b@example\.com/i })).toHaveAttribute(
@@ -276,7 +286,7 @@ describe('BrainSettingsPage.svelte', () => {
       }) as unknown as typeof fetch,
     )
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn() },
+      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
     })
     await waitFor(() => {
       expect(screen.getByText('Google Drive')).toBeInTheDocument()

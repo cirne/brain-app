@@ -52,32 +52,32 @@
 
 <div
   class={[
-    'policy-card flex flex-col gap-3 rounded-lg border-l-4 bg-surface p-4',
+    'policy-card flex flex-col gap-2 rounded-lg border-l-4 bg-surface px-3 py-3',
     tone.bar,
     tone.ring,
     tone.softBg,
   ]}
 >
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div class="min-w-0 flex-1 flex flex-col gap-1">
-      <h3 class="m-0 text-[0.9375rem] font-bold uppercase tracking-[0.04em] text-foreground">
+  <div class="flex flex-wrap items-start justify-between gap-2">
+    <div class="min-w-0 flex-1 flex flex-col gap-0.5">
+      <h3 class="m-0 text-[0.875rem] font-bold uppercase tracking-[0.04em] leading-tight text-foreground">
         {model.label}
       </h3>
       {#if model.hint}
-        <p class="m-0 max-w-[42rem] text-[0.8125rem] leading-snug text-muted">{model.hint}</p>
+        <p class="m-0 max-w-[42rem] text-[0.8125rem] leading-tight text-muted">{model.hint}</p>
       {/if}
     </div>
     <button
       type="button"
-      class="inline-flex shrink-0 items-center gap-1 rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
+      class="inline-flex shrink-0 items-center gap-1 rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2.5 py-1 text-[0.75rem] font-semibold text-foreground hover:bg-surface-2"
       onclick={() => onSettingsNavigate({ type: 'brain-access-policy', policyId: model.policyId })}
     >
       View
-      <ChevronRight size={16} aria-hidden="true" />
+      <ChevronRight size={14} aria-hidden="true" />
     </button>
   </div>
 
-  <div class="flex flex-wrap items-center gap-2">
+  <div class="flex flex-wrap items-center gap-1.5">
     {#each model.grants as grant (grant.id)}
       <UserBubble
         grantId={grant.id}
@@ -97,8 +97,8 @@
     />
   </div>
 
-  <p class="m-0 text-[0.75rem] font-medium text-muted">
+  <p class="m-0 text-[0.6875rem] font-medium leading-snug text-muted">
     {model.grants.length} collaborator{model.grants.length === 1 ? '' : 's'} · {policyActivityCount} recent
-    inbound quer{policyActivityCount === 1 ? 'y' : 'ies'} (loaded log)
+    inbound quer{policyActivityCount === 1 ? 'y' : 'ies'}
   </p>
 </div>

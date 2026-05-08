@@ -39,9 +39,11 @@
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** When settings detail shows this hub connection (`overlay.type === 'hub-source'`), highlight its row. */
     selectedHubSourceId?: string
+    /** Cross-workspace brain query UI; true only when server enables `BRAIN_B2B_ENABLED`. */
+    brainQueryEnabled?: boolean
   }
 
-  let { onSettingsNavigate, selectedHubSourceId }: Props = $props()
+  let { onSettingsNavigate, selectedHubSourceId, brainQueryEnabled = false }: Props = $props()
 
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
@@ -404,28 +406,30 @@
       </div>
     </section>
 
-    <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-collab-heading">
-      <div class={sectionHeaderBase}>
-        <Brain size={18} />
-        <h2 id="settings-collab-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Collaboration</h2>
-      </div>
-      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Cross-workspace brain queries: who can ask your brain and what they’re allowed to learn.
-      </p>
-      <div class="links-list flex flex-col">
-        <button
-          type="button"
-          class={linkItemBase}
-          onclick={() => onSettingsNavigate({ type: 'brain-access' })}
-        >
-          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-            <Brain size={16} />
-            <span>Brain to Brain access</span>
-          </div>
-          <ChevronRight size={16} />
-        </button>
-      </div>
-    </section>
+    {#if brainQueryEnabled}
+      <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-collab-heading">
+        <div class={sectionHeaderBase}>
+          <Brain size={18} />
+          <h2 id="settings-collab-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Collaboration</h2>
+        </div>
+        <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
+          Cross-workspace brain queries: who can ask your brain and what they’re allowed to learn.
+        </p>
+        <div class="links-list flex flex-col">
+          <button
+            type="button"
+            class={linkItemBase}
+            onclick={() => onSettingsNavigate({ type: 'brain-access' })}
+          >
+            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+              <Brain size={16} />
+              <span>Brain to Brain access</span>
+            </div>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </section>
+    {/if}
 
     <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-chat-prefs-heading">
       <div class={sectionHeaderBase}>

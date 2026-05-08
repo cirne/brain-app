@@ -137,7 +137,7 @@
         />
       </div>
     {:else}
-      <Assistant />
+      <Assistant brainQueryEnabled={vaultStatus?.brainQueryEnabled ?? false} />
     {/if}
   </FullDiskAccessGate>
   <DesktopAppUpdate />

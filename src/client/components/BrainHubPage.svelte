@@ -30,6 +30,8 @@
   }
 
   type Props = {
+    /** Cross-workspace brain query hub summary; true only when server enables `BRAIN_B2B_ENABLED`. */
+    brainQueryEnabled?: boolean
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** Opens Settings primary column (`/settings`); when set, Manage uses SPA navigation. */
     onOpenSettings?: () => void
@@ -37,7 +39,7 @@
     onOpenBrainAccess?: () => void
   }
 
-  let { onHubNavigate, onOpenSettings, onOpenBrainAccess }: Props = $props()
+  let { brainQueryEnabled = false, onHubNavigate, onOpenSettings, onOpenBrainAccess }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -491,11 +493,13 @@
       </div>
     </section>
 
-    <HubSharingSection
-      onManageBrainAccess={() => {
-        onOpenBrainAccess?.()
-      }}
-    />
+    {#if brainQueryEnabled}
+      <HubSharingSection
+        onManageBrainAccess={() => {
+          onOpenBrainAccess?.()
+        }}
+      />
+    {/if}
   </div>
 </div>
 

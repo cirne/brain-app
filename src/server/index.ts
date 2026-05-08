@@ -1,6 +1,6 @@
 // New Relic APM: must load before any other application code.
 import 'newrelic'
-import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
+import '@server/lib/platform/loadDotEnvBootstrap.js'
 import { Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { serve, getRequestListener } from '@hono/node-server'
@@ -31,7 +31,6 @@ import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 
 import { registerDevTenantResetRoutes } from './routes/devTenantReset.js'
 
-loadDotEnv()
 setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 
 const app = new Hono()

@@ -37,7 +37,7 @@ describe('AddUserDropdown.svelte', () => {
   it('opens list and shows handle, name, and email in rows', async () => {
     const onPick = vi.fn()
     render(AddUserDropdown, { props: { onPick } })
-    await fireEvent.click(screen.getByRole('button', { name: /add user/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
     const search = screen.getByPlaceholderText(/search @handle/i)
     await fireEvent.input(search, { target: { value: 'don' } })
     expect(await screen.findByText('@donna')).toBeInTheDocument()

@@ -7,6 +7,7 @@ import { createWebAgentTools } from './tools/webAgentTools.js'
 import { createUiAgentTools } from './tools/uiAgentTools.js'
 import { createLocalMessageTools } from './tools/localMessageTools.js'
 import { createBrainQueryTool } from './tools/brainQueryTool.js'
+import { B2B_ENABLED } from '@server/lib/features.js'
 
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 export {
@@ -113,7 +114,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const { listRecentMessagesTool, getMessageThreadTool, searchMessagesTool } = createLocalMessageTools(wikiDir)
 
-  const askBrain = createBrainQueryTool()
+  const askBrain = B2B_ENABLED ? createBrainQueryTool() : null
 
   const tools = [
     read,
@@ -149,7 +150,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     rememberPreference,
     loadSkill,
     suggestReplyOptions,
-    askBrain,
+    ...(askBrain ? [askBrain] : []),
     searchMessagesTool,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]

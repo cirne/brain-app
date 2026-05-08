@@ -25,6 +25,7 @@ import transcribeRoute from './routes/transcribe.js'
 import devicesRoute from './routes/devices.js'
 import ingestRoute from './routes/ingest.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
+import { B2B_ENABLED } from './lib/features.js'
 
 /** Mount all API (and related) routes on the main Hono app — single place for `app.route` prefixes. */
 export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void {
@@ -38,7 +39,9 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/skills', skillsRoute)
   app.route('/api/issues', issuesRoute)
   app.route('/api/wiki', wikiRoute)
-  app.route('/api/brain-query', brainQueryRoute)
+  if (B2B_ENABLED) {
+    app.route('/api/brain-query', brainQueryRoute)
+  }
   app.route('/api/files', filesRoute)
   app.route('/api/inbox', inboxRoute)
   app.route('/api/calendar', calendarRoute)

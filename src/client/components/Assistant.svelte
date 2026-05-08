@@ -101,6 +101,12 @@
     VolumeX
       } from 'lucide-svelte'
 
+  type AssistantProps = {
+    /** When false, hide brain-to-brain UI (`BRAIN_B2B_ENABLED` unset vs `1`/`true`). */
+    brainQueryEnabled?: boolean
+  }
+  let { brainQueryEnabled = false }: AssistantProps = $props()
+
   /**
    * `bind:this` targets — kept separate from shell state so refs stay obvious.
    * Inlined here so `AssistantSlideOver` / `WorkspaceSplit` types attach to these instances directly.
@@ -1101,6 +1107,16 @@
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
+  /** When brain-to-brain is disabled, strip brain-access overlays so `/settings/brain-access` URLs fall back to Settings. */
+  $effect(() => {
+    if (brainQueryEnabled) return
+    const o = shell.route.overlay
+    if (o?.type === 'brain-access' || o?.type === 'brain-access-policy') {
+      navigateShell({ zone: 'settings' })
+      shell.route = parseRoute()
+    }
+  })
+
   function onEditStreaming(p: { id: string; path: string; done: boolean }) {
     if (p.done) {
       if (shell.wikiEditStreaming?.toolId === p.id) shell.wikiEditStreaming = null
@@ -1226,7 +1242,7 @@
     isEmptyChat={topNavNewChatDisabled}
     hostedHandlePill={shell.hostedHandleNav}
     onOpenSettings={openSettings}
-    onOpenSharing={openBrainAccessSettings}
+    onOpenSharing={brainQueryEnabled ? openBrainAccessSettings : undefined}
     mobileCenterTitle={appMobileNavCenterTitle}
     mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
     mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
@@ -1377,6 +1393,7 @@
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
                 <BrainHubPage
+                  brainQueryEnabled={brainQueryEnabled}
                   onHubNavigate={navigateFromHub}
                   onOpenSettings={openSettings}
                   onOpenBrainAccess={openBrainAccessSettings}
@@ -1424,12 +1441,12 @@
           {:else if shell.route.zone === 'settings'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-                {#if shell.route.overlay?.type === 'brain-access'}
+                {#if brainQueryEnabled && shell.route.overlay?.type === 'brain-access'}
                   <BrainAccessPage
                     onSettingsNavigate={navigateFromSettings}
                     onBackToSettingsMain={() => navigateShell({ zone: 'settings' })}
                   />
-                {:else if shell.route.overlay?.type === 'brain-access-policy'}
+                {:else if brainQueryEnabled && shell.route.overlay?.type === 'brain-access-policy'}
                   <PolicyDetailPage
                     policyId={shell.route.overlay.policyId}
                     onSettingsNavigate={navigateFromSettings}
@@ -1438,6 +1455,7 @@
                   />
                 {:else}
                   <BrainSettingsPage
+                    brainQueryEnabled={brainQueryEnabled}
                     onSettingsNavigate={navigateFromSettings}
                     selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
                       ? shell.route.overlay.id

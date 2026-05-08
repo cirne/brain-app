@@ -158,7 +158,7 @@ describe('BrainHubPage.svelte (Activity)', () => {
   })
 
   it('shows Activity title and hosted workspace handle', async () => {
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
 
     expect(screen.getByRole('heading', { level: 1, name: /activity/i })).toBeInTheDocument()
 
@@ -167,13 +167,22 @@ describe('BrainHubPage.svelte (Activity)', () => {
     })
   })
 
+  it('hides Brain to Brain hub section when brainQueryEnabled is false', async () => {
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: false } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1, name: /activity/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/^Brain to Brain$/)).not.toBeInTheDocument()
+  })
+
   it('polls /api/background-status while Hub stays mounted', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       const fetchMock = vi.fn(defaultFetchHandler())
       vi.stubGlobal('fetch', fetchMock)
 
-      render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+      render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
 
       await waitFor(() => {
         const n = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/api/background-status')).length
@@ -258,7 +267,7 @@ describe('BrainHubPage.svelte (Activity)', () => {
       }) as unknown as typeof fetch,
     )
 
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /what.*running/i })).toBeInTheDocument()
@@ -270,7 +279,9 @@ describe('BrainHubPage.svelte (Activity)', () => {
 
   it('Manage in Settings invokes onOpenSettings when wired', async () => {
     const onOpenSettings = vi.fn()
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), onOpenSettings } })
+    render(BrainHubPage, {
+      props: { onHubNavigate: vi.fn(), onOpenSettings, brainQueryEnabled: true },
+    })
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /what.*running/i })).toBeInTheDocument()
@@ -331,7 +342,7 @@ describe('BrainHubPage.svelte (Activity)', () => {
       }) as unknown as typeof fetch,
     )
 
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
 
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /sync mail now/i })
@@ -364,7 +375,7 @@ describe('BrainHubPage.svelte (Activity)', () => {
     }) as unknown as typeof fetch
     vi.stubGlobal('fetch', fetchMock)
 
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /^pause$/i })).toBeInTheDocument()
