@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use base64::Engine;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -95,9 +95,15 @@ fn decode_gmail_web_base64(raw_b64: &str) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("base64 decode RFC822: {e}"))
 }
 
-fn http_get_json(token: &str, url: &str) -> Result<(u16, String), String> {
+/// `history.list` / profile / METADATA — bounded so a stuck TCP write cannot freeze refresh indefinitely.
+const GMAIL_API_HTTP_TIMEOUT_HISTORY: Duration = Duration::from_secs(120);
+/// Large `messages.get` RFC822 payloads.
+const GMAIL_API_HTTP_TIMEOUT_MESSAGE_RAW: Duration = Duration::from_secs(300);
+
+fn http_get_json(token: &str, url: &str, timeout: Duration) -> Result<(u16, String), String> {
     let resp = ureq::get(url)
         .set("Authorization", &format!("Bearer {token}"))
+        .timeout(timeout)
         .call()
         .map_err(|e| format!("Gmail API GET {url}: {e}"))?;
     let status = resp.status();
@@ -153,7 +159,7 @@ fn fetch_raw_message(token: &str, message_id: &str) -> Result<Vec<u8>, String> {
         "https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=RAW",
         urlencoding::encode(message_id)
     );
-    let (status, body) = http_get_json(token, &url)?;
+    let (status, body) = http_get_json(token, &url, GMAIL_API_HTTP_TIMEOUT_MESSAGE_RAW)?;
     if status >= 400 {
         return Err(format!(
             "messages.get RAW HTTP {status}: {}",
@@ -168,27 +174,88 @@ fn fetch_raw_message(token: &str, message_id: &str) -> Result<Vec<u8>, String> {
     decode_gmail_web_base64(raw_b64)
 }
 
-fn fetch_label_ids(token: &str, message_id: &str) -> Result<Vec<String>, String> {
-    let url = format!(
-        "https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=MINIMAL",
+fn message_metadata_url(message_id: &str) -> String {
+    format!(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=METADATA&metadataHeaders=Message-ID",
         urlencoding::encode(message_id)
-    );
-    let (status, body) = http_get_json(token, &url)?;
-    if status >= 400 {
-        return Err(format!(
-            "messages.get MINIMAL HTTP {status}: {}",
-            truncate_body(&body)
-        ));
-    }
-    let v: Value = serde_json::from_str(&body).map_err(|e| format!("message MINIMAL JSON: {e}"))?;
-    Ok(v.get("labelIds")
+    )
+}
+
+fn parse_metadata_labels_and_message_id(
+    body: &str,
+) -> Result<(Vec<String>, Option<String>), String> {
+    let v: Value = serde_json::from_str(body).map_err(|e| format!("message METADATA JSON: {e}"))?;
+    let labels = v
+        .get("labelIds")
         .and_then(|x| x.as_array())
         .map(|arr| {
             arr.iter()
                 .filter_map(|x| x.as_str().map(std::string::ToString::to_string))
                 .collect::<Vec<_>>()
         })
-        .unwrap_or_default())
+        .unwrap_or_default();
+    let mid = v
+        .get("payload")
+        .and_then(|p| p.get("headers"))
+        .and_then(|h| h.as_array())
+        .and_then(|headers| {
+            headers.iter().find_map(|hdr| {
+                let name = hdr.get("name").and_then(|x| x.as_str())?;
+                if !name.eq_ignore_ascii_case("Message-ID") {
+                    return None;
+                }
+                let val = hdr.get("value").and_then(|x| x.as_str()).map(str::trim)?;
+                if val.is_empty() {
+                    return None;
+                }
+                Some(val.to_string())
+            })
+        });
+    Ok((labels, mid))
+}
+
+fn fetch_message_metadata(
+    token: &str,
+    message_id: &str,
+) -> Result<(Vec<String>, Option<String>), String> {
+    let url = message_metadata_url(message_id);
+    let (status, body) = http_get_json(token, &url, GMAIL_API_HTTP_TIMEOUT_HISTORY)?;
+    if status >= 400 {
+        return Err(format!(
+            "messages.get METADATA HTTP {status}: {}",
+            truncate_body(&body)
+        ));
+    }
+    parse_metadata_labels_and_message_id(&body)
+}
+
+/// Values to try against `messages.message_id` (mail-parser often stores angle brackets).
+fn message_id_lookup_candidates(header: &str) -> Vec<String> {
+    let t = header.trim();
+    if t.is_empty() {
+        return Vec::new();
+    }
+    let mut out = vec![t.to_string()];
+    if !t.starts_with('<') && t.contains('@') {
+        out.push(format!("<{t}>"));
+    }
+    out
+}
+
+fn message_already_indexed(conn: &Connection, header_message_id: &str) -> rusqlite::Result<bool> {
+    for cand in message_id_lookup_candidates(header_message_id) {
+        let dup: Option<i32> = conn
+            .query_row(
+                "SELECT 1 FROM messages WHERE message_id = ?1",
+                [&cand],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if dup.is_some() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn truncate_body(s: &str) -> String {
@@ -278,6 +345,7 @@ pub fn bootstrap_gmail_history_if_missing(
     let (status, body) = http_get_json(
         &token,
         "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+        GMAIL_API_HTTP_TIMEOUT_HISTORY,
     )
     .map_err(|e| e.to_string())?;
     if status >= 400 {
@@ -374,7 +442,8 @@ pub fn try_gmail_api_incremental_refresh(
 
     loop {
         let url = history_list_url(&start_hist, page_token.as_deref());
-        let (status, body) = http_get_json(&token, &url).map_err(RunSyncError::Imap)?;
+        let (status, body) = http_get_json(&token, &url, GMAIL_API_HTTP_TIMEOUT_HISTORY)
+            .map_err(RunSyncError::Imap)?;
 
         if status == 404 {
             clear_gmail_history_id(conn, mailbox_id, imap_folder)?;
@@ -452,16 +521,24 @@ pub fn try_gmail_api_incremental_refresh(
             return Err(RunSyncError::WallClockLimit);
         }
 
-        let raw = fetch_raw_message(&token, gm_id).map_err(RunSyncError::Imap)?;
-        let label_ids = fetch_label_ids(&token, gm_id).map_err(RunSyncError::Imap)?;
+        let (label_ids, header_message_id) =
+            fetch_message_metadata(&token, gm_id).map_err(RunSyncError::Imap)?;
         let labels = gmail_label_ids_to_strings(&label_ids);
 
         messages_fetched += 1;
-        bytes_downloaded += raw.len() as u64;
 
         if label_excluded(&labels, exclude_lower) {
             continue;
         }
+
+        if let Some(ref hm) = header_message_id {
+            if message_already_indexed(conn, hm).map_err(RunSyncError::Sqlite)? {
+                continue;
+            }
+        }
+
+        let raw = fetch_raw_message(&token, gm_id).map_err(RunSyncError::Imap)?;
+        bytes_downloaded += raw.len() as u64;
 
         let mut parsed = parse_raw_message(&raw);
         let dup: Option<i32> = conn
@@ -595,5 +672,27 @@ mod tests {
         let (ids, hid) = extract_history_message_ids(body).unwrap();
         assert_eq!(ids, vec!["m1".to_string(), "m2".to_string()]);
         assert_eq!(hid.as_deref(), Some("9999"));
+    }
+
+    #[test]
+    fn parse_metadata_extracts_labels_and_message_id() {
+        let body = r#"{
+            "labelIds": ["INBOX", "SENT"],
+            "payload": {
+                "headers": [
+                    {"name": "Message-ID", "value": " <foo@bar.com> "}
+                ]
+            }
+        }"#;
+        let (labels, mid) = parse_metadata_labels_and_message_id(body).unwrap();
+        assert!(labels.contains(&"INBOX".into()));
+        assert_eq!(mid.as_deref(), Some("<foo@bar.com>"));
+    }
+
+    #[test]
+    fn message_id_lookup_candidates_adds_brackets() {
+        let c = message_id_lookup_candidates("abc@x.test");
+        assert!(c.iter().any(|s| s == "abc@x.test"));
+        assert!(c.iter().any(|s| s == "<abc@x.test>"));
     }
 }
