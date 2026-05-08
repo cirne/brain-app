@@ -5,7 +5,6 @@ import {
   wikiPrimaryCrumbsForMyWikiFile,
   wikiPrimaryCrumbsForOverlay,
   wikiPrimaryCrumbMenuIcon,
-  wikiPrimaryCrumbsForSharedFile,
 } from './wikiPrimaryBarCrumbs.js'
 
 describe('wikiPrimaryCrumbsForFile', () => {
@@ -61,15 +60,7 @@ describe('wikiPrimaryCrumbsForDir', () => {
   })
 })
 
-describe('wikiPrimaryCrumbs shared / My Wiki', () => {
-  it('shared file: @handle → folders → page', () => {
-    expect(wikiPrimaryCrumbsForSharedFile('cirne', 'travel/trip.md')).toEqual([
-      { kind: 'folder-link', path: '@cirne', label: '@cirne' },
-      { kind: 'folder-link', path: '@cirne/travel', label: 'travel' },
-      { kind: 'tail', label: 'trip.md' },
-    ])
-  })
-
+describe('wikiPrimaryCrumbs My Wiki', () => {
   it('My Wiki file: My Wiki → folders → page (`me` URL segment)', () => {
     expect(wikiPrimaryCrumbsForMyWikiFile('people/adam.md')).toEqual([
       { kind: 'folder-link', path: 'me', label: 'My Wiki' },

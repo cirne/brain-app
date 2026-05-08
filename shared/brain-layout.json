@@ -1,7 +1,7 @@
 {
   "version": 1,
   "directories": {
-    "wikis": "wikis",
+    "wiki": "wiki",
     "skills": "skills",
     "chats": "chats",
     "ripmail": "ripmail",

@@ -19,7 +19,7 @@ npm run eval:build
 
 Use `--force` to re-extract and reindex. Stamp: `data-eval/.enron-kean-stamp.json`. Message dates are **1999–2002**; use **absolute date ranges** in search/eval tasks.
 
-**Hosted / Docker:** the same ingest pipeline seeds a **fixed multi-tenant demo workspace** (`BRAIN_DATA_ROOT`, Bearer mint, optional lazy download). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
+**Hosted / Docker:** the same ingest pipeline seeds **three optional demo tenants** (Kean, Lay, Skilling — see [`fixtures/enron-demo-registry.json`](fixtures/enron-demo-registry.json)) under `BRAIN_DATA_ROOT`; operators run **`npm run brain:seed-enron-demo:*`** (or equivalent) before Bearer mint with JSON `{ "demoUser": "kean" }` (or `lay` / `skilling`). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
 
 ### Related: end-to-end testing (not LLM eval)
 

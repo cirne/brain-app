@@ -41,22 +41,22 @@
    - Populate `ripmail/` using the same pipeline as eval: [eval/fixtures/enron-kean-manifest.json](../../eval/fixtures/enron-kean-manifest.json) → `scripts/eval/build-enron-kean.mjs` output shape (synthetic `mailboxId` / `accountEmail`; local `.eml` + SQLite — **no Gmail tokens**).
 
 2. **Seed data beside the image (CLI), not inside it**
-   - **CLI:** [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) + `npm run brain:seed-enron-demo` — requires `BRAIN_DATA_ROOT`, `EVAL_ENRON_TAR`, optional `--force`. Writes `$BRAIN_DATA_ROOT/<tenantId>/` with the same ingest pipeline as eval ([`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs)).
+   - **CLI:** [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) + `npm run brain:seed-enron-demo:all` or `BRAIN_ENRON_DEMO_USER=kean npm run brain:seed-enron-demo` — requires `BRAIN_DATA_ROOT`, optional `EVAL_ENRON_TAR`, optional `--force` / `--all`. Writes `$BRAIN_DATA_ROOT/<tenantId>/` per [`enron-demo-registry.json`](../../eval/fixtures/enron-demo-registry.json) with the same ingest pipeline as eval ([`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs)).
    - **Host:** Run from repo with `BRAIN_DATA_ROOT=./data` (or any path), or bind-mount that path into a container.
-   - **Docker / runtime:** No separate compose seed service. The first successful **`POST /api/auth/demo/enron`** (Bearer secret) or browser flow at **`/demo`** starts a **lazy background seed** when `ripmail/ripmail.db` is missing or empty (download + ingest; can take 15–40+ minutes). Poll **`GET /api/auth/demo/enron/seed-status`** with the same bearer. Set **`EVAL_ENRON_TAR`** in the environment to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
+   - **Docker / runtime:** No separate compose seed service. Operators **`docker exec`** (or CI) run the same **`npm run brain:seed-enron-demo:*`** pipeline against **`BRAIN_DATA_ROOT`** before minting. **`POST /api/auth/demo/enron`** and **`/demo`** return **503** `demo_not_seeded` until each tenant’s **`ripmail.db`** is non-empty (or provision marker exists). Poll **`GET /api/auth/demo/enron/seed-status`** only while an explicit **`GET …/reseed`** rebuild is running. Set **`EVAL_ENRON_TAR`** to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
    - **Reset:** `--force` removes the tenant directory under `BRAIN_DATA_ROOT` and rebuilds from the tarball.
 
 3. **Environment flags and secrets**
    - `BRAIN_ENRON_DEMO_SECRET` — any non-empty string (e.g. a shared demo password for prospects). When unset or blank, demo routes return **404** from the handler (no separate `BRAIN_ENRON_DEMO` flag). Request must present it (e.g. `Authorization: Bearer <secret>`). Same operational class as `BRAIN_EMBED_MASTER_KEY` (never commit; rotate if leaked).
    - Optional: `BRAIN_ENRON_DEMO_TENANT_ID` override for tests (default `usr_enrondemo00000000001`).
 
-4. **Routes: mint demo session + lazy seed**
+4. **Routes: mint demo session + operator reseed**
    - `POST /api/auth/demo/enron` in `src/server/routes/demoEnronAuth.ts`:
      - If `!isMultiTenantMode()`, return **501** (MT path first for Docker/staging).
      - Validate bearer secret (`timingSafeEqual`-style; see `enronDemo.ts`).
-     - If the demo tenant is not seeded yet (`ripmail.db` missing/empty), start background ingest and return **202** with a seed snapshot; when ready, the same POST completes mint.
+     - If the demo tenant is not seeded yet (`ripmail.db` missing/empty and no marker), return **503** `demo_not_seeded` with operator hint (CLI pre-seed required).
      - On success: `createVaultSession()`, `registerSessionTenant`, `setBrainSessionCookie`, **`200`** + `{ ok: true }`.
-   - `GET /api/auth/demo/enron/seed-status` — same bearer; returns `{ seed: { status: … } }` for UI polling (e.g. every 5s on `/demo`).
+   - `GET /api/auth/demo/enron/seed-status` — same bearer; returns `{ seed: { status: … } }` for polling during **`GET …/reseed`** rebuilds.
    - Extend `allowNoTenantContextMt` and `vaultGate.ts` for **`POST /api/auth/demo/enron`** and **`GET /api/auth/demo/enron/seed-status`** (`isEnronDemoPublicApiPath`) so unconfigured demo (no valid secret in env) still returns **404** from the handler.
 
 5. **Tests (TDD)**
@@ -64,7 +64,7 @@
    - No Playwright in repo requirement for Phase 0 closure; document the Playwright recipe below for milestone follow-through.
 
 6. **Playwright / browser automation (documentation + optional scaffold)**
-   - One `request` call to `POST /api/auth/demo/enron` with bearer secret; capture `Set-Cookie`; on **202**, poll `GET /api/auth/demo/enron/seed-status` until ready, then POST again.
+   - Pre-seed tenants (`npm run brain:seed-enron-demo:dev` or CI equivalent). One `request` call to `POST /api/auth/demo/enron` with bearer secret; capture `Set-Cookie` on **200**.
    - Save `storageState` and reuse for inbox + wiki specs.
    - **Documented:** [enron-demo-tenant.md](../architecture/enron-demo-tenant.md) (cross-links: [eval-home-and-mail-corpus.md](../architecture/eval-home-and-mail-corpus.md), [eval/README.md](../../eval/README.md)).
 
@@ -175,19 +175,19 @@ Each user gets a separate `RIPMAIL_HOME` under `data-eval/`. Tests verify:
 ### Phase 0 (demo tenant + non-OAuth session)
 - [x] Fixed tenant directory (valid `usr_` + 20 chars, e.g. `usr_enrondemo00000000001`) documented; populated with Enron `kean-s` ripmail index (same synthetic account as eval manifest) — operator guide: [enron-demo-tenant.md](../architecture/enron-demo-tenant.md)
 - [x] `BRAIN_ENRON_DEMO_SECRET` documented in `.env.example` (placeholder only) and deployment notes
-- [x] `POST /api/auth/demo/enron` mints `brain_session` bound to the demo tenant when bearer secret matches; demo not configured (no/short secret) → 404; single-tenant → 501
+- [x] `POST /api/auth/demo/enron` mints `brain_session` bound to the demo tenant when bearer secret matches **and** tenant mail is provisioned; unprovisioned → **503** `demo_not_seeded`; demo not configured (no/short secret) → 404; single-tenant → 501
 - [x] `tenantMiddleware` / `vaultGate` allow the mint path always; **handler** enforces secret + bearer (no broad API bypass)
 - [x] Vitest coverage for happy path + rejected secret + demo off + misconfiguration (`src/server/routes/demoEnronAuth.test.ts`, `src/server/lib/auth/enronDemo.test.ts`)
-- [x] **Seed CLI** — `npm run brain:seed-enron-demo` / `scripts/brain/seed-enron-demo-tenant.mjs`; Docker runtime ships `/app/seed-enron/` (no corpus in image). See `.env.example` and `docker-compose.yml` comments.
+- [x] **Seed CLI** — `npm run brain:seed-enron-demo` / `brain:seed-enron-demo:all` / `scripts/brain/seed-enron-demo-tenant.mjs`; Docker runtime ships `/app/seed-enron/` (no corpus in image). See `.env.example` and `docker-compose.yml` comments.
 - [ ] Optional wiki reset procedure for long-lived demo deployments (cron / replace volume) noted separately
-- [x] Short Playwright recipe documented (Bearer + `POST /api/auth/demo/enron`; poll seed-status) — [enron-demo-tenant.md](../architecture/enron-demo-tenant.md)
+- [x] Short Playwright recipe documented (pre-seed + Bearer + `POST /api/auth/demo/enron`; seed-status for reseed only) — [enron-demo-tenant.md](../architecture/enron-demo-tenant.md)
 
 ### Phase 1 (MVP)
 - [x] `npm run test:e2e:enron` runs Vitest (`vitest.enron-e2e.config.ts`) against `data-eval/brain` via ripmail CLI (`src/server/evals/e2e/enronRipmail.test.ts`)
 - [x] At least 5 test cases covering search, read, who, attachment list, inbox
 - [x] Tests skip gracefully when corpus not built (no CI failure on fresh clone)
 - [x] Document in `eval/README.md` + cross-links in [enron-demo-tenant.md](../architecture/enron-demo-tenant.md) / [eval-home-and-mail-corpus.md](../architecture/eval-home-and-mail-corpus.md)
-- [x] Playwright suite: [`tests/e2e/`](../../tests/e2e/), `npm run test:e2e:playwright` — against **`npm run dev`** (**`./data`**, `:3000`); seed with `npm run brain:seed-enron-demo:dev` or Bearer lazy-seed; demo secret via `.env` or CI env
+- [x] Playwright suite: [`tests/e2e/`](../../tests/e2e/), `npm run test:e2e:playwright` — against **`npm run dev`** (**`./data`**, `:3000`); seed with `npm run brain:seed-enron-demo:dev` before mint; demo secret via `.env` or CI env
 
 ### Phase 2
 - [ ] CI workflow publishes `enron-kean-eval-*.tar.gz` to GitHub Releases

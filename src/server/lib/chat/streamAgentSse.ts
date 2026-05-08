@@ -78,8 +78,6 @@ export interface StreamAgentSseOptions {
    * the turn has assistant text but no valid `suggest_reply_options` (main chat and onboarding interview).
    */
   runSuggestReplyRepair?: boolean
-  /** Grantee tenant id for **`open`** SSE rewrite (wiki shares). */
-  granteeTenantId?: string
 }
 
 /**
@@ -106,7 +104,6 @@ export function streamAgentSseResponse(
     agentKind: agentKindOpt,
     timezone: timezoneOpt,
     runSuggestReplyRepair: runSuggestReplyRepairOpt,
-    granteeTenantId: granteeTenantIdOpt,
   } = opts
   const agentKind: LlmAgentKind = agentKindOpt ?? 'chat'
   const runSuggestReplyRepair = runSuggestReplyRepairOpt !== false
@@ -170,7 +167,6 @@ export function streamAgentSseResponse(
     const handlerDeps = (): StreamAgentSseHandlerDeps => ({
       stream,
       wikiDirForDiffs,
-      granteeTenantId: granteeTenantIdOpt,
       assistantState,
       editBeforeSnapshot,
       refs,

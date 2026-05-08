@@ -86,7 +86,7 @@ data-eval/                          # gitignored
 
 **Licensing / ethics:** use the dataset per CMU/hosts’ terms; do not commit raw corpora into git.
 
-**Adding another Enron user:** add a manifest + script modeled on `enron-kean-manifest.json` / `build-enron-kean.mjs` (archive hash, `pathInsideArchive`, synthetic `mailboxId` / `accountEmail`, stamp fields).
+**Adding another Enron user:** add a manifest + script modeled on `enron-kean-manifest.json` / `build-enron-kean.mjs` (archive hash, `pathInsideArchive`, synthetic `mailboxId` / `accountEmail`, stamp fields). **Hosted `/demo` mailboxes** are listed in [`eval/fixtures/enron-demo-registry.json`](../../eval/fixtures/enron-demo-registry.json) (Lay/Skilling manifests live beside Kean under `eval/fixtures/`).
 
 ---
 

@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { enronDemoTenantUserId } from './enronDemo.js'
+import { getEnronDemoUserKeyByTenantId } from './enronDemo.js'
 
 type SeedPhase = 'idle' | 'downloading' | 'seeding' | 'failed'
 
@@ -22,19 +22,29 @@ type Manifest = {
   expectedSha256?: string
 }
 
-let inflight: Promise<void> | null = null
-let runStartedAt: number | null = null
-let phase: SeedPhase = 'idle'
-let lastError: string | null = null
+type TenantSeedState = {
+  inflight: Promise<void> | null
+  runStartedAt: number | null
+  phase: SeedPhase
+  lastError: string | null
+}
+
+const tenantSeedState = new Map<string, TenantSeedState>()
+
+function stateFor(tenantUserId: string): TenantSeedState {
+  let s = tenantSeedState.get(tenantUserId)
+  if (!s) {
+    s = { inflight: null, runStartedAt: null, phase: 'idle', lastError: null }
+    tenantSeedState.set(tenantUserId, s)
+  }
+  return s
+}
 
 /** Written after a successful full seed; prevents re-ingest on every demo login when mail DB already exists. */
 export const ENRON_DEMO_PROVISIONED_FILENAME = 'enron-demo-provisioned.json'
 
 export function resetEnronDemoSeedStateForTests(): void {
-  inflight = null
-  runStartedAt = null
-  phase = 'idle'
-  lastError = null
+  tenantSeedState.clear()
 }
 
 export function isEnronDemoTenantReady(tenantHomeDir: string): boolean {
@@ -77,14 +87,18 @@ export type EnronDemoSeedSnapshot =
   | { status: 'failed'; message: string; startedAt: number | null }
   | { status: 'idle' }
 
-export function getEnronDemoSeedSnapshot(tenantHomeDir: string): EnronDemoSeedSnapshot {
+export function getEnronDemoSeedSnapshot(
+  tenantHomeDir: string,
+  tenantUserId: string,
+): EnronDemoSeedSnapshot {
   if (isEnronDemoTenantReady(tenantHomeDir)) return { status: 'ready' }
-  if (inflight) {
-    const p = phase === 'downloading' || phase === 'seeding' ? phase : 'seeding'
-    return { status: 'running', phase: p, startedAt: runStartedAt ?? Date.now() }
+  const s = stateFor(tenantUserId)
+  if (s.inflight) {
+    const p = s.phase === 'downloading' || s.phase === 'seeding' ? s.phase : 'seeding'
+    return { status: 'running', phase: p, startedAt: s.runStartedAt ?? Date.now() }
   }
-  if (lastError) {
-    return { status: 'failed', message: lastError, startedAt: runStartedAt }
+  if (s.lastError) {
+    return { status: 'failed', message: s.lastError, startedAt: s.runStartedAt }
   }
   return { status: 'idle' }
 }
@@ -186,6 +200,7 @@ function runSeedScript(
   tarPath: string,
   dataRoot: string,
   tenantId: string,
+  demoUserKey: string,
   force: boolean,
 ): Promise<void> {
   const script = join(repoRoot, 'scripts/brain/seed-enron-demo-tenant.mjs')
@@ -199,6 +214,7 @@ function runSeedScript(
     BRAIN_DATA_ROOT: dataRoot,
     BRAIN_SEED_REPO_ROOT: repoRoot,
     BRAIN_ENRON_DEMO_TENANT_ID: tenantId,
+    BRAIN_ENRON_DEMO_USER: demoUserKey,
     EVAL_ENRON_TAR: tarPath,
     RIPMAIL_BIN: ripmailBin,
   }
@@ -229,14 +245,20 @@ async function runEnronDemoSeedJob(
   options: { force: boolean } = { force: false },
 ): Promise<void> {
   const { force } = options
-  lastError = null
-  phase = 'downloading'
+  const s = stateFor(tenantUserId)
+  const demoUserKey = getEnronDemoUserKeyByTenantId(tenantUserId)
+  if (!demoUserKey) {
+    throw new Error(`No Enron demo registry entry for tenant ${tenantUserId}`)
+  }
+
+  s.lastError = null
+  s.phase = 'downloading'
   const repoRoot = resolveSeedRepoRoot()
   const tarPath = await ensureTarball(repoRoot)
-  phase = 'seeding'
-  await runSeedScript(repoRoot, tarPath, dataRoot, tenantUserId, force)
-  phase = 'idle'
-  runStartedAt = null
+  s.phase = 'seeding'
+  await runSeedScript(repoRoot, tarPath, dataRoot, tenantUserId, demoUserKey, force)
+  s.phase = 'idle'
+  s.runStartedAt = null
   const home = join(dataRoot, tenantUserId)
   if (!isEnronDemoTenantReady(home)) {
     throw new Error('Seed finished but ripmail.db is still missing or empty.')
@@ -244,54 +266,27 @@ async function runEnronDemoSeedJob(
   writeEnronDemoProvisionedMarker(home)
 }
 
-/**
- * Starts a background Enron demo ingest if none is running. Errors are stored for {@link getEnronDemoSeedSnapshot}.
- */
-export function startEnronDemoSeedIfNeeded(dataRoot: string, tenantUserId?: string): void {
-  const tid = tenantUserId ?? enronDemoTenantUserId()
-  const home = join(dataRoot, tid)
-  if (isEnronDemoTenantProvisioned(home)) return
-  if (inflight) return
-
-  lastError = null
-  runStartedAt = Date.now()
-  phase = 'downloading'
-  inflight = runEnronDemoSeedJob(dataRoot, tid, { force: false })
-    .catch((e) => {
-      const msg = e instanceof Error ? e.message : String(e)
-      lastError = msg
-      phase = 'failed'
-    })
-    .finally(() => {
-      inflight = null
-      if (!lastError) {
-        phase = 'idle'
-        runStartedAt = null
-      }
-    })
-}
-
 export type EnronDemoForceReseedStart = 'started' | 'busy'
 
 /** Wipes the demo tenant (see seed script `--force`) and rebuilds mail + wiki layout from the Enron tarball. */
-export function startEnronDemoForceReseed(dataRoot: string, tenantUserId?: string): EnronDemoForceReseedStart {
-  const tid = tenantUserId ?? enronDemoTenantUserId()
-  if (inflight) return 'busy'
+export function startEnronDemoForceReseed(dataRoot: string, tenantUserId: string): EnronDemoForceReseedStart {
+  const s = stateFor(tenantUserId)
+  if (s.inflight) return 'busy'
 
-  lastError = null
-  runStartedAt = Date.now()
-  phase = 'downloading'
-  inflight = runEnronDemoSeedJob(dataRoot, tid, { force: true })
+  s.lastError = null
+  s.runStartedAt = Date.now()
+  s.phase = 'downloading'
+  s.inflight = runEnronDemoSeedJob(dataRoot, tenantUserId, { force: true })
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e)
-      lastError = msg
-      phase = 'failed'
+      s.lastError = msg
+      s.phase = 'failed'
     })
     .finally(() => {
-      inflight = null
-      if (!lastError) {
-        phase = 'idle'
-        runStartedAt = null
+      s.inflight = null
+      if (!s.lastError) {
+        s.phase = 'idle'
+        s.runStartedAt = null
       }
     })
   return 'started'

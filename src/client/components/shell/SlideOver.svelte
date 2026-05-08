@@ -21,7 +21,6 @@
     Save,
     Search,
     Send,
-    Share2,
     X,
   } from 'lucide-svelte'
   import Wiki from '@components/Wiki.svelte'
@@ -86,21 +85,6 @@
     type WikiOverlayForCrumbs,
   } from '@client/lib/wikiPrimaryBarCrumbs.js'
 
-  function wikiShareAudienceBadge(n: number | undefined): string {
-    const c = n ?? 0
-    return c > 9 ? '9+' : `${c}`
-  }
-
-  function wikiSlideShareTitle(hdr: WikiSlideHeaderState): string {
-    const n = hdr.shareAudienceCount ?? 0
-    return n > 0 ? `Shared with ${n} people — manage access` : 'Share'
-  }
-
-  function wikiSlideShareAria(hdr: WikiSlideHeaderState): string {
-    const n = hdr.shareAudienceCount ?? 0
-    return n > 0 ? `Shared with ${n} people; manage access.` : 'Share'
-  }
-
   type Props = {
     overlay: Overlay
     /** From App — used for email subject in header when a thread is open. */
@@ -116,9 +100,6 @@
     onWikiNavigate: (_path: string | undefined) => void
     /** Open wiki folder browser (`/wiki-dir/…`). */
     onWikiDirNavigate?: (_dirPath: string | undefined) => void
-    /** Navigate into an accepted directory share (grantee). */
-    onOpenSharedWiki?: (_p: { ownerId: string; pathPrefix: string }) => void
-    onOpenSharedWikiFile?: (_p: { ownerId: string; filePath: string }) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
     /** Inbox list: open search, summarize. Thread Reply/Forward/Archive live in the L2 header. */
@@ -159,8 +140,6 @@
     wikiStreamingEdit = null,
     onWikiNavigate,
     onWikiDirNavigate,
-    onOpenSharedWiki,
-    onOpenSharedWikiFile,
     onInboxNavigate,
     onContextChange,
     onOpenSearch,
@@ -377,14 +356,12 @@
             {@const breadcrumbItems = wikiSlideOverBreadcrumbItems({
               type: 'wiki',
               path: overlay.path,
-              ...(overlay.shareHandle?.trim() ? { shareHandle: overlay.shareHandle } : {}),
             })}
             <CollapsibleBreadcrumb items={breadcrumbItems} {mobilePanel} />
           {:else if overlay.type === 'wiki-dir'}
             {@const breadcrumbItems = wikiSlideOverBreadcrumbItems({
               type: 'wiki-dir',
               path: overlay.path,
-              ...(overlay.shareHandle?.trim() ? { shareHandle: overlay.shareHandle } : {}),
             })}
             <CollapsibleBreadcrumb items={breadcrumbItems} {mobilePanel} />
           {:else if overlay.type === 'file' && overlay.path}
@@ -513,28 +490,6 @@
             />
           </span>
         </button>
-      {/if}
-      {#if (overlay.type === 'wiki' || overlay.type === 'wiki-dir') && wikiSlideHeader}
-        {#if wikiSlideHeader.sharedIncoming}
-          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Read-only</span>
-        {:else if wikiSlideHeader.canShare && wikiSlideHeader.onOpenShare && !mobilePanel}
-          <button
-            type="button"
-            class={cn(wikiEditBtn, 'wiki-share-header-btn')}
-            onclick={() => wikiSlideHeader?.onOpenShare?.()}
-            title={wikiSlideShareTitle(wikiSlideHeader)}
-            aria-label={wikiSlideShareAria(wikiSlideHeader)}
-          >
-            <span class="wiki-share-header-inner relative inline-flex h-full w-full items-center justify-center">
-              <Share2 size={15} strokeWidth={2} aria-hidden="true" />
-              {#if (wikiSlideHeader.shareAudienceCount ?? 0) > 0}
-                <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] rounded-full h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
-                  {wikiShareAudienceBadge(wikiSlideHeader.shareAudienceCount)}
-                </span>
-              {/if}
-            </span>
-          </button>
-        {/if}
       {/if}
       {#if overlay.type === 'wiki' && wikiSlideHeader}
         {#if wikiSlideHeader.saveState === 'saving'}
@@ -677,21 +632,6 @@
       }}
     >
       {#snippet children()}
-        {#if wikiSlideHeader?.sharedIncoming}
-          <p class="m-0 px-4 py-2 text-xs text-muted">Read-only shared wiki.</p>
-        {:else if wikiSlideHeader?.canShare && wikiSlideHeader?.onOpenShare}
-          <AnchoredMenuRow
-            label="Share…"
-            onclick={() => {
-              wikiSlideHeader?.onOpenShare?.()
-              wikiMobileMoreOpen = false
-            }}
-          >
-            {#snippet leading()}
-              <Share2 size={18} strokeWidth={2} aria-hidden="true" />
-            {/snippet}
-          </AnchoredMenuRow>
-        {/if}
         {#if overlay.type === 'wiki' && overlay.path}
           {@const pSegs = wikiPageBreadcrumbSegments(overlay.path)}
           {#if pSegs.length >= 2}
@@ -759,9 +699,6 @@
     {#if overlay.type === 'wiki'}
       <Wiki
         initialPath={overlay.path}
-        shareOwner={overlay.shareOwner}
-        sharePrefix={overlay.sharePrefix}
-        shareHandle={overlay.shareHandle}
         refreshKey={wikiRefreshKey}
         streamingWrite={wikiStreamingWrite}
         streamingEdit={wikiStreamingEdit}
@@ -772,14 +709,9 @@
     {:else if overlay.type === 'wiki-dir'}
       <WikiDirList
         dirPath={overlay.path}
-        shareOwner={overlay.shareOwner}
-        sharePrefix={overlay.sharePrefix}
-        shareHandle={overlay.shareHandle}
         refreshKey={wikiRefreshKey}
         onOpenFile={(path) => onWikiNavigate(path)}
         onOpenDir={(path) => onWikiDirNavigate?.(path)}
-        onOpenSharedDir={onOpenSharedWiki}
-        onOpenSharedFile={onOpenSharedWikiFile}
         onContextChange={onContextChange}
       />
     {:else if overlay.type === 'file'}

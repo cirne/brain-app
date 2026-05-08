@@ -54,6 +54,36 @@ describe('ChatMessageRow.svelte', () => {
     expect(document.querySelector('.streaming-busy-dots')).toBeTruthy()
   })
 
+  it('renders person mentions in user messages with a handle chip', () => {
+    const msg: ChatMessage = { role: 'user', content: 'thanks @alex for the note' }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: false,
+      },
+    })
+    const chip = document.querySelector('.user-mention--person')
+    expect(chip).toBeTruthy()
+    expect(chip?.textContent ?? '').toContain('alex')
+    expect(document.querySelector('.user-mention--wiki')).toBeNull()
+  })
+
+  it('renders wiki mentions in user messages with a document chip', () => {
+    const msg: ChatMessage = { role: 'user', content: 'see @me/people/alex.md' }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: false,
+      },
+    })
+    expect(document.querySelector('.user-mention--wiki')).toBeTruthy()
+    expect(document.querySelector('.user-mention--person')).toBeNull()
+  })
+
   it('uses detailed ToolCallBlock when toolDisplayMode is detailed', () => {
     const msg: ChatMessage = {
       role: 'assistant',

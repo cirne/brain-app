@@ -20,9 +20,7 @@ let wikiRoot: string
 
 beforeEach(async () => {
   testRoot = await mkdtemp(join(tmpdir(), 'wiki-missing-index-'))
-  // Vault is `wikis/me`; reads join `me/<path>` under unified `wikis/` (matches createWikiScopedPiTools).
-  const unifiedWikiRoot = join(testRoot, 'wikis')
-  wikiRoot = join(unifiedWikiRoot, 'me')
+  wikiRoot = join(testRoot, 'wiki')
   await mkdir(join(wikiRoot, 'topics'), { recursive: true })
   await writeFile(join(wikiRoot, 'me.md'), '# Me\n', 'utf-8')
   await writeFile(join(wikiRoot, 'topics', 'a.md'), '# A\n', 'utf-8')
@@ -34,8 +32,7 @@ afterEach(async () => {
 
 function cleanupStyleTools() {
   const toolOpts = buildCreateAgentToolsOptions({ extraOmit: WIKI_CLEANUP_OMIT })
-  const unifiedWikiRoot = join(testRoot, 'wikis')
-  return createAgentTools(wikiRoot, { ...toolOpts, unifiedWikiRoot })
+  return createAgentTools(wikiRoot, { ...toolOpts, unifiedWikiRoot: wikiRoot })
 }
 
 describe('missing vault index.md (cleanup / Your Wiki tool errors)', () => {

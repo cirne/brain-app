@@ -10,7 +10,7 @@
  * files than Node `fetch` streaming. Set `EVAL_ENRON_USE_NODE_FETCH=1` to force the old path. Partial `.part` files
  * are kept for resume (do not delete before re-running).
  *
- * Mirrors hosted lazy-seed behavior in `src/server/lib/auth/enronDemoSeed.ts`, but persists under `data-eval/.cache/`
+ * Aligns tarball resolution with `enronDemoSeed` / CLI ingest, but persists under `data-eval/.cache/`
  * so local `npm run eval:build` survives reboots without re-downloading.
  */
 import { execFileSync } from 'node:child_process'

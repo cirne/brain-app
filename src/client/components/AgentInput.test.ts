@@ -94,7 +94,18 @@ describe('AgentInput.svelte', () => {
   })
 
   describe('@mention menu', () => {
+    function mockEmptyHandlesFetch() {
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (url.includes('/api/account/workspace-handles')) {
+          return new Response(JSON.stringify({ results: [] }), { status: 200 })
+        }
+        return new Response('{}', { status: 200 })
+      }) as typeof fetch
+    }
+
     it('shows mention menu for @ and inserts path on pick', async () => {
+      mockEmptyHandlesFetch()
       const props = agentInputTestProps({
         wikiFiles: ['me/people/alice.md', 'me/ideas/note.md'],
       })
@@ -103,13 +114,14 @@ describe('AgentInput.svelte', () => {
       const ta = screen.getByRole('textbox')
       await fireEvent.input(ta, { target: { value: '@ali' } })
 
-      const opt = await screen.findByRole('button', { name: /alice/i })
+      const opt = await screen.findByRole('option', { name: /alice/i })
       await fireEvent.mouseDown(opt)
 
       expect((ta as HTMLTextAreaElement).value).toContain('@me/people/alice.md')
     })
 
     it('navigates mention menu with arrow keys', async () => {
+      mockEmptyHandlesFetch()
       const props = agentInputTestProps({
         wikiFiles: ['me/people/alice.md', 'me/people/bob.md', 'me/people/carol.md'],
       })
@@ -118,7 +130,7 @@ describe('AgentInput.svelte', () => {
       const ta = screen.getByRole('textbox')
       await fireEvent.input(ta, { target: { value: '@' } })
 
-      await screen.findByRole('button', { name: /alice/i })
+      await screen.findByRole('option', { name: /alice/i })
 
       await fireEvent.keyDown(ta, { key: 'ArrowDown' })
       await fireEvent.keyDown(ta, { key: 'ArrowDown' })
@@ -129,6 +141,7 @@ describe('AgentInput.svelte', () => {
     })
 
     it('selects mention with Tab key', async () => {
+      mockEmptyHandlesFetch()
       const props = agentInputTestProps({
         wikiFiles: ['me/people/alice.md'],
       })
@@ -137,13 +150,14 @@ describe('AgentInput.svelte', () => {
       const ta = screen.getByRole('textbox')
       await fireEvent.input(ta, { target: { value: '@ali' } })
 
-      await screen.findByRole('button', { name: /alice/i })
+      await screen.findByRole('option', { name: /alice/i })
       await fireEvent.keyDown(ta, { key: 'Tab' })
 
       expect((ta as HTMLTextAreaElement).value).toContain('@me/people/alice.md')
     })
 
     it('closes mention menu on Escape', async () => {
+      mockEmptyHandlesFetch()
       const props = agentInputTestProps({
         wikiFiles: ['me/people/alice.md'],
       })
@@ -152,13 +166,14 @@ describe('AgentInput.svelte', () => {
       const ta = screen.getByRole('textbox')
       await fireEvent.input(ta, { target: { value: '@' } })
 
-      await screen.findByRole('button', { name: /alice/i })
+      await screen.findByRole('option', { name: /alice/i })
       await fireEvent.keyDown(ta, { key: 'Escape' })
 
-      expect(screen.queryByRole('button', { name: /alice/i })).toBeNull()
+      expect(screen.queryByRole('option', { name: /alice/i })).toBeNull()
     })
 
-    it('shows "No matching files" when filter has no results', async () => {
+    it('shows empty-state message when nothing matches', async () => {
+      mockEmptyHandlesFetch()
       const props = agentInputTestProps({
         wikiFiles: ['me/people/alice.md'],
       })
@@ -167,10 +182,11 @@ describe('AgentInput.svelte', () => {
       const ta = screen.getByRole('textbox')
       await fireEvent.input(ta, { target: { value: '@xyz' } })
 
-      expect(await screen.findByText('No matching files')).toBeInTheDocument()
+      expect(await screen.findByText(/no matches/i)).toBeInTheDocument()
     })
 
     it('hides mention menu when @ is followed by space', async () => {
+      mockEmptyHandlesFetch()
       const props = agentInputTestProps({
         wikiFiles: ['me/people/alice.md'],
       })
@@ -179,7 +195,72 @@ describe('AgentInput.svelte', () => {
       const ta = screen.getByRole('textbox')
       await fireEvent.input(ta, { target: { value: '@ ' } })
 
-      expect(screen.queryByRole('button', { name: /alice/i })).toBeNull()
+      expect(screen.queryByRole('option', { name: /alice/i })).toBeNull()
+    })
+
+    it('lists workspace handles under a People section and inserts @handle on pick', async () => {
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (url.includes('/api/account/workspace-handles')) {
+          return new Response(
+            JSON.stringify({
+              results: [
+                {
+                  userId: 'usr_aaaa',
+                  handle: 'cirne',
+                  displayName: 'Lewis Cirne',
+                  primaryEmail: 'cirne@example.com',
+                },
+              ],
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response('{}', { status: 200 })
+      }) as typeof fetch
+
+      const props = agentInputTestProps({
+        wikiFiles: ['me/people/alice.md'],
+      })
+      render(AgentInput, { props })
+
+      const ta = screen.getByRole('textbox')
+      await fireEvent.input(ta, { target: { value: '@cir' } })
+
+      const peopleOption = await screen.findByRole('option', { name: /@cirne.*Lewis Cirne/i })
+      expect(screen.getByText(/^People$/)).toBeInTheDocument()
+      await fireEvent.mouseDown(peopleOption)
+
+      expect((ta as HTMLTextAreaElement).value).toContain('@cirne')
+      expect((ta as HTMLTextAreaElement).value).not.toContain('@cirne/')
+    })
+
+    it('puts People above Documents in the keyboard order', async () => {
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (url.includes('/api/account/workspace-handles')) {
+          return new Response(
+            JSON.stringify({
+              results: [{ userId: 'usr_a', handle: 'amy', primaryEmail: null }],
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response('{}', { status: 200 })
+      }) as typeof fetch
+
+      const props = agentInputTestProps({
+        wikiFiles: ['me/people/alex.md'],
+      })
+      render(AgentInput, { props })
+
+      const ta = screen.getByRole('textbox')
+      await fireEvent.input(ta, { target: { value: '@a' } })
+
+      await screen.findByRole('option', { name: /@amy/i })
+
+      await fireEvent.keyDown(ta, { key: 'Enter' })
+      expect((ta as HTMLTextAreaElement).value).toContain('@amy')
     })
   })
 

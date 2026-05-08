@@ -3,7 +3,7 @@
 # ripmail is **not** compiled in this file. Run `npm run docker:ripmail:build` first (host cargo on
 # Linux, or a one-off rust:bookworm container with cached Cargo volumes on macOS).
 #
-# Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo` (host) or
+# Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo:all` or `BRAIN_ENRON_DEMO_USER=kean npm run brain:seed-enron-demo` (host) or
 # `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.
 # syntax=docker/dockerfile:1
 
@@ -48,6 +48,9 @@ COPY scripts/eval/evalBrainCommon.mjs /app/seed-enron/scripts/eval/evalBrainComm
 COPY scripts/eval/ripmailBin.mjs /app/seed-enron/scripts/eval/ripmailBin.mjs
 COPY scripts/brain/seed-enron-demo-tenant.mjs /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs
 COPY eval/fixtures/enron-kean-manifest.json /app/seed-enron/eval/fixtures/enron-kean-manifest.json
+COPY eval/fixtures/enron-lay-manifest.json /app/seed-enron/eval/fixtures/enron-lay-manifest.json
+COPY eval/fixtures/enron-skilling-manifest.json /app/seed-enron/eval/fixtures/enron-skilling-manifest.json
+COPY eval/fixtures/enron-demo-registry.json /app/seed-enron/eval/fixtures/enron-demo-registry.json
 COPY .docker/linux-ripmail/ripmail /usr/local/bin/ripmail
 RUN chmod +x /usr/local/bin/ripmail
 ENV RIPMAIL_BIN=/usr/local/bin/ripmail

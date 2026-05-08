@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ensureEnronTarballPath } from './ensureEnronTarball.mjs'
-import { ingestEnronKeanToBrainRoot, loadEnronKeanManifest } from './enronKeanIngest.mjs'
+import { ingestEnronMailboxToBrainRoot, loadEnronMailboxManifest } from './enronKeanIngest.mjs'
 import { repoRoot, resolveRipmailBin, ripmailVersionLine } from './ripmailBin.mjs'
 
 const root = repoRoot
@@ -56,7 +56,7 @@ function isStampFresh(manifest, versionLine) {
 }
 
 async function main() {
-  const manifest = loadEnronKeanManifest(manifestPath)
+  const manifest = loadEnronMailboxManifest(manifestPath)
   const ripmailBin = resolveRipmailBin(root)
   const v = ripmailVersionLine(ripmailBin)
   if (v.startsWith('unknown')) {
@@ -70,7 +70,7 @@ async function main() {
   }
 
   const tarPath = await ensureEnronTarballPath({ manifest, repoRoot: root })
-  const { fileCount } = ingestEnronKeanToBrainRoot({
+  const { fileCount } = ingestEnronMailboxToBrainRoot({
     manifest,
     tarPath,
     brainRoot: brain,

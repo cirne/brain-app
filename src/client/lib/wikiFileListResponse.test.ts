@@ -41,31 +41,20 @@ describe('parseWikiFileListJson', () => {
 })
 
 describe('parseWikiListApiBody', () => {
-  it('parses envelope with files and shares', () => {
+  it('parses envelope with files (ignores legacy shares payload)', () => {
     const body = {
       files: [{ path: 'x.md', name: 'x' }],
       shares: {
         owned: [{ pathPrefix: 'ideas/', targetKind: 'dir' as const }],
-        received: [
-          {
-            id: 'wsh_1',
-            ownerId: 'usr_o',
-            ownerHandle: 'alice',
-            pathPrefix: 'trips/',
-            targetKind: 'dir' as const,
-          },
-        ],
+        received: [],
       },
     }
     const r = parseWikiListApiBody(body)
     expect(r.files).toEqual([{ path: 'x.md', name: 'x' }])
-    expect(r.shares.owned).toEqual([{ pathPrefix: 'ideas/', targetKind: 'dir' }])
-    expect(r.shares.received[0]?.ownerHandle).toBe('alice')
   })
 
   it('accepts legacy plain array as files-only', () => {
     const rows = [{ path: 'a.md', name: 'a' }]
     expect(parseWikiListApiBody(rows).files).toEqual(rows)
-    expect(parseWikiListApiBody(rows).shares.owned).toEqual([])
   })
 })

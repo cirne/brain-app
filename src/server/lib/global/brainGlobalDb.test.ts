@@ -45,7 +45,7 @@ CREATE TABLE wiki_stale (x TEXT);
     const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`).all() as {
       name: string
     }[]
-    expect(tables.some((t) => t.name === 'wiki_shares')).toBe(true)
+    expect(tables.some((t) => t.name === 'wiki_shares')).toBe(false)
     expect(tables.some((t) => t.name === 'brain_query_grants')).toBe(true)
     expect(tables.some((t) => t.name === 'brain_query_log')).toBe(true)
     expect(tables.some((t) => t.name === 'wiki_stale')).toBe(false)

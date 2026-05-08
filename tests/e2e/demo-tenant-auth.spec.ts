@@ -18,11 +18,16 @@ test.describe('Enron demo tenant (Bearer mint)', () => {
     baseURL,
   }) => {
     const secret = enronDemoSecret()!
-    const { cookie } = await mintEnronDemoSession(request, baseURL!, secret, {
-      seedDeadlineMs: process.env.CI ? 50 * 60_000 : 3 * 60_000,
-      seedPollMs: 2000,
-    })
+    const { cookie } = await mintEnronDemoSession(request, baseURL!, secret)
     expect(cookie.length).toBeGreaterThan(8)
+  })
+
+  test('GET /api/auth/demo/enron/users lists demo personas', async ({ request, baseURL }) => {
+    const res = await request.get(`${baseURL}/api/auth/demo/enron/users`)
+    expect(res.ok()).toBeTruthy()
+    const body = (await res.json()) as { ok?: boolean; users?: Array<{ key: string }> }
+    expect(body.ok).toBe(true)
+    expect(body.users?.map(u => u.key).sort()).toEqual(['kean', 'lay', 'skilling'])
   })
 
   test('GET /api/auth/demo/enron/seed-status is authorized with bearer', async ({
@@ -30,20 +35,19 @@ test.describe('Enron demo tenant (Bearer mint)', () => {
     baseURL,
   }) => {
     const secret = enronDemoSecret()!
-    const res = await request.get(`${baseURL}/api/auth/demo/enron/seed-status`, {
+    const res = await request.get(`${baseURL}/api/auth/demo/enron/seed-status?demoUser=kean`, {
       headers: { Authorization: `Bearer ${secret}` },
     })
     expect(res.ok()).toBeTruthy()
-    const body = (await res.json()) as { ok?: boolean; seed?: { status?: string } }
+    const body = (await res.json()) as { ok?: boolean; seed?: { status?: string }; demoUser?: string }
     expect(body.ok).toBe(true)
+    expect(body.demoUser).toBe('kean')
     expect(['ready', 'running', 'idle', 'failed']).toContain(body.seed?.status ?? '')
   })
 
   test('browser context can attach brain_session and load app', async ({ browser, request, baseURL }) => {
     const secret = enronDemoSecret()!
-    const { cookie } = await mintEnronDemoSession(request, baseURL!, secret, {
-      seedDeadlineMs: process.env.CI ? 50 * 60_000 : 3 * 60_000,
-    })
+    const { cookie } = await mintEnronDemoSession(request, baseURL!, secret)
 
     const context = await browser.newContext()
     const host = new URL(baseURL!).hostname

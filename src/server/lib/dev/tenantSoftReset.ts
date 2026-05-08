@@ -11,7 +11,6 @@ import {
 } from '@server/lib/platform/brainLayout.js'
 import { setOnboardingStateForce } from '@server/lib/onboarding/onboardingState.js'
 import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
-import { deleteWikiSharesForOwner } from '@server/lib/shares/wikiSharesRepo.js'
 import { deleteBrainQueryGrantsForTenant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import { deleteBrainQueryLogForTenant } from '@server/lib/brainQuery/brainQueryLogRepo.js'
 import { wipeWikiContentAt } from '@server/lib/wiki/wikiDir.js'
@@ -57,7 +56,6 @@ async function rmTenantSubtree(homeDir: string, name: string): Promise<void> {
  */
 export async function executeTenantSoftReset(tenantUserId: string): Promise<void> {
   const home = brainHome()
-  deleteWikiSharesForOwner(tenantUserId)
   deleteBrainQueryGrantsForTenant(tenantUserId)
   deleteBrainQueryLogForTenant(tenantUserId)
 

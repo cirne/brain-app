@@ -1,6 +1,6 @@
 # Playwright E2E (Enron demo tenant)
 
-Tests hit your **normal local dev setup**: `./data`, port **3000**, `npm run dev`. The Enron workspace is **just another tenant directory** (`usr_enrondemo00000000001/`) inside `./data`; only auth is special (Bearer + `/demo`). This is **not** the LLM eval harness (`data-eval/brain`). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
+Tests hit your **normal local dev setup**: `./data`, port **3000**, `npm run dev`. Enron fixtures use **three tenant dirs** (`usr_enrondemo00000000001` Kean, `…02` Lay, `…03` Skilling — see `eval/fixtures/enron-demo-registry.json`); only auth is special (Bearer + `/demo`). Pre-seed all three with `npm run brain:seed-enron-demo:dev`. This is **not** the LLM eval harness (`data-eval/brain`). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
 
 ## One-time seed (recommended)
 
@@ -10,7 +10,7 @@ Uses the **same tree** dev already serves:
 npm run brain:seed-enron-demo:dev
 ```
 
-(`BRAIN_DATA_ROOT=./data` — matches [`scripts/run-dev.mjs`](../scripts/run-dev.mjs)). First run downloads the corpus if needed.
+(`BRAIN_DATA_ROOT=./data` — matches [`scripts/run-dev.mjs`](../scripts/run-dev.mjs)); seeds **Kean, Lay, and Skilling** (`--all`). First run downloads the corpus if needed.
 
 ## Prerequisites
 

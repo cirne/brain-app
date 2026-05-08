@@ -1,10 +1,14 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { ArrowUp, List, MessageSquarePlus, Mic, Square } from 'lucide-svelte'
+  import { ArrowUp, AtSign, List, MessageSquarePlus, Mic, Square } from 'lucide-svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import { handleTextareaCursorKeys } from '@client/lib/agentInputCursor.js'
+  import {
+    fetchWorkspaceHandleSuggestions,
+    type WorkspaceHandleEntry,
+  } from '@client/lib/workspaceHandleSuggest.js'
 
   let {
     placeholder = 'What do you need to know or get done?',
@@ -52,14 +56,32 @@
   let mentionStart = $state(-1)
   let selectedMention = $state(0)
 
+  /**
+   * People matching the current `@` query (workspace-handle directory). Fetched
+   * lazily; an empty list (offline / no matches / not loaded yet) collapses the
+   * People section so behavior matches the docs-only menu when no one matches.
+   */
+  let peopleSuggestions = $state<WorkspaceHandleEntry[]>([])
+  let peopleFetchToken = 0
+
   let showSlash = $state(false)
   let slashFilter = $state('')
   let selectedSlash = $state(0)
 
-  function filteredMentions(): string[] {
+  type MentionRow =
+    | { kind: 'person'; entry: WorkspaceHandleEntry }
+    | { kind: 'doc'; path: string }
+
+  function filteredDocMentions(): string[] {
     if (!mentionFilter) return wikiFiles.slice(0, 10)
     const q = mentionFilter.toLowerCase()
     return wikiFiles.filter(f => f.toLowerCase().includes(q)).slice(0, 10)
+  }
+
+  function mentionRows(): MentionRow[] {
+    const people = peopleSuggestions.slice(0, 5).map<MentionRow>((entry) => ({ kind: 'person', entry }))
+    const docs = filteredDocMentions().map<MentionRow>((path) => ({ kind: 'doc', path }))
+    return [...people, ...docs]
   }
 
   function filteredSkills(): SkillMenuItem[] {
@@ -96,10 +118,12 @@
         showMentions = true
         showSlash = false
         selectedMention = 0
+        void refreshPeopleSuggestions(query)
         return
       }
     }
     showMentions = false
+    peopleSuggestions = []
 
     const lineStart = before.lastIndexOf('\n') + 1
     const line = before.slice(lineStart)
@@ -116,13 +140,33 @@
     showSlash = false
   }
 
-  function insertMention(path: string) {
+  function insertMention(row: MentionRow) {
     const before = input.slice(0, mentionStart)
     const after = input.slice(mentionStart + mentionFilter.length + 1)
-    const token = `@${path.replace(/^@+/, '')}`
+    const token =
+      row.kind === 'person' ? `@${row.entry.handle}` : `@${row.path.replace(/^@+/, '')}`
     input = `${before}${token} ${after}`
     showMentions = false
+    peopleSuggestions = []
     inputEl?.focus()
+  }
+
+  /**
+   * Fetch matching workspace handles for `query`. Failures are silent — the
+   * People section just collapses, leaving the existing docs-only mention menu
+   * intact (so offline / unauthenticated environments behave identically to
+   * the previous wiki-only picker).
+   */
+  async function refreshPeopleSuggestions(query: string) {
+    const myToken = ++peopleFetchToken
+    const trimmed = query.trim()
+    if (trimmed.length === 0) {
+      peopleSuggestions = []
+      return
+    }
+    const { token, results } = await fetchWorkspaceHandleSuggestions(trimmed, myToken)
+    if (token !== peopleFetchToken) return
+    peopleSuggestions = results
   }
 
   function insertSlash(slug: string) {
@@ -162,11 +206,11 @@
       }
     }
     if (showMentions) {
-      const items = filteredMentions()
+      const items = mentionRows()
       if (e.key === 'ArrowDown') { e.preventDefault(); selectedMention = Math.min(selectedMention + 1, Math.max(0, items.length - 1)); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); selectedMention = Math.max(selectedMention - 1, 0); return }
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); if (items[selectedMention]) insertMention(items[selectedMention]); return }
-      if (e.key === 'Escape') { showMentions = false; return }
+      if (e.key === 'Escape') { showMentions = false; peopleSuggestions = []; return }
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -275,22 +319,56 @@
     </div>
   {/if}
   {#if showMentions}
+    {@const rows = mentionRows()}
+    {@const peopleCount = peopleSuggestions.slice(0, 5).length}
     <div
-      class="mention-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
+      class="mention-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[260px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
+      role="listbox"
+      aria-label="Mention people or documents"
     >
-      {#each filteredMentions() as file, i}
-        <button
-          class={cn(
-            'mention-item block w-full px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-accent-dim hover:text-accent',
-            i === selectedMention && 'selected bg-accent-dim text-accent',
-          )}
-          onmousedown={(e) => { e.preventDefault(); insertMention(file) }}
-        >
-          <WikiFileName path={file} />
-        </button>
+      {#if rows.length === 0}
+        <div class="mention-empty px-3 py-2 text-xs text-muted">No matches</div>
       {:else}
-        <div class="mention-empty px-3 py-2 text-xs text-muted">No matching files</div>
-      {/each}
+        {#if peopleCount > 0}
+          <div
+            class="mention-section-header px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
+            role="presentation"
+          >People</div>
+        {/if}
+        {#each rows as row, i (row.kind === 'person' ? `p:${row.entry.userId}` : `d:${row.path}`)}
+          {#if row.kind === 'person' && i === peopleCount - 0}
+            <!-- no-op separator marker -->
+          {/if}
+          {#if row.kind === 'doc' && i === peopleCount && peopleCount > 0}
+            <div
+              class="mention-section-header px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
+              role="presentation"
+            >Documents</div>
+          {/if}
+          <button
+            type="button"
+            role="option"
+            aria-selected={i === selectedMention}
+            class={cn(
+              'mention-item flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-accent-dim hover:text-accent',
+              i === selectedMention && 'selected bg-accent-dim text-accent',
+            )}
+            onmousedown={(e) => { e.preventDefault(); insertMention(row) }}
+          >
+            {#if row.kind === 'person'}
+              <span class="mention-person-icon shrink-0 text-muted" aria-hidden="true">
+                <AtSign size={12} strokeWidth={2.25} />
+              </span>
+              <span class="mention-person-handle font-semibold">@{row.entry.handle}</span>
+              {#if row.entry.displayName}
+                <span class="mention-person-name truncate text-xs text-muted">{row.entry.displayName}</span>
+              {/if}
+            {:else}
+              <WikiFileName path={row.path} />
+            {/if}
+          </button>
+        {/each}
+      {/if}
     </div>
   {/if}
 

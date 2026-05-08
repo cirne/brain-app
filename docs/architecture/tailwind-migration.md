@@ -26,7 +26,7 @@ Heavy **scoped `<style>`** surfaces still increase the cost of **theme tweaks, d
 ### Shared utility conventions
 
 - Prefer Tailwind utilities for layout, spacing, typography, color, borders, and responsive behavior.
-- Use the semantic tokens exported from `src/client/style.css` / `@theme` (`bg-surface`, `bg-surface-2`, `text-foreground`, `text-muted`, `border-border`, `max-w-chat`, etc.) before reaching for raw `var(--...)` chains.
+- Use the semantic tokens exported from `src/client/style.css` / `@theme` (`bg-surface`, `bg-surface-1`, `bg-surface-2`, `bg-surface-3`, `text-foreground`, `text-muted`, `border-border`, `max-w-chat`, etc.) before reaching for raw `var(--...)` chains. **`bg-surface` and `bg-surface-1` are the same underlying `--bg`;** only `surface`, `surface-1`, `surface-2`, and `surface-3` exist — arbitrary names like `bg-surface-4` or `bg-[var(--surface)]` compile without a real color and tend to **transparent overlays** (popover bleed-through). Prefer utilities from `@theme`; add a new `--color-*` there if you need another step on the scale.
 - Use `cn()` from `src/client/lib/cn.ts` for reusable or dynamic Tailwind class strings. It accepts the same object/array/string shapes as Svelte's `class` attribute and runs `tailwind-merge` so later conflicting utilities win predictably.
 - Keep existing semantic/BEM class names when tests, JS hooks, or complex scoped selectors still need them; treat those names as hooks, not as the primary styling layer.
 

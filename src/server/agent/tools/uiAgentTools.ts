@@ -63,14 +63,8 @@ export function createUiAgentTools(wikiDir: string) {
           type: Type.Literal('wiki'),
           path: Type.String({
             description:
-              'Wiki path: `me/ideas/foo.md` or `@theirHandle/shared/path.md`. For pages a **collaborator shared**, use `@theirHandle/…` so the app opens their read-only tree. If you only have a path relative to their vault (e.g. from `find` / `grep`), include the `@handle/` prefix. Bare paths like `travel/plan.md` are rewritten to `me/…` or `@peer/…` when that is unambiguous on disk.',
+              'Wiki path relative to the vault markdown root (e.g. `ideas/foo.md`); legacy `me/ideas/foo.md` is accepted.',
           }),
-          shareHandle: Type.Optional(
-            Type.String({
-              description:
-                'Rarely set manually. Incoming shares are opened via `shared-by-handle` when the shell knows the collaborator handle.',
-            }),
-          ),
         }),
         Type.Object({
           type: Type.Literal('file'),
@@ -93,7 +87,7 @@ export function createUiAgentTools(wikiDir: string) {
       _toolCallId: string,
       params: {
         target:
-          | { type: 'wiki'; path: string; shareHandle?: string }
+          | { type: 'wiki'; path: string }
           | { type: 'file'; path: string }
           | { type: 'email'; id: string }
           | { type: 'calendar'; date: string }
@@ -102,8 +96,7 @@ export function createUiAgentTools(wikiDir: string) {
       const t = params.target
       let text: string
       if (t.type === 'wiki') {
-        const sh = typeof t.shareHandle === 'string' ? t.shareHandle.trim().replace(/^@+/, '').trim() : ''
-        text = sh.length > 0 ? `Opening wiki: @${sh}/${t.path}` : `Opening wiki: ${t.path}`
+        text = `Opening wiki: ${t.path}`
       } else if (t.type === 'file') {
         text = `Opening file: ${t.path}`
       } else if (t.type === 'email') {

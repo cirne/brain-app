@@ -58,8 +58,6 @@ export interface StreamAgentSseTurnRefs {
 export interface StreamAgentSseHandlerDeps {
   stream: { writeSSE: (args: { event: string; data: string }) => Promise<unknown> }
   wikiDirForDiffs: string
-  /** When set, **`open`** wiki targets are rewritten to `{ shareHandle, path }` for the client (`shared-by-handle`). */
-  granteeTenantId?: string
   assistantState: AssistantTurnState
   editBeforeSnapshot: Map<string, string>
   refs: StreamAgentSseTurnRefs

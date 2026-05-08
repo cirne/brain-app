@@ -145,7 +145,7 @@
         Handle
       </label>
       <div
-        class="ob-handle-input-row flex items-center gap-[0.15rem] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5"
+        class="ob-handle-input-row flex items-center gap-[0.15rem] border border-border bg-surface px-2.5 py-1.5"
       >
         <span
           class="ob-handle-at font-mono font-semibold text-[var(--muted)] select-none"

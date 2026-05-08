@@ -30,8 +30,6 @@ export type AssistantShellState = {
   detailPaneFullscreen: boolean
   isMobile: boolean
   workspaceColumnWidth: number
-  /** Pending wiki share invites addressed to the signed-in workspace (from `GET /api/wiki-shares`). */
-  pendingWikiShareInvitesCount: number
   /**
    * Mobile chat-column wiki overlay: stack of unified wiki paths for depth-aware ◀ before closing.
    * Desktop and wiki-primary surfaces ignore this.
@@ -80,7 +78,6 @@ export function createAssistantShellState(): AssistantShellState {
     detailPaneFullscreen: false,
     isMobile: false,
     workspaceColumnWidth: 0,
-    pendingWikiShareInvitesCount: 0,
     mobileWikiOverlayStack: [],
     suppressMobileWikiStackMutation: false,
   }

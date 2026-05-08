@@ -32,8 +32,6 @@ import {
 } from '@server/lib/llm/slashSkill.js'
 import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPrompt.js'
 import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
-import { wikiToolsGranteeTenantIdOrSingle } from '@server/lib/tenant/tenantContext.js'
-
 /**
  * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).
  * The first-chat system supplement still applies via {@link tryConsumeFirstChatPending}.
@@ -233,7 +231,6 @@ chat.post('/', async (c) => {
       async () =>
         await streamAgentSseResponse(c, agent, rawMessage ?? message, {
           wikiDirForDiffs: wikiDir(),
-          granteeTenantId: wikiToolsGranteeTenantIdOrSingle(),
           announceSessionId: sessionId,
           agentKind: 'chat_skill',
           promptMessages,
@@ -256,7 +253,6 @@ chat.post('/', async (c) => {
     async () =>
       await streamAgentSseResponse(c, agent, rawMessage ?? message, {
         wikiDirForDiffs: wikiDir(),
-        granteeTenantId: wikiToolsGranteeTenantIdOrSingle(),
         announceSessionId: sessionId,
         agentKind: 'chat',
         promptMessages: mainPromptMessages,

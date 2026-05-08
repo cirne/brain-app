@@ -53,11 +53,6 @@ export type EmailDraftRefreshEvent = {
   draftId: string
 }
 
-/** Wiki share list / pending invites changed (create, accept, revoke). */
-export type WikiSharesChangedEvent = {
-  type: 'wiki-shares-changed'
-}
-
 export type AppEvent =
   | WikiMutatedEvent
   | SyncCompletedEvent
@@ -68,7 +63,6 @@ export type AppEvent =
   | HubDevicesChangedEvent
   | NavRecentsChangedEvent
   | EmailDraftRefreshEvent
-  | WikiSharesChangedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 

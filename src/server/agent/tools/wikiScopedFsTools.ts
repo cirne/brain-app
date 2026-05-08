@@ -1,15 +1,13 @@
 /**
- * Pi coding-agent file tools scoped to the **personal vault** (`wikis/me/`) with write hooks.
+ * Pi coding-agent file tools scoped to the wiki markdown root (`wiki/`) with write hooks.
  *
- * **`find` / `grep`** walk the unified `wikis/` tree (vault + `@peer/` projections) so discovery
- * matches the wiki browser; **read/write/edit** paths are **vault-relative** (`people/x.md`,
- * `index.md`) or **`@handle/…`** for read-only shared pages. Physical reads/writes join
- * `unifiedWikiRoot` using `me/<vault-relative>` in {@link toUnifiedRelFromVaultAgentPath}.
+ * **`find` / `grep`** walk the wiki tree; **read/write/edit** paths are wiki-relative (`people/x.md`,
+ * `index.md`). Legacy `me/…` prefixes in tool args are stripped.
  */
 import { constants as FsConstants } from 'node:fs'
 import { existsSync } from 'node:fs'
 import { access } from 'node:fs/promises'
-import { resolve, relative, join } from 'node:path'
+import { resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { Type } from '@mariozechner/pi-ai'
 import {
@@ -25,17 +23,7 @@ import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgent
 import { formatWikiKebabNormalizedFromNote, resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { wikiFindGlobAbsolutePaths } from '@server/lib/wiki/wikiFindGlob.js'
 import { executeWikiSymlinkAwareGrep } from '@server/agent/tools/wikiSymlinkAwareGrep.js'
-import { WIKIS_ME_SEGMENT } from '@server/lib/platform/brainLayout.js'
-import {
-  applyWikiFindProvenanceAnnotations,
-  agentPathFromUnifiedToolsRel,
-  sharedWikiReadSourceBanner,
-} from '@server/lib/wiki/wikiToolProvenance.js'
-import {
-  granteeShareCoversWikiPath,
-  listSharesForOwner,
-} from '@server/lib/shares/wikiSharesRepo.js'
-import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { applyWikiFindProvenanceAnnotations } from '@server/lib/wiki/wikiToolProvenance.js'
 
 /** Per-find call: glob case-sensitivity (fd + walk). Passed into `glob` via ALS because pi's find does not forward tool params there. */
 const wikiFindCaseSensitiveAls = new AsyncLocalStorage<boolean>()
@@ -45,11 +33,7 @@ export type WikiWriteCreatesPolicy = 'allowed' | 'forbidden'
 
 export type WikiScopedPiToolsOptions = {
   wikiWriteCreates?: WikiWriteCreatesPolicy
-  wikiWriteShareHintOwnerId?: string
-  /**
-   * Unified `wikis/` directory: `find`/`grep` cwd + physical layout for `me/` + `@peer/`.
-   * Defaults to {@link wikiToolsDir}.
-   */
+  /** Wiki root for filesystem ops (defaults to same directory as {@link wikiDir}). */
   unifiedWikiRoot?: string
 }
 
@@ -59,9 +43,9 @@ function wikiToolPathLooksBareAbsolute(raw: string): boolean {
   return t.startsWith('/') || t.startsWith('~/') || /^[A-Za-z]:[/\\]/.test(t) || t.startsWith('\\\\')
 }
 
-/** True when path is under a peer read-only subtree (`@owner/…`) in agent-facing paths. */
-export function wikiToolRelTouchesPeerProjection(relPathUnderToolsRoot: string): boolean {
-  const n = relPathUnderToolsRoot.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
+/** True when path appears under a removed `@peer/` subtree (legacy agent paths). */
+export function wikiToolRelTouchesPeerProjection(relPathUnderWikiRoot: string): boolean {
+  const n = relPathUnderWikiRoot.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
   const seg = n.split('/').filter(Boolean)[0]
   return seg != null && seg.startsWith('@')
 }
@@ -76,13 +60,11 @@ function mergeFindPathParam(rawOriginal: string, resolved: string): string {
 
 function assertWritable(relPathUnderWiki: string, label: string) {
   if (wikiToolRelTouchesPeerProjection(relPathUnderWiki))
-    throw new Error(`Cannot ${label} files inside shared wiki projection (read-only).`)
+    throw new Error(`Cannot ${label} files under legacy shared wiki paths (@…); sharing was removed.`)
 }
 
 /**
- * Strip redundant leading `me/…` segments when the model echoes unified-tree paths.
- * Vault root is already `wikis/me` — tool args resolve under it, so `me/…`, `me/me/…`, etc. must
- * collapse to vault-relative paths (or `.` for vault root).
+ * Strip redundant leading `me/…` when models echo old unified-tree paths.
  */
 export function stripLegacyMePrefixFromRawPath(raw: string): string {
   const trimmed = raw.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
@@ -101,18 +83,16 @@ export function stripLegacyMePrefixFromRawPath(raw: string): string {
   return t
 }
 
-/** Join `me/<vault-relative>` for paths under the unified tree (read/edit/write backends). */
+/** Wiki-relative path for FS ops under `wikiRoot` (no `me/` prefix). */
 export function toUnifiedRelFromVaultAgentPath(agentRel: string): string {
-  const p = agentRel.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
+  const p = stripLegacyMePrefixFromRawPath(agentRel).trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
   if (p === '' || p === '.') return '.'
-  if (p.startsWith('@')) return p.replace(/^\.\//, '')
-  if (p.startsWith('me/')) return p
-  return `${WIKIS_ME_SEGMENT}/${p}`
+  return p
 }
 
 /**
- * Pi coding-agent's `resolveReadPath` / `resolveToCwd` strip a leading `@` (`path-utils.normalizeAtPrefix`),
- * which breaks real directories named `@peer`. Prefix `./` so the filesystem path resolves under `wikis/`.
+ * Pi coding-agent's `resolveReadPath` strips a leading `@` (`path-utils.normalizeAtPrefix`),
+ * which breaks directories literally named `@peer`. Prefix `./` when needed.
  */
 export function toPiCodingAgentFsRelPath(unifiedRelUnderWikiTools: string): string {
   const n = unifiedRelUnderWikiTools.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
@@ -122,89 +102,54 @@ export function toPiCodingAgentFsRelPath(unifiedRelUnderWikiTools: string): stri
 }
 
 /**
- * Vault-relative path for share matching (`people/…`, `trips/…`), or null for `@peer/` paths.
- * Accepts legacy `me/foo` or vault-relative `foo`.
+ * Vault-relative path for logging (drops legacy `me/`). Returns null for `@…` paths.
  */
 export function vaultRelPathFromMeToolPath(relPosix: string): string | null {
   const p = relPosix.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
   if (p.startsWith('@')) return null
-  const prefix = `${WIKIS_ME_SEGMENT}/`
-  if (p === WIKIS_ME_SEGMENT || p === `${WIKIS_ME_SEGMENT}/`) return ''
+  const prefix = 'me/'
+  if (p === 'me' || p === 'me/') return ''
   if (p.startsWith(prefix)) {
     return p.slice(prefix.length)
   }
   return p
 }
 
-/** Non-empty warning line for the LLM when the written path is inside an accepted outgoing share. */
-export function buildWikiWriteShareVisibilityHint(ownerId: string, vaultRelPath: string): string | null {
-  const rows = listSharesForOwner(ownerId).filter((r) => r.grantee_id != null && r.accepted_at_ms != null)
-  const matching = rows.filter((r) => granteeShareCoversWikiPath(r, vaultRelPath))
-  if (matching.length === 0) return null
-  const who = matching.map((r) => r.grantee_email ?? r.grantee_id).join(', ')
-  return `\n\nWARNING: This path is covered by an active wiki share to ${who}. New or updated content may be visible to those recipients. Confirm this is intended.`
-}
+export function createWikiScopedPiTools(wikiRoot: string, options?: WikiScopedPiToolsOptions) {
+  const unifiedRoot = options?.unifiedWikiRoot ?? wikiRoot
 
-/**
- * @param vaultRoot Personal vault absolute path (`…/wikis/me`).
- * @param options.unifiedWikiRoot Defaults to {@link wikiToolsDir} (`…/wikis`) for find/grep + filesystem joins.
- */
-export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedPiToolsOptions) {
-  const unifiedRoot = options?.unifiedWikiRoot ?? wikiToolsDir()
-
-  const granteePath = async (raw: string): Promise<string> => {
+  const resolveAgentPath = async (raw: string): Promise<string> => {
     const trimmed = raw.trim()
     if (wikiToolPathLooksBareAbsolute(trimmed)) {
       const abs = resolve(trimmed)
-      let rel = relative(vaultRoot, abs).split(/[/\\]/).join('/')
+      let rel = relative(unifiedRoot, abs).split(/[/\\]/).join('/')
       if (!rel.startsWith('..') && rel !== '') {
         return rel
-      }
-      rel = relative(unifiedRoot, abs).split(/[/\\]/).join('/')
-      if (!rel.startsWith('..') && rel !== '') {
-        return agentPathFromUnifiedToolsRel(rel)
       }
       throw new Error('Path escapes wiki tool root')
     }
 
     const tnorm = trimmed.replace(/\\/g, '/')
-    const peerM = /^@([^/]+)(\/.*)?$/.exec(tnorm)
-    if (peerM) {
-      const tail = (peerM[2] ?? '').replace(/^\//, '')
-      const peerRoot = join(unifiedRoot, `@${peerM[1]}`)
-      const absPeer = tail ? resolve(peerRoot, tail) : peerRoot
-      const rel = relative(unifiedRoot, absPeer).split(/[/\\]/).join('/')
-      if (!rel.startsWith('..') && rel !== '') {
-        return agentPathFromUnifiedToolsRel(rel)
-      }
-      return coerceWikiToolRelativePath(vaultRoot, stripLegacyMePrefixFromRawPath(trimmed))
+    const first = tnorm.split('/').filter(Boolean)[0] ?? ''
+    if (first.startsWith('@')) {
+      throw new Error('Shared wiki paths (@handle/…) are no longer supported.')
     }
 
     const vaultNorm = stripLegacyMePrefixFromRawPath(trimmed).replace(/\\/g, '/')
     if (vaultNorm === '' || vaultNorm === '.' || vaultNorm === './') {
-      return coerceWikiToolRelativePath(vaultRoot, vaultNorm)
+      return coerceWikiToolRelativePath(wikiRoot, vaultNorm)
     }
-    return coerceWikiToolRelativePath(vaultRoot, vaultNorm)
+    return coerceWikiToolRelativePath(wikiRoot, vaultNorm)
   }
 
   const readToolInner = createReadTool(unifiedRoot)
   const read = {
     ...readToolInner,
     async execute(toolCallId: string, params: { path: string; offset?: number; limit?: number }) {
-      const agentPath = await granteePath(params.path)
+      const agentPath = await resolveAgentPath(params.path)
       const pathForPi = toPiCodingAgentFsRelPath(toUnifiedRelFromVaultAgentPath(agentPath))
       try {
-        const result = await readToolInner.execute(toolCallId, { ...params, path: pathForPi })
-        const banner = sharedWikiReadSourceBanner(agentPath)
-        if (!banner) return result
-        const out = result as { content: { type: string; text: string }[] }
-        if (!Array.isArray(out.content) || out.content.length === 0) return result
-        return {
-          ...out,
-          content: out.content.map((c, i) =>
-            i === 0 && c.type === 'text' ? { ...c, text: `${banner}\n\n${c.text}` } : c,
-          ),
-        }
+        return await readToolInner.execute(toolCallId, { ...params, path: pathForPi })
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(agentPath, e)
       }
@@ -217,7 +162,7 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
       toolCallId: string,
       params: { path: string; edits: { oldText: string; newText: string }[] },
     ) {
-      const agentPath = await granteePath(params.path)
+      const agentPath = await resolveAgentPath(params.path)
       assertWritable(agentPath, 'edit')
       const pathForPi = toPiCodingAgentFsRelPath(toUnifiedRelFromVaultAgentPath(agentPath))
       let result
@@ -226,44 +171,29 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(agentPath, e)
       }
-      await appendWikiEditRecord(vaultRoot, 'edit', agentPath).catch(() => {})
-
-      const vaultRel = vaultRelPathFromMeToolPath(agentPath)
-      const shareHint =
-        vaultRel != null && options?.wikiWriteShareHintOwnerId
-          ? buildWikiWriteShareVisibilityHint(options.wikiWriteShareHintOwnerId, vaultRel)
-          : null
-      if (!shareHint) return result
-
-      const out = result as { content: { type: string; text: string }[] }
-      if (!Array.isArray(out.content) || out.content.length === 0) return result
-      return {
-        ...out,
-        content: out.content.map((c, i) =>
-          i === 0 && c.type === 'text' ? { ...c, text: c.text + shareHint } : c,
-        ),
-      }
+      await appendWikiEditRecord(wikiRoot, 'edit', agentPath).catch(() => {})
+      return result
     },
   }
   const writeToolInner = createWriteTool(unifiedRoot)
   const write = {
     ...writeToolInner,
     async execute(toolCallId: string, params: { path: string; content: string }) {
-      const rew = await granteePath(params.path)
+      const rew = await resolveAgentPath(params.path)
       assertWritable(rew, 'write')
       let path: string
       let normFrom: string | null
       try {
-        const r = resolveWikiPathForCreate(vaultRoot, rew)
+        const r = resolveWikiPathForCreate(wikiRoot, rew)
         path = r.path
         normFrom = r.normalizedFrom
       } catch {
         throw new Error('Invalid wiki path for write')
       }
       assertWritable(path, 'write')
-      await assertAgentWikiWriteUsesSubdirectory(vaultRoot, path)
+      await assertAgentWikiWriteUsesSubdirectory(wikiRoot, path)
       if (options?.wikiWriteCreates === 'forbidden') {
-        const abs = resolve(vaultRoot, path)
+        const abs = resolve(wikiRoot, path)
         try {
           await access(abs, FsConstants.F_OK)
         } catch {
@@ -283,36 +213,21 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(path, e)
       }
-      await appendWikiEditRecord(vaultRoot, 'write', path).catch(() => {})
+      await appendWikiEditRecord(wikiRoot, 'write', path).catch(() => {})
 
-      const tailNotes: string[] = []
-      if (normFrom) {
-        tailNotes.push(formatWikiKebabNormalizedFromNote(path, normFrom))
-      }
-      const vaultRel = vaultRelPathFromMeToolPath(path)
-      const shareHint =
-        vaultRel != null && options?.wikiWriteShareHintOwnerId
-          ? buildWikiWriteShareVisibilityHint(options.wikiWriteShareHintOwnerId, vaultRel)
-          : null
-      if (shareHint) tailNotes.push(shareHint)
+      if (!normFrom) return result
 
-      if (tailNotes.length === 0) return result
-
-      const suffix = tailNotes.join('')
+      const suffix = formatWikiKebabNormalizedFromNote(path, normFrom)
       return {
         ...result,
         content: result.content.map((c, i) =>
           i === 0 && c.type === 'text' ? { ...c, text: c.text + suffix } : c,
         ),
-        ...(normFrom
-          ? {
-              details: {
-                ...(typeof result.details === 'object' && result.details !== null ? (result.details as object) : {}),
-                path,
-                requestedPath: normFrom,
-              },
-            }
-          : {}),
+        details: {
+          ...(typeof result.details === 'object' && result.details !== null ? (result.details as object) : {}),
+          path,
+          requestedPath: normFrom,
+        },
       }
     },
   }
@@ -320,12 +235,12 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
   const findParametersWiki = Type.Object({
     pattern: Type.String({
       description:
-        'Path/filename glob only (wildcards * ? **). Examples: *virginia*, **/*trip*.md, @theirhandle/**/*.md. Do not use multi-word English sentences—those belong in grep (file contents), not here.',
+        'Path/filename glob only (wildcards * ? **). Examples: *virginia*, **/*trip*.md. Do not use multi-word English sentences—those belong in grep (file contents), not here.',
     }),
     path: Type.Optional(
       Type.String({
         description:
-          'Directory relative to **your vault** (default `.` = search vault + collaborator trees: unified wikis/ namespace).',
+          'Directory relative to wiki root (default `.` = entire wiki tree).',
       }),
     ),
     limit: Type.Optional(Type.Number({ description: 'Maximum number of results (default: 1000)' })),
@@ -357,7 +272,7 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
   const find = {
     ...findToolInner,
     description:
-      'List files by path/filename glob (your vault + @handle/ shared projections). pattern must be a glob with * / ** / ? — not natural-language search. For phrases inside markdown, call grep. When results include shared paths, each line is prefixed; mixed sets include a one-line summary.',
+      'List files by path/filename glob under your wiki. pattern must be a glob with * / ** / ? — not natural-language search. For phrases inside markdown, call grep.',
     promptSnippet: 'Glob-match wiki file paths; use grep for text inside files',
     parameters: findParametersWiki,
     async execute(
@@ -370,7 +285,7 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
       let unifiedSearchArg: string | undefined
       let displayPath = '.'
       if (params.path !== undefined) {
-        const agentPath = await granteePath(params.path)
+        const agentPath = await resolveAgentPath(params.path)
         unifiedSearchArg = toPiCodingAgentFsRelPath(
           mergeFindPathParam(params.path, toUnifiedRelFromVaultAgentPath(agentPath)),
         )
@@ -431,7 +346,7 @@ export function createWikiScopedPiTools(vaultRoot: string, options?: WikiScopedP
       let agentPath: string | undefined
       let unifiedPath: string | undefined
       if (params.path !== undefined) {
-        agentPath = await granteePath(params.path)
+        agentPath = await resolveAgentPath(params.path)
         unifiedPath = toUnifiedRelFromVaultAgentPath(agentPath)
       }
       const ignoreCase = params.ignoreCase !== false

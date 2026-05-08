@@ -1,39 +1,35 @@
 #!/usr/bin/env node
 /**
- * Seed or rebuild the OPP-051 Enron demo tenant under BRAIN_DATA_ROOT (multi-tenant layout).
- *
- * Run from repo root (development / host with Docker volume bind-mount), or in-container via:
- *   node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs
+ * Seed or rebuild OPP-051 Enron demo tenant(s) under BRAIN_DATA_ROOT (multi-tenant layout).
  *
  * Required env:
  *   BRAIN_DATA_ROOT — tenant parent (e.g. ./data or /brain-data in Docker)
  *
- * Tarball: same as `npm run eval:build` — if `EVAL_ENRON_TAR` is unset, downloads to
- *   `data-eval/.cache/enron/enron_mail_20150507.tar.gz` (see scripts/eval/ensureEnronTarball.mjs).
+ * Pick **one** demo user (see eval/fixtures/enron-demo-registry.json):
+ *   BRAIN_ENRON_DEMO_USER=kean|lay|skilling
+ * Or legacy: BRAIN_ENRON_DEMO_TENANT_ID=usr_enrondemo… (must match a registry row).
  *
- * Optional:
- *   EVAL_ENRON_TAR — use this path instead of cache (SHA checked via manifest)
- *   BRAIN_ENRON_DEMO_TENANT_ID — default usr_enrondemo00000000001
- *   RIPMAIL_BIN — default: repo target/release, else PATH ripmail (container: /usr/local/bin/ripmail)
- *   BRAIN_SEED_REPO_ROOT — override repo root for eval/fixtures path (normally auto from script location)
- *   ENRON_SOURCE_URL / ENRON_SHA256 — override manifest URL or hash (air-gapped mirrors)
+ * Seed **all** registry demo tenants:
+ *   node scripts/brain/seed-enron-demo-tenant.mjs --all
+ *
+ * Tarball: same as `npm run eval:build` — `EVAL_ENRON_TAR` or cache under data-eval/.cache/enron/.
  *
  * Flags:
- *   --force — remove existing tenant dir and rebuild from tarball
+ *   --force — remove existing tenant dir(s) and rebuild from tarball
+ *   --all   — seed every user in enron-demo-registry.json (ignores BRAIN_ENRON_DEMO_USER)
  *
- * Local dev (same `./data` as `npm run dev`): `npm run brain:seed-enron-demo:dev` (sets `BRAIN_DATA_ROOT=./data`).
- *
- * If ripmail.db already exists and --force is not passed, exits 0 without changes.
+ * Local all-three dev: `npm run brain:seed-enron-demo:dev`
  */
-import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensureEnronTarballPath } from '../eval/ensureEnronTarball.mjs'
-import { ingestEnronKeanToBrainRoot, loadEnronKeanManifest } from '../eval/enronKeanIngest.mjs'
+import { ingestEnronMailboxToBrainRoot, loadEnronMailboxManifest } from '../eval/enronKeanIngest.mjs'
 import { ripmailVersionLine, resolveRipmailBin } from '../eval/ripmailBin.mjs'
 
 const wantForce = process.argv.includes('--force')
+const wantAll = process.argv.includes('--all')
 
 const dataRoot = process.env.BRAIN_DATA_ROOT?.trim()
 if (!dataRoot) {
@@ -41,33 +37,48 @@ if (!dataRoot) {
   process.exit(1)
 }
 
-const TENANT_ID = process.env.BRAIN_ENRON_DEMO_TENANT_ID?.trim() || 'usr_enrondemo00000000001'
-const tenantHome = join(dataRoot, TENANT_ID)
-
 const repoRoot =
   process.env.BRAIN_SEED_REPO_ROOT?.trim() ||
   fileURLToPath(new URL('../..', import.meta.url))
-const manifestPath = join(repoRoot, 'eval/fixtures/enron-kean-manifest.json')
 
-if (!existsSync(manifestPath)) {
-  console.error('[seed-enron-demo] Manifest not found:', manifestPath)
+const registryPath = join(repoRoot, 'eval/fixtures/enron-demo-registry.json')
+if (!existsSync(registryPath)) {
+  console.error('[seed-enron-demo] Registry not found:', registryPath)
   console.error('  Set BRAIN_SEED_REPO_ROOT to the brain-app repo root, or run from the repo.')
   process.exit(1)
 }
 
-const ripDb = join(tenantHome, 'ripmail', 'ripmail.db')
-if (!wantForce && existsSync(ripDb) && statSync(ripDb).size > 0) {
-  console.error('[seed-enron-demo] Already seeded:', ripDb, '(use --force to rebuild)')
-  process.exit(0)
+/** @returns {{ users: Array<{ key: string, label: string, tenantUserId: string, workspaceHandle: string, manifestFile: string }> }} */
+function loadRegistry() {
+  return JSON.parse(readFileSync(registryPath, 'utf8'))
 }
 
-if (wantForce && existsSync(tenantHome)) {
-  console.error('[seed-enron-demo] Removing', tenantHome)
-  rmSync(tenantHome, { recursive: true, force: true })
-}
+function resolveSingleUser(registry) {
+  const userKey = process.env.BRAIN_ENRON_DEMO_USER?.trim().toLowerCase()
+  const tenantOverride = process.env.BRAIN_ENRON_DEMO_TENANT_ID?.trim()
 
-mkdirSync(dataRoot, { recursive: true })
-mkdirSync(tenantHome, { recursive: true })
+  if (userKey) {
+    const u = registry.users.find(x => x.key === userKey)
+    if (!u) {
+      console.error('[seed-enron-demo] Unknown BRAIN_ENRON_DEMO_USER:', userKey)
+      console.error('  Expected one of:', registry.users.map(x => x.key).join(', '))
+      process.exit(1)
+    }
+    return u
+  }
+
+  if (tenantOverride) {
+    const u = registry.users.find(x => x.tenantUserId === tenantOverride)
+    if (!u) {
+      console.error('[seed-enron-demo] BRAIN_ENRON_DEMO_TENANT_ID does not match any demo user:', tenantOverride)
+      process.exit(1)
+    }
+    return u
+  }
+
+  console.error('[seed-enron-demo] Set BRAIN_ENRON_DEMO_USER (kean|lay|skilling) or BRAIN_ENRON_DEMO_TENANT_ID, or pass --all.')
+  process.exit(1)
+}
 
 const ripmailBin = process.env.RIPMAIL_BIN?.trim() || resolveRipmailBin(repoRoot)
 const v = ripmailVersionLine(ripmailBin)
@@ -76,20 +87,45 @@ if (v.startsWith('unknown')) {
   process.exit(1)
 }
 
-const extractRoot = join(tmpdir(), 'brain-enron-seed', TENANT_ID)
-if (existsSync(extractRoot)) {
-  rmSync(extractRoot, { recursive: true, force: true })
-}
-const extractParent = join(extractRoot, 'expand')
-mkdirSync(extractParent, { recursive: true })
+/**
+ * @param {{ key: string, tenantUserId: string, workspaceHandle: string, manifestFile: string }} entry
+ */
+async function seedOneTenant(entry) {
+  const TENANT_ID = entry.tenantUserId
+  const tenantHome = join(dataRoot, TENANT_ID)
+  const manifestPath = join(repoRoot, 'eval/fixtures', entry.manifestFile)
 
-const manifest = loadEnronKeanManifest(manifestPath)
+  if (!existsSync(manifestPath)) {
+    console.error('[seed-enron-demo] Manifest not found:', manifestPath)
+    process.exit(1)
+  }
 
-async function main() {
+  const ripDb = join(tenantHome, 'ripmail', 'ripmail.db')
+  if (!wantForce && existsSync(ripDb) && statSync(ripDb).size > 0) {
+    console.error('[seed-enron-demo] Already seeded:', ripDb, '(use --force to rebuild)')
+    return
+  }
+
+  if (wantForce && existsSync(tenantHome)) {
+    console.error('[seed-enron-demo] Removing', tenantHome)
+    rmSync(tenantHome, { recursive: true, force: true })
+  }
+
+  mkdirSync(dataRoot, { recursive: true })
+  mkdirSync(tenantHome, { recursive: true })
+
+  const extractRoot = join(tmpdir(), 'brain-enron-seed', TENANT_ID)
+  if (existsSync(extractRoot)) {
+    rmSync(extractRoot, { recursive: true, force: true })
+  }
+  const extractParent = join(extractRoot, 'expand')
+  mkdirSync(extractParent, { recursive: true })
+
+  const manifest = loadEnronMailboxManifest(manifestPath)
   const tarPath = await ensureEnronTarballPath({ manifest, repoRoot })
-  console.error('[seed-enron-demo] Ingesting Enron kean-s →', tenantHome)
+  console.error('[seed-enron-demo] Ingesting Enron', entry.key, manifest.sourceUser, '→', tenantHome)
 
-  ingestEnronKeanToBrainRoot({
+  ingestEnronMailboxToBrainRoot({
     manifest,
     tarPath,
     brainRoot: tenantHome,
@@ -100,7 +136,7 @@ async function main() {
 
   const handleMeta = {
     userId: TENANT_ID,
-    handle: 'enron-demo',
+    handle: entry.workspaceHandle,
     confirmedAt: new Date().toISOString(),
   }
   writeFileSync(join(tenantHome, 'handle-meta.json'), JSON.stringify(handleMeta, null, 2), 'utf8')
@@ -112,6 +148,24 @@ async function main() {
   }
 
   console.error('[seed-enron-demo] Done.', tenantHome)
+}
+
+async function main() {
+  const registry = loadRegistry()
+  if (!registry.users?.length) {
+    console.error('[seed-enron-demo] Empty registry:', registryPath)
+    process.exit(1)
+  }
+
+  if (wantAll) {
+    for (const entry of registry.users) {
+      await seedOneTenant(entry)
+    }
+    return
+  }
+
+  const entry = resolveSingleUser(registry)
+  await seedOneTenant(entry)
 }
 
 main().catch(e => {

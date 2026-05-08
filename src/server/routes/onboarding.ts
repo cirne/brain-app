@@ -455,7 +455,6 @@ onboarding.post('/interview', async (c) => {
 
   return streamAgentSseResponse(c, agent, promptMessage, {
     wikiDirForDiffs: wikiDir(),
-    granteeTenantId: tryGetTenantContext()?.tenantUserId,
     announceSessionId: sessionId,
     agentKind: 'onboarding_interview',
     onTurnComplete: persist,

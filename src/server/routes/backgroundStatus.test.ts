@@ -16,7 +16,7 @@ beforeEach(async () => {
     JSON.stringify({ state: 'done', updatedAt: '2026-01-01T00:00:00.000Z' }),
     'utf-8',
   )
-  await mkdir(join(brainHome, 'wikis', 'me'), { recursive: true })
+  await mkdir(join(brainHome, 'wiki'), { recursive: true })
 })
 
 afterEach(async () => {

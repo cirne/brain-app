@@ -6,6 +6,8 @@
   import AppTopNav from '@components/AppTopNav.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
+  import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
+  import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
   import Wiki from '@components/Wiki.svelte'
   import WikiDirList from '@components/WikiDirList.svelte'
   import WikiPrimaryShell from '@components/WikiPrimaryShell.svelte'
@@ -55,7 +57,6 @@
   import WikiPrimaryBarCrumbs from '@components/WikiPrimaryBarCrumbs.svelte'
   import {
     MY_WIKI_SEGMENT,
-    MY_WIKI_URL_SEGMENT,
     mergeWikiBrowseChildPath,
     parseUnifiedWikiBrowsePath
       } from '@client/lib/wikiDirListModel.js'
@@ -63,7 +64,6 @@
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
-  import { fetchWikiSharesList } from '@client/lib/wikiSharesClient.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import {
@@ -96,7 +96,6 @@
     LayoutGrid,
     Search as SearchIcon,
     Settings,
-    Share2,
     Trash2,
     Volume2,
     VolumeX
@@ -120,21 +119,6 @@
 
   /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
   let wikiPrimarySlideHeader = $state<WikiSlideHeaderState | null>(null)
-
-  function wikiShareAudienceBadgePrimary(n: number | undefined): string {
-    const c = n ?? 0
-    return c > 9 ? '9+' : `${c}`
-  }
-
-  function wikiPrimaryShareTitle(hdr: WikiSlideHeaderState): string {
-    const n = hdr.shareAudienceCount ?? 0
-    return n > 0 ? `Shared with ${n} people — manage access` : 'Share'
-  }
-
-  function wikiPrimaryShareAria(hdr: WikiSlideHeaderState): string {
-    const n = hdr.shareAudienceCount ?? 0
-    return n > 0 ? `Shared with ${n} people; manage access.` : 'Share'
-  }
 
   const { navigateShell: navigateShellInner, optsWithBarTitle } = createShellNavigate(() => shell.chatTitleForUrl)
 
@@ -182,8 +166,7 @@
     try {
       shell.suppressMobileWikiStackMutation = true
       shell.mobileWikiOverlayStack = popped.nextStack
-      const extra = wikiShareOptsFromRoute()
-      const overlay: Overlay = { type: 'wiki', path: popped.navigateToPath, ...extra }
+      const overlay: Overlay = { type: 'wiki', path: popped.navigateToPath }
       const flags = routeSurfaceFlagsForOverlay(overlay)
       navigateShellInner(
         {
@@ -197,89 +180,6 @@
     } finally {
       shell.suppressMobileWikiStackMutation = false
     }
-  }
-
-  function wikiShareOptsFromRoute(): {
-    shareOwner?: string
-    sharePrefix?: string
-    shareHandle?: string
-  } {
-    const o = shell.route.overlay
-    if (!o) return {}
-    if (o.type !== 'wiki' && o.type !== 'wiki-dir') return {}
-    const out: {
-      shareOwner?: string
-      sharePrefix?: string
-      shareHandle?: string
-    } = {}
-    const so = o.shareOwner?.trim()
-    const sp = o.sharePrefix?.trim()
-    let sh = o.shareHandle?.trim()
-    if (!sh && o.path) {
-      const parsed = parseUnifiedWikiBrowsePath(o.path)
-      sh = parsed.shareHandle?.trim()
-    }
-    if (so) out.shareOwner = so
-    if (sp) out.sharePrefix = sp
-    if (sh) out.shareHandle = sh
-    return out
-  }
-
-  function openSharedWiki(p: { ownerId: string; pathPrefix: string; ownerHandle?: string }) {
-    const raw = p.pathPrefix.trim()
-    const sharePrefix = raw.endsWith('/') ? raw : `${raw}/`
-    const dirPath = sharePrefix.replace(/\/$/, '') || undefined
-    const handle = p.ownerHandle?.trim()
-    const overlay: Overlay = {
-      type: 'wiki-dir',
-      path: dirPath,
-      shareOwner: p.ownerId,
-      sharePrefix,
-      ...(handle ? { shareHandle: handle } : {})
-      }
-    if (shell.route.zone === 'wiki') {
-      const replace = shouldReplaceWikiOverlay(shell.route)
-      navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
-    } else {
-      const replace = wikiOverlayReplace()
-      const flags = routeSurfaceFlagsForOverlay(overlay)
-      navigateShell(
-        {
-          overlay, zone: flags.zone,
-          ...(flags.useChatSession ? chatSessionPart() : {})
-      },
-        replace ? { replace: true } : undefined,
-      )
-    }
-    shell.route = parseRoute()
-  }
-
-  function openSharedWikiFile(p: { ownerId: string; filePath: string; ownerHandle?: string }) {
-    const path = p.filePath.trim()
-    if (!path.endsWith('.md')) return
-    const handle = p.ownerHandle?.trim()
-    const overlay: Overlay = {
-      type: 'wiki',
-      path,
-      shareOwner: p.ownerId,
-      sharePrefix: path,
-      ...(handle ? { shareHandle: handle } : {})
-      }
-    if (shell.route.zone === 'wiki') {
-      const replace = shouldReplaceWikiOverlay(shell.route)
-      navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
-    } else {
-      const replace = wikiOverlayReplace()
-      const flags = routeSurfaceFlagsForOverlay(overlay)
-      navigateShell(
-        {
-          overlay, zone: flags.zone,
-          ...(flags.useChatSession ? chatSessionPart() : {})
-      },
-        replace ? { replace: true } : undefined,
-      )
-    }
-    shell.route = parseRoute()
   }
 
   /** Invalidates in-flight `loadSession` when the bar's `/c/:id` changes again (back/forward). */
@@ -316,33 +216,6 @@
     return wikiPrimaryCrumbsForOverlay(o)
   })
 
-  /** Bare `/wiki` hub lists My Wiki + shares; with no received shares, redirect to `/wiki/me/`. */
-  $effect(() => {
-    if (shell.route.zone !== 'wiki') return
-    const o = shell.route.overlay
-    if (!o || o.type !== 'wiki-dir') return
-    if (o.path?.trim() || o.shareHandle?.trim() || o.shareOwner?.trim()) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await fetch('/api/wiki')
-        if (!res.ok) return
-        const received = parseWikiListApiBody(await res.json()).shares.received
-        if (cancelled || received.length > 0) return
-        navigateShell(
-          { zone: 'wiki', overlay: { type: 'wiki-dir', path: MY_WIKI_URL_SEGMENT } },
-          { replace: true },
-        )
-        shell.route = parseRoute()
-      } catch {
-        /* keep browsing hub on fetch failure */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  })
-
   let wikiDockWikiFiles = $state<string[]>([])
   let wikiDockSkills = $state<SkillMenuItem[]>([])
   let wikiDockDraft = $state('')
@@ -354,8 +227,7 @@
     const o = shell.route.overlay
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return 'wiki-primary'
     const p = 'path' in o ? (o.path ?? '') : ''
-    const h = 'shareHandle' in o ? (o.shareHandle ?? '') : ''
-    return `wiki-primary-${o.type}-${h}-${p}`
+    return `wiki-primary-${o.type}-${p}`
   })
   const wikiDockVoiceEligible = $derived(isPressToTalkEnabled())
 
@@ -452,14 +324,6 @@
       .catch(() => {
         shell.hostedHandleNav = undefined
       })
-      .finally(() => {
-        void refreshPendingWikiShareInvitesBadge()
-      })
-
-    const onVisibilityForShares = () => {
-      if (document.visibilityState === 'visible') void refreshPendingWikiShareInvitesBadge()
-    }
-    document.addEventListener('visibilitychange', onVisibilityForShares)
 
     if (mq.matches) {
       shell.sidebarOpen = false
@@ -550,7 +414,6 @@
     const stopHubEvents = startHubEventsConnection()
 
     return () => {
-      document.removeEventListener('visibilitychange', onVisibilityForShares)
       stopHubEvents()
       mq.removeEventListener('change', onMqChange)
       mqReduce.removeEventListener('change', syncReduce)
@@ -566,10 +429,6 @@
         onWikiMutatedForAutoSync()
       } else if (e.type === 'sync:completed') {
         shell.calendarRefreshKey++
-        shell.wikiRefreshKey++
-        void refreshPendingWikiShareInvitesBadge()
-      } else if (e.type === 'wiki-shares-changed') {
-        void refreshPendingWikiShareInvitesBadge()
         shell.wikiRefreshKey++
       }
     })
@@ -657,7 +516,7 @@
   }
 
   function navigateWikiPrimary(path?: string) {
-    const overlay = overlayForWikiPrimaryShortcut(path, wikiShareOptsFromRoute())
+    const overlay = overlayForWikiPrimaryShortcut(path)
     const replace = shell.route.zone === 'wiki' && shouldReplaceWikiOverlay(shell.route)
     navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
     shell.route = parseRoute()
@@ -703,29 +562,9 @@
     if (merged === undefined) return
     const m = merged.trim().replace(/^\.\/+/, '')
     const parsed = parseUnifiedWikiBrowsePath(m)
-    const extra = wikiShareOptsFromRoute()
-    const sh =
-      parsed.shareHandle?.trim().replace(/^@+/, '') ||
-      extra.shareHandle?.trim().replace(/^@+/, '') ||
-      undefined
     const vault = parsed.vaultRelPath.trim()
-    const unified =
-      m.startsWith('@') || m.startsWith('me/')
-        ? m
-        : sh && vault.length > 0
-          ? `@${sh}/${vault}`
-          : vault.length > 0
-            ? vault
-            : m
-    const overlay: Overlay = {
-      type: 'wiki',
-      path: unified,
-      ...(!m.startsWith('@') &&
-      !sh &&
-      (extra.shareOwner?.trim() || extra.sharePrefix?.trim())
-        ? { shareOwner: extra.shareOwner, sharePrefix: extra.sharePrefix }
-        : {})
-      }
+    const unified = m.startsWith('@') || m.startsWith('me/') ? m : vault.length > 0 ? vault : m
+    const overlay: Overlay = { type: 'wiki', path: unified }
     if (shell.route.zone === 'wiki') {
       const replace = shouldReplaceWikiOverlay(shell.route)
       navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
@@ -748,19 +587,11 @@
     const t = trimmed?.trim()
     if (!t) return { type: 'wiki-dir' }
     if (t === 'me' || t === 'my-wiki' || t === MY_WIKI_SEGMENT) {
-      return { type: 'wiki-dir', path: 'me' }
+      return { type: 'wiki-dir' }
     }
     const parsed = parseUnifiedWikiBrowsePath(t)
-    if (parsed.shareHandle) {
-      const ownerDir = parsed.vaultRelPath.replace(/\/+$/, '') || undefined
-      return {
-        type: 'wiki-dir',
-        ...(ownerDir ? { path: ownerDir } : {}),
-        shareHandle: parsed.shareHandle
-      }
-    }
     let path = parsed.vaultRelPath.replace(/\/+$/, '') || undefined
-    if (path === 'my-wiki' || path === MY_WIKI_SEGMENT) path = 'me'
+    if (path === 'my-wiki' || path === MY_WIKI_SEGMENT) path = undefined
     return path ? { type: 'wiki-dir', path } : { type: 'wiki-dir' }
   }
 
@@ -1259,45 +1090,15 @@
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
-  function openSettingsSharing() {
-    openSettings()
-    if (typeof window === 'undefined') return
-    requestAnimationFrame(() => {
-      const base = window.location.pathname + window.location.search
-      history.replaceState(null, '', `${base}#sharing`)
-      document.getElementById('settings-sharing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-  }
-
   function openHubActivity() {
     navigateShell({ zone: 'hub' as RouteZone })
     shell.route = parseRoute()
     if (shell.isMobile) shell.sidebarOpen = false
-    void refreshPendingWikiShareInvitesBadge()
   }
 
-  async function refreshPendingWikiShareInvitesBadge() {
-    try {
-      const data = await fetchWikiSharesList()
-      shell.pendingWikiShareInvitesCount = data?.pendingReceived?.length ?? 0
-    } catch {
-      /* ignore — optional badge; dev/test fetch may be unmocked or offline */
-    }
-  }
-
-  function onNavigateToSharedWikiFromHub(p: {
-    ownerId: string
-    ownerHandle: string
-    pathPrefix: string
-    targetKind: 'dir' | 'file'
-  }) {
-    if (p.targetKind === 'file') {
-      openSharedWikiFile({ ownerId: p.ownerId, filePath: p.pathPrefix, ownerHandle: p.ownerHandle })
-    } else {
-      openSharedWiki({ ownerId: p.ownerId, pathPrefix: p.pathPrefix, ownerHandle: p.ownerHandle })
-    }
-    shell.route = parseRoute()
-    void refreshPendingWikiShareInvitesBadge()
+  function openBrainAccessSettings() {
+    navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })
+    if (shell.isMobile) shell.sidebarOpen = false
   }
 
   function onEditStreaming(p: { id: string; path: string; done: boolean }) {
@@ -1309,10 +1110,6 @@
       shell.wikiEditStreaming = { path: wikiPathForReadToolArg(p.path), toolId: p.id }
     }
   }
-
-  /** Shared icon-button recipe for the wiki primary bar (Share only — editing is always-on TipTap in `Wiki.svelte`). */
-  const wikiPrimaryIconBtn =
-    'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
 
   /** Tracks the current chat's hearReplies state for the mobile overflow menu label/icon. */
   let chatHearReplies = $state(false)
@@ -1428,13 +1225,11 @@
     onWikiHome={() => navigateWikiPrimary()}
     isEmptyChat={topNavNewChatDisabled}
     hostedHandlePill={shell.hostedHandleNav}
-    shareInviteBadge={shell.pendingWikiShareInvitesCount > 0}
     onOpenSettings={openSettings}
-    onOpenSharing={openSettingsSharing}
+    onOpenSharing={openBrainAccessSettings}
     mobileCenterTitle={appMobileNavCenterTitle}
     mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
-    mobileOverflowAlert={appMobileNavCompact &&
-      (shell.syncErrors.length > 0 || shell.pendingWikiShareInvitesCount > 0)}
+    mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
   />
 
   <div class="app-main-row relative flex min-h-0 flex-1">
@@ -1483,13 +1278,17 @@
           shell.route.zone !== 'wiki' &&
           !!shell.route.overlay &&
           shell.route.overlay.type !== 'hub' &&
-          shell.route.overlay.type !== 'chat-history'
+          shell.route.overlay.type !== 'chat-history' &&
+          shell.route.overlay.type !== 'brain-access' &&
+          shell.route.overlay.type !== 'brain-access-policy'
         }
         desktopDetailOpen={
           shell.route.zone !== 'wiki' &&
           !!shell.route.overlay &&
           shell.route.overlay.type !== 'hub' &&
           shell.route.overlay.type !== 'chat-history' &&
+          shell.route.overlay.type !== 'brain-access' &&
+          shell.route.overlay.type !== 'brain-access-policy' &&
           useDesktopSplitDetail
         }
         onNavigateClear={closeOverlayImmediate}
@@ -1513,27 +1312,6 @@
                   <div class="wiki-primary-bar flex shrink-0 items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-2.5 py-1.5">
                     <WikiPrimaryBarCrumbs crumbs={wikiPrimaryBarCrumbs} onOpenWikiDir={openWikiDir} />
                     <div class="wiki-primary-actions flex shrink-0 items-center gap-2" role="toolbar" aria-label="Wiki actions">
-                      {#if wikiPrimarySlideHeader?.sharedIncoming}
-                        <span class="wiki-primary-pill text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3,var(--text-2))]">Read-only</span>
-                      {/if}
-                      {#if wikiPrimarySlideHeader?.canShare && wikiPrimarySlideHeader.onOpenShare}
-                        <button
-                          type="button"
-                          class={cn(wikiPrimaryIconBtn, 'wiki-share-header-btn')}
-                          onclick={() => wikiPrimarySlideHeader?.onOpenShare?.()}
-                          title={wikiPrimaryShareTitle(wikiPrimarySlideHeader)}
-                          aria-label={wikiPrimaryShareAria(wikiPrimarySlideHeader)}
-                        >
-                          <span class="wiki-share-header-inner relative inline-flex items-center justify-center">
-                            <Share2 size={17} strokeWidth={2} aria-hidden="true" />
-                            {#if (wikiPrimarySlideHeader.shareAudienceCount ?? 0) > 0}
-                              <span class="wiki-share-header-badge absolute -top-1 -right-2 box-border inline-block min-w-[16px] rounded-full h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
-                                {wikiShareAudienceBadgePrimary(wikiPrimarySlideHeader.shareAudienceCount)}
-                              </span>
-                            {/if}
-                          </span>
-                        </button>
-                      {/if}
                       {#if shell.route.overlay.type === 'wiki' && wikiPrimarySlideHeader}
                         {#if wikiPrimarySlideHeader.saveState === 'saving'}
                           <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saving…</span>
@@ -1552,9 +1330,6 @@
                       {#if shell.route.overlay.type === 'wiki'}
                         <Wiki
                           initialPath={shell.route.overlay.path}
-                          shareOwner={shell.route.overlay.shareOwner}
-                          sharePrefix={shell.route.overlay.sharePrefix}
-                          shareHandle={shell.route.overlay.shareHandle}
                           refreshKey={shell.wikiRefreshKey}
                           streamingWrite={shell.wikiWriteStreaming}
                           streamingEdit={shell.wikiEditStreaming}
@@ -1565,24 +1340,9 @@
                       {:else}
                         <WikiDirList
                           dirPath={shell.route.overlay.path}
-                          shareOwner={shell.route.overlay.shareOwner}
-                          sharePrefix={shell.route.overlay.sharePrefix}
-                          shareHandle={shell.route.overlay.shareHandle}
                           refreshKey={shell.wikiRefreshKey}
                           onOpenFile={(path) => onWikiNavigate(path)}
                           onOpenDir={(path) => openWikiDir(path)}
-                          onOpenSharedDir={(p) =>
-                            openSharedWiki({
-                              ownerId: p.ownerId,
-                              pathPrefix: p.sharePrefix,
-                              ownerHandle: p.ownerHandle
-      })}
-                          onOpenSharedFile={(p) =>
-                            openSharedWikiFile({
-                              ownerId: p.ownerId,
-                              filePath: p.sharePrefix,
-                              ownerHandle: p.ownerHandle
-      })}
                           onContextChange={setContext}
                         />
                       {/if}
@@ -1619,6 +1379,7 @@
                 <BrainHubPage
                   onHubNavigate={navigateFromHub}
                   onOpenSettings={openSettings}
+                  onOpenBrainAccess={openBrainAccessSettings}
                 />
               </div>
               {#if
@@ -1641,8 +1402,6 @@
                     wikiStreamingEdit={shell.wikiEditStreaming}
                     onWikiNavigate={onWikiNavigate}
                     onWikiDirNavigate={openWikiDir}
-                    onOpenSharedWiki={openSharedWiki}
-                    onOpenSharedWikiFile={openSharedWikiFile}
                     onInboxNavigate={onInboxNavigateSlide}
                     onContextChange={setContext}
                     onOpenSearch={() => { shell.showSearch = true }}
@@ -1665,19 +1424,34 @@
           {:else if shell.route.zone === 'settings'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-                <BrainSettingsPage
-                  onSettingsNavigate={navigateFromSettings}
-                  selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
-                    ? shell.route.overlay.id
-                    : undefined}
-                  onNavigateToSharedWiki={onNavigateToSharedWikiFromHub}
-                />
+                {#if shell.route.overlay?.type === 'brain-access'}
+                  <BrainAccessPage
+                    onSettingsNavigate={navigateFromSettings}
+                    onBackToSettingsMain={() => navigateShell({ zone: 'settings' })}
+                  />
+                {:else if shell.route.overlay?.type === 'brain-access-policy'}
+                  <PolicyDetailPage
+                    policyId={shell.route.overlay.policyId}
+                    onSettingsNavigate={navigateFromSettings}
+                    onBackToBrainAccessList={() =>
+                      navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
+                  />
+                {:else}
+                  <BrainSettingsPage
+                    onSettingsNavigate={navigateFromSettings}
+                    selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
+                      ? shell.route.overlay.id
+                      : undefined}
+                  />
+                {/if}
               </div>
               {#if
                 !useDesktopSplitDetail &&
                 shell.route.overlay &&
                 shell.route.overlay.type !== 'hub' &&
-                shell.route.overlay.type !== 'chat-history'
+                shell.route.overlay.type !== 'chat-history' &&
+                shell.route.overlay.type !== 'brain-access' &&
+                shell.route.overlay.type !== 'brain-access-policy'
               }
                 <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
                   <AssistantSlideOver
@@ -1693,8 +1467,6 @@
                     wikiStreamingEdit={shell.wikiEditStreaming}
                     onWikiNavigate={onWikiNavigate}
                     onWikiDirNavigate={openWikiDir}
-                    onOpenSharedWiki={openSharedWiki}
-                    onOpenSharedWikiFile={openSharedWikiFile}
                     onInboxNavigate={onInboxNavigateSlide}
                     onContextChange={setContext}
                     onOpenSearch={() => { shell.showSearch = true }}
@@ -1779,8 +1551,6 @@
                     wikiStreamingEdit={shell.wikiEditStreaming}
                     onWikiNavigate={onWikiNavigate}
                     onWikiDirNavigate={openWikiDir}
-                    onOpenSharedWiki={openSharedWiki}
-                    onOpenSharedWikiFile={openSharedWikiFile}
                     onInboxNavigate={onInboxNavigateSlide}
                     onContextChange={setContext}
                     onOpenSearch={() => { shell.showSearch = true }}
@@ -1820,8 +1590,6 @@
               wikiStreamingEdit={shell.wikiEditStreaming}
               onWikiNavigate={onWikiNavigate}
               onWikiDirNavigate={openWikiDir}
-              onOpenSharedWiki={openSharedWiki}
-              onOpenSharedWikiFile={openSharedWikiFile}
               onInboxNavigate={onInboxNavigateSlide}
               onContextChange={setContext}
               onOpenSearch={() => { shell.showSearch = true }}

@@ -16,6 +16,7 @@
   import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
   import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
   import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
+  import HubSharingSection from '@components/hub/HubSharingSection.svelte'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
 
   /** Background snapshot read from `/api/background-status` — poll while Hub is open. */
@@ -32,9 +33,11 @@
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** Opens Settings primary column (`/settings`); when set, Manage uses SPA navigation. */
     onOpenSettings?: () => void
+    /** Opens Brain-to-brain policy UI (`/settings/brain-access`). */
+    onOpenBrainAccess?: () => void
   }
 
-  let { onHubNavigate, onOpenSettings }: Props = $props()
+  let { onHubNavigate, onOpenSettings, onOpenBrainAccess }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -487,6 +490,12 @@
         {/if}
       </div>
     </section>
+
+    <HubSharingSection
+      onManageBrainAccess={() => {
+        onOpenBrainAccess?.()
+      }}
+    />
   </div>
 </div>
 

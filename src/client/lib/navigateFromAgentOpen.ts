@@ -1,11 +1,6 @@
 export type AgentOpenTarget = {
   type: string
   path?: string
-  /**
-   * Rare legacy: path without `@handle/` — combine into `@handle/path` so the shell uses one
-   * unified path in the overlay (same as `wikis/` layout).
-   */
-  shareHandle?: string
   id?: string
   date?: string
   /** Ripmail source id (`read_indexed_file` args.source) for indexed-file opens */
@@ -25,7 +20,7 @@ export function navigateFromAgentOpen(
     source: AgentOpenSource
     /** True when the shell uses slide-over / stacked detail (mobile viewport or narrow workspace column). */
     isMobile: boolean
-    /** Unified wiki path: `@theirHandle/…`, `me/…`, or vault-relative under my wiki. */
+    /** Wiki path (vault-relative or legacy `me/…`). */
     openWikiDoc: (unifiedPath: string) => void
     /** Raw filesystem path — `/files/…` in the app, not wiki. */
     openFileDoc?: (path: string) => void
@@ -46,15 +41,7 @@ export function navigateFromAgentOpen(
   }
   if (target.type === 'wiki' && target.path) {
     const raw = target.path.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
-    const shLegacy =
-      typeof (target as { shareHandle?: unknown }).shareHandle === 'string'
-        ? String((target as { shareHandle: string }).shareHandle).trim().replace(/^@+/, '').trim()
-        : ''
-    const unified =
-      raw.startsWith('@') || !shLegacy.length
-        ? raw
-        : `@${shLegacy}/${raw.replace(/^\/+/, '')}`
-    ctx.openWikiDoc(unified)
+    ctx.openWikiDoc(raw)
     return
   }
   if (target.type === 'email' && target.id) {

@@ -3,125 +3,36 @@
   import { Mail } from 'lucide-svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
 
-  type SeedPayload =
-    | { status: 'ready' }
-    | { status: 'running'; phase: string; startedAt: number }
-    | { status: 'failed'; message: string; startedAt: number | null }
-    | { status: 'idle' }
+  type DemoUserOption = { key: string; label: string }
+
+  let demoUsers = $state<DemoUserOption[]>([])
+  let selectedDemoUser = $state('kean')
+  let usersLoadError = $state<string | null>(null)
 
   let secret = $state('')
   let busy = $state(false)
   let errorMsg = $state<string | null>(null)
-  let seeding = $state(false)
-  let seedInfo = $state<SeedPayload | null>(null)
-  let pollTimer: ReturnType<typeof setInterval> | null = null
-  /** Bumps every 1s while seeding so elapsed / countdown re-render without waiting on network. */
-  let seedUiTick = $state(0)
-  /** Last successful `seed-status` response time (ms); drives “next check in …s”. */
-  let lastPollOkAt = $state(0)
-  let statusPollError = $state<string | null>(null)
-
-  const POLL_MS = 5000
-
-  $effect(() => {
-    if (!seeding) {
-      seedUiTick = 0
-      return
-    }
-    const id = window.setInterval(() => {
-      seedUiTick += 1
-    }, 1000)
-    return () => clearInterval(id)
-  })
-
-  const elapsedSec = $derived.by(() => {
-    void seedUiTick
-    if (seedInfo?.status !== 'running' || seedInfo.startedAt == null) return null
-    return Math.max(0, Math.floor((Date.now() - seedInfo.startedAt) / 1000))
-  })
-
-  const nextCheckInSec = $derived.by(() => {
-    void seedUiTick
-    if (!lastPollOkAt) return Math.ceil(POLL_MS / 1000)
-    return Math.max(0, Math.ceil((lastPollOkAt + POLL_MS - Date.now()) / 1000))
-  })
 
   function authHeader(): string {
     return `Bearer ${secret.trim()}`
   }
 
-  async function tryMint(): Promise<'ok' | 'seeding' | 'error'> {
-    errorMsg = null
-    const res = await fetch('/api/auth/demo/enron', {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Authorization: authHeader() },
-    })
-    if (res.status === 200) {
-      window.location.href = '/c'
-      return 'ok'
-    }
-    if (res.status === 202) {
-      const j = (await res.json()) as { seed?: SeedPayload }
-      seedInfo = j.seed ?? null
-      if (j.seed?.status === 'failed') {
-        errorMsg = j.seed.message
-        return 'error'
-      }
-      return 'seeding'
-    }
-    const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
-    errorMsg = j.message ?? j.error ?? `Request failed (${res.status})`
-    return 'error'
-  }
-
-  async function pollSeedStatus() {
+  async function loadDemoUsers(): Promise<void> {
+    usersLoadError = null
     try {
-      const res = await fetch('/api/auth/demo/enron/seed-status', {
-        cache: 'no-store',
-        headers: { Authorization: authHeader() },
-      })
+      const res = await fetch('/api/auth/demo/enron/users', { cache: 'no-store' })
       if (!res.ok) {
-        statusPollError = `Status check failed (HTTP ${res.status}).`
+        usersLoadError = `Could not load demo accounts (${res.status}).`
         return
       }
-      statusPollError = null
-      lastPollOkAt = Date.now()
-      const j = (await res.json()) as { seed?: SeedPayload }
-      const snap = j.seed ?? null
-      seedInfo = snap
-      if (j.seed?.status === 'failed') {
-        stopPoll()
-        seeding = false
-        errorMsg = j.seed.message
-        return
-      }
-      if (j.seed?.status === 'ready') {
-        stopPoll()
-        busy = true
-        const r = await tryMint()
-        busy = false
-        if (r === 'seeding') {
-          seeding = true
-          startPoll()
-        }
+      const j = (await res.json()) as { users?: DemoUserOption[] }
+      const list = j.users ?? []
+      demoUsers = list
+      if (list.length > 0 && !list.some(u => u.key === selectedDemoUser)) {
+        selectedDemoUser = list[0]!.key
       }
     } catch {
-      /* ignore transient errors while seeding */
-    }
-  }
-
-  function startPoll() {
-    stopPoll()
-    lastPollOkAt = 0
-    void pollSeedStatus()
-    pollTimer = setInterval(() => void pollSeedStatus(), POLL_MS)
-  }
-
-  function stopPoll() {
-    if (pollTimer != null) {
-      clearInterval(pollTimer)
-      pollTimer = null
+      usersLoadError = 'Could not load demo accounts.'
     }
   }
 
@@ -129,20 +40,30 @@
     e.preventDefault()
     if (!secret.trim() || busy) return
     busy = true
-    seeding = false
-    seedInfo = null
-    stopPoll()
-    const r = await tryMint()
-    busy = false
-    if (r === 'seeding') {
-      statusPollError = null
-      seeding = true
-      startPoll()
+    errorMsg = null
+    try {
+      const res = await fetch('/api/auth/demo/enron', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          Authorization: authHeader(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ demoUser: selectedDemoUser }),
+      })
+      if (res.status === 200) {
+        window.location.href = '/c'
+        return
+      }
+      const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
+      errorMsg = j.message ?? j.error ?? `Request failed (${res.status})`
+    } finally {
+      busy = false
     }
   }
 
   onMount(() => {
-    return () => stopPoll()
+    void loadDemoUsers()
   })
 </script>
 
@@ -155,48 +76,50 @@
           <Mail size={20} strokeWidth={2} />
         </div>
         <span class="ob-kicker">Braintunnel demo</span>
-        <h1 id="enron-demo-title" class="ob-headline">Test Account: Enron</h1>
+        <h1 id="enron-demo-title" class="ob-headline">Test accounts: Enron</h1>
       </header>
-
-      {#if seeding}
-        <div
-          class="ob-lead mt-4 w-full border border-border px-4 py-3 text-center text-sm font-mono"
-          aria-live="polite"
-        >
-          <p class="font-medium">Provisioning demo data…</p>
-          {#if seedInfo?.status === 'running'}
-            <p class="mt-2 text-muted">
-              Phase: {seedInfo.phase} · started {new Date(seedInfo.startedAt).toLocaleTimeString()}
-              {#if elapsedSec != null}
-                · elapsed {elapsedSec}s
-              {/if}
-            </p>
-          {:else if seedInfo?.status === 'failed'}
-            <p class="mt-2 text-danger">{seedInfo.message}</p>
-          {:else}
-            <p class="mt-2 text-muted">Starting…</p>
-          {/if}
-          {#if statusPollError}
-            <p class="mt-2 text-xs text-danger">{statusPollError}</p>
-          {/if}
-          <p class="mt-3 text-xs text-muted">
-            Next status check in {nextCheckInSec}s (every {POLL_MS / 1000}s).
-          </p>
-        </div>
-      {/if}
 
       <form
         class="mt-6 flex w-full flex-col gap-3 text-center"
         onsubmit={onSubmit}
       >
+        <fieldset class="flex flex-col gap-2 text-left" disabled={busy}>
+          <legend class="sr-only">Demo mailbox</legend>
+          {#if usersLoadError}
+            <p class="text-xs text-danger">{usersLoadError}</p>
+          {:else if demoUsers.length > 0}
+            {#each demoUsers as u (u.key)}
+              <label
+                class="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="demoUser"
+                  value={u.key}
+                  checked={selectedDemoUser === u.key}
+                  onchange={() => {
+                    selectedDemoUser = u.key
+                  }}
+                  class="shrink-0"
+                />
+                <span>{u.label}</span>
+              </label>
+            {/each}
+          {:else}
+            <p class="text-xs text-muted">Loading demo accounts…</p>
+          {/if}
+        </fieldset>
+
+        <label class="sr-only" for="enron-demo-secret">Demo password</label>
         <input
           id="enron-demo-secret"
           name="secret"
           type="password"
           autocomplete="off"
+          placeholder="Demo password"
           class="ob-input w-full"
           bind:value={secret}
-          disabled={busy || seeding}
+          disabled={busy}
         />
         {#if errorMsg}
           <p class="text-sm text-danger">{errorMsg}</p>
@@ -204,15 +127,17 @@
         <button
           type="submit"
           class="ob-btn-primary w-full"
-          disabled={busy || !secret.trim()}
+          disabled={busy || !secret.trim() || demoUsers.length === 0}
         >
-          {seeding ? 'Working…' : busy ? 'Please wait…' : 'Continue'}
+          {busy ? 'Please wait…' : 'Continue'}
         </button>
       </form>
 
       <p class="ob-lead mt-4 text-xs text-muted">
-        This workspace is seeded from the public Enron email dataset (roughly 1998–2001). You sign in as chief of
-        staff to Enron chairman Ken Lay. For background on the corpus, see
+        Pick a mailbox (Steven Kean, Kenneth Lay, or Jeff Skilling), then enter the shared demo password you were
+        given. Demo mail must be pre-seeded on the server (<code
+          class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]"
+          >npm run brain:seed-enron-demo:dev</code>). Data comes from the public Enron email dataset (roughly 1998–2001). For background, see
         <a
           href="https://www.cs.cmu.edu/~enron/"
           target="_blank"

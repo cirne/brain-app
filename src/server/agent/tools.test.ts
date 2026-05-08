@@ -33,14 +33,14 @@ import {
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
-// Shared fixture: $BRAIN_HOME/wikis/me (vault root)
+// Shared fixture: $BRAIN_HOME/wiki (wiki markdown root)
 let brainHome: string
 let wikiDir: string
 
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'tools-test-'))
   process.env.BRAIN_HOME = brainHome
-  wikiDir = join(brainHome, 'wikis', 'me')
+  wikiDir = join(brainHome, 'wiki')
   vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
     events: [],
     meta: { sourcesConfigured: false, ripmail: '' },
@@ -998,7 +998,7 @@ fi
       expect(rec.fromPath).toBe('ideas/foo.md')
     })
 
-    it('move_file accepts redundant me/ prefix on paths (vault root is already me/)', async () => {
+    it('move_file accepts redundant legacy me/ prefix on paths', async () => {
       const { mkdir, writeFile, access } = await import('node:fs/promises')
       await mkdir(join(wikiDir, 'travel', 'archive'), { recursive: true })
       await writeFile(join(wikiDir, 'travel', 'vb.md'), '# VB\n')

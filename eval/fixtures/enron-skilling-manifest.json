@@ -1,0 +1,9 @@
+{
+  "description": "CMU Enron maildir: skilling-j → demo/eval ripmail (same tarball as kean-s).",
+  "sourceUrl": "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz",
+  "expectedSha256": "b3da1b3fe0369ec3140bb4fbce94702c33b7da810ec15d718b3fadf5cd748ca7",
+  "sourceUser": "skilling-j",
+  "pathInsideArchive": "maildir/skilling-j",
+  "accountEmail": "jeff.skilling@enron.com",
+  "mailboxId": "skilling_eval_enron_fixture"
+}

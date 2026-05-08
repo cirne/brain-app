@@ -1,16 +1,13 @@
 /**
- * Classifies wiki paths and formats provenance tags for find/grep/read output — BUG-042.
+ * Classifies wiki paths and formats provenance tags for find/grep output (BUG-042).
  *
- * **Agent-facing paths:** personal vault files are **vault-relative** (`people/x.md`, `index.md`).
- * Collaborator trees use **`@handle/…`**. Internal find/grep still walk the unified `wikis/` tree;
- * unified `me/…` prefixes are stripped for model-facing output via {@link agentPathFromUnifiedToolsRel}.
+ * Wiki lives under a single `wiki/` root. Legacy `me/…` prefixes are stripped for model-facing output.
  */
 import path from 'node:path'
-import { WIKIS_ME_SEGMENT } from '@server/lib/platform/brainLayout.js'
 
 export type WikiPathProvenance =
-  | { scope: 'me'; handle: null }
-  | { scope: 'shared'; handle: string }
+  | { scope: 'vault'; handle: null }
+  | { scope: 'legacy_at'; handle: string }
   | { scope: 'other'; handle: null }
 
 export function normalizeWikiToolsRelPath(relPath: string): string {
@@ -18,15 +15,15 @@ export function normalizeWikiToolsRelPath(relPath: string): string {
 }
 
 /**
- * Convert unified `wikis/`-relative path (from fd/rg) to vault-relative agent paths (`me/foo` → `foo`).
+ * Strip legacy `me/` and normalize to wiki-root-relative paths for agent display.
  */
 export function agentPathFromUnifiedToolsRel(unifiedRel: string): string {
   const p = normalizeWikiToolsRelPath(unifiedRel)
   if (p === '.' || p === '') return p
   if (p.startsWith('@')) return p
-  if (p === WIKIS_ME_SEGMENT) return '.'
-  if (p.startsWith(`${WIKIS_ME_SEGMENT}/`)) {
-    return p.slice(WIKIS_ME_SEGMENT.length + 1)
+  if (p === 'me') return '.'
+  if (p.startsWith('me/')) {
+    return p.slice('me/'.length)
   }
   return p
 }
@@ -37,26 +34,25 @@ export function toAgentVaultDisplayPath(unifiedRel: string): string {
 }
 
 /**
- * Classify an **agent-facing** wiki path: `@handle/…` = shared; everything else = your vault (`me` scope).
+ * Classify a wiki-relative path: `@segment/…` is legacy (sharing removed); otherwise vault.
  */
 export function classifyWikiToolsRelPath(relPath: string): WikiPathProvenance {
   const p = normalizeWikiToolsRelPath(relPath)
   const first = p.split('/').filter(Boolean)[0] ?? ''
   if (first.startsWith('@')) {
-    return { scope: 'shared', handle: first.slice(1) }
+    return { scope: 'legacy_at', handle: first.slice(1) }
   }
-  return { scope: 'me', handle: null }
+  return { scope: 'vault', handle: null }
 }
 
 export function formatWikiProvenancePrefix(prov: WikiPathProvenance): string {
-  if (prov.scope === 'me') return '[vault:me]'
-  if (prov.scope === 'shared') return `[shared:@${prov.handle}]`
+  if (prov.scope === 'vault') return '[vault]'
+  if (prov.scope === 'legacy_at') return `[legacy:@${prov.handle}]`
   return '[wiki]'
 }
 
 /**
  * Map a grep file segment to a `wikis/`-relative path.
- * Ripgrep often emits paths relative to the search directory, not the full `wikis/` root.
  */
 export function grepFilePartToToolsRel(
   wikiToolsRootAbs: string,
@@ -77,26 +73,26 @@ export function grepFilePartToToolsRel(
   return normalizeWikiToolsRelPath(raw.replace(/\\/g, '/'))
 }
 
-/** Map a path under the wiki tool root (e.g. absolute file under `wikis/`). */
+/** Map a path under the wiki tool root (e.g. absolute file under `wiki/`). */
 export function filePathToToolsRel(wikiDirAbs: string, filePathRaw: string): string {
   return grepFilePartToToolsRel(wikiDirAbs, wikiDirAbs, filePathRaw)
 }
 
 export function buildWikiMixedScopeSummary(classifications: WikiPathProvenance[]): string | null {
-  let personal = 0
-  let shared = 0
+  let vault = 0
+  let legacy = 0
   const handles = new Set<string>()
   for (const c of classifications) {
-    if (c.scope === 'shared') {
-      shared++
+    if (c.scope === 'legacy_at') {
+      legacy++
       handles.add(c.handle)
     } else {
-      personal++
+      vault++
     }
   }
-  if (personal > 0 && shared > 0) {
+  if (vault > 0 && legacy > 0) {
     const h = [...handles].sort().join(', ')
-    return `Wiki search: ${personal} hit(s) in your vault, ${shared} under collaborator shared wiki (${h}). Attribute shared lines to those handles — do not treat them as your own notes unless the same fact appears in your vault.`
+    return `Wiki search: ${vault} hit(s) in your wiki, ${legacy} under legacy @ paths (${h}). Prefer vault paths; @ sharing was removed.`
   }
   return null
 }
@@ -115,7 +111,7 @@ function splitTrailingMetaParagraph(text: string): { body: string; trailing: str
   return { body: text, trailing: '' }
 }
 
-/** Post-process find tool output: vault-relative paths; provenance tags when hits include shared paths. */
+/** Post-process find tool output: wiki-relative paths; tags only when legacy `@` paths appear. */
 export function applyWikiFindProvenanceAnnotations(findText: string): string {
   const t = findText
   if (!t.trim() || t.trim() === 'No files found matching pattern') return t
@@ -131,8 +127,8 @@ export function applyWikiFindProvenanceAnnotations(findText: string): string {
   if (paths.length === 0) return t
 
   const classifications = paths.map(classifyWikiToolsRelPath)
-  const anyShared = classifications.some((c) => c.scope === 'shared')
-  if (!anyShared) {
+  const anyLegacy = classifications.some((c) => c.scope === 'legacy_at')
+  if (!anyLegacy) {
     return agentLines.join('\n') + trailing
   }
 
@@ -147,7 +143,6 @@ export function applyWikiFindProvenanceAnnotations(findText: string): string {
   return (summary ? `${summary}\n` : '') + prefixed.join('\n') + trailing
 }
 
-/** Ripgrep / naive-grep match line; context uses hyphen form. */
 function parseGrepPathFromLine(line: string): string | null {
   const m = /^(.+?):(\d+):(.*)$/.exec(line)
   if (m) return m[1]!.trim()
@@ -190,8 +185,8 @@ export function applyWikiGrepProvenanceAnnotations(
   if (pathSegments.length === 0) return t
 
   const classifications = pathSegments.map(classifyWikiToolsRelPath)
-  const anyShared = classifications.some((c) => c.scope === 'shared')
-  const summary = anyShared ? buildWikiMixedScopeSummary(classifications) : ''
+  const anyLegacy = classifications.some((c) => c.scope === 'legacy_at')
+  const summary = anyLegacy ? buildWikiMixedScopeSummary(classifications) : ''
 
   const outLines = lines.map((line) => {
     if (isGrepMetaLine(line)) return line
@@ -201,7 +196,7 @@ export function applyWikiGrepProvenanceAnnotations(
       const filePart = pathLine[1]!.trim()
       const unifiedRel = grepFilePartToToolsRel(resolvedRoot, resolvedSearch, filePart)
       const agentRel = agentPathFromUnifiedToolsRel(unifiedRel)
-      if (!anyShared) {
+      if (!anyLegacy) {
         return `${agentRel}:${pathLine[2]}:${pathLine[3]}`
       }
       const tag = formatWikiProvenancePrefix(classifyWikiToolsRelPath(agentRel))
@@ -211,7 +206,7 @@ export function applyWikiGrepProvenanceAnnotations(
       const filePart = ctxLine[1]!.trim()
       const unifiedRel = grepFilePartToToolsRel(resolvedRoot, resolvedSearch, filePart)
       const agentRel = agentPathFromUnifiedToolsRel(unifiedRel)
-      if (!anyShared) {
+      if (!anyLegacy) {
         return `${agentRel}-${ctxLine[2]!}- ${ctxLine[3]}`
       }
       const tag = formatWikiProvenancePrefix(classifyWikiToolsRelPath(agentRel))
@@ -222,9 +217,7 @@ export function applyWikiGrepProvenanceAnnotations(
   return (summary ? `${summary}\n` : '') + outLines.join('\n') + trailing
 }
 
-export function sharedWikiReadSourceBanner(relPathUnderTools: string): string | null {
-  const prov = classifyWikiToolsRelPath(relPathUnderTools)
-  if (prov.scope !== 'shared') return null
-  const display = normalizeWikiToolsRelPath(relPathUnderTools).replace(/^\.\/+/, '')
-  return `Source: shared wiki (\`${display}\`) — collaborator’s vault (read-only). Say so when you summarize or quote; do not imply the user wrote this unless they also have the same under me/.`
+/** Sharing removed — always null. */
+export function sharedWikiReadSourceBanner(_relPathUnderTools: string): string | null {
+  return null
 }

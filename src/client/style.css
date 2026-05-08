@@ -154,8 +154,18 @@ svg.sync-spinning {
 }
 
 @theme {
-  /* Semantic surfaces and text — map :root tokens to Tailwind utilities (bg-surface, text-muted, …) */
+  /* Semantic surfaces and text — map :root tokens to Tailwind utilities (bg-surface, text-muted, …)
+   *
+   * Surface scale (only these produce bg-/border-/text-* utilities):
+   *   bg-surface      → --bg     primary canvas / inputs on elevated panels
+   *   bg-surface-1    → --bg     alias of surface (Material-style “level 1”; avoids silent transparency if mis-remembered)
+   *   bg-surface-2    → --bg-2   bars, side rails, grouped regions
+   *   bg-surface-3    → --bg-3   chips, wells, hover on nested controls
+   *
+   * Do not invent bg-surface-4+ without adding --color-surface-4 here first — undefined theme colors compile to empty rules.
+   */
   --color-surface: var(--bg);
+  --color-surface-1: var(--bg);
   --color-surface-2: var(--bg-2);
   --color-surface-3: var(--bg-3);
   --color-border: var(--border);

@@ -3,7 +3,7 @@
 #   npm run docker:up   (prebuilds Linux ripmail on host or via rust:bookworm, then compose --build)
 #
 # Compose overrides BRAIN_DATA_ROOT (multi-tenant volume root), RIPMAIL_BIN, and PORT (4000 in-container); other vars come from .env.
-# OPP-051 Enron demo: first successful `POST /api/auth/demo/enron` (or `/demo` in the browser) starts a **lazy** background seed
+# OPP-051 Enron demo: pre-seed tenants (see docs/architecture/enron-demo-tenant.md); mint/`/demo` returns 503 until mail exists
 # (download + index) when `ripmail.db` is not present — no separate compose service.
 # Optional: `EVAL_ENRON_TAR` in `.env` avoids downloading the CMU tarball inside the container.
 # Enable demo login with `BRAIN_ENRON_DEMO_SECRET` (any non-empty value) in `.env`.

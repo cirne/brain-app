@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
 import BrainSettingsPage from './BrainSettingsPage.svelte'
-import * as wikiSharesClient from '@client/lib/wikiSharesClient.js'
 
 function requestUrlString(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input
@@ -52,14 +51,6 @@ function defaultFetchHandler(): typeof fetch {
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
     }
-    if (u.includes('/api/wiki-shares')) {
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({ owned: [], received: [], pendingReceived: [] }),
-          { status: 200 },
-        ),
-      )
-    }
     return Promise.resolve(new Response('not found', { status: 404 }))
   }) as unknown as typeof fetch
 }
@@ -106,6 +97,18 @@ describe('BrainSettingsPage.svelte', () => {
     await waitFor(() => {
       expect(screen.getByText(/Add another Gmail account/i)).toBeInTheDocument()
     })
+  })
+
+  it('Collaboration brain-access row requests brain-access overlay', async () => {
+    const onSettingsNavigate = vi.fn()
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Collaboration' })).toBeInTheDocument()
+    })
+    await fireEvent.click(screen.getByRole('button', { name: /brain to brain access/i }))
+    expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access' })
   })
 
   it('renders chat tool display preference and persists when toggled', async () => {
@@ -280,173 +283,4 @@ describe('BrainSettingsPage.svelte', () => {
     })
   })
 
-  it('Sharing section lists pending invitations with Accept', async () => {
-    vi.spyOn(wikiSharesClient, 'fetchWikiSharesList').mockResolvedValue({
-      owned: [],
-      received: [],
-      pendingReceived: [
-        {
-          id: 'wsh_pend',
-          ownerId: 'usr_alice',
-          ownerHandle: 'alice',
-          granteeEmail: 'me@example.com',
-          granteeId: 'usr_me_test',
-          pathPrefix: 'notes/',
-          targetKind: 'dir',
-          createdAtMs: Date.now(),
-          acceptedAtMs: null,
-          revokedAtMs: null,
-        },
-      ],
-    })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: RequestInfo | URL) => {
-        const u = requestUrlString(url)
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-              { status: 200 },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), onNavigateToSharedWiki: vi.fn() },
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Sharing' })).toBeInTheDocument()
-    })
-    expect(screen.getByText('Invitations')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument()
-    expect(screen.getByText(/@alice/i)).toBeInTheDocument()
-  })
-
-  it('Sharing owned row Manage opens WikiShare dialog for that path', async () => {
-    const ownedFileRow = {
-      id: 'wsh_own_file',
-      ownerId: 'usr_me',
-      ownerHandle: 'me',
-      granteeEmail: 'cirne@gamaliel.ai',
-      granteeId: 'usr_grantee_cirne',
-      pathPrefix: 'travel/virginia-trip-2026.md',
-      targetKind: 'file' as const,
-      createdAtMs: Date.now(),
-      acceptedAtMs: null,
-      revokedAtMs: null,
-    }
-    vi.spyOn(wikiSharesClient, 'fetchWikiSharesList').mockResolvedValue({
-      owned: [ownedFileRow],
-      received: [],
-      pendingReceived: [],
-    })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-        const u = requestUrlString(input)
-        const method = (init?.method ?? 'GET').toUpperCase()
-        const pathname = new URL(u, 'http://localhost.test').pathname
-        const wikiSharesListGet = pathname === '/api/wiki-shares' && method === 'GET'
-
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-              { status: 200 },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
-        }
-        if (wikiSharesListGet) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ owned: [ownedFileRow], received: [], pendingReceived: [] }), {
-              status: 200,
-            }),
-          )
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn() },
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Manage' })).toBeInTheDocument()
-    })
-    await fireEvent.click(screen.getByRole('button', { name: 'Manage' }))
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: 'Share this page' })).toBeInTheDocument()
-      expect(screen.getByText('Who has access')).toBeInTheDocument()
-    })
-  })
-
-  it('What you’ve shared title navigates to local wiki file in settings overlay', async () => {
-    const ownedFileRow = {
-      id: 'wsh_own_nav',
-      ownerId: 'usr_me',
-      ownerHandle: 'me',
-      granteeEmail: 'peer@example.com',
-      granteeId: 'usr_peer',
-      pathPrefix: 'travel/virginia-trip-2026.md',
-      targetKind: 'file' as const,
-      createdAtMs: Date.now(),
-      acceptedAtMs: Date.now(),
-      revokedAtMs: null,
-    }
-    vi.spyOn(wikiSharesClient, 'fetchWikiSharesList').mockResolvedValue({
-      owned: [ownedFileRow],
-      received: [],
-      pendingReceived: [],
-    })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-        const u = requestUrlString(input)
-        const method = (init?.method ?? 'GET').toUpperCase()
-        const pathname = new URL(u, 'http://localhost.test').pathname
-        const wikiSharesListGet = pathname === '/api/wiki-shares' && method === 'GET'
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-              { status: 200 },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
-        }
-        if (wikiSharesListGet) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ owned: [ownedFileRow], received: [], pendingReceived: [] }), {
-              status: 200,
-            }),
-          )
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-
-    const onSettingsNavigate = vi.fn()
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate, onNavigateToSharedWiki: vi.fn() },
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^open page:/i })).toBeInTheDocument()
-    })
-    await fireEvent.click(screen.getByRole('button', { name: /^open page:/i }))
-    expect(onSettingsNavigate).toHaveBeenCalledWith({
-      type: 'wiki',
-      path: 'travel/virginia-trip-2026.md',
-    })
-  })
 })

@@ -5,8 +5,8 @@ import { resolveRepoSharedPath } from './resolveRepoSharedPath.js'
 export interface BrainLayout {
   version: number
   directories: {
-    /** Unified wiki namespace root: `wikis/` (personal `me/` + peers `@handle/`) — OPP-091 */
-    wikis: string
+    /** Personal markdown wiki root: `wiki/` */
+    wiki: string
     skills: string
     chats: string
     ripmail: string
@@ -25,16 +25,11 @@ export interface BrainLayout {
   }
 }
 
-/** Reserved segment under `wikis/` for the signed-in user's vault (not a share peer name). */
-export const WIKIS_ME_SEGMENT = 'me'
-
-/** Handle slug `me` is reserved — cannot name a peer `@me` (collides with personal vault). */
-export const ME_RESERVED_HANDLE = 'me'
-
-/** Legacy single `wiki/` dir in tests before `wikis/` exists (NODE_ENV=test only). */
+/** Legacy `wikis/` dir in tests before `wiki/` exists (NODE_ENV=test only). */
 function useLegacyWikiLayoutInTest(tenantHome: string): boolean {
+  const wiki = join(tenantHome, 'wiki')
   const wikis = join(tenantHome, 'wikis')
-  return process.env.NODE_ENV === 'test' && existsSync(join(tenantHome, 'wiki')) && !existsSync(wikis)
+  return process.env.NODE_ENV === 'test' && existsSync(wikis) && !existsSync(wiki)
 }
 
 /** Resolve `shared/brain-layout.json` (see {@link resolveRepoSharedPath}). */
@@ -52,47 +47,19 @@ export function getBrainLayout(): BrainLayout {
 }
 
 export function brainLayoutWikisSegment(): string {
-  const w = getBrainLayout().directories.wikis?.trim().replace(/^\/+|\/+$/g, '') || 'wikis'
+  const w = getBrainLayout().directories.wiki?.trim().replace(/^\/+|\/+$/g, '') || 'wiki'
   return w
 }
 
-/** Tenant `wikis/` — agent tool root and parent of `me/` + `@peer/`. */
+/** Tenant wiki markdown root (`wiki/`), shared by UI/API and agent tools. */
 export function brainLayoutWikisDir(base: string): string {
-  if (useLegacyWikiLayoutInTest(base)) return join(base, 'wiki')
+  if (useLegacyWikiLayoutInTest(base)) return join(base, 'wikis')
   return join(base, brainLayoutWikisSegment())
 }
 
-/** Personal vault markdown root: `wikis/me/`. */
-export function brainLayoutWikisMeDir(base: string): string {
-  if (useLegacyWikiLayoutInTest(base)) return join(base, 'wiki')
-  return join(brainLayoutWikisDir(base), WIKIS_ME_SEGMENT)
-}
-
-/**
- * @deprecated Legacy name — personal vault only (`wikis/me/`). Prefer {@link brainLayoutWikisMeDir}.
- */
+/** @deprecated Alias of {@link brainLayoutWikisDir}; wiki lives directly under `wiki/`. */
 export function brainLayoutWikiDir(base: string): string {
-  return brainLayoutWikisMeDir(base)
-}
-
-/**
- * Sanitize owner/workspace handle to a single path segment `@slug` under `wikis/`.
- * @throws If empty after trim, reserved `me`, or unusable after sanitization.
- */
-export function sanitizeHandleForWikisPeerDir(handle: string): string {
-  const t = handle.trim().replace(/^@+/, '').toLowerCase()
-  if (!t) throw new Error('wiki_peer_handle_empty')
-  if (t === ME_RESERVED_HANDLE) throw new Error('wiki_peer_handle_reserved_me')
-  const slug = t.replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
-  if (!slug) throw new Error('wiki_peer_handle_unusable')
-  return `@${slug}`
-}
-
-/** Absolute `wikis/@peer/` for an already-sanitized handle (must start with `@`). */
-export function brainLayoutWikisPeerDir(base: string, sanitizedHandleWithAt: string): string {
-  const raw = sanitizedHandleWithAt.trim()
-  const seg = raw.startsWith('@') ? raw : `@${raw}`
-  return join(brainLayoutWikisDir(base), seg)
+  return brainLayoutWikisDir(base)
 }
 
 export function brainLayoutSkillsDir(base: string): string {

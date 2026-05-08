@@ -8,20 +8,13 @@ import {
 
 /** Wiki reader + wiki-dir overlays share the same crumb resolution (primary bar + slide-over). */
 export type WikiOverlayForCrumbs =
-  | { type: 'wiki'; path?: string; shareHandle?: string }
-  | { type: 'wiki-dir'; path?: string; shareHandle?: string }
+  | { type: 'wiki'; path?: string }
+  | { type: 'wiki-dir'; path?: string }
 
 /**
- * Resolve breadcrumb segments for a wiki overlay (personal `me/…`, vault-relative, or `@share/…`).
- * Mirrors wiki primary bar crumb routing in `Assistant.svelte` without requiring `zone === 'wiki'`.
+ * Resolve breadcrumb segments for a wiki overlay (legacy `me/…`, vault-relative, etc.).
  */
 export function wikiPrimaryCrumbsForOverlay(o: WikiOverlayForCrumbs): WikiPrimaryCrumb[] {
-  const sh = o.shareHandle?.trim()
-  if (sh) {
-    return o.type === 'wiki'
-      ? wikiPrimaryCrumbsForSharedFile(sh, o.path?.trim() ?? '')
-      : wikiPrimaryCrumbsForSharedDir(sh, o.path)
-  }
   const p = o.path?.trim() ?? ''
   if (
     p === MY_WIKI_SEGMENT ||
@@ -54,16 +47,11 @@ export function wikiPrimaryCrumbsForOverlay(o: WikiOverlayForCrumbs): WikiPrimar
     : wikiPrimaryCrumbsForDir(o.path)
 }
 
-/**
- * Segments for the wiki-primary header bar.
- * Personal (`me/…`) and shared (`@owner/…`) paths omit the global Wiki hub; vault-relative paths still use `wiki-root-link`.
- */
 export type WikiPrimaryCrumb =
   | { kind: 'wiki-root-link' }
   | { kind: 'folder-link'; path: string; label: string }
   | { kind: 'tail'; label: string }
 
-/** Lead icon in breadcrumb dropdown rows (aligned with {@link WikiFileName}). */
 export type WikiBreadcrumbMenuIcon =
   | { kind: 'book-open' }
   | { kind: 'users' }
@@ -77,7 +65,6 @@ export function formatWikiPrimaryCrumbLabel(crumb: WikiPrimaryCrumb): string {
   return wikiStemDisplayTitle(crumb.label.replace(/\.md$/i, ''))
 }
 
-/** Icon for a crumb when it appears in the collapsed-path menu (not used for the tail segment). */
 export function wikiPrimaryCrumbMenuIcon(crumb: WikiPrimaryCrumb): WikiBreadcrumbMenuIcon | undefined {
   if (crumb.kind === 'tail') return undefined
   if (crumb.kind === 'wiki-root-link') return { kind: 'book-open' }
@@ -89,7 +76,6 @@ export function wikiPrimaryCrumbMenuIcon(crumb: WikiPrimaryCrumb): WikiBreadcrum
   return { kind: 'book-open' }
 }
 
-/** Wiki file path → crumbs ending with the filename as stored (including `.md`). */
 export function wikiPrimaryCrumbsForFile(relPath: string): WikiPrimaryCrumb[] {
   const trimmed = relPath.trim()
   if (!trimmed) return [{ kind: 'tail', label: 'Wiki' }]
@@ -107,7 +93,6 @@ export function wikiPrimaryCrumbsForFile(relPath: string): WikiPrimaryCrumb[] {
   return out
 }
 
-/** Wiki folder browser path → crumbs; empty path = vault root (single “Wiki”). */
 export function wikiPrimaryCrumbsForDir(dirPath: string | undefined): WikiPrimaryCrumb[] {
   const segs = parseWikiDirSegments(dirPath)
   if (segs.length === 0) return [{ kind: 'tail', label: 'Wiki' }]
@@ -123,7 +108,6 @@ export function wikiPrimaryCrumbsForDir(dirPath: string | undefined): WikiPrimar
   return out
 }
 
-/** My Wiki → folders → page (no global Wiki hub or bare `me` segment in labels). */
 export function wikiPrimaryCrumbsForMyWikiFile(ownerRelPath: string): WikiPrimaryCrumb[] {
   const urlBase = MY_WIKI_URL_SEGMENT
   const labelBase = MY_WIKI_SEGMENT
@@ -156,46 +140,6 @@ export function wikiPrimaryCrumbsForMyWikiDir(ownerDirPath: string | undefined):
     out.push({
       kind: 'folder-link',
       path: `${urlBase}/${segs.slice(0, i + 1).join('/')}`,
-      label: segs[i]!,
-    })
-  }
-  out.push({ kind: 'tail', label: segs[segs.length - 1]! })
-  return out
-}
-
-/** `@handle` → folders → page for incoming shared wiki paths (owner-relative vault paths). */
-export function wikiPrimaryCrumbsForSharedFile(handleRaw: string, ownerRelPath: string): WikiPrimaryCrumb[] {
-  const handle = handleRaw.replace(/^@/, '')
-  const at = `@${handle}`
-  const trimmed = ownerRelPath.trim()
-  if (!trimmed) {
-    return [{ kind: 'tail', label: at }]
-  }
-  const parts = trimmed.split('/').filter(Boolean)
-  const lastPart = parts[parts.length - 1] ?? ''
-  const folderParts = parts.slice(0, -1)
-  const pageLabel = lastPart
-  const out: WikiPrimaryCrumb[] = [{ kind: 'folder-link', path: at, label: at }]
-  for (let i = 0; i < folderParts.length; i++) {
-    const subPath = `${at}/${folderParts.slice(0, i + 1).join('/')}`
-    out.push({ kind: 'folder-link', path: subPath, label: folderParts[i]! })
-  }
-  out.push({ kind: 'tail', label: pageLabel })
-  return out
-}
-
-export function wikiPrimaryCrumbsForSharedDir(handleRaw: string, ownerDirPath: string | undefined): WikiPrimaryCrumb[] {
-  const handle = handleRaw.replace(/^@/, '')
-  const at = `@${handle}`
-  const segs = normalizeWikiDirPath(ownerDirPath ?? '').split('/').filter(Boolean)
-  if (segs.length === 0) {
-    return [{ kind: 'tail', label: at }]
-  }
-  const out: WikiPrimaryCrumb[] = [{ kind: 'folder-link', path: at, label: at }]
-  for (let i = 0; i < segs.length - 1; i++) {
-    out.push({
-      kind: 'folder-link',
-      path: `${at}/${segs.slice(0, i + 1).join('/')}`,
       label: segs[i]!,
     })
   }

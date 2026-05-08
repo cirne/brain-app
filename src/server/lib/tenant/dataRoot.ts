@@ -1,5 +1,6 @@
 import process from 'node:process'
-import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import type { Dirent } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -47,43 +48,66 @@ export function tenantHomeDir(tenantUserId: string): string {
 }
 
 /**
- * One-time layout: legacy `wiki/` → `wikis/me/`, then remove old `.brain-share-mount/` under me.
- * Idempotent. Does not migrate share projection links (DB reconcile rec creates `wikis/@peer/`).
+ * One-time layout: canonical wiki is `wiki/` at tenant root (flat markdown tree).
+ * - Legacy `wikis/` → rename to `wiki/` when `wiki/` is absent.
+ * - Hoist `wiki/me/*` into `wiki/` (existing top-level names win).
+ * - Remove `wiki/@*` share projection dirs.
+ * Idempotent.
  */
-export function migrateWikiToWikisMe(tenantHome: string): void {
-  /** Physical paths only — do not use {@link brainLayoutWikisDir} (test legacy shim may alias `wiki/`). */
-  const wikis = join(tenantHome, 'wikis')
-  const me = join(wikis, 'me')
-  const legacyWiki = join(tenantHome, 'wiki')
+export function migrateWikiLayoutToFlatWikisRoot(tenantHome: string): void {
+  const wikiRoot = join(tenantHome, 'wiki')
+  const legacyWikis = join(tenantHome, 'wikis')
+  const me = join(wikiRoot, 'me')
 
-  const scrubOldMountUnderMe = () => {
-    const oldMount = join(me, '.brain-share-mount')
-    if (existsSync(oldMount)) {
-      rmSync(oldMount, { recursive: true, force: true })
+  if (!existsSync(wikiRoot)) {
+    if (existsSync(legacyWikis)) {
+      renameSync(legacyWikis, wikiRoot)
+    } else {
+      mkdirSync(wikiRoot, { recursive: true })
     }
+  } else if (existsSync(legacyWikis)) {
+    rmSync(legacyWikis, { recursive: true, force: true })
   }
+
+  if (!existsSync(wikiRoot)) return
 
   if (existsSync(me)) {
-    if (existsSync(legacyWiki)) {
-      rmSync(legacyWiki, { recursive: true, force: true })
+    let ents: Dirent[]
+    try {
+      ents = readdirSync(me, { withFileTypes: true })
+    } catch {
+      ents = []
     }
-    scrubOldMountUnderMe()
-    return
+    for (const ent of ents) {
+      if (ent.name === '.brain-share-mount') continue
+      const from = join(me, ent.name)
+      const to = join(wikiRoot, ent.name)
+      if (!existsSync(to)) {
+        renameSync(from, to)
+      } else {
+        rmSync(from, { recursive: true, force: true })
+      }
+    }
+    rmSync(me, { recursive: true, force: true })
   }
 
-  mkdirSync(wikis, { recursive: true })
-  if (existsSync(legacyWiki)) {
-    renameSync(legacyWiki, me)
-  } else {
-    mkdirSync(me, { recursive: true })
+  let top: Dirent[]
+  try {
+    top = readdirSync(wikiRoot, { withFileTypes: true })
+  } catch {
+    return
   }
-  scrubOldMountUnderMe()
+  for (const ent of top) {
+    if (ent.isDirectory() && ent.name.startsWith('@')) {
+      rmSync(join(wikiRoot, ent.name), { recursive: true, force: true })
+    }
+  }
 }
 
 /** Create tenant tree matching {@link shared/brain-layout.json} under `tenantUserId` (`usr_…`). */
 export function ensureTenantHomeDir(tenantUserId: string): string {
   const root = tenantHomeDir(tenantUserId)
-  migrateWikiToWikisMe(root)
+  migrateWikiLayoutToFlatWikisRoot(root)
   mkdirSync(brainLayoutSkillsDir(root), { recursive: true })
   mkdirSync(brainLayoutChatsDir(root), { recursive: true })
   mkdirSync(brainLayoutRipmailDir(root), { recursive: true })

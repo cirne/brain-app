@@ -139,11 +139,6 @@ function defaultFetchHandler(): typeof fetch {
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
     }
-    if (u.includes('/api/wiki-shares')) {
-      return Promise.resolve(
-        new Response(JSON.stringify({ owned: [], received: [], pendingReceived: [] }), { status: 200 }),
-      )
-    }
     return Promise.resolve(new Response('not found', { status: 404 }))
   }) as unknown as typeof fetch
 }
@@ -259,11 +254,6 @@ describe('BrainHubPage.svelte (Activity)', () => {
             ),
           )
         }
-        if (u.includes('/api/wiki-shares')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ owned: [], received: [], pendingReceived: [] }), { status: 200 }),
-          )
-        }
         return Promise.resolve(new Response('not found', { status: 404 }))
       }) as unknown as typeof fetch,
     )
@@ -336,11 +326,6 @@ describe('BrainHubPage.svelte (Activity)', () => {
         }
         if (u.includes('/api/hub/sources')) {
           return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
-        }
-        if (u.includes('/api/wiki-shares')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ owned: [], received: [], pendingReceived: [] }), { status: 200 }),
-          )
         }
         return Promise.resolve(new Response('not found', { status: 404 }))
       }) as unknown as typeof fetch,

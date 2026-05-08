@@ -24,7 +24,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/issues` | **Feedback** issue queue: in multi-tenant mode, the embed key reads the **global** store (`$BRAIN_DATA_ROOT/.global/issues/`); with a user session, `GET` is that workspace’s `issues/`. `POST` submit and `product_feedback` also mirror to **`wiki/feedback/issue-<id>.md`**. `Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY` for operator triage (trusted callers) — [AGENTS.md](../../AGENTS.md) (OPP-048) |
 | `/api/onboarding` | Persisted onboarding state, mail indexing poll, Gmail/Apple setup — **[onboarding state machine](./onboarding-state-machine.md)** |
 | `/api/background-status` | Unified snapshot: mail lanes + milestones + wiki supervisor (+ orchestrator failures) — **[background-task-orchestration](./background-task-orchestration.md)** |
-| `/api/auth/demo` | **Multi-tenant + `BRAIN_ENRON_DEMO_SECRET`:** `POST …/enron` mints session; `GET …/enron/seed-status` polls lazy seed — [enron-demo-tenant.md](./enron-demo-tenant.md) |
+| `/api/auth/demo` | **Multi-tenant + `BRAIN_ENRON_DEMO_SECRET`:** `POST …/enron` mints session when demo tenants are pre-seeded; `GET …/enron/seed-status` exposes ingest snapshot (e.g. operator reseed) — [enron-demo-tenant.md](./enron-demo-tenant.md) |
 | `/api/background` | Background agent run history and control (wiki expansion) |
 | `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
 | `/api/dev` | **Dev only** — diagnostics |

@@ -9,7 +9,6 @@ import {
   brainLayoutDirIconsCachePath,
   brainLayoutRipmailDir,
   brainLayoutSkillsDir,
-  brainLayoutWikiDir,
   brainLayoutWikiEditsPath,
   brainLayoutWikisDir,
 } from './brainLayout.js'
@@ -30,7 +29,7 @@ export function brainHome(): string {
 }
 
 /**
- * Parent directory for wiki layout (`wikis/me/`, …): normal tenant home, or **`BRAIN_WIKI_ROOT`**
+ * Parent directory for wiki layout (`wiki/`): normal tenant home, or **`BRAIN_WIKI_ROOT`**
  * when set (JSONL wiki eval — isolated vault while ripmail stays under {@link brainHome}).
  */
 export function brainWikiParentRoot(): string {
@@ -53,10 +52,10 @@ export async function wipeBrainHomeContents(): Promise<void> {
 }
 
 export function wikiContentDir(): string {
-  return brainLayoutWikiDir(brainWikiParentRoot())
+  return brainLayoutWikisDir(brainWikiParentRoot())
 }
 
-/** Unified wiki tool root (`wikis/`) — includes `me/` and `@peer/` projections. */
+/** Same as {@link wikiContentDir} — single markdown root under `wiki/`. */
 export function wikiToolsRootDir(): string {
   return brainLayoutWikisDir(brainWikiParentRoot())
 }

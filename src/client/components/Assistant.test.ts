@@ -105,10 +105,6 @@ describe('Assistant.svelte', () => {
         match: (u: string) => u === '/api/chat/first-chat-pending',
         response: () => jsonResponse({ pending: false }),
       },
-      {
-        match: (u: string) => u.endsWith('/api/wiki-shares') || u === '/api/wiki-shares',
-        response: () => jsonResponse({ owned: [], received: [], pendingReceived: [] }),
-      },
     ])
     vi.stubGlobal('fetch', mockFetch)
 
@@ -492,10 +488,6 @@ describe('Assistant.svelte', () => {
         {
           match: (u: string) => u === '/api/chat/first-chat-pending',
           response: () => jsonResponse({ pending: true }),
-        },
-        {
-          match: (u: string) => u.endsWith('/api/wiki-shares') || u === '/api/wiki-shares',
-          response: () => jsonResponse({ owned: [], received: [], pendingReceived: [] }),
         },
       ])
       vi.stubGlobal('fetch', mockFetch)

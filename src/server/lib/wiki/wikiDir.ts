@@ -1,13 +1,13 @@
 import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { skillsDataDir, wikiContentDir, wikiToolsRootDir } from '@server/lib/platform/brainHome.js'
+import { skillsDataDir, wikiContentDir } from '@server/lib/platform/brainHome.js'
 
-/** Personal vault markdown root: `wikis/me/` (legacy callers: same as former `wiki/`). */
+/** Markdown wiki root: tenant `wiki/` (`shared/brain-layout.json` → `directories.wiki`). */
 export const wikiDir = () => wikiContentDir()
 
-/** Agent FS tool root: `wikis/` (personal `me/` + peer `@handle/`). */
-export const wikiToolsDir = () => wikiToolsRootDir()
+/** @deprecated Alias of {@link wikiDir}; sharing and dual roots are removed. */
+export const wikiToolsDir = () => wikiContentDir()
 
 /** User skills (slash commands): `$BRAIN_HOME/skills`. */
 export const skillsDir = () => skillsDataDir()

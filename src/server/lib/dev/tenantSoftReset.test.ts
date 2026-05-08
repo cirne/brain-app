@@ -4,9 +4,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
-import { createShare, listSharesForOwner } from '@server/lib/shares/wikiSharesRepo.js'
 import { executeTenantSoftReset } from './tenantSoftReset.js'
 import {
   brainLayoutChatsDir,
@@ -24,16 +22,11 @@ vi.mock('@server/lib/wiki/wikiVaultScaffold.js', () => ({
 
 describe('tenantSoftReset', () => {
   let tenantHome: string
-  let globalRoot: string
   const tenantUserId = 'usr_softreset_test_user000'
-  const prevGlobal = process.env.BRAIN_GLOBAL_SQLITE_PATH
 
   beforeEach(async () => {
     mockEnsureWikiVaultScaffold.mockClear()
     tenantHome = await mkdtemp(join(tmpdir(), 'brain-softrst-'))
-    globalRoot = await mkdtemp(join(tmpdir(), 'brain-global-softrst-'))
-    process.env.BRAIN_GLOBAL_SQLITE_PATH = join(globalRoot, 'global.sqlite')
-    closeBrainGlobalDbForTests()
 
     await mkdir(brainLayoutWikiDir(tenantHome), { recursive: true })
     await writeFile(join(brainLayoutWikiDir(tenantHome), 'old.md'), '# hi\n')
@@ -52,24 +45,13 @@ describe('tenantSoftReset', () => {
     await mkdir(join(tenantHome, 'your-wiki'), { recursive: true })
     await writeFile(join(tenantHome, 'your-wiki', 'state.json'), '{}')
 
-    createShare({
-      ownerId: tenantUserId,
-      granteeId: 'usr_softreset_grantee00000',
-      granteeEmail: 'gr@g.com',
-      pathPrefix: 'topics',
-    })
-    expect(listSharesForOwner(tenantUserId)).toHaveLength(1)
   })
 
   afterEach(async () => {
-    closeBrainGlobalDbForTests()
-    if (prevGlobal !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevGlobal
-    else delete process.env.BRAIN_GLOBAL_SQLITE_PATH
     await rm(tenantHome, { recursive: true, force: true })
-    await rm(globalRoot, { recursive: true, force: true })
   })
 
-  it('clears wiki/chats/caches/background/your-wiki, keeps ripmail, clears wiki shares, sets onboarding', async () => {
+  it('clears wiki/chats/caches/background/your-wiki, keeps ripmail, sets onboarding', async () => {
     await runWithTenantContextAsync(
       { tenantUserId, workspaceHandle: 'ws', homeDir: tenantHome },
       async () => executeTenantSoftReset(tenantUserId),
@@ -89,7 +71,6 @@ describe('tenantSoftReset', () => {
     expect(existsSync(join(tenantHome, 'background'))).toBe(false)
     expect(existsSync(join(tenantHome, 'your-wiki'))).toBe(false)
     expect(existsSync(join(brainLayoutVarDir(tenantHome), 'wiki-edits.jsonl'))).toBe(false)
-    expect(listSharesForOwner(tenantUserId)).toHaveLength(0)
     expect(mockEnsureWikiVaultScaffold).toHaveBeenCalledOnce()
   })
 })

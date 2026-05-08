@@ -7,8 +7,6 @@ import { createWebAgentTools } from './tools/webAgentTools.js'
 import { createUiAgentTools } from './tools/uiAgentTools.js'
 import { createLocalMessageTools } from './tools/localMessageTools.js'
 import { createBrainQueryTool } from './tools/brainQueryTool.js'
-import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
-import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 export {
@@ -52,13 +50,7 @@ export interface CreateAgentToolsOptions {
    */
   calendarAllowedOps?: readonly string[]
   /**
-   * When set, **`write`**, **`edit`**, and **`move_file`** append a share-visibility hint for paths under outgoing accepted shares.
-   * Defaults to current {@link tryGetTenantContext} tenant when omitted (chat under tenant middleware).
-   */
-  wikiWriteShareHintOwnerId?: string
-  /**
-   * Unified `wikis/` root for find/grep (defaults to {@link wikiToolsDir}).
-   * {@link createWikiScopedPiTools} uses this alongside vault-relative read/write/edit paths.
+   * Wiki root for find/grep/read (defaults to the same `wikiDir` passed into {@link createAgentTools}).
    */
   unifiedWikiRoot?: string
 }
@@ -78,18 +70,13 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
-  const wikiWriteShareHintOwnerId =
-    options?.wikiWriteShareHintOwnerId ?? tryGetTenantContext()?.tenantUserId
-  const unifiedWikiRoot = options?.unifiedWikiRoot ?? wikiToolsDir()
+  const unifiedWikiRoot = options?.unifiedWikiRoot ?? wikiDir
   const { read, edit, write, grep, find } = createWikiScopedPiTools(wikiDir, {
     wikiWriteCreates: options?.wikiWriteCreates ?? 'allowed',
-    ...(wikiWriteShareHintOwnerId !== undefined ? { wikiWriteShareHintOwnerId } : {}),
     unifiedWikiRoot,
   })
 
-  const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir, {
-    ...(wikiWriteShareHintOwnerId !== undefined ? { wikiWriteShareHintOwnerId } : {}),
-  })
+  const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir)
 
   const {
     searchIndex,

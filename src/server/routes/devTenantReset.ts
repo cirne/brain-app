@@ -5,7 +5,6 @@ import { clearAllSessions } from '@server/agent/assistantAgent.js'
 import { clearAllInterviewSessions } from '@server/agent/onboardingInterviewAgent.js'
 import { clearAllWikiBuildoutSessions } from '@server/agent/wikiBuildoutAgent.js'
 import { executeTenantSoftReset } from '@server/lib/dev/tenantSoftReset.js'
-import { deleteWikiSharesForOwner } from '@server/lib/shares/wikiSharesRepo.js'
 import { hardResetOnboardingArtifacts } from '@server/lib/onboarding/onboardingState.js'
 import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
@@ -96,7 +95,6 @@ async function handleHardReset(c: Context): Promise<Response> {
     clearAllInterviewSessions()
     clearAllWikiBuildoutSessions()
 
-    deleteWikiSharesForOwner(tenantUserId)
     await hardResetOnboardingArtifacts()
     /** Wipe already removed every `usr_*` and `.global`. Do not recreate the old tenant dir here —
      *  the registry is gone, so the next OAuth run would provision a second `usr_*` and strand this one. */

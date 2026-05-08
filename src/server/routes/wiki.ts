@@ -4,79 +4,74 @@ import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises'
 import { join, basename, resolve, dirname } from 'node:path'
 import { marked } from 'marked'
 import { dirIconsCachePathResolved } from '@server/lib/platform/brainHome.js'
-import { brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
-import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
-import { getTenantContext, tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
-import { buildWikiListShareEnvelope } from '@server/lib/shares/wikiListShareEnvelope.js'
-import {
-  granteeCanReadOwnerWikiPath,
-  granteeShareCoversWikiPath,
-  listSharesForGrantee,
-  normalizeWikiShareFilePath,
-  normalizeWikiSharePathPrefix,
-  wikiPathUnderSharePrefix,
-  type WikiShareRow,
-} from '@server/lib/shares/wikiSharesRepo.js'
-import { resolveShareOwnerIdForGranteeHandle } from '@server/lib/shares/wikiShareByHandle.js'
-import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '@server/lib/wiki/wikiFiles.js'
 import { appendWikiEditRecord, readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { syncWikiFromDisk } from '@server/lib/platform/syncAll.js'
 import { searchWikiMarkdownPaths } from '@server/lib/wiki/wikiMarkdownContentSearch.js'
-import { syncWikiShareProjectionsForGrantee } from '@server/lib/shares/wikiShareProjection.js'
 
 const wiki = new Hono()
 
-function wikiRoots(): { tools: string; vault: string } {
-  return { tools: resolve(wikiToolsDir()), vault: resolve(wikiDir()) }
+function wikiRootAbs(): string {
+  return resolve(wikiDir())
 }
 
-/** Legacy `_log.md` paths are vault-relative; map to unified `wikis/`-relative paths. */
-function logBodyRefToWikisRelative(ref: string): string {
+/** Normalize API/body paths: strip legacy `me/` prefix. */
+export function normalizeWikiApiRelPath(rel: string): string {
+  const n = rel.trim().replace(/\\/g, '/').replace(/^\/+/, '')
+  if (n === 'me' || n.startsWith('me/')) {
+    return n === 'me' ? '' : n.slice('me/'.length)
+  }
+  return n
+}
+
+/** Legacy `_log.md` refs → paths relative to wiki root (drops `wiki/`, `me/`). */
+function logBodyRefToWikiRelative(ref: string): string {
   let p = ref.trim().replace(/\\/g, '/')
   if (p.startsWith('wiki/')) p = p.slice(5)
+  if (p.startsWith('me/')) p = p.slice(3)
   const withMd = p.endsWith('.md') ? p : `${p}.md`
-  if (withMd.startsWith('me/') || withMd.startsWith('@')) return withMd
-  return `me/${withMd}`
+  return withMd
 }
 
-function isPersonalWikiMutationPath(rel: string): boolean {
+/** Relative path under wiki root: non-empty, no `..`, no `@` share namespaces. */
+function isSafeWikiRelPath(rel: string): boolean {
   const n = rel.trim().replace(/\\/g, '/').replace(/^\/+/, '')
-  return n.startsWith('me/')
+  if (!n || n.includes('..') || n.startsWith('@')) return false
+  return true
 }
 
-// GET /api/wiki — list markdown files under unified `wikis/` + share hints for this tenant (single round trip)
+function isAllowedWikiMutationRel(rel: string): boolean {
+  return isSafeWikiRelPath(rel) && rel.trim().replace(/\\/g, '/').replace(/^\/+/, '').endsWith('.md')
+}
+
+// GET /api/wiki — list markdown files under wiki root
 wiki.get('/', async (c) => {
-  const { tools: dir } = wikiRoots()
+  const dir = wikiRootAbs()
   const paths = await listWikiFiles(dir)
   const files = paths.map((p) => ({ path: p, name: basename(p, '.md') }))
-  const ctx = tryGetTenantContext()
-  if (!ctx) {
-    return c.json({ files, shares: { owned: [], received: [] } })
-  }
-  void syncWikiShareProjectionsForGrantee(ctx.tenantUserId).catch(() => {})
-  const shares = await buildWikiListShareEnvelope(ctx.tenantUserId)
-  return c.json({ files, shares })
+  return c.json({ files })
 })
 
 // POST /api/wiki — create a new .md (optional body markdown; default empty stub)
 wiki.post('/', async (c) => {
-  const { tools: dir } = wikiRoots()
+  const dir = wikiRootAbs()
   let body: { path?: unknown; markdown?: unknown }
   try {
     body = await c.req.json()
   } catch {
     body = {}
   }
-  const rel = typeof body.path === 'string' ? body.path.trim() : ''
+  let rel = typeof body.path === 'string' ? body.path.trim() : ''
   if (!rel || !rel.endsWith('.md')) {
     return c.json({ error: 'Expected { path: string } ending in .md' }, 400)
   }
-  if (!isPersonalWikiMutationPath(rel)) {
-    return c.json({ error: 'Path must start with me/ (personal vault)' }, 400)
+  rel = normalizeWikiApiRelPath(rel)
+  if (!rel.endsWith('.md')) {
+    return c.json({ error: 'Invalid path' }, 400)
   }
-  if (rel.includes('..') || rel.startsWith('/')) {
+  if (!isAllowedWikiMutationRel(rel)) {
     return c.json({ error: 'Invalid path' }, 400)
   }
   const fullPathCoerced = resolve(join(dir, rel))
@@ -122,7 +117,7 @@ wiki.get('/search', async (c) => {
   const q = c.req.query('q')
   if (!q) return c.json([])
 
-  const { tools: dir } = wikiRoots()
+  const dir = wikiRootAbs()
   try {
     const paths = await searchWikiMarkdownPaths(dir, q)
     return c.json(paths)
@@ -139,27 +134,24 @@ wiki.post('/sync', async (c) => {
 })
 
 // GET /api/wiki/log — parse last N entries from legacy vault-root `_log.md` (human/agent markdown).
-// Canonical structured wiki mutation log is `var/wiki-edits.jsonl` (see wikiEditHistory); new work should not rely on `_log.md`.
 wiki.get('/log', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
-  const { tools, vault } = wikiRoots()
-  const logPath = join(vault, '_log.md')
+  const dir = wikiRootAbs()
+  const logPath = join(dir, '_log.md')
   try {
     const [raw, allFiles] = await Promise.all([
       readFile(logPath, 'utf-8'),
-      listWikiFiles(tools),
+      listWikiFiles(dir),
     ])
     const existingFiles = new Set(allFiles)
     const entries: { date: string; type: string; description: string; files: string[] }[] = []
 
-    // Split on ## section headers so we can parse each entry's body too
     const sections = raw.split(/^(?=## \[)/m)
     for (const section of sections) {
       const headerMatch = section.match(/^## \[(\d{4}-\d{2}-\d{2})\] (\w+) \| (.+)/)
       if (!headerMatch) continue
       const [, date, type, description] = headerMatch
 
-      // Extract wiki file mentions from backtick-quoted paths in the entry body
       const body = section.slice(headerMatch[0].length)
       const files: string[] = []
       const seen = new Set<string>()
@@ -168,10 +160,9 @@ wiki.get('/log', async (c) => {
       while ((m = fileRegex.exec(body)) !== null) {
         let p = m[1]
         if (!p.includes('/') && !p.endsWith('.md')) continue
-        if (p.endsWith('/')) continue  // skip bare directory paths
-        // Strip leading wiki/ prefix that some log entries include
-        if (p.startsWith('wiki/')) p = p.slice(5)
-        const normalized = logBodyRefToWikisRelative(p)
+        if (p.endsWith('/')) continue
+        const normalized = logBodyRefToWikiRelative(p)
+        if (normalized.startsWith('@')) continue
         if (!seen.has(normalized) && existingFiles.has(normalized)) {
           seen.add(normalized)
           files.push(normalized)
@@ -198,7 +189,7 @@ wiki.get('/edit-history', async (c) => {
 wiki.get('/recent', async (c) => {
   try {
     const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
-    const { tools: dir } = wikiRoots()
+    const dir = wikiRootAbs()
     const files = await recentWikiFilesByMtime(dir, limit)
     return c.json({ files })
   } catch {
@@ -206,176 +197,16 @@ wiki.get('/recent', async (c) => {
   }
 })
 
-// GET /api/wiki/shared-by-handle/:handle — same as shared/:ownerUserId but owner resolved by workspace handle
-wiki.get('/shared-by-handle/:handle', async (c) => {
-  const handleParam = c.req.param('handle')
-  const granteeId = getTenantContext().tenantUserId
-  const ownerId = await resolveShareOwnerIdForGranteeHandle({ granteeId, handle: handleParam })
-  if (!ownerId) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-
-  const rawPrefix = c.req.query('prefix')?.trim() ?? ''
-  const rows = listSharesForGrantee(granteeId).filter((r) => r.owner_id === ownerId)
-  const wikiRoot = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
-  const allPaths = await listWikiFiles(wikiRoot)
-  const visible = allPaths.filter((p) => rows.some((r) => granteeShareCoversWikiPath(r, p)))
-
-  if (!rawPrefix) {
-    const files = visible.map((p) => ({ path: p, name: basename(p, '.md') }))
-    return c.json(files)
-  }
-
-  if (rawPrefix.endsWith('.md')) {
-    let nf: string
-    try {
-      nf = normalizeWikiShareFilePath(rawPrefix)
-    } catch {
-      return c.json({ error: 'invalid_prefix' }, 400)
-    }
-    const match = rows.find((r) => r.target_kind === 'file' && r.path_prefix === nf)
-    if (!match) {
-      return c.json({ error: 'forbidden' }, 403)
-    }
-    const one = visible.filter((p) => p === nf)
-    const files = one.map((p) => ({ path: p, name: basename(p, '.md') }))
-    return c.json(files)
-  }
-
-  let normalizedPrefix: string
-  try {
-    normalizedPrefix = normalizeWikiSharePathPrefix(rawPrefix)
-  } catch {
-    return c.json({ error: 'invalid_prefix' }, 400)
-  }
-  const match = rows.find((r) => r.target_kind === 'dir' && r.path_prefix === normalizedPrefix)
-  if (!match) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-  const filtered = visible.filter((p) => wikiPathUnderSharePrefix(p, normalizedPrefix))
-  const files = filtered.map((p) => ({ path: p, name: basename(p, '.md') }))
-  return c.json(files)
-})
-
-// GET /api/wiki/shared-by-handle/:handle/:path{.+} — read one shared markdown file by owner handle
-wiki.get('/shared-by-handle/:handle/:path{.+}', async (c) => {
-  const handleParam = c.req.param('handle')
-  const filePath = c.req.param('path')
-  if (!filePath.endsWith('.md')) {
-    return c.json({ error: 'Only .md paths are supported for shared reads' }, 400)
-  }
-  const granteeId = getTenantContext().tenantUserId
-  const ownerId = await resolveShareOwnerIdForGranteeHandle({ granteeId, handle: handleParam })
-  if (!ownerId) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-  if (!granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: filePath })) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-  const dir = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
-  const fullPath = resolve(join(dir, filePath))
-  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
-    return c.json({ error: 'Forbidden' }, 403)
-  }
-  try {
-    const raw = await readFile(fullPath, 'utf-8')
-    const { meta, body } = parseFrontmatter(raw)
-    const html = await marked(body)
-    return c.json({ path: filePath, raw, html, meta })
-  } catch {
-    return c.json({ error: 'Not found' }, 404)
-  }
-})
-
-wiki.patch('/shared-by-handle/:handle/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
-wiki.delete('/shared-by-handle/:handle/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
-wiki.post('/shared-by-handle/:handle/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
-
-// GET /api/wiki/shared/:ownerUserId — markdown file list filtered to an accepted share (`?prefix=dir/` or `?prefix=file.md`)
-wiki.get('/shared/:ownerUserId', async (c) => {
-  const ownerId = c.req.param('ownerUserId')
-  const rawPrefix = c.req.query('prefix')?.trim() ?? ''
-  if (!rawPrefix) {
-    return c.json({ error: 'prefix_required', message: 'Add ?prefix=vault-relative-dir/ or path to .md' }, 400)
-  }
-  const granteeId = getTenantContext().tenantUserId
-  const rows = listSharesForGrantee(granteeId).filter((r) => r.owner_id === ownerId)
-  let match: WikiShareRow | undefined
-  if (rawPrefix.endsWith('.md')) {
-    let nf: string
-    try {
-      nf = normalizeWikiShareFilePath(rawPrefix)
-    } catch {
-      return c.json({ error: 'invalid_prefix' }, 400)
-    }
-    match = rows.find((r) => r.target_kind === 'file' && r.path_prefix === nf)
-  } else {
-    let normalizedPrefix: string
-    try {
-      normalizedPrefix = normalizeWikiSharePathPrefix(rawPrefix)
-    } catch {
-      return c.json({ error: 'invalid_prefix' }, 400)
-    }
-    match = rows.find((r) => r.target_kind === 'dir' && r.path_prefix === normalizedPrefix)
-  }
-  if (!match) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-  const dir = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
-  const paths = await listWikiFiles(dir)
-  if (match.target_kind === 'file') {
-    const one = paths.filter((p) => p === match.path_prefix)
-    const files = one.map((p) => ({ path: p, name: basename(p, '.md') }))
-    return c.json(files)
-  }
-  const normalizedPrefix = match.path_prefix
-  const filtered = paths.filter((p) => wikiPathUnderSharePrefix(p, normalizedPrefix))
-  const files = filtered.map((p) => ({ path: p, name: basename(p, '.md') }))
-  return c.json(files)
-})
-
-// GET /api/wiki/shared/:ownerUserId/:path{.+} — read one markdown file from owner's wiki (grantee read-only)
-wiki.get('/shared/:ownerUserId/:path{.+}', async (c) => {
-  const ownerId = c.req.param('ownerUserId')
-  const filePath = c.req.param('path')
-  if (!filePath.endsWith('.md')) {
-    return c.json({ error: 'Only .md paths are supported for shared reads' }, 400)
-  }
-  const granteeId = getTenantContext().tenantUserId
-  if (!granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: filePath })) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-  const dir = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
-  const fullPath = resolve(join(dir, filePath))
-  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
-    return c.json({ error: 'Forbidden' }, 403)
-  }
-  try {
-    const raw = await readFile(fullPath, 'utf-8')
-    const { meta, body } = parseFrontmatter(raw)
-    const html = await marked(body)
-    return c.json({ path: filePath, raw, html, meta })
-  } catch {
-    return c.json({ error: 'Not found' }, 404)
-  }
-})
-
-wiki.patch('/shared/:ownerUserId/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
-wiki.delete('/shared/:ownerUserId/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
-wiki.post('/shared/:ownerUserId/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
-
 // GET /api/wiki/dir-icon/:dir — resolve a Lucide icon name for a wiki directory
-// Checks hardcoded defaults, then a JSON cache, then falls back to LLM.
 wiki.get('/dir-icon/:dir', async (c) => {
-  const dir = c.req.param('dir')
+  const dirParam = c.req.param('dir')
 
-  // Generic defaults only — personal/domain-specific dirs fall through to LLM
   const DEFAULTS: Record<string, string> = {
     people: 'User', companies: 'Building2', ideas: 'Lightbulb', areas: 'Map',
     health: 'Heart', projects: 'Briefcase', vehicles: 'Car', notes: 'BookOpen',
     education: 'GraduationCap', travel: 'Globe',
   }
-  if (DEFAULTS[dir]) return c.json({ icon: DEFAULTS[dir] })
+  if (DEFAULTS[dirParam]) return c.json({ icon: DEFAULTS[dirParam] })
 
   const ICON_NAMES = [
     'Users', 'Building2', 'Lightbulb', 'Map', 'Heart', 'Church', 'HandHeart',
@@ -387,10 +218,9 @@ wiki.get('/dir-icon/:dir', async (c) => {
   let cache: Record<string, string> = {}
   try {
     cache = JSON.parse(await readFile(cachePath, 'utf-8'))
-    if (cache[dir]) return c.json({ icon: cache[dir] })
+    if (cache[dirParam]) return c.json({ icon: cache[dirParam] })
   } catch { /* cache missing or unreadable */ }
 
-  // Ask the LLM to pick the best icon from the available set
   try {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const client = new Anthropic()
@@ -399,13 +229,13 @@ wiki.get('/dir-icon/:dir', async (c) => {
       max_tokens: 20,
       messages: [{
         role: 'user',
-        content: `Which of these Lucide icon names best represents a wiki directory called "${dir}"? Reply with only the icon name, no explanation.\n\nAvailable: ${ICON_NAMES.join(', ')}`,
+        content: `Which of these Lucide icon names best represents a wiki directory called "${dirParam}"? Reply with only the icon name, no explanation.\n\nAvailable: ${ICON_NAMES.join(', ')}`,
       }],
     })
     const text = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
     const icon = ICON_NAMES.includes(text) ? text : 'File'
 
-    cache[dir] = icon
+    cache[dirParam] = icon
     await mkdir(dirname(cachePath), { recursive: true })
     await writeFile(cachePath, JSON.stringify(cache, null, 2))
     return c.json({ icon })
@@ -416,20 +246,22 @@ wiki.get('/dir-icon/:dir', async (c) => {
 
 // POST /api/wiki/move — rename/move a page (JSON { from, to } relative to wiki root)
 wiki.post('/move', async (c) => {
-  const { tools: dir } = wikiRoots()
+  const dir = wikiRootAbs()
   let body: { from?: unknown; to?: unknown }
   try {
     body = await c.req.json()
   } catch {
     return c.json({ error: 'Invalid JSON' }, 400)
   }
-  const from = typeof body.from === 'string' ? body.from.trim() : ''
-  const to = typeof body.to === 'string' ? body.to.trim() : ''
+  let from = typeof body.from === 'string' ? body.from.trim() : ''
+  let to = typeof body.to === 'string' ? body.to.trim() : ''
   if (!from.endsWith('.md') || !to.endsWith('.md')) {
     return c.json({ error: 'Expected { from, to } as .md paths' }, 400)
   }
-  if (!isPersonalWikiMutationPath(from) || !isPersonalWikiMutationPath(to)) {
-    return c.json({ error: 'Paths must start with me/' }, 400)
+  from = normalizeWikiApiRelPath(from)
+  to = normalizeWikiApiRelPath(to)
+  if (!isAllowedWikiMutationRel(from) || !isAllowedWikiMutationRel(to)) {
+    return c.json({ error: 'Invalid path' }, 400)
   }
   if (from.includes('..') || to.includes('..')) {
     return c.json({ error: 'Invalid path' }, 400)
@@ -479,13 +311,14 @@ wiki.post('/move', async (c) => {
 
 // DELETE /api/wiki/:path — remove a markdown file
 wiki.delete('/:path{.+}', async (c) => {
-  const { tools: dir } = wikiRoots()
-  const filePath = c.req.param('path')
+  const dir = wikiRootAbs()
+  let filePath = c.req.param('path')
   if (!filePath.endsWith('.md')) {
     return c.json({ error: 'Only .md files can be deleted' }, 400)
   }
-  if (!isPersonalWikiMutationPath(filePath)) {
-    return c.json({ error: 'Path must start with me/' }, 400)
+  filePath = normalizeWikiApiRelPath(filePath)
+  if (!isAllowedWikiMutationRel(filePath)) {
+    return c.json({ error: 'Invalid path' }, 400)
   }
   const fullPath = resolve(join(dir, filePath))
   if (!fullPath.startsWith(dir + '/')) {
@@ -506,8 +339,12 @@ wiki.delete('/:path{.+}', async (c) => {
 
 // PATCH /api/wiki/:path — save full markdown file (including YAML front matter)
 wiki.patch('/:path{.+}', async (c) => {
-  const { tools: dir } = wikiRoots()
-  const filePath = c.req.param('path')
+  const dir = wikiRootAbs()
+  let filePath = c.req.param('path')
+  filePath = normalizeWikiApiRelPath(filePath)
+  if (!isAllowedWikiMutationRel(filePath)) {
+    return c.json({ error: 'Invalid path' }, 400)
+  }
   let outPath = filePath
   let fullPath = resolve(join(dir, filePath))
   if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
@@ -522,10 +359,6 @@ wiki.patch('/:path{.+}', async (c) => {
   }
   if (typeof body.markdown !== 'string') {
     return c.json({ error: 'Expected { markdown: string }' }, 400)
-  }
-
-  if (!isPersonalWikiMutationPath(filePath)) {
-    return c.json({ error: 'Path must start with me/' }, 400)
   }
 
   let normalizedFrom: string | undefined
@@ -556,14 +389,15 @@ wiki.patch('/:path{.+}', async (c) => {
   }
 })
 
-// GET /api/wiki/:path — read and render a specific page
-// IMPORTANT: this catch-all route must be registered AFTER specific routes above
+// GET /api/wiki/:path — read and render a specific page (must be registered AFTER specific routes above)
 wiki.get('/:path{.+}', async (c) => {
-  const { tools: dir } = wikiRoots()
-  const filePath = c.req.param('path')
+  const dir = wikiRootAbs()
+  const filePath = normalizeWikiApiRelPath(c.req.param('path'))
+  if (!isSafeWikiRelPath(filePath)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
   const fullPath = resolve(join(dir, filePath))
 
-  // Prevent path traversal using resolved absolute paths
   if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
     return c.json({ error: 'Forbidden' }, 403)
   }

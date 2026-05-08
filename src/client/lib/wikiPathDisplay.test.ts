@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  isWikiRootIndexPath,
-  resolveWikiRootIndexPath,
-  wikiPathParentDir,
-  wikiShareVaultPathForWikiFileName,
-} from './wikiPathDisplay.js'
+import { isWikiRootIndexPath, resolveWikiRootIndexPath, wikiPathParentDir } from './wikiPathDisplay.js'
 
 describe('resolveWikiRootIndexPath', () => {
   it('prefers root _index.md over root index.md', () => {
@@ -97,23 +92,5 @@ describe('wikiPathParentDir', () => {
 
   it('normalizes slashes', () => {
     expect(wikiPathParentDir('ideas//foo.md')).toBe('ideas')
-  })
-})
-
-describe('wikiShareVaultPathForWikiFileName', () => {
-  it('returns file prefixes as vault paths', () => {
-    expect(
-      wikiShareVaultPathForWikiFileName({
-        pathPrefix: 'travel/virginia-trip-2026.md',
-        targetKind: 'file',
-      }),
-    ).toBe('travel/virginia-trip-2026.md')
-  })
-
-  it('maps directory prefixes to synthetic index paths', () => {
-    expect(wikiShareVaultPathForWikiFileName({ pathPrefix: 'trips/', targetKind: 'dir' })).toBe(
-      'trips/index.md',
-    )
-    expect(wikiShareVaultPathForWikiFileName({ pathPrefix: '', targetKind: 'dir' })).toBe('index.md')
   })
 })

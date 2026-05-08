@@ -20,8 +20,6 @@
     wikiStreamingEdit,
     onWikiNavigate,
     onWikiDirNavigate,
-    onOpenSharedWiki,
-    onOpenSharedWikiFile,
     onInboxNavigate,
     onContextChange,
     onOpenSearch,
@@ -60,8 +58,6 @@
   wikiStreamingEdit={wikiStreamingEdit}
   {onWikiNavigate}
   onWikiDirNavigate={onWikiDirNavigate}
-  onOpenSharedWiki={onOpenSharedWiki}
-  onOpenSharedWikiFile={onOpenSharedWikiFile}
   {onInboxNavigate}
   {onContextChange}
   {onOpenSearch}

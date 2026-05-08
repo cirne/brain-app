@@ -3,11 +3,13 @@ import {
   ENRON_DEMO_MINT_PATH,
   ENRON_DEMO_RESEED_PATH,
   ENRON_DEMO_SEED_STATUS_PATH,
+  ENRON_DEMO_USERS_PATH,
   enronDemoSecretConfigured,
   isEnronDemoMintPath,
   isEnronDemoPublicApiPath,
   isEnronDemoReseedPath,
   isEnronDemoSeedStatusPath,
+  isEnronDemoUsersListPath,
 } from './enronDemo.js'
 
 describe('enronDemo', () => {
@@ -37,7 +39,15 @@ describe('enronDemo', () => {
     expect(isEnronDemoReseedPath(ENRON_DEMO_RESEED_PATH, 'POST')).toBe(false)
   })
 
-  it('isEnronDemoPublicApiPath covers mint POST, seed-status GET, reseed GET', () => {
+  it('isEnronDemoUsersListPath matches GET only', () => {
+    expect(isEnronDemoUsersListPath(ENRON_DEMO_USERS_PATH, 'GET')).toBe(true)
+    expect(isEnronDemoUsersListPath(`${ENRON_DEMO_USERS_PATH}/`, 'GET')).toBe(true)
+    expect(isEnronDemoUsersListPath(ENRON_DEMO_USERS_PATH, 'POST')).toBe(false)
+  })
+
+  it('isEnronDemoPublicApiPath covers users GET, mint POST, seed-status GET, reseed GET', () => {
+    expect(isEnronDemoPublicApiPath(ENRON_DEMO_USERS_PATH, 'GET')).toBe(true)
+    expect(isEnronDemoPublicApiPath(ENRON_DEMO_USERS_PATH, 'POST')).toBe(false)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_MINT_PATH, 'POST')).toBe(true)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_SEED_STATUS_PATH, 'GET')).toBe(true)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_SEED_STATUS_PATH, 'POST')).toBe(false)

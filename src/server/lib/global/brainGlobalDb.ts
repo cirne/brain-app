@@ -6,10 +6,10 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
 /**
  * Bump when `brain-global.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 3
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 4
 
 /**
- * Cross-tenant metadata (wiki shares ACL, brain-query delegation grants + log; tenant-registry migration later).
+ * Cross-tenant metadata (brain-query delegation grants + log; tenant-registry migration later).
  * Override path in tests via `BRAIN_GLOBAL_SQLITE_PATH`.
  */
 export function brainGlobalSqlitePath(): string {
@@ -29,7 +29,7 @@ export function readBrainGlobalSchemaVersion(db: Database.Database): number | nu
   }
 }
 
-/** Full schema for a fresh global DB (version row + wiki_shares + brain-query delegation ACL/log). */
+/** Full schema for a fresh global DB (version row + brain-query delegation ACL/log). */
 export function initBrainGlobalSchema(db: Database.Database): void {
   db.transaction(() => {
     db.exec(`
@@ -40,21 +40,6 @@ CREATE TABLE brain_global_schema (
 `)
     db.prepare(`INSERT INTO brain_global_schema (id, version) VALUES (1, ?)`).run(BRAIN_GLOBAL_SCHEMA_VERSION)
     db.exec(`
-CREATE TABLE wiki_shares (
-  id               TEXT PRIMARY KEY,
-  owner_id         TEXT NOT NULL,
-  grantee_id       TEXT NOT NULL,
-  grantee_email    TEXT,
-  path_prefix      TEXT NOT NULL,
-  target_kind      TEXT NOT NULL DEFAULT 'dir',
-  invite_token     TEXT NOT NULL UNIQUE,
-  created_at_ms    INTEGER NOT NULL,
-  accepted_at_ms   INTEGER,
-  revoked_at_ms    INTEGER
-);
-CREATE INDEX idx_wiki_shares_owner ON wiki_shares(owner_id);
-CREATE INDEX idx_wiki_shares_grantee ON wiki_shares(grantee_id);
-CREATE INDEX idx_wiki_shares_token ON wiki_shares(invite_token);
 CREATE TABLE brain_query_grants (
   id              TEXT PRIMARY KEY,
   owner_id        TEXT NOT NULL,

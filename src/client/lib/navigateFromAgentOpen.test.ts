@@ -105,9 +105,4 @@ describe('navigateFromAgentOpen', () => {
     expect(ctx.openWikiDoc).toHaveBeenCalledWith('me/ideas/x.md')
   })
 
-  it('combines legacy shareHandle with path into unified @handle/ path', () => {
-    const ctx = desktopCtx()
-    navigateFromAgentOpen({ type: 'wiki', path: 'solo.md', shareHandle: 'bob' }, ctx)
-    expect(ctx.openWikiDoc).toHaveBeenCalledWith('@bob/solo.md')
-  })
 })

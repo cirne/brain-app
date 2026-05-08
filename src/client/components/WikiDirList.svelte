@@ -1,91 +1,38 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import {
-    ChevronRight,
-    FileSymlink,
-    FileText,
-    Folder,
-    FolderSymlink,
-    Users,
-  } from 'lucide-svelte'
+  import { ChevronRight, FileText, Folder } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { SurfaceContext } from '@client/router.js'
   import {
-    countOutgoingSharesForVaultPath,
-    listWikiDirChildrenWithShares,
+    listWikiDirChildren,
     normalizeWikiDirPath,
-    isSharedNamespacePath,
-    vaultRelativeDirFromWikiBrowseDir,
-    withUnifiedPeerPrefixOnListEntries,
     type WikiDirListEntry,
     type WikiFileRow,
-    type WikiOwnedShareRef,
-    type WikiReceivedShareRow,
   } from '@client/lib/wikiDirListModel.js'
-  import WikiShareDialog from '@components/WikiShareDialog.svelte'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { getWikiSlideHeaderCell } from '@client/lib/wikiSlideHeaderContext.js'
 
   let {
     dirPath: dirPathProp,
     refreshKey = 0,
-    shareOwner,
-    sharePrefix,
-    shareHandle,
     onOpenFile,
     onOpenDir,
-    onOpenSharedDir: _onOpenSharedDir,
-    onOpenSharedFile: _onOpenSharedFile,
     onContextChange,
   }: {
-    /** Wiki-relative directory (no slashes at ends). Empty = root. */
     dirPath?: string
     refreshKey?: number
-    /** When set with sharePrefix, list is loaded from shared owner wiki. */
-    shareOwner?: string
-    sharePrefix?: string
-    shareHandle?: string
     onOpenFile: (_path: string) => void
     onOpenDir: (_path: string) => void
-    onOpenSharedDir?: (_p: { ownerId: string; sharePrefix: string; ownerHandle: string }) => void
-    onOpenSharedFile?: (_p: { ownerId: string; sharePrefix: string; ownerHandle: string }) => void
     onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
 
   const dirPath = $derived(normalizeWikiDirPath(dirPathProp))
-  const sharedMode = $derived(
-    Boolean(
-      shareHandle?.trim() ||
-        (shareOwner?.trim() && sharePrefix?.trim()),
-    ),
-  )
 
   let files = $state<WikiFileRow[]>([])
-  let receivedShares = $state<WikiReceivedShareRow[]>([])
-  /** Paths you share with others (`GET /api/wiki` → `shares.owned`). */
-  let ownedShares = $state<WikiOwnedShareRef[]>([])
   let loading = $state(true)
   let loadError = $state(false)
-  let shareDialogOpen = $state(false)
-  let shareDialogPrefix = $state('')
-  let shareDialogTargetKind = $state<'dir' | 'file'>('dir')
 
-  const entries = $derived.by((): WikiDirListEntry[] => {
-    const base = listWikiDirChildrenWithShares(files, dirPathProp, sharedMode ? null : receivedShares)
-    if (!sharedMode) return base
-    const sh = shareHandle?.trim()
-    return sh ? withUnifiedPeerPrefixOnListEntries(base, sh) : base
-  })
-
-  const canShareCurrentDir = $derived(
-    Boolean(!sharedMode && dirPath.trim() && !isSharedNamespacePath(dirPath)),
-  )
-
-  const shareAudienceVaultPath = $derived(vaultRelativeDirFromWikiBrowseDir(dirPathProp) ?? '')
-
-  const dirShareAudienceCount = $derived(
-    countOutgoingSharesForVaultPath(shareAudienceVaultPath, ownedShares),
-  )
+  const entries = $derived(listWikiDirChildren(files, dirPathProp))
 
   const wikiHeaderCell = getWikiSlideHeaderCell()
 
@@ -93,144 +40,39 @@
     /* view-only directory list */
   }
 
-  function wikiDirSlideOpenShare() {
-    shareDialogTargetKind = 'dir'
-    const rel = vaultRelativeDirFromWikiBrowseDir(dirPathProp)
-    shareDialogPrefix = rel ? `${rel}/` : ''
-    shareDialogOpen = true
-  }
-
-  /**
-   * Claim the wiki header cell once with stable handler identities. Reactive scalar fields
-   * (canShare, share label, audience count, …) are pushed through `patch` from a single
-   * `$effect` below — no fresh-payload churn. See archived BUG-047 (effect depth / slide headers).
-   */
   const wikiHeaderCtrl = wikiHeaderCell?.claim({
     pageMode: 'view',
     canEdit: false,
     saveState: 'idle',
     setPageMode: wikiDirSlideSetPageModeNoop,
-    canShare: false,
-    onOpenShare: wikiDirSlideOpenShare,
-    shareTargetLabel: undefined,
-    shareAudienceCount: undefined,
-    sharedIncoming: false,
-  })
-
-  $effect(() => {
-    if (!wikiHeaderCtrl) return
-    void ownedShares
-    wikiHeaderCtrl.patch({
-      canShare: canShareCurrentDir,
-      shareTargetLabel: dirPath.trim() || undefined,
-      shareAudienceCount:
-        canShareCurrentDir && dirShareAudienceCount > 0 ? dirShareAudienceCount : undefined,
-      sharedIncoming: sharedMode,
-    })
   })
 
   async function loadFiles() {
     loading = true
     loadError = false
     try {
-      const sh = shareHandle?.trim()
-      const so = shareOwner?.trim()
-      const sp = sharePrefix?.trim()
-      let url = '/api/wiki'
-      if (sh) {
-        url =
-          sp && sp.length > 0
-            ? `/api/wiki/shared-by-handle/${encodeURIComponent(sh)}?prefix=${encodeURIComponent(sp)}`
-            : `/api/wiki/shared-by-handle/${encodeURIComponent(sh)}`
-      } else if (so && sp) {
-        url = `/api/wiki/shared/${encodeURIComponent(so)}?prefix=${encodeURIComponent(sp)}`
-      }
-      const res = await fetch(url)
+      const res = await fetch('/api/wiki')
       if (!res.ok) throw new Error('bad status')
       const data: unknown = await res.json()
-      if (sharedMode) {
-        files = parseWikiListApiBody(data).files
-        receivedShares = []
-        ownedShares = []
-      } else if (url === '/api/wiki') {
-        const { files: fl, shares } = parseWikiListApiBody(data)
-        files = fl
-        receivedShares = shares.received
-        ownedShares = shares.owned
-      } else {
-        files = parseWikiListApiBody(data).files
-        receivedShares = []
-        ownedShares = []
-      }
+      files = parseWikiListApiBody(data).files
     } catch {
       files = []
-      receivedShares = []
-      ownedShares = []
       loadError = true
     } finally {
       loading = false
     }
   }
 
-  function entryHasOutgoingShare(entry: WikiDirListEntry): boolean {
-    if (sharedMode) return false
-    if (entry.kind !== 'dir' && entry.kind !== 'file') return false
-    return countOutgoingSharesForVaultPath(entry.path, ownedShares) > 0
-  }
-
-  /** Synthetic rows or items listed while browsing someone else's wiki (`shareHandle` / legacy share). */
-  function entryIsShared(entry: WikiDirListEntry): boolean {
-    if (entry.kind === 'my-wiki-root') return false
-    if (
-      entry.kind === 'shared-owner' ||
-      entry.kind === 'shared-dir' ||
-      entry.kind === 'shared-file'
-    ) {
-      return true
-    }
-    return sharedMode
-  }
-
-  function entryIsFolderLike(entry: WikiDirListEntry): boolean {
-    return (
-      entry.kind === 'dir' ||
-      entry.kind === 'my-wiki-root' ||
-      entry.kind === 'shared-owner' ||
-      entry.kind === 'shared-dir'
-    )
-  }
-
   function onEntryClick(entry: WikiDirListEntry) {
-    if (entry.kind === 'dir' || entry.kind === 'my-wiki-root' || entry.kind === 'shared-owner') {
+    if (entry.kind === 'dir') {
       onOpenDir(entry.path)
       return
     }
-    if (entry.kind === 'file') {
-      onOpenFile(entry.path)
-      return
-    }
-    if (entry.kind === 'shared-dir') {
-      _onOpenSharedDir?.({
-        ownerId: entry.ownerId,
-        sharePrefix: entry.sharePrefix,
-        ownerHandle: entry.ownerHandle,
-      })
-      return
-    }
-    if (entry.kind === 'shared-file') {
-      _onOpenSharedFile?.({
-        ownerId: entry.ownerId,
-        sharePrefix: entry.sharePrefix,
-        ownerHandle: entry.ownerHandle,
-      })
-    }
+    onOpenFile(entry.path)
   }
 
   $effect(() => {
     void refreshKey
-    void shareOwner
-    void sharePrefix
-    void shareHandle
     void loadFiles()
   })
 
@@ -247,15 +89,6 @@
 </script>
 
 <div class="wiki-dir flex min-h-0 flex-1 flex-col overflow-hidden">
-  <WikiShareDialog
-    open={shareDialogOpen}
-    pathPrefix={shareDialogPrefix}
-    targetKind={shareDialogTargetKind}
-    onDismiss={() => {
-      shareDialogOpen = false
-    }}
-    onSharesChanged={loadFiles}
-  />
   <div
     class="wiki-dir-inner mx-auto box-border w-full max-w-chat min-h-0 flex-1 overflow-y-auto px-[clamp(1rem,4%,2.5rem)] py-6"
   >
@@ -270,46 +103,23 @@
         class="wiki-dir-list m-0 flex list-none flex-col gap-0 p-0"
         aria-label={dirPath ? `Pages in ${dirPath}` : 'Wiki pages'}
       >
-        {#each entries as entry (`${entry.kind}:${'path' in entry ? entry.path : entry.kind}`)}
+        {#each entries as entry (`${entry.kind}:${entry.path}`)}
           <li>
             <button
               type="button"
               class={cn(
                 'wiki-dir-row group grid w-full cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-x-3.5 gap-y-3 border-0 border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-transparent px-0 py-3 text-left text-foreground text-[0.9375rem] transition-colors duration-150 hover:bg-surface-2 hover:text-accent',
-                entryIsShared(entry) && 'wiki-dir-row--shared',
-                entryHasOutgoingShare(entry) && 'wiki-dir-row--outgoing',
               )}
               onclick={() => onEntryClick(entry)}
             >
-              <span
-                class={cn(
-                  'wiki-dir-icon flex shrink-0 text-muted',
-                  entryIsShared(entry) &&
-                    'wiki-dir-icon--shared text-[color-mix(in_srgb,var(--accent)_82%,var(--text-2))] group-hover:text-accent',
-                )}
-                aria-hidden="true"
-              >
-                {#if entry.kind === 'my-wiki-root'}
-                  <Folder size={18} />
-                {:else if entry.kind === 'shared-owner'}
-                  <Users size={18} />
-                {:else if entryIsShared(entry) && entryIsFolderLike(entry)}
-                  <FolderSymlink size={18} />
-                {:else if entryIsShared(entry)}
-                  <FileSymlink size={18} />
-                {:else if entryHasOutgoingShare(entry) && entry.kind === 'dir'}
-                  <FolderSymlink size={18} />
-                {:else if entryHasOutgoingShare(entry) && entry.kind === 'file'}
-                  <FileSymlink size={18} />
-                {:else if entry.kind === 'dir'}
+              <span class="wiki-dir-icon flex shrink-0 text-muted" aria-hidden="true">
+                {#if entry.kind === 'dir'}
                   <Folder size={18} />
                 {:else}
                   <FileText size={18} />
                 {/if}
               </span>
-              <span class="wiki-dir-label min-w-0 font-semibold [word-break:break-word]"
-                >{entry.label}</span
-              >
+              <span class="wiki-dir-label min-w-0 font-semibold [word-break:break-word]">{entry.label}</span>
               <span
                 class="wiki-dir-chevron flex shrink-0 text-[var(--text-3,var(--text-2))] group-hover:text-accent"
                 aria-hidden="true"

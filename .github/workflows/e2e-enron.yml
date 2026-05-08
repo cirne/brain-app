@@ -13,6 +13,9 @@ on:
       - 'src/server/evals/e2e/**'
       - 'src/server/routes/demoEnronAuth.ts'
       - 'src/server/lib/auth/enronDemo*.ts'
+      - 'eval/fixtures/enron-demo-registry.json'
+      - 'eval/fixtures/enron-*-manifest.json'
+      - 'scripts/brain/seed-enron-demo-tenant.mjs'
       - '.github/workflows/e2e-enron.yml'
 
 env:
@@ -63,10 +66,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: data-eval/.cache/enron
-          key: enron-cmu-tar-${{ hashFiles('eval/fixtures/enron-kean-manifest.json') }}
+          key: enron-cmu-tar-${{ hashFiles('eval/fixtures/enron-*.json') }}
 
-      - name: Seed Enron demo tenant under ./data (same layout as npm run dev)
-        run: npm run brain:seed-enron-demo
+      - name: Seed all Enron demo tenants under ./data (same layout as npm run dev)
+        run: npm run brain:seed-enron-demo:all
         env:
           BRAIN_DATA_ROOT: ${{ github.workspace }}/data
           RIPMAIL_BIN: ${{ github.workspace }}/target/release/ripmail
@@ -86,7 +89,7 @@ jobs:
           echo $! > "${GITHUB_WORKSPACE}/brain-e2e.pid"
           for i in $(seq 1 90); do
             code=$(curl -s -o /dev/null -w "%{http_code}" \
-              "http://127.0.0.1:3000/api/auth/demo/enron/seed-status" \
+              "http://127.0.0.1:3000/api/auth/demo/enron/seed-status?demoUser=kean" \
               -H "Authorization: Bearer ${BRAIN_ENRON_DEMO_SECRET}" || true)
             if [ "$code" = "200" ]; then
               echo "Server up (seed-status HTTP ${code})"

@@ -112,17 +112,6 @@ describe('SlideOver.svelte', () => {
     expect(onWikiDirNavigate).toHaveBeenLastCalledWith('me/people')
   })
 
-  it('shared wiki path lists @handle then folder in dropdown', async () => {
-    const props = baseProps({
-      overlay: { type: 'wiki', path: 'people/x.md', shareHandle: 'alice' },
-    })
-    render(SlideOver, { props })
-
-    await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
-    expect(screen.getByRole('menuitem', { name: '@alice' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'People' })).toBeInTheDocument()
-  })
-
   it('renders wiki-dir at personal browse root as My Wiki without folder menu', () => {
     const props = baseProps({ overlay: { type: 'wiki-dir', path: 'me' } })
     render(SlideOver, { props })

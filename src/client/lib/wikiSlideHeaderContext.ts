@@ -12,15 +12,6 @@ export type WikiSlideHeaderState = {
   setPageMode: (_mode: 'view' | 'edit') => void | Promise<void>
   /** Flush pending editor markdown (own vault TipTap); no-op when not editing in TipTap. */
   flushSavingMarkdown?: () => Promise<void>
-  /** Invite others to read this folder or page (own wiki only). */
-  canShare?: boolean
-  onOpenShare?: () => void
-  /** Short label for the share target (path snippet). */
-  shareTargetLabel?: string
-  /** Grantee rows covering this path (`GET /api/wiki` owns); omit or 0 to hide badge. */
-  shareAudienceCount?: number
-  /** Viewing someone else's wiki via share — hide outgoing share affordances. */
-  sharedIncoming?: boolean
 }
 
 export type WikiSlideHeaderCell = SlideHeaderCell<WikiSlideHeaderState>

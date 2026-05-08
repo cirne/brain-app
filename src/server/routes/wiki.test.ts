@@ -11,7 +11,7 @@ let app: Hono
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'wiki-test-'))
   process.env.BRAIN_HOME = brainHome
-  wikiDir = join(brainHome, 'wikis', 'me')
+  wikiDir = join(brainHome, 'wiki')
   await mkdir(join(wikiDir, 'ideas'), { recursive: true })
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome.')
   await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nSome idea about searching.')
@@ -32,26 +32,24 @@ afterEach(async () => {
 })
 
 describe('GET /api/wiki', () => {
-  it('lists all markdown files with share envelope', async () => {
+  it('lists all markdown files', async () => {
     const res = await app.request('/api/wiki')
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       files: { path: string; name: string }[]
-      shares: { owned: unknown[]; received: unknown[] }
     }
     expect(body.files).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: 'me/ideas/foo.md', name: 'foo' }),
-        expect.objectContaining({ path: 'me/index.md', name: 'index' }),
+        expect.objectContaining({ path: 'ideas/foo.md', name: 'foo' }),
+        expect.objectContaining({ path: 'index.md', name: 'index' }),
       ]),
     )
-    expect(body.shares).toEqual({ owned: [], received: [] })
   })
 })
 
 describe('GET /api/wiki/:path', () => {
   it('returns rendered HTML for a valid page', async () => {
-    const res = await app.request('/api/wiki/me/index.md')
+    const res = await app.request('/api/wiki/index.md')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.raw).toContain('# Home')
@@ -59,7 +57,7 @@ describe('GET /api/wiki/:path', () => {
   })
 
   it('parses frontmatter and returns meta separately from body', async () => {
-    const res = await app.request('/api/wiki/me/note.md')
+    const res = await app.request('/api/wiki/note.md')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.meta).toEqual({ updated: '2026-04-01', tags: 'alpha, beta' })
@@ -68,29 +66,29 @@ describe('GET /api/wiki/:path', () => {
   })
 
   it('returns empty meta for pages without frontmatter', async () => {
-    const res = await app.request('/api/wiki/me/index.md')
+    const res = await app.request('/api/wiki/index.md')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.meta).toEqual({})
   })
 
   it('returns 404 for missing file', async () => {
-    const res = await app.request('/api/wiki/me/nonexistent.md')
+    const res = await app.request('/api/wiki/nonexistent.md')
     expect(res.status).toBe(404)
   })
 
   it('returns 200 for nested path with real slashes in the URL', async () => {
-    const res = await app.request('/api/wiki/me/ideas/foo.md')
+    const res = await app.request('/api/wiki/ideas/foo.md')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.path).toBe('me/ideas/foo.md')
+    expect(body.path).toBe('ideas/foo.md')
   })
 
   // BUG-001: UTF-8 on disk + JSON response must round-trip U+2014 as a real character, not a visible `\u2014` escape.
   it('round-trips Unicode em dash (U+2014) in raw and html after res.json()', async () => {
     const em = '\u2014'
     await writeFile(join(wikiDir, 'emdash.md'), `# Partner ${em} gloss\n\nBody.`, 'utf-8')
-    const res = await app.request('/api/wiki/me/emdash.md')
+    const res = await app.request('/api/wiki/emdash.md')
     expect(res.status).toBe(200)
     const body = (await res.json()) as { raw: string; html: string }
     expect(body.raw).toContain(em)
@@ -111,16 +109,16 @@ describe('GET /api/wiki/:path', () => {
 
 describe('PATCH /api/wiki/:path', () => {
   it('writes markdown and GET returns updated content', async () => {
-    const patch = await app.request('/api/wiki/me/index.md', {
+    const patch = await app.request('/api/wiki/index.md', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ markdown: '---\ntitle: Patched Title\n---\n# Patched\n' }),
     })
     expect(patch.status).toBe(200)
     const patchBody = await patch.json()
-    expect(patchBody).toMatchObject({ ok: true, path: 'me/index.md' })
+    expect(patchBody).toMatchObject({ ok: true, path: 'index.md' })
 
-    const getRes = await app.request('/api/wiki/me/index.md')
+    const getRes = await app.request('/api/wiki/index.md')
     expect(getRes.status).toBe(200)
     const body = await getRes.json()
     expect(body.raw).toContain('# Patched')
@@ -128,7 +126,7 @@ describe('PATCH /api/wiki/:path', () => {
   })
 
   it('returns 400 without markdown string', async () => {
-    const res = await app.request('/api/wiki/me/index.md', {
+    const res = await app.request('/api/wiki/index.md', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -146,7 +144,7 @@ describe('PATCH /api/wiki/:path', () => {
   })
 
   it('kebab-normalizes when target file does not exist', async () => {
-    const enc = encodeURIComponent('me/Fresh Page File.md')
+    const enc = encodeURIComponent('Fresh Page File.md')
     const patch = await app.request(`/api/wiki/${enc}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -156,10 +154,10 @@ describe('PATCH /api/wiki/:path', () => {
     const patchBody = await patch.json()
     expect(patchBody).toMatchObject({
       ok: true,
-      path: 'me/fresh-page-file.md',
-      normalizedFrom: 'me/Fresh Page File.md',
+      path: 'fresh-page-file.md',
+      normalizedFrom: 'Fresh Page File.md',
     })
-    const get = await app.request('/api/wiki/me/fresh-page-file.md')
+    const get = await app.request('/api/wiki/fresh-page-file.md')
     expect(get.status).toBe(200)
   })
 })
@@ -210,12 +208,12 @@ describe('GET /api/wiki/log', () => {
     expect(entries).toHaveLength(2)
     // most recent first
     expect(entries[0]).toMatchObject({ date: '2026-04-13', type: 'query' })
-    expect(entries[0].files).toContain('me/ideas/brain-app.md')
-    expect(entries[0].files).toContain('me/people/alice.md')
-    expect(entries[0].files).toContain('me/people/bob.md') // normalized: .md added
+    expect(entries[0].files).toContain('ideas/brain-app.md')
+    expect(entries[0].files).toContain('people/alice.md')
+    expect(entries[0].files).toContain('people/bob.md') // normalized: .md added
     expect(entries[0].files).not.toContain('people/ghost.md') // deleted — filtered out
     expect(entries[1]).toMatchObject({ date: '2026-04-12', type: 'lint' })
-    expect(entries[1].files).toContain('me/_index.md')
+    expect(entries[1].files).toContain('_index.md')
   })
 
   it('skips bare directory paths (ending with /)', async () => {
@@ -232,7 +230,7 @@ describe('GET /api/wiki/log', () => {
     const files: string[] = entries[0]?.files ?? []
     expect(files).not.toContain('areas/.md')
     expect(files).not.toContain('areas/')
-    expect(files).toContain('me/people/alice.md')
+    expect(files).toContain('people/alice.md')
   })
 
   it('strips wiki/ prefix from file paths in log entries', async () => {
@@ -246,9 +244,9 @@ describe('GET /api/wiki/log', () => {
 
     const res = await app.request('/api/wiki/log')
     const { entries } = await res.json()
-    expect(entries[0].files).toContain('me/ideas/brain-in-the-cloud.md')
+    expect(entries[0].files).toContain('ideas/brain-in-the-cloud.md')
     expect(entries[0].files).not.toContain('wiki/ideas/brain-in-the-cloud.md')
-    expect(entries[0].files).toContain('me/ideas/other.md')
+    expect(entries[0].files).toContain('ideas/other.md')
   })
 
   it('respects limit parameter (newest-first file order)', async () => {
@@ -285,9 +283,9 @@ describe('GET /api/wiki/edit-history', () => {
     await writeFile(
       histFile,
       [
-        JSON.stringify({ ts: '2026-04-10T12:00:00.000Z', op: 'edit', path: 'me/ideas/foo.md', source: 'agent' }),
-        JSON.stringify({ ts: '2026-04-13T12:00:00.000Z', op: 'write', path: 'me/index.md', source: 'agent' }),
-        JSON.stringify({ ts: '2026-04-11T00:00:00.000Z', op: 'edit', path: 'me/ideas/foo.md', source: 'agent' }),
+        JSON.stringify({ ts: '2026-04-10T12:00:00.000Z', op: 'edit', path: 'ideas/foo.md', source: 'agent' }),
+        JSON.stringify({ ts: '2026-04-13T12:00:00.000Z', op: 'write', path: 'index.md', source: 'agent' }),
+        JSON.stringify({ ts: '2026-04-11T00:00:00.000Z', op: 'edit', path: 'ideas/foo.md', source: 'agent' }),
       ].join('\n') + '\n',
       'utf8'
     )
@@ -295,8 +293,8 @@ describe('GET /api/wiki/edit-history', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.files).toEqual([
-      { path: 'me/index.md', date: '2026-04-13T12:00:00.000Z' },
-      { path: 'me/ideas/foo.md', date: '2026-04-11T00:00:00.000Z' },
+      { path: 'index.md', date: '2026-04-13T12:00:00.000Z' },
+      { path: 'ideas/foo.md', date: '2026-04-11T00:00:00.000Z' },
     ])
   })
 })
@@ -312,7 +310,7 @@ describe('GET /api/wiki/recent', () => {
     const res = await app.request('/api/wiki/recent')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.files[0]?.path).toBe('me/ideas/foo.md')
+    expect(body.files[0]?.path).toBe('ideas/foo.md')
     expect(body.files[0]?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })
@@ -351,7 +349,7 @@ describe('GET /api/wiki/search', () => {
     const res = await app.request('/api/wiki/search?q=searching')
     expect(res.status).toBe(200)
     const results = await res.json()
-    expect(results).toContain('me/ideas/foo.md')
+    expect(results).toContain('ideas/foo.md')
     expect(results).not.toContain('index.md')
   })
 
@@ -368,12 +366,12 @@ describe('POST /api/wiki', () => {
     const res = await app.request('/api/wiki', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'me/draft-x.md', markdown: '# Hi\n' }),
+      body: JSON.stringify({ path: 'draft-x.md', markdown: '# Hi\n' }),
     })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toMatchObject({ ok: true, path: 'me/draft-x.md' })
-    const get = await app.request('/api/wiki/me/draft-x.md')
+    expect(body).toMatchObject({ ok: true, path: 'draft-x.md' })
+    const get = await app.request('/api/wiki/draft-x.md')
     expect(get.status).toBe(200)
   })
 
@@ -381,16 +379,16 @@ describe('POST /api/wiki', () => {
     const res = await app.request('/api/wiki', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'me/My Draft File.md', markdown: '# Hi\n' }),
+      body: JSON.stringify({ path: 'My Draft File.md', markdown: '# Hi\n' }),
     })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toMatchObject({
       ok: true,
-      path: 'me/my-draft-file.md',
-      normalizedFrom: 'me/My Draft File.md',
+      path: 'my-draft-file.md',
+      normalizedFrom: 'My Draft File.md',
     })
-    const get = await app.request('/api/wiki/me/my-draft-file.md')
+    const get = await app.request('/api/wiki/my-draft-file.md')
     expect(get.status).toBe(200)
   })
 
@@ -398,7 +396,7 @@ describe('POST /api/wiki', () => {
     const res = await app.request('/api/wiki', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'me/index.md', markdown: 'x' }),
+      body: JSON.stringify({ path: 'index.md', markdown: 'x' }),
     })
     expect(res.status).toBe(409)
   })
@@ -408,7 +406,7 @@ describe('POST /api/wiki', () => {
     const res = await app.request('/api/wiki', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'me/Kebab-Collision.md', markdown: 'x' }),
+      body: JSON.stringify({ path: 'Kebab-Collision.md', markdown: 'x' }),
     })
     expect(res.status).toBe(409)
   })
@@ -419,12 +417,12 @@ describe('POST /api/wiki/move', () => {
     const res = await app.request('/api/wiki/move', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'me/note.md', to: 'me/note-renamed.md' }),
+      body: JSON.stringify({ from: 'note.md', to: 'note-renamed.md' }),
     })
     expect(res.status).toBe(200)
-    const old = await app.request('/api/wiki/me/note.md')
+    const old = await app.request('/api/wiki/note.md')
     expect(old.status).toBe(404)
-    const neu = await app.request('/api/wiki/me/note-renamed.md')
+    const neu = await app.request('/api/wiki/note-renamed.md')
     expect(neu.status).toBe(200)
   })
 
@@ -433,20 +431,20 @@ describe('POST /api/wiki/move', () => {
     const res = await app.request('/api/wiki/move', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'me/move-src.md', to: 'me/My New Name.md' }),
+      body: JSON.stringify({ from: 'move-src.md', to: 'My New Name.md' }),
     })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toMatchObject({ ok: true, path: 'me/my-new-name.md', normalizedFrom: 'me/My New Name.md' })
+    expect(body).toMatchObject({ ok: true, path: 'my-new-name.md', normalizedFrom: 'My New Name.md' })
   })
 })
 
 describe('DELETE /api/wiki/:path', () => {
   it('removes a markdown file', async () => {
     await writeFile(join(wikiDir, 'gone.md'), '# Bye', 'utf-8')
-    const res = await app.request('/api/wiki/me/gone.md', { method: 'DELETE' })
+    const res = await app.request('/api/wiki/gone.md', { method: 'DELETE' })
     expect(res.status).toBe(200)
-    const get = await app.request('/api/wiki/me/gone.md')
+    const get = await app.request('/api/wiki/gone.md')
     expect(get.status).toBe(404)
   })
 })

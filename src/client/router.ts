@@ -3,11 +3,6 @@ export type Overlay =
   | {
       type: 'wiki'
       path?: string
-      /** Owner tenant id — legacy query URLs and shared API until handle URLs fully replace. */
-      shareOwner?: string
-      sharePrefix?: string
-      /** Sharer handle for wiki-primary path URLs `/wiki/@handle/...` (no leading `@`). */
-      shareHandle?: string
     }
   /** Indexed / readable file path (absolute); raw file viewer. */
   | { type: 'file'; path?: string }
@@ -25,14 +20,14 @@ export type Overlay =
   | { type: 'hub-source'; id?: string }
   /** Brain Hub admin/settings/status main surface when hub is primary. */
   | { type: 'hub' }
+  /** Brain-to-brain access management list (`/settings/brain-access`). */
+  | { type: 'brain-access' }
+  /** Single policy detail (`/settings/brain-access/policy/:policyId`). */
+  | { type: 'brain-access-policy'; policyId: string }
   | { type: 'hub-wiki-about' }
   | {
       type: 'wiki-dir'
       path?: string
-      shareOwner?: string
-      sharePrefix?: string
-      /** Sharer handle for wiki-primary path URLs `/wiki/@handle/...` (no leading `@`). */
-      shareHandle?: string
     }
   | { type: 'chat-history' }
 
@@ -229,82 +224,42 @@ export function encodeWikiPrimaryPathSegments(relPath: string): string {
 }
 
 /**
- * Personal wiki paths are `me/…` relative to `wikis/`. Normalize legacy vault-only paths from URLs/query.
+ * Wiki paths are relative to the markdown root (`wiki/`). Strip optional legacy `me/` from URLs/query.
  */
 export function toUnifiedPersonalWikiPath(path: string | undefined): string | undefined {
   const p = path?.trim()
   if (!p) return undefined
-  if (p === 'me' || p.startsWith('me/')) return p
-  if (p.startsWith('@')) return p
-  return `me/${p}`
+  if (p === 'me') return ''
+  if (p.startsWith('me/')) return p.slice('me/'.length)
+  return p
 }
 
-function wikiOverlaySharing(opts: {
-  shareHandle?: string
-  shareOwner?: string
-  sharePrefix?: string
-}): boolean {
-  return Boolean(opts.shareHandle?.trim() || opts.shareOwner?.trim() || opts.sharePrefix?.trim())
-}
-
-/** Normalize `panel=wiki` / `panel=wiki-dir` path query segments when not in legacy shared overlays. */
-export function normalizeWikiOverlayQueryPath(
-  path: string | undefined,
-  opts: { shareHandle?: string; shareOwner?: string; sharePrefix?: string },
-): string | undefined {
-  const p = path?.trim()
-  if (!p) return undefined
-  if (wikiOverlaySharing(opts)) return p
-  return toUnifiedPersonalWikiPath(p)
-}
-
-function wikiOverlayUsesLegacyShareQuery(o: Overlay): boolean {
-  if (o.type !== 'wiki' && o.type !== 'wiki-dir') return false
-  const hasLegacy = Boolean(o.shareOwner?.trim() || o.sharePrefix?.trim())
-  const hasHandle = Boolean(o.shareHandle?.trim())
-  return hasLegacy && !hasHandle
+/** Normalize `panel=wiki` / `panel=wiki-dir` path query segments. */
+export function normalizeWikiOverlayQueryPath(path: string | undefined): string | undefined {
+  return toUnifiedPersonalWikiPath(path)
 }
 
 function buildWikiPrimaryUrl(
   overlay: Extract<Overlay, { type: 'wiki' } | { type: 'wiki-dir' }>,
 ): string {
-  const h = overlay.shareHandle?.trim()
-  if (h) {
-    const base = `/wiki/@${encodeURIComponent(h)}`
-    if (overlay.type === 'wiki-dir') {
-      const p = overlay.path?.trim()
-      if (!p) return `${base}/`
-      return `${base}/${encodeWikiPrimaryPathSegments(p)}/`
-    }
-    const p = overlay.path?.trim()
-    if (!p) return `${base}/`
-    return `${base}/${encodeWikiPrimaryPathSegments(p)}`
-  }
   if (overlay.type === 'wiki-dir') {
     const raw = overlay.path?.trim()
     if (!raw) return '/wiki/'
     const u = toUnifiedPersonalWikiPath(raw) ?? raw
-    if (u === 'me') return '/wiki/me/'
-    if (u.startsWith('me/')) {
-      const rest = u.slice(3).replace(/\/+$/g, '')
-      return rest ? `/wiki/me/${encodeWikiPrimaryPathSegments(rest)}/` : '/wiki/me/'
-    }
-    return `/wiki/me/${encodeWikiPrimaryPathSegments(u.replace(/\/+$/g, ''))}/`
+    const trimmed = u.replace(/\/+$/g, '')
+    if (!trimmed) return '/wiki/'
+    return `/wiki/${encodeWikiPrimaryPathSegments(trimmed)}/`
   }
   const raw = overlay.path?.trim()
   /** Bare pathname `/wiki` is the wiki-dir hub; keep empty wiki reader addressable via `?panel=wiki`. */
   if (!raw) return '/wiki?panel=wiki'
   const u = toUnifiedPersonalWikiPath(raw) ?? raw
-  if (u.startsWith('@')) return `/wiki/${encodeWikiPrimaryPathSegments(u)}`
-  if (u === 'me') return '/wiki/me/'
-  if (u.startsWith('me/')) {
-    return `/wiki/me/${encodeWikiPrimaryPathSegments(u.slice(3))}`
-  }
-  return `/wiki/me/${encodeWikiPrimaryPathSegments(u)}`
+  return `/wiki/${encodeWikiPrimaryPathSegments(u)}`
 }
 
 /**
- * Path segments after `wiki` / `wikis` (`['me','ideas','a.md']`, `['@cirne','travel']`, …), split on `/`.
+ * Path segments after `wiki` / `wikis` URL prefix (`['ideas','a.md']`, …), split on `/`.
+ * Optional leading `me/` or `my-wiki/` is stripped (legacy URLs).
  */
 function parseWikiPrimaryPathname(
   href: string,
@@ -314,68 +269,25 @@ function parseWikiPrimaryPathname(
   const pathnameEndsWithSlash = url.pathname.endsWith('/')
   const decoded = wikiRest.map((s) => safeDecodePathSegment(s))
 
-  const first = decoded[0] ?? ''
-  if (first === 'me' || first === 'my-wiki') {
-    const relSegs = decoded.slice(1)
-    const vaultRel = relSegs.join('/')
-    const lastSeg = relSegs[relSegs.length - 1] ?? ''
-
-    if (relSegs.length === 0) {
-      return { zone: 'wiki', overlay: { type: 'wiki-dir', path: 'me' } }
-    }
-
-    const unifiedPath = `me/${vaultRel}`
-    const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
-    if (isFile) {
-      return { zone: 'wiki', overlay: { type: 'wiki', path: unifiedPath } }
-    }
-
-    const dirPath = unifiedPath.replace(/\/+$/g, '') || undefined
-    return { zone: 'wiki', overlay: { type: 'wiki-dir', path: dirPath } }
-  }
-  if (first.startsWith('@')) {
-    const shareHandle = first.slice(1).trim()
-    if (!shareHandle) {
-      return { zone: 'wiki', overlay: { type: 'wiki' } }
-    }
-
-    const relSegs = decoded.slice(1)
-    const relPath = relSegs.join('/')
-    const lastSeg = relSegs[relSegs.length - 1] ?? ''
-
-    if (relSegs.length === 0) {
-      return { zone: 'wiki', overlay: { type: 'wiki-dir', shareHandle } }
-    }
-
-    const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
-    if (isFile) {
-      return {
-        zone: 'wiki',
-        overlay: { type: 'wiki', path: relPath, shareHandle },
-      }
-    }
-
-    const dirPath = relPath.replace(/\/+$/g, '') || undefined
-    return {
-      zone: 'wiki',
-      overlay: { type: 'wiki-dir', path: dirPath, shareHandle },
-    }
+  let segments = decoded.filter(Boolean)
+  if (segments[0] === 'me' || segments[0] === 'my-wiki') {
+    segments = segments.slice(1)
   }
 
-  const relPath = decoded.join('/')
-  const unifiedPersonal = toUnifiedPersonalWikiPath(relPath) ?? relPath
-  const lastSeg = unifiedPersonal.split('/').pop() ?? ''
+  const relPath = segments.join('/')
+  const lastSeg = segments[segments.length - 1] ?? ''
+
+  if (segments.length === 0) {
+    return { zone: 'wiki', overlay: { type: 'wiki-dir' } }
+  }
 
   const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
   if (isFile) {
-    return { zone: 'wiki', overlay: { type: 'wiki', path: unifiedPersonal } }
+    return { zone: 'wiki', overlay: { type: 'wiki', path: relPath } }
   }
 
-  const dirPath = unifiedPersonal.replace(/\/+$/g, '') || undefined
-  return {
-    zone: 'wiki',
-    overlay: { type: 'wiki-dir', path: dirPath },
-  }
+  const dirPath = relPath.replace(/\/+$/g, '') || undefined
+  return { zone: 'wiki', overlay: { type: 'wiki-dir', path: dirPath } }
 }
 
 function overlayToSearchParams(overlay: Overlay): URLSearchParams {
@@ -386,19 +298,13 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
   q.set(PANEL, overlay.type)
   switch (overlay.type) {
     case 'wiki': {
-      const normalized = normalizeWikiOverlayQueryPath(overlay.path, overlay)
+      const normalized = normalizeWikiOverlayQueryPath(overlay.path)
       if (normalized) q.set('path', normalized)
-      if (overlay.shareOwner) q.set('shareOwner', overlay.shareOwner)
-      if (overlay.sharePrefix) q.set('sharePrefix', overlay.sharePrefix)
-      if (overlay.shareHandle) q.set('shareHandle', overlay.shareHandle)
       break
     }
     case 'wiki-dir': {
-      const normalized = normalizeWikiOverlayQueryPath(overlay.path, overlay)
+      const normalized = normalizeWikiOverlayQueryPath(overlay.path)
       if (normalized) q.set('path', normalized)
-      if (overlay.shareOwner) q.set('shareOwner', overlay.shareOwner)
-      if (overlay.sharePrefix) q.set('sharePrefix', overlay.sharePrefix)
-      if (overlay.shareHandle) q.set('shareHandle', overlay.shareHandle)
       break
     }
     case 'file':
@@ -428,6 +334,11 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
     case 'hub-source':
       if (overlay.id) q.set('id', overlay.id)
       break
+    case 'brain-access':
+      break
+    case 'brain-access-policy':
+      if (overlay.policyId) q.set('brainPolicy', overlay.policyId)
+      break
     default:
       break
   }
@@ -440,29 +351,13 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
   switch (panel) {
     case 'wiki': {
       const pathRaw = sp.get('path')?.trim() || undefined
-      const shareOwner = sp.get('shareOwner')?.trim() || undefined
-      const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
-      const shareHandle = sp.get('shareHandle')?.trim() || undefined
-      const path = normalizeWikiOverlayQueryPath(pathRaw, { shareOwner, sharePrefix, shareHandle })
-      const extra = {
-        ...(shareOwner ? { shareOwner } : {}),
-        ...(sharePrefix ? { sharePrefix } : {}),
-        ...(shareHandle ? { shareHandle } : {}),
-      }
-      return path ? { type: 'wiki', path, ...extra } : { type: 'wiki', ...extra }
+      const path = normalizeWikiOverlayQueryPath(pathRaw)
+      return path ? { type: 'wiki', path } : { type: 'wiki' }
     }
     case 'wiki-dir': {
       const pathRaw = sp.get('path')?.trim() || undefined
-      const shareOwner = sp.get('shareOwner')?.trim() || undefined
-      const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
-      const shareHandle = sp.get('shareHandle')?.trim() || undefined
-      const path = normalizeWikiOverlayQueryPath(pathRaw, { shareOwner, sharePrefix, shareHandle })
-      const extra = {
-        ...(shareOwner ? { shareOwner } : {}),
-        ...(sharePrefix ? { sharePrefix } : {}),
-        ...(shareHandle ? { shareHandle } : {}),
-      }
-      return path ? { type: 'wiki-dir', path, ...extra } : { type: 'wiki-dir', ...extra }
+      const path = normalizeWikiOverlayQueryPath(pathRaw)
+      return path ? { type: 'wiki-dir', path } : { type: 'wiki-dir' }
     }
     case 'file': {
       const file = sp.get('file')?.trim() || undefined
@@ -505,6 +400,14 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
       const id = sp.get('id') ?? undefined
       return id ? { type: 'hub-source', id } : { type: 'hub-source' }
     }
+    case 'brain-access':
+      return { type: 'brain-access' }
+    case 'brain-access-policy': {
+      const brainPolicy = sp.get('brainPolicy')?.trim()
+      return brainPolicy
+        ? { type: 'brain-access-policy', policyId: brainPolicy }
+        : { type: 'brain-access-policy', policyId: '' }
+    }
     case 'hub-wiki-about':
       return { type: 'hub-wiki-about' }
     case 'hub':
@@ -528,9 +431,24 @@ function hubRouteFromSearch(href: string): Route | null {
 
 function settingsRouteFromSearch(href: string): Route | null {
   const url = new URL(href, 'http://localhost')
+  if (!url.pathname.startsWith('/settings')) {
+    return null
+  }
+
+  if (url.pathname === '/settings/brain-access') {
+    return { zone: 'settings', overlay: { type: 'brain-access' } }
+  }
+
+  const policyRest = url.pathname.match(/^\/settings\/brain-access\/policy\/(.+)$/)
+  if (policyRest?.[1]) {
+    const policyId = safeDecodePathSegment(policyRest[1])
+    return { zone: 'settings', overlay: { type: 'brain-access-policy', policyId } }
+  }
+
   if (url.pathname !== '/settings') {
     return null
   }
+
   const overlay = overlayFromSearchParams(url.searchParams)
   if (!overlay) {
     return { zone: 'settings' }
@@ -604,82 +522,31 @@ export function parseRoute(href: string = location.href): Route {
 
     const sp = url.searchParams
     const panel = sp.get(PANEL)?.trim()
-    const shareHandleOnly = sp.get('shareHandle')?.trim() || undefined
     if (panel === 'wiki-dir') {
       const pathRaw = sp.get('path')?.trim() || undefined
-      const shareOwner = sp.get('shareOwner')?.trim() || undefined
-      const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
-      const path = normalizeWikiOverlayQueryPath(pathRaw, {
-        shareOwner,
-        sharePrefix,
-        shareHandle: shareHandleOnly,
-      })
-      const base = path ? { type: 'wiki-dir' as const, path } : { type: 'wiki-dir' as const }
-      const extra = {
-        ...(shareOwner ? { shareOwner } : {}),
-        ...(sharePrefix ? { sharePrefix } : {}),
-        ...(shareHandleOnly ? { shareHandle: shareHandleOnly } : {}),
-      }
+      const path = normalizeWikiOverlayQueryPath(pathRaw)
       return {
         zone: 'wiki',
-        overlay: { ...base, ...extra },
+        overlay: path ? { type: 'wiki-dir', path } : { type: 'wiki-dir' },
       }
     }
     if (panel === 'wiki') {
       const pathRaw = sp.get('path')?.trim() || undefined
-      const shareOwner = sp.get('shareOwner')?.trim() || undefined
-      const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
-      const path = normalizeWikiOverlayQueryPath(pathRaw, {
-        shareOwner,
-        sharePrefix,
-        shareHandle: shareHandleOnly,
-      })
-      const base = path ? { type: 'wiki' as const, path } : { type: 'wiki' as const }
-      const extra = {
-        ...(shareOwner ? { shareOwner } : {}),
-        ...(sharePrefix ? { sharePrefix } : {}),
-        ...(shareHandleOnly ? { shareHandle: shareHandleOnly } : {}),
-      }
+      const path = normalizeWikiOverlayQueryPath(pathRaw)
       return {
         zone: 'wiki',
-        overlay: { ...base, ...extra },
+        overlay: path ? { type: 'wiki', path } : { type: 'wiki' },
       }
     }
     const pathOnlyRaw = sp.get('path')?.trim()
-    const shareOwnerOnly = sp.get('shareOwner')?.trim() || undefined
-    const sharePrefixOnly = sp.get('sharePrefix')?.trim() || undefined
-    const pathOnly = normalizeWikiOverlayQueryPath(pathOnlyRaw, {
-      shareOwner: shareOwnerOnly,
-      sharePrefix: sharePrefixOnly,
-      shareHandle: shareHandleOnly,
-    })
+    const pathOnly = normalizeWikiOverlayQueryPath(pathOnlyRaw)
     if (pathOnly) {
       return {
         zone: 'wiki',
         overlay: {
           type: 'wiki',
           path: pathOnly,
-          ...(shareOwnerOnly ? { shareOwner: shareOwnerOnly } : {}),
-          ...(sharePrefixOnly ? { sharePrefix: sharePrefixOnly } : {}),
-          ...(shareHandleOnly ? { shareHandle: shareHandleOnly } : {}),
         },
-      }
-    }
-    if (shareOwnerOnly) {
-      return {
-        zone: 'wiki',
-        overlay: {
-          type: 'wiki',
-          shareOwner: shareOwnerOnly,
-          ...(sharePrefixOnly ? { sharePrefix: sharePrefixOnly } : {}),
-          ...(shareHandleOnly ? { shareHandle: shareHandleOnly } : {}),
-        },
-      }
-    }
-    if (shareHandleOnly) {
-      return {
-        zone: 'wiki',
-        overlay: { type: 'wiki-dir', shareHandle: shareHandleOnly },
       }
     }
     return { zone: 'wiki', overlay: { type: 'wiki-dir' } }
@@ -719,15 +586,6 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
       return '/wiki'
     }
     if (o.type === 'wiki' || o.type === 'wiki-dir') {
-      if (wikiOverlayUsesLegacyShareQuery(o)) {
-        const q = new URLSearchParams()
-        if (o.path) q.set('path', o.path)
-        if (o.shareOwner) q.set('shareOwner', o.shareOwner)
-        if (o.sharePrefix) q.set('sharePrefix', o.sharePrefix)
-        if (o.type === 'wiki-dir') q.set(PANEL, 'wiki-dir')
-        const qs = q.toString()
-        return qs ? `/wiki?${qs}` : '/wiki'
-      }
       return buildWikiPrimaryUrl(o)
     }
     const q = overlayToSearchParams(o)
@@ -745,6 +603,16 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
   }
 
   if (zone === 'settings') {
+    if (o?.type === 'brain-access') {
+      return '/settings/brain-access'
+    }
+    if (o?.type === 'brain-access-policy') {
+      const id = o.policyId?.trim()
+      if (id) {
+        return `/settings/brain-access/policy/${encodeURIComponent(id)}`
+      }
+      return '/settings/brain-access'
+    }
     if (!o || o.type === 'hub') {
       return '/settings'
     }
