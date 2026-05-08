@@ -21,6 +21,7 @@ import {
   ListChecks,
   CircleCheck,
   Users,
+  ShieldAlert,
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
 
@@ -61,4 +62,5 @@ export const TOOL_ICONS = {
   suggest_reply_options: ListChecks,
   finish_conversation: CircleCheck,
   ask_brain: Users,
+  reject_question: ShieldAlert,
 } as unknown as Record<string, Component>

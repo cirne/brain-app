@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ChevronRight } from 'lucide-svelte'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import type { PolicyCardModel } from '@client/lib/brainAccessPolicyGrouping.js'
   import AddUserDropdown from './AddUserDropdown.svelte'
@@ -51,12 +50,27 @@
 </script>
 
 <div
+  role="link"
+  tabindex="0"
   class={[
-    'policy-card flex flex-col gap-2 rounded-lg border-l-4 bg-surface px-3 py-3',
+    'policy-card group flex cursor-pointer flex-col gap-2 rounded-lg border-l-4 bg-surface px-3 py-3 outline-none transition-colors hover:bg-surface-2/80 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]',
     tone.bar,
     tone.ring,
     tone.softBg,
   ]}
+  aria-label={`Open policy: ${model.label}`}
+  onclick={(e) => {
+    const t = e.target as HTMLElement | null
+    if (t && t.closest('[data-policy-card-stop]')) return
+    onSettingsNavigate({ type: 'brain-access-policy', policyId: model.policyId })
+  }}
+  onkeydown={(e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    const t = e.target as HTMLElement | null
+    if (t && t.closest('[data-policy-card-stop]')) return
+    e.preventDefault()
+    onSettingsNavigate({ type: 'brain-access-policy', policyId: model.policyId })
+  }}
 >
   <div class="flex flex-wrap items-start justify-between gap-2">
     <div class="min-w-0 flex-1 flex flex-col gap-0.5">
@@ -67,17 +81,17 @@
         <p class="m-0 max-w-[42rem] text-[0.8125rem] leading-tight text-muted">{model.hint}</p>
       {/if}
     </div>
-    <button
-      type="button"
-      class="inline-flex shrink-0 items-center gap-1 rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2.5 py-1 text-[0.75rem] font-semibold text-foreground hover:bg-surface-2"
-      onclick={() => onSettingsNavigate({ type: 'brain-access-policy', policyId: model.policyId })}
-    >
-      View
-      <ChevronRight size={14} aria-hidden="true" />
-    </button>
+    <div class="shrink-0 self-start" data-policy-card-stop>
+      <AddUserDropdown
+        excludeHandles={excludeHandles}
+        disabled={addBusy}
+        busy={addBusy}
+        onPick={(entry) => void onAddUser(model.canonicalText, entry)}
+      />
+    </div>
   </div>
 
-  <div class="flex flex-wrap items-center gap-1.5">
+  <div class="flex flex-wrap items-center gap-1.5" data-policy-card-stop>
     {#each model.grants as grant (grant.id)}
       <UserBubble
         grantId={grant.id}
@@ -89,12 +103,6 @@
         removeBusy={removeBusyId === grant.id}
       />
     {/each}
-    <AddUserDropdown
-      excludeHandles={excludeHandles}
-      disabled={addBusy}
-      busy={addBusy}
-      onPick={(entry) => void onAddUser(model.canonicalText, entry)}
-    />
   </div>
 
   <p class="m-0 text-[0.6875rem] font-medium leading-snug text-muted">

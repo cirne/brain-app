@@ -5,8 +5,11 @@ import {
   coerceLlmUsageSnapshot,
   extractReferencedFiles,
   extractMentionedFiles,
+  extractBrainQueryEarlyRejectionFromChatMessages,
   buildChatBody,
   contextPlaceholder,
+  cloneChatMessagesSnapshot,
+  lastAssistantPlainTextFromMessages,
   sumAssistantUsageTotalTokens,
   type ChatMessage,
 } from './agentUtils.js'
@@ -502,5 +505,98 @@ describe('contextPlaceholder', () => {
   it('returns follow-up placeholder for none context with messages', () => {
     const ctx: SurfaceContext = { type: 'none' }
     expect(contextPlaceholder(ctx, true)).toBe('What else can I help with?')
+  })
+})
+
+describe('lastAssistantPlainTextFromMessages', () => {
+  it('concatenates text parts from the latest assistant message', () => {
+    const msgs: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          { type: 'text', content: 'Hello ' },
+          { type: 'text', content: 'world' },
+        ],
+      },
+    ]
+    expect(lastAssistantPlainTextFromMessages(msgs)).toBe('Hello world')
+  })
+
+  it('uses legacy content when parts are empty', () => {
+    const msgs: ChatMessage[] = [{ role: 'assistant', content: '  plain  ' }]
+    expect(lastAssistantPlainTextFromMessages(msgs)).toBe('plain')
+  })
+})
+
+describe('extractBrainQueryEarlyRejectionFromChatMessages', () => {
+  it('returns explanation from completed reject_question tool details', () => {
+    const msgs: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          {
+            type: 'tool',
+            toolCall: {
+              id: 'tc1',
+              name: 'reject_question',
+              args: { reason: 'overly_broad', explanation: 'Too broad.' },
+              details: {
+                rejected: true,
+                reason: 'overly_broad',
+                explanation: 'Ask something specific with a timeframe.',
+              },
+              done: true,
+            },
+          },
+        ],
+      },
+    ]
+    const hit = extractBrainQueryEarlyRejectionFromChatMessages(msgs)
+    expect(hit?.explanation).toContain('specific')
+    expect(hit?.reason).toBe('overly_broad')
+  })
+
+  it('returns null when reject_question is still running', () => {
+    const msgs: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          {
+            type: 'tool',
+            toolCall: {
+              id: 'tc1',
+              name: 'reject_question',
+              args: {},
+              done: false,
+            },
+          },
+        ],
+      },
+    ]
+    expect(extractBrainQueryEarlyRejectionFromChatMessages(msgs)).toBeNull()
+  })
+})
+
+describe('cloneChatMessagesSnapshot', () => {
+  it('round-trips plain messages for persisted preview transcripts', () => {
+    const msgs: ChatMessage[] = [
+      { role: 'user', content: 'q' },
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          { type: 'text', content: 'a' },
+          {
+            type: 'tool',
+            toolCall: { id: 't1', name: 'read', args: { path: 'x.md' }, done: true },
+          },
+        ],
+      },
+    ]
+    expect(cloneChatMessagesSnapshot(msgs)).toEqual(msgs)
   })
 })

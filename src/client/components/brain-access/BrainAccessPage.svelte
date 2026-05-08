@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Brain, ShieldCheck } from 'lucide-svelte'
+  import { ShieldCheck } from 'lucide-svelte'
   import type { NavigateOptions, Overlay } from '@client/router.js'
-  import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import {
     loadBrainAccessCustomPolicies,
     type BrainAccessCustomPolicy,
@@ -20,7 +19,8 @@
   import OutboundGrantsList from './OutboundGrantsList.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import CustomPolicyCreator from './CustomPolicyCreator.svelte'
-  import BrainQueryPolicyBaselineNote from './BrainQueryPolicyBaselineNote.svelte'
+  import BrainAccessBreadcrumbs from './BrainAccessBreadcrumbs.svelte'
+  import PaneL2Header from '@components/PaneL2Header.svelte'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -29,8 +29,6 @@
   }
 
   let { onSettingsNavigate, onBackToSettingsMain }: Props = $props()
-
-  let hostedWorkspaceHandle = $state<string | undefined>(undefined)
 
   let loadError = $state<string | null>(null)
   let busy = $state(false)
@@ -154,20 +152,6 @@
   }
 
   onMount(() => {
-    void fetchVaultStatus()
-      .then((v) => {
-        if (
-          v.multiTenant === true &&
-          v.handleConfirmed === true &&
-          typeof v.workspaceHandle === 'string' &&
-          v.workspaceHandle.length > 0
-        ) {
-          hostedWorkspaceHandle = v.workspaceHandle
-        } else hostedWorkspaceHandle = undefined
-      })
-      .catch(() => {
-        hostedWorkspaceHandle = undefined
-      })
     void reload()
   })
 
@@ -249,22 +233,23 @@
   })
 </script>
 
-<div class="brain-access-page mx-auto flex w-full max-w-[900px] flex-col gap-10 px-8 py-10 text-foreground max-md:px-4 max-md:py-6">
-  <header class="flex flex-col gap-2 border-b border-border pb-4">
-    <div class="flex items-center gap-2">
-      <Brain size={22} aria-hidden="true" />
-      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">Brain to Brain access</h1>
-    </div>
-    {#if hostedWorkspaceHandle}
-      <p class="m-0 font-mono text-[0.9375rem] text-muted" translate="no">@{hostedWorkspaceHandle}</p>
-    {/if}
-    <div class="flex items-center gap-2">
-      <ShieldCheck size={16} class="text-muted" aria-hidden="true" />
-      <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
-        Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.
-      </p>
-    </div>
-  </header>
+<div class="brain-access-page mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 pt-0 text-foreground max-md:px-4 max-md:pb-4 max-md:pt-0">
+  <h1 class="sr-only">Brain to Brain access</h1>
+  <div class="-mx-8 min-w-0 max-md:-mx-4">
+    <PaneL2Header>
+      {#snippet center()}
+        <div class="flex min-h-0 min-w-0 flex-1 items-center">
+          <BrainAccessBreadcrumbs variant="list" />
+        </div>
+      {/snippet}
+    </PaneL2Header>
+  </div>
+  <div class="flex items-start gap-2">
+    <ShieldCheck size={16} class="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
+    <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
+      Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.
+    </p>
+  </div>
 
   {#if loadError}
     <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
@@ -274,7 +259,6 @@
     <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
       Policies &amp; collaborators
     </h2>
-    <BrainQueryPolicyBaselineNote />
     {#if busy && grantedByMe.length === 0 && grantedToMe.length === 0}
       <p class="m-0 text-[0.875rem] text-muted">Loading…</p>
     {:else}

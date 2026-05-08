@@ -74,6 +74,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   list_recent_messages: 'Recent messages',
   get_message_thread: 'Conversation',
   suggest_reply_options: 'Quick Replies',
+  reject_question: 'Decline question',
 }
 
 function humanizeToolName(name: string): string {
@@ -132,6 +133,9 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
   },
   youtube_search: {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.youtube_search,
+  },
+  reject_question: {
+    chat: { showInChat: true },
   },
   finish_conversation: {
     chat: { showInChat: false },

@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { ToolResultMessage } from '@mariozechner/pi-ai'
 import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { REJECT_QUESTION_TOOL_NAME } from '@shared/brainQueryReject.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import {
   createBrainQueryGrant,
@@ -12,15 +15,18 @@ import {
   buildBrainQueryFilterSystemPrompt,
   buildBrainQueryResearchSystemPrompt,
   parsePrivacyFilterJson,
+  previewBrainQueryPrivacyFilter,
   runBrainQuery,
   type BrainQueryAgentPort,
 } from './runBrainQuery.js'
 
 describe('buildBrainQueryResearchSystemPrompt', () => {
   it('includes baseline omit rules and untrusted-question framing', () => {
-    const p = buildBrainQueryResearchSystemPrompt('America/Los_Angeles')
+    const p = buildBrainQueryResearchSystemPrompt('America/Los_Angeles', 'Only share logistics.')
     expect(p).toContain(POLICY_ALWAYS_OMIT)
+    expect(p).toContain('Only share logistics.')
     expect(p).toMatch(/UNTRUSTED USER-LEVEL INPUT/)
+    expect(p).toMatch(/reject_question/)
     expect(p).toMatch(/MFA|one-time/i)
     expect(p).toMatch(/national ID|Social Security/i)
   })
@@ -151,5 +157,108 @@ describe('runBrainQuery', () => {
     const log = getBrainQueryLogById(out.logId)
     expect(log?.status).toBe('filter_blocked')
     expect(log?.final_answer).toContain('cannot')
+  })
+
+  it('early_rejected when research transcript contains reject_question result', async () => {
+    createBrainQueryGrant({
+      ownerId,
+      askerId,
+      privacyPolicy: 'Be conservative.',
+    })
+    const tr: ToolResultMessage = {
+      role: 'toolResult',
+      toolCallId: 'call_er_1',
+      toolName: REJECT_QUESTION_TOOL_NAME,
+      content: [{ type: 'text', text: 'Too broad.' }],
+      details: {
+        rejected: true,
+        reason: 'overly_broad',
+        explanation:
+          'That question is too open-ended to answer here—try asking something specific with a topic or date range.',
+      },
+      isError: false,
+      timestamp: Date.now(),
+    }
+    const runFilter = vi.fn(async () => ({
+      text: JSON.stringify({ filtered_answer: 'should not run', blocked: false }),
+    }))
+    const port: BrainQueryAgentPort = {
+      runResearch: async () => ({
+        text: '',
+        messages: [tr as AgentMessage],
+      }),
+      runFilter,
+    }
+    const out = await runBrainQuery({
+      ownerId,
+      askerId,
+      question: 'what is in my inbox?',
+      agentPort: port,
+    })
+    expect(runFilter).not.toHaveBeenCalled()
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.code).toBe('early_rejected')
+    if (!out.ok) expect(out.message).toContain('open-ended')
+    const log = getBrainQueryLogById(out.logId)
+    expect(log?.status).toBe('early_rejected')
+    expect(log?.final_answer).toContain('open-ended')
+    expect(log?.filter_notes).toContain('early_rejection')
+  })
+})
+
+describe('previewBrainQueryPrivacyFilter', () => {
+  it('returns ok with redaction notes when filter allows', async () => {
+    const out = await previewBrainQueryPrivacyFilter(
+      {
+        question: 'What is the amount?',
+        draftAnswer: 'The total was $500.',
+        privacyPolicy: 'Do not share exact amounts.',
+      },
+      {
+        runFilter: async () => ({
+          text: JSON.stringify({
+            filtered_answer: 'The total was a few hundred dollars.',
+            blocked: false,
+            redactions: ['exact dollar amount'],
+          }),
+        }),
+      },
+    )
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.status).toBe('ok')
+      expect(out.finalAnswer).toContain('hundred')
+      expect(out.filterNotes).toContain('redactions')
+    }
+  })
+
+  it('returns filter_blocked when model sets blocked', async () => {
+    const out = await previewBrainQueryPrivacyFilter(
+      { question: 'q', draftAnswer: 'x', privacyPolicy: 'no' },
+      {
+        runFilter: async () => ({
+          text: JSON.stringify({
+            filtered_answer: 'Cannot share.',
+            blocked: true,
+            reason: 'policy',
+          }),
+        }),
+      },
+    )
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.status).toBe('filter_blocked')
+      expect(out.finalAnswer).toContain('Cannot')
+    }
+  })
+
+  it('rejects empty draft', async () => {
+    const out = await previewBrainQueryPrivacyFilter({
+      question: 'q',
+      draftAnswer: '   ',
+      privacyPolicy: 'ok',
+    })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.message).toBe('draft_answer_required')
   })
 })

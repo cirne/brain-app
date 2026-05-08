@@ -324,6 +324,13 @@ describe('parseRoute your-wiki / hub', () => {
     })
   })
 
+  it('parses /settings/brain-access/policy/:policyId/preview', () => {
+    expect(parseRoute('http://localhost/settings/brain-access/policy/trusted/preview')).toEqual({
+      zone: 'settings',
+      overlay: { type: 'brain-access-preview', policyId: 'trusted' },
+    })
+  })
+
   it('legacy /hub/wiki path not supported', () => {
     expect(parseRoute('http://localhost/hub/wiki/x')).toEqual({})
   })
@@ -531,6 +538,9 @@ describe('routeToUrl', () => {
     expect(
       routeToUrl({ zone: 'settings', overlay: { type: 'brain-access-policy', policyId: 'trusted' } }),
     ).toBe('/settings/brain-access/policy/trusted')
+    expect(
+      routeToUrl({ zone: 'settings', overlay: { type: 'brain-access-preview', policyId: 'trusted' } }),
+    ).toBe('/settings/brain-access/policy/trusted/preview')
   })
 
   it('wiki primary empty reader uses panel=wiki (bare /wiki is wiki-dir hub)', () => {

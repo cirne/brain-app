@@ -4,7 +4,7 @@ import PolicyCard from './PolicyCard.svelte'
 import { templateById } from '@client/lib/brainQueryPolicyTemplates.js'
 
 describe('PolicyCard.svelte', () => {
-  it('renders policy label and navigates to detail when View clicked', async () => {
+  it('renders policy label and navigates to detail when the card is activated', async () => {
     const onSettingsNavigate = vi.fn()
     const tpl = templateById('trusted')!
     render(PolicyCard, {
@@ -26,7 +26,7 @@ describe('PolicyCard.svelte', () => {
       },
     })
     expect(screen.getByText(new RegExp(tpl.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))).toBeInTheDocument()
-    await fireEvent.click(screen.getByRole('button', { name: /^view$/i }))
+    await fireEvent.click(screen.getByRole('link', { name: /open policy/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access-policy', policyId: tpl.id })
   })
 })

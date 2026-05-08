@@ -128,7 +128,7 @@
 
   {#if open}
     <div
-      class="absolute left-0 top-full z-20 mt-1 min-w-[min(100vw-2rem,20rem)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
+      class="absolute right-0 top-full z-20 mt-1 min-w-[min(100vw-2rem,20rem)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
       role="listbox"
       aria-label="Workspace directory search"
     >

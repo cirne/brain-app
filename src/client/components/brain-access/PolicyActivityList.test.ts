@@ -3,7 +3,7 @@ import { render, screen } from '@client/test/render.js'
 import PolicyActivityList from './PolicyActivityList.svelte'
 
 describe('PolicyActivityList.svelte', () => {
-  it('shows question, returned answer, redaction chips, and internal draft when draft differs', () => {
+  it('shows question, returned answer, redaction chips, and assistant draft when draft differs', () => {
     render(PolicyActivityList, {
       props: {
         entries: [
@@ -28,13 +28,13 @@ describe('PolicyActivityList.svelte', () => {
     expect(screen.getByText(/Who is going to Nevis\?/)).toBeInTheDocument()
     expect(screen.getByText('Returned to collaborator')).toBeInTheDocument()
     expect(screen.getByText(/Two people from your circle/)).toBeInTheDocument()
-    expect(screen.getByText('Privacy filter')).toBeInTheDocument()
+    expect(screen.getByText('What changed')).toBeInTheDocument()
     expect(screen.getByText('specific names')).toBeInTheDocument()
-    expect(screen.getByText(/Internal draft \(before privacy filter\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Assistant reply before sharing/)).toBeInTheDocument()
     expect(screen.getByText(/Alice and Bob/)).toBeInTheDocument()
   })
 
-  it('omits internal draft when draft matches final and no redactions', () => {
+  it('omits assistant draft details when draft matches final and no redactions', () => {
     render(PolicyActivityList, {
       props: {
         entries: [
@@ -54,7 +54,7 @@ describe('PolicyActivityList.svelte', () => {
       },
     })
 
-    expect(screen.queryByText(/Internal draft/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Assistant reply before sharing/)).not.toBeInTheDocument()
   })
 
   it('shows error detail when status is error', () => {

@@ -128,6 +128,17 @@ export function createBrainQueryTool() {
             details: { ok: false as const, code: out.code, logId: out.logId },
           } as AgentToolResult<Record<string, unknown>>
         }
+        if (out.code === 'early_rejected') {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `@${target.handle} cannot answer that question through brain query. ${out.message}`,
+              },
+            ],
+            details: { ok: false as const, code: out.code, logId: out.logId },
+          } as AgentToolResult<Record<string, unknown>>
+        }
         return {
           content: [
             {

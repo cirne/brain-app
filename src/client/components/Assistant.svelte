@@ -8,6 +8,7 @@
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
+  import AnswerPreviewPage from '@components/brain-access/AnswerPreviewPage.svelte'
   import Wiki from '@components/Wiki.svelte'
   import WikiDirList from '@components/WikiDirList.svelte'
   import WikiPrimaryShell from '@components/WikiPrimaryShell.svelte'
@@ -1111,7 +1112,7 @@
   $effect(() => {
     if (brainQueryEnabled) return
     const o = shell.route.overlay
-    if (o?.type === 'brain-access' || o?.type === 'brain-access-policy') {
+    if (o?.type === 'brain-access' || o?.type === 'brain-access-policy' || o?.type === 'brain-access-preview') {
       navigateShell({ zone: 'settings' })
       shell.route = parseRoute()
     }
@@ -1296,7 +1297,8 @@
           shell.route.overlay.type !== 'hub' &&
           shell.route.overlay.type !== 'chat-history' &&
           shell.route.overlay.type !== 'brain-access' &&
-          shell.route.overlay.type !== 'brain-access-policy'
+          shell.route.overlay.type !== 'brain-access-policy' &&
+          shell.route.overlay.type !== 'brain-access-preview'
         }
         desktopDetailOpen={
           shell.route.zone !== 'wiki' &&
@@ -1305,6 +1307,7 @@
           shell.route.overlay.type !== 'chat-history' &&
           shell.route.overlay.type !== 'brain-access' &&
           shell.route.overlay.type !== 'brain-access-policy' &&
+          shell.route.overlay.type !== 'brain-access-preview' &&
           useDesktopSplitDetail
         }
         onNavigateClear={closeOverlayImmediate}
@@ -1453,6 +1456,20 @@
                     onBackToBrainAccessList={() =>
                       navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
                   />
+                {:else if brainQueryEnabled && shell.route.overlay?.type === 'brain-access-preview'}
+                  <AnswerPreviewPage
+                    policyId={shell.route.overlay.policyId}
+                    onBackToBrainAccessList={() =>
+                      navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
+                    onBackToPolicy={() => {
+                      const o = shell.route.overlay
+                      if (!o || o.type !== 'brain-access-preview') return
+                      navigateShell({
+                        zone: 'settings',
+                        overlay: { type: 'brain-access-policy', policyId: o.policyId },
+                      })
+                    }}
+                  />
                 {:else}
                   <BrainSettingsPage
                     brainQueryEnabled={brainQueryEnabled}
@@ -1469,7 +1486,8 @@
                 shell.route.overlay.type !== 'hub' &&
                 shell.route.overlay.type !== 'chat-history' &&
                 shell.route.overlay.type !== 'brain-access' &&
-                shell.route.overlay.type !== 'brain-access-policy'
+                shell.route.overlay.type !== 'brain-access-policy' &&
+                shell.route.overlay.type !== 'brain-access-preview'
               }
                 <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
                   <AssistantSlideOver

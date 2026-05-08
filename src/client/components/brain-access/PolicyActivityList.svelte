@@ -45,6 +45,8 @@
         return 'OK'
       case 'filter_blocked':
         return 'Filtered'
+      case 'early_rejected':
+        return 'Declined'
       case 'denied_no_grant':
         return 'Denied'
       case 'error':
@@ -59,6 +61,8 @@
       case 'ok':
         return 'bg-surface-3 text-foreground'
       case 'filter_blocked':
+        return 'bg-amber-500/15 text-amber-900 dark:text-amber-100'
+      case 'early_rejected':
         return 'bg-amber-500/15 text-amber-900 dark:text-amber-100'
       case 'denied_no_grant':
         return 'bg-muted text-muted'
@@ -158,7 +162,7 @@
               <summary
                 class="cursor-pointer list-none px-2.5 py-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted marker:content-none [&::-webkit-details-marker]:hidden"
               >
-                <span class="underline-offset-2 group-open:underline">Internal draft (before privacy filter)</span>
+                <span class="underline-offset-2 group-open:underline">Assistant reply before sharing</span>
               </summary>
               <div
                 class="border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] px-2.5 pb-2 whitespace-pre-wrap text-foreground"
@@ -171,7 +175,7 @@
           {#if parsedNotes.redactions.length > 0 || (parsedNotes.plainText && e.status !== 'error')}
             <div>
               <div class="mb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-                Privacy filter
+                What changed
               </div>
               {#if parsedNotes.redactions.length > 0}
                 <ul class="m-0 flex flex-wrap gap-1.5 p-0">

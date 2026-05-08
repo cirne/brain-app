@@ -2,7 +2,12 @@ import { randomBytes } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import { getBrainGlobalDb } from '@server/lib/global/brainGlobalDb.js'
 
-export type BrainQueryLogStatus = 'ok' | 'denied_no_grant' | 'filter_blocked' | 'error'
+export type BrainQueryLogStatus =
+  | 'ok'
+  | 'denied_no_grant'
+  | 'filter_blocked'
+  | 'early_rejected'
+  | 'error'
 
 export type BrainQueryLogRow = {
   id: string
@@ -18,7 +23,14 @@ export type BrainQueryLogRow = {
 }
 
 function parseStatus(s: string): BrainQueryLogStatus {
-  if (s === 'ok' || s === 'denied_no_grant' || s === 'filter_blocked' || s === 'error') return s
+  if (
+    s === 'ok' ||
+    s === 'denied_no_grant' ||
+    s === 'filter_blocked' ||
+    s === 'early_rejected' ||
+    s === 'error'
+  )
+    return s
   return 'error'
 }
 

@@ -68,4 +68,10 @@ describe('getToolDefinitionCore', () => {
   it('hides suggest_reply_options from transcript', () => {
     expect(getToolDefinitionCore('suggest_reply_options').chat.showInChat).toBe(false)
   })
+
+  it('covers brain-query reject_question tool', () => {
+    const d = getToolDefinitionCore('reject_question')
+    expect(d.chat.showInChat).toBe(true)
+    expect(d.chat.label).toContain('Decline')
+  })
 })

@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { ArrowLeft } from 'lucide-svelte'
   import type { NavigateOptions, Overlay } from '@client/router.js'
-  import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import { fetchWorkspaceHandleSuggestions } from '@client/lib/workspaceHandleSuggest.js'
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
   import {
@@ -34,7 +32,9 @@
   import AddUserDropdown from './AddUserDropdown.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import BrainQueryPolicyBaselineNote from './BrainQueryPolicyBaselineNote.svelte'
+  import BrainAccessBreadcrumbs from './BrainAccessBreadcrumbs.svelte'
   import ConfirmDialog from '@client/components/ConfirmDialog.svelte'
+  import PaneL2Header from '@components/PaneL2Header.svelte'
 
   type Props = {
     policyId: string
@@ -44,8 +44,6 @@
 
   /** Read props via proxy — do not destructure callbacks for async/use after await (Svelte 5 freezes destructured snapshots). */
   let props: Props = $props()
-
-  let hostedWorkspaceHandle = $state<string | undefined>(undefined)
 
   let loadError = $state<string | null>(null)
   let busy = $state(false)
@@ -182,20 +180,6 @@
   }
 
   onMount(() => {
-    void fetchVaultStatus()
-      .then((v) => {
-        if (
-          v.multiTenant === true &&
-          v.handleConfirmed === true &&
-          typeof v.workspaceHandle === 'string' &&
-          v.workspaceHandle.length > 0
-        ) {
-          hostedWorkspaceHandle = v.workspaceHandle
-        } else hostedWorkspaceHandle = undefined
-      })
-      .catch(() => {
-        hostedWorkspaceHandle = undefined
-      })
     void reload().then(() => {
       queueMicrotask(() => {
         const hash = typeof location !== 'undefined' ? location.hash.replace(/^#/, '') : ''
@@ -407,19 +391,20 @@
   }
 </script>
 
-<div class="policy-detail-page mx-auto flex w-full max-w-[900px] flex-col gap-8 px-8 py-10 text-foreground max-md:px-4 max-md:py-6">
-  <button
-    type="button"
-    class="inline-flex items-center gap-1 self-start border-none bg-transparent p-0 text-[0.875rem] font-semibold text-accent [font:inherit] hover:underline"
-    onclick={() => props.onBackToBrainAccessList()}
-  >
-    <ArrowLeft size={16} aria-hidden="true" />
-    Back to Brain access
-  </button>
-
-  {#if hostedWorkspaceHandle}
-    <p class="m-0 font-mono text-[0.8125rem] text-muted" translate="no">@{hostedWorkspaceHandle}</p>
-  {/if}
+<div class="policy-detail-page mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 text-foreground max-md:px-4 max-md:py-4">
+  <div class="-mx-8 min-w-0 max-md:-mx-4">
+    <PaneL2Header>
+      {#snippet center()}
+        <div class="flex min-h-0 min-w-0 flex-1 items-center">
+          <BrainAccessBreadcrumbs
+            variant="policy"
+            policyLabel={heading}
+            onGoToList={() => props.onBackToBrainAccessList()}
+          />
+        </div>
+      {/snippet}
+    </PaneL2Header>
+  </div>
 
   {#if loadError}
     <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
@@ -451,6 +436,14 @@
         </h2>
         {#if !editingPolicyText}
           <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md border border-transparent bg-accent px-2 py-1 text-[0.75rem] font-semibold text-white hover:brightness-105"
+              onclick={() => props.onSettingsNavigate({ type: 'brain-access-preview', policyId: props.policyId })}
+              aria-label="Test this policy"
+            >
+              Test this policy
+            </button>
             <button
               type="button"
               class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
