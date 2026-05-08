@@ -391,7 +391,7 @@
   }
 </script>
 
-<div class="policy-detail-page mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 text-foreground max-md:px-4 max-md:py-4">
+<div class="policy-detail-page mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 text-foreground max-md:px-4 max-md:pb-4">
   <div class="-mx-8 min-w-0 max-md:-mx-4">
     <PaneL2Header>
       {#snippet center()}
