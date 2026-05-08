@@ -164,7 +164,16 @@ Usable **Brain access** in Hub / Sharing: **grants** (create, list, revoke), **p
 
 Phase 0 **duplicates** the full policy prose on **each** grant row. The client buckets grants by **matching** stored text to templates or saved custom policies; **editing** a logical policy **PATCHes every** matching grant. That is **O(n)** in collaborators, **failure-prone** if updates partially apply, and there is **no** single server-side policy object enforcing one definition per logical policy.
 
-**Next step:** introduce **server-owned policies** (per owner: `policy_id`, text and/or revision) and store **`policy_id`** (± revision pin) on `brain_query_grants`; load grant → resolve text in **one** place for enforcement. Product must decide **“always current”** vs **pinned revision** per grant. **Migration** per [AGENTS.md](../../AGENTS.md) early-dev norms (clean break acceptable; document in PR).
+**User-visible failure mode:** the Hub may show the same connection under **“Trusted Confidante”** in one surface (e.g. inbound) vs **“Other policy”** in another when the **snapshotted** `privacy_policy` strings **differ** from the current template or from each other even though the user chose the same logical preset. **Do not** fix this long-term by more string matching in the client—fix the **data model** ([OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md), [BUG-048](../bugs/BUG-048-brain-access-policy-bucket-mismatch-text-snapshots.md)).
+
+**Target model (policy by reference):**
+
+1. **Owner-scoped policy records** live in the **global** store (or another server-owned table as appropriate): each row is a **policy** with stable `policy_id`, optional **kind** / label (e.g. started from a built-in template or a custom name), and the **current** policy text (and later optional revision history).
+2. **Creating** a “Trusted Confidante” (or other preset) in the product **instantiates** a policy row from the template **once**; subsequent edits update that **row**, not N grant rows.
+3. **Every `brain_query_grant` references exactly one `policy_id`.** Enforcement loads **policy → text** in one place (`runBrainQuery` privacy filter); the grant row does not need a full duplicate blob for correctness (optional cached copy is for perf/debug only, not the SSOT).
+4. **When the owner changes that policy**, **all grants pointing at that policy** see the new rules on the next query—**unless** product explicitly adds **per-grant revision pinning** later (open product decision: always-current vs pin).
+
+**Tracking:** [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md). **Migration** per [AGENTS.md](../../AGENTS.md) early-dev norms (clean break acceptable; document in PR).
 
 ---
 
@@ -240,7 +249,7 @@ Still **one text blob** per grant; backend filter behavior unchanged unless we a
 
 ## Implementation pointers (current code)
 
-- Grants / policy text: `[brainGlobalDb.ts](../../src/server/lib/global/brainGlobalDb.ts)`, `[defaultPrivacyPolicy.ts](../../src/server/lib/brainQuery/defaultPrivacyPolicy.ts)`, `[runBrainQuery.ts](../../src/server/lib/brainQuery/runBrainQuery.ts)`.
+- Grants / policy text: `[brainGlobalDb.ts](../../src/server/lib/global/brainGlobalDb.ts)`, `[defaultPrivacyPolicy.ts](../../src/server/lib/brainQuery/defaultPrivacyPolicy.ts)`, `[runBrainQuery.ts](../../src/server/lib/brainQuery/runBrainQuery.ts)`. **Schema direction:** [Denormalized `privacy_policy` § follow-up](#denormalized-privacy_policy-on-grants-follow-up) · **[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)**
 - Hub brain-access admin (closed): [closure §](#hub-brain-access-admin-shipped--opp-099-closure) · [OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)
 
 Future work should extend these **additively** (preset columns or JSON policy blob version field) per early-dev norms in [AGENTS.md](../../AGENTS.md).
