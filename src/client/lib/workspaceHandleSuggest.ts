@@ -2,6 +2,7 @@
  * Workspace-handle suggestion helpers for onboarding and the chat composer (`@` mention picker).
  * Calls the existing
  * `GET /api/account/workspace-handles?q=` endpoint without any contract change.
+ * Server matches substrings in handles and ranks prefix / segment-prefix hits first.
  *
  * The fetch uses a per-instance token so callers can race-protect interleaved
  * lookups without managing tokens themselves.

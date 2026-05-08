@@ -7,7 +7,34 @@ import {
   createBrainQueryGrant,
 } from './brainQueryGrantsRepo.js'
 import { getBrainQueryLogById } from './brainQueryLogRepo.js'
-import { parsePrivacyFilterJson, runBrainQuery, type BrainQueryAgentPort } from './runBrainQuery.js'
+import { POLICY_ALWAYS_OMIT } from '@shared/brainQueryAnswerBaseline.js'
+import {
+  buildBrainQueryFilterSystemPrompt,
+  buildBrainQueryResearchSystemPrompt,
+  parsePrivacyFilterJson,
+  runBrainQuery,
+  type BrainQueryAgentPort,
+} from './runBrainQuery.js'
+
+describe('buildBrainQueryResearchSystemPrompt', () => {
+  it('includes baseline omit rules and untrusted-question framing', () => {
+    const p = buildBrainQueryResearchSystemPrompt('America/Los_Angeles')
+    expect(p).toContain(POLICY_ALWAYS_OMIT)
+    expect(p).toMatch(/UNTRUSTED USER-LEVEL INPUT/)
+    expect(p).toMatch(/MFA|one-time/i)
+    expect(p).toMatch(/national ID|Social Security/i)
+  })
+})
+
+describe('buildBrainQueryFilterSystemPrompt', () => {
+  it('layers baseline then owner policy', () => {
+    const owner = 'Onlysay hello.'
+    const s = buildBrainQueryFilterSystemPrompt(owner)
+    expect(s.indexOf(POLICY_ALWAYS_OMIT)).toBeLessThan(s.indexOf(owner))
+    expect(s).toContain('OWNER PRIVACY POLICY')
+    expect(s).toContain(owner)
+  })
+})
 
 describe('parsePrivacyFilterJson', () => {
   it('parses minimal JSON object from model output', () => {

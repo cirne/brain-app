@@ -70,3 +70,27 @@ export function addBrainAccessCustomPolicy(input: {
   saveBrainAccessCustomPolicies(next)
   return policy
 }
+
+/** Update stored body text for a `custom:…` policy. Returns false if the id is missing. */
+export function updateBrainAccessCustomPolicy(id: string, text: string): boolean {
+  const list = loadBrainAccessCustomPolicies()
+  const i = list.findIndex((p) => p.id === id)
+  if (i < 0) return false
+  const row = list[i]
+  if (!row) return false
+  const nextRow: BrainAccessCustomPolicy = { ...row, text: text.trim() }
+  if (nextRow.text.length === 0 || nextRow.name.length === 0) return false
+  const next = [...list.slice(0, i), nextRow, ...list.slice(i + 1)]
+  saveBrainAccessCustomPolicies(next)
+  return true
+}
+
+/** Remove a saved custom preset by id. Returns false if missing or id is not `custom:…`. */
+export function removeBrainAccessCustomPolicy(id: string): boolean {
+  if (!id.startsWith('custom:')) return false
+  const list = loadBrainAccessCustomPolicies()
+  const next = list.filter((p) => p.id !== id)
+  if (next.length === list.length) return false
+  saveBrainAccessCustomPolicies(next)
+  return true
+}

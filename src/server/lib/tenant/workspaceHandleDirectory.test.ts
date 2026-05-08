@@ -8,7 +8,17 @@ import { brainLayoutRipmailDir, brainLayoutVarDir } from '@server/lib/platform/b
 import {
   resolveConfirmedHandle,
   searchWorkspaceHandleDirectory,
+  workspaceHandleMatchRank,
 } from './workspaceHandleDirectory.js'
+
+describe('workspaceHandleMatchRank', () => {
+  it('orders full handle prefix before segment prefix before substring', () => {
+    expect(workspaceHandleMatchRank('sk-demo', 'sk')).toBe(0)
+    expect(workspaceHandleMatchRank('enron-demo-skilling', 'sk')).toBe(1)
+    expect(workspaceHandleMatchRank('axxskyy-prefix', 'sk')).toBe(2)
+    expect(workspaceHandleMatchRank('abc', 'z')).toBeNull()
+  })
+})
 
 describe('workspaceHandleDirectory', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT
@@ -74,7 +84,7 @@ describe('workspaceHandleDirectory', () => {
     })
     await seedTenant({ handle: 'pending', confirmed: false, primaryEmail: 'p@x.com' })
 
-    const results = await searchWorkspaceHandleDirectory({ prefix: '' })
+    const results = await searchWorkspaceHandleDirectory({ query: '' })
     expect(results).toHaveLength(1)
     expect(results[0]).toMatchObject({
       userId: alice.userId,
@@ -84,16 +94,37 @@ describe('workspaceHandleDirectory', () => {
     })
   })
 
-  it('filters by case-insensitive prefix and strips leading @', async () => {
+  it('matches substring in handle; sorts full prefix, then segment prefix, then infix', async () => {
     await seedTenant({ handle: 'sterling', primaryEmail: 'sterling@example.com' })
     await seedTenant({ handle: 'donna', primaryEmail: 'donna@example.com' })
     await seedTenant({ handle: 'cirne', primaryEmail: 'cirne@example.com' })
 
-    const sResults = await searchWorkspaceHandleDirectory({ prefix: '@St' })
+    const sResults = await searchWorkspaceHandleDirectory({ query: '@St' })
     expect(sResults.map((r) => r.handle)).toEqual(['sterling'])
 
-    const allResults = await searchWorkspaceHandleDirectory({ prefix: '' })
-    expect(allResults.map((r) => r.handle)).toEqual(['cirne', 'donna', 'sterling'])
+    await seedTenant({ handle: 'sk-root', primaryEmail: 'a@x.com' })
+    await seedTenant({ handle: 'enron-demo-skilling', primaryEmail: 'b@x.com' })
+    await seedTenant({ handle: 'zzz-enron-demo-skilling', primaryEmail: 'c@x.com' })
+    await seedTenant({ handle: 'xxskyy-test', primaryEmail: 'd@x.com' })
+
+    const skRanked = await searchWorkspaceHandleDirectory({ query: 'sk' })
+    expect(skRanked.map((r) => r.handle)).toEqual([
+      'sk-root',
+      'enron-demo-skilling',
+      'zzz-enron-demo-skilling',
+      'xxskyy-test',
+    ])
+
+    const allResults = await searchWorkspaceHandleDirectory({ query: '' })
+    expect(allResults.map((r) => r.handle)).toEqual([
+      'cirne',
+      'donna',
+      'enron-demo-skilling',
+      'sk-root',
+      'sterling',
+      'xxskyy-test',
+      'zzz-enron-demo-skilling',
+    ])
   })
 
   it('falls back to ripmail config.json email when linked-mailboxes.json missing', async () => {
@@ -126,13 +157,13 @@ describe('workspaceHandleDirectory', () => {
       ),
     )
 
-    const [row] = await searchWorkspaceHandleDirectory({ prefix: 'fall' })
+    const [row] = await searchWorkspaceHandleDirectory({ query: 'fall' })
     expect(row?.primaryEmail).toBe('fallback@example.com')
   })
 
   it('returns null primaryEmail when no mailbox is linked', async () => {
     await seedTenant({ handle: 'lonely' })
-    const [row] = await searchWorkspaceHandleDirectory({ prefix: 'lonely' })
+    const [row] = await searchWorkspaceHandleDirectory({ query: 'lonely' })
     expect(row?.primaryEmail).toBeNull()
   })
 
@@ -141,7 +172,7 @@ describe('workspaceHandleDirectory', () => {
     await seedTenant({ handle: 'other', primaryEmail: 'other@example.com' })
 
     const results = await searchWorkspaceHandleDirectory({
-      prefix: '',
+      query: '',
       excludeUserId: me.userId,
     })
     expect(results.map((r) => r.handle)).toEqual(['other'])
@@ -151,7 +182,7 @@ describe('workspaceHandleDirectory', () => {
     for (let i = 0; i < 5; i++) {
       await seedTenant({ handle: `aaa${i}`, primaryEmail: `${i}@x.com` })
     }
-    const results = await searchWorkspaceHandleDirectory({ prefix: 'aaa', limit: 3 })
+    const results = await searchWorkspaceHandleDirectory({ query: 'aaa', limit: 3 })
     expect(results).toHaveLength(3)
   })
 

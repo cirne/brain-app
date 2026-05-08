@@ -2,13 +2,15 @@
 
 Cross-tenant **natural-language Q&A** with a **database ACL** and **two-pass** answering (research in the owner’s tenant → privacy filter → outbound text only).
 
-**Policy model (target architecture):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md) — three layers (capabilities, hard predicates, soft ALLOW/DISALLOW fragments); Phase 0 remains **one privacy-policy textarea** per grant until Hub/preset work ships.
+**Policy model (target architecture):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md) — three layers (capabilities, hard predicates, soft ALLOW/DISALLOW fragments); Phase 0 remains **one privacy-policy textarea** per grant until **policy-by-reference** ships — see [Denormalized `privacy_policy` on grants (follow-up)](./brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up).
+
+**Hub admin (Spike 1) shipped** under closed **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — narrative + pointers: [brain-to-brain-access-policy.md § closure](./brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure).
 
 - **Idea / product:** [IDEA-brain-query-delegation.md](../ideas/IDEA-brain-query-delegation.md)
 - **Global DB:** `brain_query_grants` + `brain_query_log` in `[brainGlobalDb.ts](../../src/server/lib/global/brainGlobalDb.ts)` (same file as `wiki_shares`; version bump recreates DB per early-dev rules)
 - **API:** `POST /api/brain-query`, `GET/POST/PATCH/DELETE /api/brain-query/grants`, `GET /api/brain-query/log?role=owner|asker`
 - **Agent tool:** `ask_brain` — see `[brainQueryTool.ts](../../src/server/agent/tools/brainQueryTool.ts)`
-- **Settings UI:** Sharing → **Brain queries** (`[BrainQuerySettingsSection.svelte](../../src/client/components/BrainQuerySettingsSection.svelte)`) — **MVP / skeletal**; product backlog: **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**
+- **Settings / Hub UI:** Sharing → **Brain queries** (`[BrainQuerySettingsSection.svelte](../../src/client/components/BrainQuerySettingsSection.svelte)`); Hub **Brain access** (`[HubSharingSection.svelte](../../src/client/components/hub/HubSharingSection.svelte)`, etc.) — see [access policy § Hub closure](./brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)
 
 ## Manual acceptance (two browsers)
 

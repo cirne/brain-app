@@ -139,6 +139,24 @@ export function updateBrainQueryGrantPrivacyPolicy(params: {
   return getBrainQueryGrantById(params.grantId, d)
 }
 
+/** Revoke a grant whose asker matches (incoming access you were given — renounce without owner action). */
+export function revokeBrainQueryGrantAsAsker(params: {
+  grantId: string
+  askerId: string
+  db?: Database.Database
+}): boolean {
+  const d = params.db ?? getBrainGlobalDb()
+  const row = getBrainQueryGrantById(params.grantId, d)
+  if (!row || row.asker_id !== params.askerId || row.revoked_at_ms != null) return false
+  const now = Date.now()
+  d.prepare(`UPDATE brain_query_grants SET revoked_at_ms = ?, updated_at_ms = ? WHERE id = ?`).run(
+    now,
+    now,
+    params.grantId,
+  )
+  return true
+}
+
 export function revokeBrainQueryGrant(params: {
   grantId: string
   ownerId: string
@@ -154,6 +172,38 @@ export function revokeBrainQueryGrant(params: {
     params.grantId,
   )
   return true
+}
+
+/**
+ * Revoke the owner's grant row and, when one exists, the reciprocal peer→owner grant.
+ * Keeps Brain-to-Brain pairing unambiguous: removing a collaborator drops both directions.
+ */
+export function revokeBrainQueryGrantAndReciprocal(params: {
+  grantId: string
+  ownerId: string
+  db?: Database.Database
+}): { revoked: boolean; reciprocalRevoked: boolean } {
+  const d = params.db ?? getBrainGlobalDb()
+  return d.transaction(() => {
+    const row = getBrainQueryGrantById(params.grantId, d)
+    if (!row || row.owner_id !== params.ownerId || row.revoked_at_ms != null) {
+      return { revoked: false, reciprocalRevoked: false }
+    }
+    const peerId = row.asker_id
+    if (!revokeBrainQueryGrant({ grantId: params.grantId, ownerId: params.ownerId, db: d })) {
+      return { revoked: false, reciprocalRevoked: false }
+    }
+    const reciprocal = getActiveBrainQueryGrant({ ownerId: peerId, askerId: params.ownerId, db: d })
+    if (!reciprocal) {
+      return { revoked: true, reciprocalRevoked: false }
+    }
+    const reciprocalRevoked = revokeBrainQueryGrant({
+      grantId: reciprocal.id,
+      ownerId: peerId,
+      db: d,
+    })
+    return { revoked: true, reciprocalRevoked }
+  })()
 }
 
 /** Dev tenant reset: remove grants where this user is owner or asker. */

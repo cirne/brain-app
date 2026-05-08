@@ -7,12 +7,21 @@
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
   import {
     loadBrainAccessCustomPolicies,
+    removeBrainAccessCustomPolicy,
+    updateBrainAccessCustomPolicy,
     type BrainAccessCustomPolicy,
   } from '@client/lib/brainAccessCustomPolicies.js'
+  import {
+    clearBuiltinPolicyDraft,
+    loadBuiltinPolicyDraft,
+    saveBuiltinPolicyDraft,
+  } from '@client/lib/brainAccessBuiltinPolicyDrafts.js'
+  import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
   import {
     buildPolicyCardModels,
     classifyGrantPolicy,
     grantsMatchingPolicyId,
+    normalizePolicyText,
     lastQueryMsForAsker,
     ownerLogEntriesForPolicy,
     queryCountForAsker,
@@ -24,6 +33,8 @@
   import PolicyActivityList from './PolicyActivityList.svelte'
   import AddUserDropdown from './AddUserDropdown.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
+  import BrainQueryPolicyBaselineNote from './BrainQueryPolicyBaselineNote.svelte'
+  import ConfirmDialog from '@client/components/ConfirmDialog.svelte'
 
   type Props = {
     policyId: string
@@ -47,6 +58,7 @@
   let draftPolicyText = $state('')
   let changeGrantId = $state<string | null>(null)
   let addBusy = $state(false)
+  let pendingDeletePreset = $state<{ label: string } | null>(null)
 
   let searchToken = 0
 
@@ -210,8 +222,19 @@
 
   const policyLog = $derived(ownerLogEntriesForPolicy(logOwner, grantedByMe, customPolicies, props.policyId))
 
+  const canonical = $derived.by(() => {
+    if (grantsInPolicy.length > 0) {
+      return card?.canonicalText ?? grantsInPolicy[0]?.privacyPolicy ?? ''
+    }
+    if (card?.kind === 'builtin') {
+      const draft = loadBuiltinPolicyDraft(props.policyId)
+      if (draft !== undefined) return draft
+    }
+    return card?.canonicalText ?? ''
+  })
+
   async function addUser(entry: WorkspaceHandleEntry): Promise<void> {
-    const text = card?.canonicalText?.trim()
+    const text = canonical.trim()
     if (!text) {
       loadError = 'Missing policy text.'
       return
@@ -255,27 +278,68 @@
   }
 
   async function saveAllPolicyText(text: string): Promise<void> {
+    const trimmed = text.trim()
+    if (trimmed.length === 0) return
+
     const list = grantsInPolicy
-    if (list.length === 0) return
+
+    if (list.length > 0) {
+      busy = true
+      loadError = null
+      try {
+        for (const g of list) {
+          const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(g.id)}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ privacyPolicy: trimmed }),
+          })
+          if (!res.ok) {
+            loadError = `Save failed (${res.status})`
+            return
+          }
+        }
+        if (card?.kind === 'builtin') clearBuiltinPolicyDraft(props.policyId)
+        editingPolicyText = false
+        await reload()
+        const customsNext = loadBrainAccessCustomPolicies()
+        const nextBucket = classifyGrantPolicy(trimmed, customsNext).policyId
+        if (nextBucket !== props.policyId) {
+          props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
+        }
+      } catch (e) {
+        loadError = e instanceof Error ? e.message : String(e)
+      } finally {
+        busy = false
+      }
+      return
+    }
+
     busy = true
     loadError = null
     try {
-      for (const g of list) {
-        const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(g.id)}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ privacyPolicy: text }),
-        })
-        if (!res.ok) {
-          loadError = `Save failed (${res.status})`
+      if (card?.kind === 'custom' && props.policyId.startsWith('custom:')) {
+        if (!updateBrainAccessCustomPolicy(props.policyId, trimmed)) {
+          loadError = 'Could not update saved policy.'
           return
         }
+      } else if (card?.kind === 'builtin') {
+        const template = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === props.policyId)
+        if (template && normalizePolicyText(trimmed) === normalizePolicyText(template.text)) {
+          clearBuiltinPolicyDraft(props.policyId)
+        } else {
+          saveBuiltinPolicyDraft(props.policyId, trimmed)
+        }
+      } else {
+        loadError = 'Cannot save this policy without collaborators.'
+        return
       }
+
       editingPolicyText = false
       await reload()
       const customsNext = loadBrainAccessCustomPolicies()
-      const nextBucket = classifyGrantPolicy(text, customsNext).policyId
+      const nextBucket = classifyGrantPolicy(trimmed, customsNext).policyId
       if (nextBucket !== props.policyId) {
+        if (card?.kind === 'builtin') clearBuiltinPolicyDraft(props.policyId)
         props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
       }
     } catch (e) {
@@ -322,7 +386,25 @@
 
   const heading = $derived(card?.label ?? 'Policy')
   const hint = $derived(card?.hint)
-  const canonical = $derived(card?.canonicalText ?? grantsInPolicy[0]?.privacyPolicy ?? '')
+
+  const isCustomPolicyId = $derived(props.policyId.startsWith('custom:'))
+  const canDeleteCustomPreset = $derived(isCustomPolicyId && grantsInPolicy.length === 0)
+
+  function requestDeleteCustomPreset() {
+    if (!canDeleteCustomPreset || busy) return
+    pendingDeletePreset = { label: heading }
+  }
+
+  function cancelDeleteCustomPreset() {
+    pendingDeletePreset = null
+  }
+
+  function confirmDeleteCustomPreset() {
+    if (!pendingDeletePreset || !props.policyId.startsWith('custom:')) return
+    const ok = removeBrainAccessCustomPolicy(props.policyId)
+    pendingDeletePreset = null
+    if (ok) props.onBackToBrainAccessList()
+  }
 </script>
 
 <div class="policy-detail-page mx-auto flex w-full max-w-[900px] flex-col gap-8 px-8 py-10 text-foreground max-md:px-4 max-md:py-6">
@@ -360,23 +442,41 @@
       {/if}
     </header>
 
+    <BrainQueryPolicyBaselineNote />
+
     <section class="flex flex-col gap-2" aria-labelledby="policy-text-heading">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 id="policy-text-heading" class="m-0 text-[0.8125rem] font-bold uppercase tracking-wide text-muted">
           Policy text
         </h2>
         {#if !editingPolicyText}
-          <button
-            type="button"
-            class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
-            disabled={busy || grantsInPolicy.length === 0}
-            onclick={() => {
-              draftPolicyText = canonical
-              editingPolicyText = true
-            }}
-          >
-            Edit
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
+              disabled={busy}
+              onclick={() => {
+                draftPolicyText = canonical
+                editingPolicyText = true
+              }}
+            >
+              Edit
+            </button>
+            {#if isCustomPolicyId}
+              <button
+                type="button"
+                class="rounded-md border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg))] px-2 py-1 text-[0.75rem] font-semibold text-danger hover:bg-[color-mix(in_srgb,var(--danger)_18%,var(--bg))] disabled:opacity-50"
+                disabled={busy || !canDeleteCustomPreset}
+                title={grantsInPolicy.length > 0 ? 'Remove all collaborators first' : undefined}
+                aria-label={grantsInPolicy.length > 0
+                  ? 'Delete policy (remove all collaborators first)'
+                  : 'Delete policy'}
+                onclick={requestDeleteCustomPreset}
+              >
+                Delete policy
+              </button>
+            {/if}
+          </div>
         {:else}
           <div class="flex flex-wrap items-center gap-2">
             <button
@@ -490,3 +590,20 @@
   }}
   onApply={(grantId, text) => applyMovePolicy(grantId, text)}
 />
+
+<ConfirmDialog
+  open={pendingDeletePreset !== null}
+  title="Delete policy?"
+  titleId="brain-access-policy-delete-title"
+  confirmLabel="Delete"
+  cancelLabel="Cancel"
+  confirmVariant="danger"
+  onDismiss={cancelDeleteCustomPreset}
+  onConfirm={confirmDeleteCustomPreset}
+>
+  {#snippet children()}
+    {#if pendingDeletePreset}
+      <p>This will permanently remove "{pendingDeletePreset.label}" from your saved policies.</p>
+    {/if}
+  {/snippet}
+</ConfirmDialog>

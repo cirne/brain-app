@@ -5,7 +5,7 @@ describe('policyCardTone', () => {
   it('maps built-in template ids to stable Tailwind bundles', () => {
     expect(policyCardTone({ kind: 'builtin', builtinId: 'trusted', policyId: 'trusted' }).bar).toContain('purple')
     expect(policyCardTone({ kind: 'builtin', builtinId: 'general', policyId: 'general' }).bar).toContain('blue')
-    expect(policyCardTone({ kind: 'builtin', builtinId: 'need-to-know', policyId: 'need-to-know' }).bar).toContain(
+    expect(policyCardTone({ kind: 'builtin', builtinId: 'minimal-disclosure', policyId: 'minimal-disclosure' }).bar).toContain(
       'green',
     )
   })

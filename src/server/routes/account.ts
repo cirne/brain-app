@@ -118,7 +118,7 @@ app.get('/workspace-handles', async (c) => {
     ? Math.min(Math.floor(limitRaw), WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT)
     : WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT
   const results = await searchWorkspaceHandleDirectory({
-    prefix: q,
+    query: q,
     excludeUserId: ctx.tenantUserId,
     limit,
   })

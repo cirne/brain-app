@@ -50,7 +50,7 @@ describe('BrainAccessPage.svelte', () => {
     await waitFor(() => {
       expect(screen.getByText(/trusted confidante/i)).toBeInTheDocument()
       expect(screen.getByText(/general collaborator/i)).toBeInTheDocument()
-      expect(screen.getByText(/need-to-know only/i)).toBeInTheDocument()
+      expect(screen.getByText(/minimal disclosure/i)).toBeInTheDocument()
     })
   })
 

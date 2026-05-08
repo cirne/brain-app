@@ -1,13 +1,14 @@
 /**
  * Starter privacy-policy templates for the brain-query grant editor.
  *
- * Templates are *plain text starters* that prefill the existing per-grant
- * privacy textarea — no schema or backend changes. The user can keep, edit, or
- * replace the text before saving. We intentionally keep wording user-facing
- * (no tool names) since the policy is consumed downstream by the assistant as
- * natural-language guidance.
+ * Plain-text starters that prefill the per-grant privacy field. System-wide
+ * deny rules: {@link POLICY_ALWAYS_OMIT} in `@shared/brainQueryAnswerBaseline.js`
+ * (shown in the Brain access UI).
  */
-export type BrainQueryBuiltInPolicyId = 'trusted' | 'general' | 'need-to-know'
+
+export { POLICY_ALWAYS_OMIT } from '@shared/brainQueryAnswerBaseline.js'
+
+export type BrainQueryBuiltInPolicyId = 'trusted' | 'general' | 'minimal-disclosure'
 
 export type BrainQueryPolicyTemplate = {
   id: BrainQueryBuiltInPolicyId
@@ -23,35 +24,29 @@ export const BRAIN_QUERY_POLICY_TEMPLATES: BrainQueryPolicyTemplate[] = [
   {
     id: 'trusted',
     label: 'Trusted Confidante',
-    hint: 'High trust for coordination; still avoid passwords, raw financial/medical details.',
+    hint: 'Rich personal and work coordination; keep dollars, accounts, and long quotes light.',
     text: [
-      'This person has my full trust (personal assistant, spouse, or similar). Share detailed, helpful answers when they ask.',
-      'You may include calendar details, travel plans, meeting context, and relevant notes so they can coordinate with me.',
-      'Include names, times, places, and background when it helps them support me effectively.',
-      'Never share passwords, passphrases, API keys, MFA or one-time codes, recovery phrases, or anything that could be used to access my accounts — even for a trusted person. If they ask, say those are off-limits and they should get that from me directly.',
-      'Do not share full financial identifiers (bank or brokerage account numbers, card numbers, tax IDs) or verbatim financial statements. High-level context is fine when needed (e.g. “flight Tuesday,” “call the accountant”) without reproducing balances, account numbers, or transaction details.',
-      'Treat medical and health information carefully: avoid diagnoses, prescriptions, or clinical details unless clearly necessary to answer their question; routine scheduling (“doctor visit Wednesday”) is fine.',
-      'When in doubt about coordination and logistics, prefer being helpful and specific over redacting — but never relax the guardrails above for credentials or unnecessarily sensitive medical or financial detail.',
+      'ALLOWED: Calendar and travel logistics; meeting titles, times, and locations; attendee names and roles when useful; project and work context; people and relationships that matter for coordination; general personal logistics (e.g. childcare pickup, dinner plans) when it is ordinary scheduling or social context—not medical, credential, or identifier detail.',
+      'OMIT: Specific dollar amounts, account numbers, transaction lines, or investment positions; long verbatim quotes from mail or messages when a short paraphrase is enough.',
     ].join('\n\n'),
   },
   {
     id: 'general',
     label: 'General collaborator',
-    hint: 'Helpful work answers; skip unrelated personal life.',
+    hint: 'Work-focused; leave personal life out unless one minimal fact is required for the task.',
     text: [
-      'Share helpful summaries about my work, projects, and meetings with this person.',
-      'Skip unrelated personal life details (health, relationships, finances) unless they are clearly relevant to a question they’re asking.',
-      'When in doubt, prefer a short, polite answer over disclosing detail.',
+      'ALLOWED: Professional and work context: active projects, deadlines, meeting subjects, workplace decisions, and named colleagues or contacts when needed for the work topic.',
+      'OMIT: Non-work personal life by default: family and household detail, health and medical topics, finances and major purchases, housing, religion, politics, hobbies, and social relationships—unless one minimal fact is strictly required to answer a work-scoped question and is not credential, identifier, or clinical content.',
+      'Prefer summaries over long specifics; avoid quoting mail or documents verbatim when paraphrase suffices.',
     ].join('\n\n'),
   },
   {
-    id: 'need-to-know',
-    label: 'Need-to-know only',
-    hint: 'Direct answers; sensitive context only when essential.',
+    id: 'minimal-disclosure',
+    label: 'Minimal disclosure',
+    hint: 'Thin, literal answers only—no backstory, extra names, or calendar padding unless the question truly requires it.',
     text: [
-      'Answer directly and briefly. Provide only the specific information needed to answer the question.',
-      'Do not include broader context, opinions, or related material unless the question explicitly asks for it.',
-      'Decline politely if a question would require sharing sensitive context that is not essential to the answer.',
+      'ALLOWED: Only the minimum facts, names, dates, or amounts required so the answer is still true and usable. If a careful answer is possible without naming people or places, omit them.',
+      'OMIT: Background, related projects, secondary participants, opinions, and any detail not strictly required for the ask. Do not add calendar or personal context beyond what the question requires.',
     ].join('\n\n'),
   },
 ]

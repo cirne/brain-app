@@ -12,6 +12,8 @@ import {
   listBrainQueryGrantsForAsker,
   listBrainQueryGrantsForOwner,
   revokeBrainQueryGrant,
+  revokeBrainQueryGrantAndReciprocal,
+  revokeBrainQueryGrantAsAsker,
   updateBrainQueryGrantPrivacyPolicy,
 } from './brainQueryGrantsRepo.js'
 import {
@@ -53,6 +55,27 @@ describe('brainQueryGrantsRepo', () => {
     const row = createBrainQueryGrant({ ownerId: owner, askerId: asker })
     expect(getActiveBrainQueryGrant({ ownerId: owner, askerId: asker })?.id).toBe(row.id)
     expect(revokeBrainQueryGrant({ grantId: row.id, ownerId: owner })).toBe(true)
+    expect(getActiveBrainQueryGrant({ ownerId: owner, askerId: asker })).toBeNull()
+  })
+
+  it('revokeBrainQueryGrantAndReciprocal revokes reciprocal row when present', () => {
+    const a = 'usr_rqqqqqqqqqqqqqqqqqqq'
+    const b = 'usr_rrrrrrrrrrrrrrrrrrrr'
+    const ab = createBrainQueryGrant({ ownerId: a, askerId: b, privacyPolicy: 'one' })
+    const ba = createBrainQueryGrant({ ownerId: b, askerId: a, privacyPolicy: 'two' })
+    const out = revokeBrainQueryGrantAndReciprocal({ grantId: ab.id, ownerId: a })
+    expect(out.revoked).toBe(true)
+    expect(out.reciprocalRevoked).toBe(true)
+    expect(getActiveBrainQueryGrant({ ownerId: a, askerId: b })).toBeNull()
+    expect(getActiveBrainQueryGrant({ ownerId: b, askerId: a })).toBeNull()
+    expect(revokeBrainQueryGrantAndReciprocal({ grantId: ba.id, ownerId: b }).revoked).toBe(false)
+  })
+
+  it('revokeBrainQueryGrantAsAsker revokes inbound only', () => {
+    const owner = 'usr_inown_oooooooooooooooooo'
+    const asker = 'usr_inask_aaaaaaaaaaaaaaaaaa'
+    const inbound = createBrainQueryGrant({ ownerId: owner, askerId: asker, privacyPolicy: 'x' })
+    expect(revokeBrainQueryGrantAsAsker({ grantId: inbound.id, askerId: asker })).toBe(true)
     expect(getActiveBrainQueryGrant({ ownerId: owner, askerId: asker })).toBeNull()
   })
 

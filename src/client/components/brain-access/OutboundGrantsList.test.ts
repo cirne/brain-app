@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@client/test/render.js'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, fireEvent } from '@client/test/render.js'
 import OutboundGrantsList from './OutboundGrantsList.svelte'
 import { templateById } from '@client/lib/brainQueryPolicyTemplates.js'
 
@@ -20,6 +20,7 @@ describe('OutboundGrantsList.svelte', () => {
           },
         ],
         customPolicies: [],
+        onRemoveInbound: vi.fn(),
       },
     })
     expect(screen.getByRole('heading', { name: /^brains you can ask$/i })).toBeInTheDocument()
@@ -27,6 +28,31 @@ describe('OutboundGrantsList.svelte', () => {
     expect(screen.queryByText(/tap to expand/i)).not.toBeInTheDocument()
     expect(screen.getByText(`@${'them-brain'}`)).toBeInTheDocument()
     expect(screen.getByText(new RegExp(tpl.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))).toBeInTheDocument()
+  })
+
+  it('remove control calls onRemoveInbound with grant id', async () => {
+    const tpl = templateById('trusted')!
+    const onRemoveInbound = vi.fn()
+    render(OutboundGrantsList, {
+      props: {
+        grantedToMe: [
+          {
+            id: 'grant-in-1',
+            ownerId: 'usr_owner111111111111',
+            ownerHandle: 'peer-handle',
+            askerId: 'usr_me',
+            privacyPolicy: tpl.text,
+            createdAtMs: 1,
+            updatedAtMs: 1,
+          },
+        ],
+        customPolicies: [],
+        onRemoveInbound,
+      },
+    })
+    const remove = screen.getByRole('button', { name: /remove access to @peer-handle/i })
+    await fireEvent.click(remove)
+    expect(onRemoveInbound).toHaveBeenCalledWith('grant-in-1')
   })
 
   it('shows empty copy when nothing granted to me', () => {

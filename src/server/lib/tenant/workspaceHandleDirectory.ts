@@ -31,6 +31,22 @@ export type WorkspaceHandleDirectoryEntry = {
 /** Default cap on results returned to callers (autocomplete dropdown size). */
 export const WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT = 20
 
+/**
+ * Ranking for handle queries (lower = sort first): full-handle prefix → segment-prefix → substring.
+ * Segment boundaries: `-`, `_`, `.`.
+ */
+export function workspaceHandleMatchRank(handleLower: string, q: string): number | null {
+  const needle = q.trim().toLowerCase().replace(/^@/, '')
+  if (needle.length === 0) return 0
+  if (handleLower.startsWith(needle)) return 0
+  const segments = handleLower.split(/[-_.]+/).filter(Boolean)
+  for (const seg of segments) {
+    if (seg.startsWith(needle)) return 1
+  }
+  if (handleLower.includes(needle)) return 2
+  return null
+}
+
 /** Pick the primary linked mailbox email for a tenant, falling back to ripmail config. */
 async function resolvePrimaryEmail(home: string): Promise<string | null> {
   const linked = await readLinkedMailboxesFor(home)
@@ -41,16 +57,18 @@ async function resolvePrimaryEmail(home: string): Promise<string | null> {
 }
 
 /**
- * Search confirmed workspace handles by case-insensitive prefix. Excludes `excludeUserId`
- * (typically the caller's own tenant). Returns up to `limit` rows sorted by handle.
+ * Search confirmed workspace handles by case-insensitive substring (`query`). Excludes `excludeUserId`
+ * (typically the caller's own tenant). Matches anywhere in the handle, but sorts so full-handle prefixes
+ * come first, then segment prefixes (`enron-demo-x` hyphen segments), then other substring hits.
  */
 export async function searchWorkspaceHandleDirectory(params: {
-  prefix: string
+  /** Search text (`@` prefix ignored). Empty returns all handles (still capped). */
+  query: string
   excludeUserId?: string
   limit?: number
 }): Promise<WorkspaceHandleDirectoryEntry[]> {
   const limit = params.limit ?? WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT
-  const normalizedPrefix = params.prefix.trim().toLowerCase().replace(/^@/, '')
+  const normalizedQuery = params.query.trim().toLowerCase().replace(/^@/, '')
   const root = dataRoot()
   let names: string[]
   try {
@@ -58,22 +76,38 @@ export async function searchWorkspaceHandleDirectory(params: {
   } catch {
     return []
   }
-  const candidates: { userId: string; handle: string; displayName?: string }[] = []
+  const candidates: { userId: string; handle: string; displayName?: string; rank: number }[] = []
   for (const name of names) {
     if (!isValidUserId(name)) continue
     if (params.excludeUserId && name === params.excludeUserId) continue
     const meta = await readHandleMeta(join(root, name))
     if (!meta) continue
     if (typeof meta.confirmedAt !== 'string' || meta.confirmedAt.length === 0) continue
-    if (normalizedPrefix.length > 0 && !meta.handle.toLowerCase().startsWith(normalizedPrefix)) continue
-    const row: { userId: string; handle: string; displayName?: string } = {
-      userId: meta.userId,
-      handle: meta.handle,
+    const handleLower = meta.handle.toLowerCase()
+    if (normalizedQuery.length > 0) {
+      const rank = workspaceHandleMatchRank(handleLower, normalizedQuery)
+      if (rank === null) continue
+      const row: { userId: string; handle: string; displayName?: string; rank: number } = {
+        userId: meta.userId,
+        handle: meta.handle,
+        rank,
+      }
+      if (meta.displayName) row.displayName = meta.displayName
+      candidates.push(row)
+    } else {
+      const row: { userId: string; handle: string; displayName?: string; rank: number } = {
+        userId: meta.userId,
+        handle: meta.handle,
+        rank: 0,
+      }
+      if (meta.displayName) row.displayName = meta.displayName
+      candidates.push(row)
     }
-    if (meta.displayName) row.displayName = meta.displayName
-    candidates.push(row)
   }
-  candidates.sort((a, b) => a.handle.localeCompare(b.handle))
+  candidates.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank
+    return a.handle.localeCompare(b.handle)
+  })
   const capped = candidates.slice(0, limit)
   const out: WorkspaceHandleDirectoryEntry[] = []
   for (const c of capped) {

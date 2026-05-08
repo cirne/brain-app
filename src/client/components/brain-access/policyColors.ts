@@ -18,7 +18,7 @@ const builtinTones: Record<BrainQueryBuiltInPolicyId, PolicyCardTone> = {
     ring: 'border-blue-300 dark:border-blue-700',
     softBg: 'bg-blue-50/70 dark:bg-blue-950/30',
   },
-  'need-to-know': {
+  'minimal-disclosure': {
     bar: 'border-l-green-500',
     ring: 'border-green-300 dark:border-green-700',
     softBg: 'bg-green-50/70 dark:bg-green-950/30',

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { BRAIN_QUERY_POLICY_TEMPLATES, templateById } from './brainQueryPolicyTemplates.js'
 
 describe('BRAIN_QUERY_POLICY_TEMPLATES', () => {
-  it('exports the three built-in templates (trusted, general, need-to-know)', () => {
+  it('exports the three built-in templates (trusted, general, minimal-disclosure)', () => {
     const ids = BRAIN_QUERY_POLICY_TEMPLATES.map((t) => t.id)
-    expect(ids).toEqual(['trusted', 'general', 'need-to-know'])
+    expect(ids).toEqual(['trusted', 'general', 'minimal-disclosure'])
   })
 
   it('templates have non-empty user-facing copy and policy text', () => {
@@ -26,6 +26,6 @@ describe('BRAIN_QUERY_POLICY_TEMPLATES', () => {
   it('templateById returns matching template', () => {
     expect(templateById('trusted')?.label).toContain('Trusted')
     expect(templateById('general')?.id).toBe('general')
-    expect(templateById('need-to-know')?.id).toBe('need-to-know')
+    expect(templateById('minimal-disclosure')?.id).toBe('minimal-disclosure')
   })
 })

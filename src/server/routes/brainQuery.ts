@@ -15,7 +15,8 @@ import {
   getBrainQueryGrantById,
   listBrainQueryGrantsForAsker,
   listBrainQueryGrantsForOwner,
-  revokeBrainQueryGrant,
+  revokeBrainQueryGrantAndReciprocal,
+  revokeBrainQueryGrantAsAsker,
   updateBrainQueryGrantPrivacyPolicy,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
@@ -329,12 +330,20 @@ brainQuery.delete('/grants/:id', async (c) => {
   const ctx = getTenantContext()
   const id = c.req.param('id')
   const row = getBrainQueryGrantById(id)
-  if (!row || row.owner_id !== ctx.tenantUserId) {
+  if (!row) {
     return c.json({ error: 'not_found_or_forbidden' }, 404)
   }
-  const ok = revokeBrainQueryGrant({ grantId: id, ownerId: ctx.tenantUserId })
-  if (!ok) return c.json({ error: 'not_found_or_forbidden' }, 404)
-  return c.json({ ok: true as const })
+  if (row.owner_id === ctx.tenantUserId) {
+    const out = revokeBrainQueryGrantAndReciprocal({ grantId: id, ownerId: ctx.tenantUserId })
+    if (!out.revoked) return c.json({ error: 'not_found_or_forbidden' }, 404)
+    return c.json({ ok: true as const })
+  }
+  if (row.asker_id === ctx.tenantUserId) {
+    const ok = revokeBrainQueryGrantAsAsker({ grantId: id, askerId: ctx.tenantUserId })
+    if (!ok) return c.json({ error: 'not_found_or_forbidden' }, 404)
+    return c.json({ ok: true as const })
+  }
+  return c.json({ error: 'not_found_or_forbidden' }, 404)
 })
 
 brainQuery.get('/log', async (c) => {

@@ -84,7 +84,7 @@ describe('brainAccessPolicyGrouping', () => {
     ]
     const cards = buildPolicyCardModels(grants, custom)
     const ids = cards.map((c) => c.policyId)
-    expect(ids.slice(0, 3)).toEqual(['trusted', 'general', 'need-to-know'])
+    expect(ids.slice(0, 3)).toEqual(['trusted', 'general', 'minimal-disclosure'])
     expect(ids).toContain('custom:x')
     expect(ids.some((x) => x.startsWith('adhoc:'))).toBe(true)
   })

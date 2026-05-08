@@ -1,9 +1,8 @@
 # Idea: Brain-query delegation (LLM-to-LLM fast path)
 
-**Status:** Active — **Phase 0 (hosted)** shipped in code; follow-on UX and product bets tracked in **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**  
-**Index:** [IDEAS.md](../IDEAS.md)
+**Status:** Active — **Phase 0 (hosted)** shipped; **Hub / Brain access admin (Spike 1)** closed (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Next:** policy depth ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)), including **policy-by-reference** for grants.
 
-**Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) (API, manual acceptance) · **[brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)** (draft — layered policies: capabilities, hard predicates, soft fragments) · **Tool:** `ask_brain` · **Settings:** Sharing → Brain queries (skeletal UI today)
+**Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (inc. [Hub closure §](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)) · **Tool:** `ask_brain`
 
 **Related:** [IDEA-wiki-sharing-collaborators.md](IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** may be the better long-term bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
 
@@ -18,7 +17,7 @@
 
 **Admin / Hub UI:**
 
-- **Skeletal.** Grants (create / list / edit policy / revoke) and log tables exist under Settings → Sharing → Brain queries, but the experience needs substantial product and engineering work—navigation, mobile, empty states, drill-down, and trust copy. That work is **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**.
+- **Spike 1 shipped (2026-05).** Usable **Brain access** in Hub (grants, policy drill-down, templates + custom policies, activity views) and **@** people vs wiki in chat — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure). Historical epic: **[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**.
 
 **Not done yet (unchanged from earlier roadmap):** cross-instance routing, notifications, human-approval mode, layered policy/presets ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)) — see [Experiment path](#experiment-path-fast-start) below.
 
@@ -134,7 +133,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 4. **Query log** — owner / asker roles; draft vs final delineation in UI for owner.
 5. **`ask_brain`** tool on the initiating side; NL “ask @handle …” still depends on the main model choosing the tool.
 
-**Remaining for Phase 0 “complete” in a product sense:** **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (Hub / Settings UX), optional copy and discoverability improvements so users understand grants and audit without reading architecture docs.
+**Product polish (ongoing):** mobile layout, notifications, cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) (policy-by-reference).
 
 **Phase 1 — cross-instance:**
 

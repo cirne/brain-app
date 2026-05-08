@@ -2,9 +2,9 @@
 
 **Status:** Draft — **design synthesis** for collaboration trust surfaces (brain-query, future bilateral flows, wiki shares). **Phase 0 shipped behavior** remains what [brain-query-delegation.md](./brain-query-delegation.md) describes (grant row + single privacy-policy text + two-pass LLM); this doc is the **target architecture** for evolving policy without turning admin into OAuth-scale complexity.
 
-**Near-term product focus:** **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (B2B / Hub UI — grants, policy editor, audit log, trust copy). **Ship Hub clarity first**; treat **richer policy mechanics** (fragments, hard predicates, cross-surface unification) as **later spikes** (see [Implementation spikes](#implementation-spikes-ui-first-then-policy-depth)).
+**Near-term:** **Spike 1 (Hub brain-access admin)** is **closed** — see [Hub brain-access admin (shipped — OPP-099 closure)](#hub-brain-access-admin-shipped--opp-099-closure). **Next:** **Spike 2** (plaintext++) and **policy-by-reference** cleanup under **Denormalized `privacy_policy`**; later **Spikes 3–4** (fragments, hard predicates).
 
-**See also:** [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) · [wiki-sharing.md](./wiki-sharing.md) · [integrations.md](./integrations.md) (Ripmail boundary) · **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (Hub / Settings UX)
+**See also:** [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) · [wiki-sharing.md](./wiki-sharing.md) · [integrations.md](./integrations.md) (Ripmail boundary) · **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (closed epic — stub → archive)
 
 ---
 
@@ -13,7 +13,7 @@
 - **Default deny** at the relationship boundary: no grant → no cross-brain operations.
 - **Powerful but simple:** numbered presets for typical users; libraries of reusable pieces for advanced users—**not** an unconstrained dependency graph of policies.
 - **Defense in depth:** combine **machine-enforced** rules (tools, paths, mail predicates) with **soft instructions** (LLM-facing fragments). Neither layer replaces the other.
-- **Honest security UX:** soft rules are **instructions**, not cryptographic guarantees; copy and Hub surfaces should say so (aligned with [OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)).
+- **Honest security UX:** soft rules are **instructions**, not cryptographic guarantees; copy and Hub surfaces should say so (see [Hub brain-access admin (shipped — OPP-099 closure)](#hub-brain-access-admin-shipped--opp-099-closure)).
 - **Reuse Ripmail semantics** where mail is constrained: same **search-shaped** predicates / evaluator as inbox rules and `ripmail search` (see [Ripmail INBOX-CUSTOMIZATION](../../ripmail/skills/ripmail/references/INBOX-CUSTOMIZATION.md), `[SearchOptions](../../ripmail/src/search/types.rs)`, `[OPP-038` archived](../ripmail/docs/opportunities/archive/OPP-038-inbox-rules-as-search-language.md)).
 
 ---
@@ -125,13 +125,52 @@ For **cross-brain** grants, prefer **allowlist-first** mail/wiki visibility (“
 | Phase                 | Behavior                                                                                                                                                                                 |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Phase 0 (shipped)** | `brain_query_grants` with **single textarea** `privacy_policy` (default seeded text); research pass + privacy-filter pass; see [brain-query-delegation.md](./brain-query-delegation.md). |
-| **Next (policy depth)** | After Hub work: preset/fragment wiring, then **layer 2** (wiki/mail predicates). See **spikes** below for a deliberate ramp.                                                                |
+| **Next (policy depth)** | **Spike 2** (plaintext++: history, named preset labels, optional capability toggles) + **policy-by-reference** for grants; then **Spike 3–4** (fragments, layer-2 predicates). See spikes below. |
+
+<a id="hub-brain-access-admin-shipped--opp-099-closure"></a>
+
+## Hub brain-access admin (shipped — OPP-099 closure)
+
+**Status: closed (2026-05).** Epic tracker: **[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** · [archived full spec](../opportunities/archive/OPP-099-brain-to-brain-admin-hub-ui.md).
+
+### What shipped (Spike 1)
+
+Usable **Brain access** in Hub / Sharing: **grants** (create, list, revoke), **privacy policy** editing (built-in templates, owner **custom** policies, policy drill-down), **activity / audit**-oriented views as implemented, and **trust copy** framing consistent with honest filter limits.
+
+**Chat:** composer **`@`** suggestions split **People** (workspace handles from `/api/account/workspace-handles`) vs **Documents** (wiki paths); transcripts render **person chips** distinctly from file-style wiki mentions (plain-text persistence unchanged).
+
+**Backend:** Phase 0 contract unchanged — `brain_query_grants.privacy_policy` holds the **full policy string** per row; see [brain-query-delegation.md](./brain-query-delegation.md).
+
+### Representative code paths
+
+| Area | Location |
+|------|----------|
+| Hub Sharing | `src/client/components/hub/HubSharingSection.svelte`, `BrainHubPage.svelte` |
+| Settings entry | `src/client/components/brainQuerySettingsSection.svelte` |
+| Brain access UI | `src/client/components/brain-access/` (e.g. `BrainAccessPage.svelte`, `PolicyDetailPage.svelte`) |
+| Grants API | `src/server/routes/brainQuery.ts`, `src/server/lib/brainQuery/brainQueryGrantsRepo.ts` |
+| `@` mentions | `src/client/lib/userMessageMentions.ts`, `AgentInput.svelte`, `UserMessageContent.svelte` |
+
+### Follow-up (not part of OPP-099)
+
+- **Denormalized policy text:** each grant still **copies** `privacy_policy` prose; logical edits can require **O(n)** PATCHes and rows can **drift**. **Direction:** owner-scoped **policy** rows + **`policy_id`** on grants (optionally revision-pinned); resolve once in `runBrainQuery`. Treat as **Spike 2+ / future schema** work — see [Denormalized `privacy_policy` on grants](#denormalized-privacy_policy-on-grants-follow-up) below.
+- **Spikes 3–4:** structured fragments, hard wiki/mail predicates — still future per this doc.
+
+---
+
+<a id="denormalized-privacy_policy-on-grants-follow-up"></a>
+
+### Denormalized `privacy_policy` on grants (follow-up)
+
+Phase 0 **duplicates** the full policy prose on **each** grant row. The client buckets grants by **matching** stored text to templates or saved custom policies; **editing** a logical policy **PATCHes every** matching grant. That is **O(n)** in collaborators, **failure-prone** if updates partially apply, and there is **no** single server-side policy object enforcing one definition per logical policy.
+
+**Next step:** introduce **server-owned policies** (per owner: `policy_id`, text and/or revision) and store **`policy_id`** (± revision pin) on `brain_query_grants`; load grant → resolve text in **one** place for enforcement. Product must decide **“always current”** vs **pinned revision** per grant. **Migration** per [AGENTS.md](../../AGENTS.md) early-dev norms (clean break acceptable; document in PR).
 
 ---
 
 ## Implementation spikes (UI first, then policy depth)
 
-Spikes are **ordered by intended delivery**. The **first incremental work** after Phase 0 is **not** a richer policy engine—it is **usable admin and chat affordances** under **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**. Policy stays **one plaintext blob per grant** until a later spike requires structure.
+Spikes are **ordered by intended delivery**. **Spike 1 (Hub / B2B UI)** shipped under **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — see [closure section](#hub-brain-access-admin-shipped--opp-099-closure). **`privacy_policy` remains per-grant text** until **policy-by-reference** lands (see [Denormalized `privacy_policy`](#denormalized-privacy_policy-on-grants-follow-up)).
 
 <a id="spike-0-baseline"></a>
 ### Spike 0 — Baseline (shipped)
@@ -140,8 +179,8 @@ Spikes are **ordered by intended delivery**. The **first incremental work** afte
 - **Enforcement:** research agent (owner tenant) → **privacy-filter pass** uses that blob only; no fragment IDs, no hard predicates in code.
 - **Unification:** none—brain-query policy is **not** merged with wiki-share ACLs at evaluation time (mental-model copy in Hub may still distinguish “share files” vs “answer questions”).
 
-<a id="spike-1-b2b-ui-opp-099"></a>
-### Spike 1 — Hub / B2B UI (primary near-term focus → OPP-099)
+<a id="spike-1-b2b-ui-historical--opp-099"></a>
+### Spike 1 — Hub / B2B UI (shipped — historical OPP-099)
 
 **Goal:** Users can grant, edit policy, revoke, and read logs **without** reading architecture docs—**before** investing in sophisticated policy schemas.
 
@@ -160,7 +199,8 @@ Still **one text blob** per grant; backend filter behavior unchanged unless we a
 **Goal:** Better **operability and audit** without the full three-layer product.
 
 - **Policy change history** (append-only log or versioning: who/when; one active `privacy_policy`).
-- **Named starter presets in product** = **curated default strings** + label in UI (still one stored blob; optional `preset_label` for support/debug).
+- **Server policy reference:** grants store **`policy_id`** (not a full duplicate prose blob per row) — see [Denormalized `privacy_policy` § follow-up](#denormalized-privacy_policy-on-grants-follow-up).
+- **Named starter presets in product** = **curated default strings** + label in UI (still one resolved blob at enforcement; optional `preset_label` for support/debug).
 - **Layer 1 lite (optional):** coarse **capability toggles** (e.g. “mail may inform answers” vs “wiki/calendar only”) implemented as **server-side tool allowlists** for brain-query research—not as prose the filter must interpret.
 
 **Unification:** still **defer** merging wiki-share rules into brain-query enforcement until both need the same path semantics.
@@ -185,8 +225,8 @@ Still **one text blob** per grant; backend filter behavior unchanged unless we a
 | Phase        | Maps to spikes | Behavior |
 | ------------ | -------------- | -------- |
 | **Phase 0**  | Spike 0        | Shipped: textarea + two-pass LLM. |
-| **Next**     | Spikes 1–2     | Hub (OPP-099); then plaintext++ and optional capability toggles. |
-| **Later**    | Spikes 3–4     | Fragments/presets; full layer 2. |
+| **Next**     | Spike 2 (+ policy-by-reference) | Plaintext++ ergonomics; grants reference server-stored policies — [§ follow-up](#denormalized-privacy_policy-on-grants-follow-up). |
+| **Later**    | Spikes 3–4     | Structured fragments/presets; full layer 2 (hard predicates). |
 
 ---
 
@@ -201,6 +241,6 @@ Still **one text blob** per grant; backend filter behavior unchanged unless we a
 ## Implementation pointers (current code)
 
 - Grants / policy text: `[brainGlobalDb.ts](../../src/server/lib/global/brainGlobalDb.ts)`, `[defaultPrivacyPolicy.ts](../../src/server/lib/brainQuery/defaultPrivacyPolicy.ts)`, `[runBrainQuery.ts](../../src/server/lib/brainQuery/runBrainQuery.ts)`.
-- Hub UI backlog: [OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md).
+- Hub brain-access admin (closed): [closure §](#hub-brain-access-admin-shipped--opp-099-closure) · [OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)
 
 Future work should extend these **additively** (preset columns or JSON policy blob version field) per early-dev norms in [AGENTS.md](../../AGENTS.md).

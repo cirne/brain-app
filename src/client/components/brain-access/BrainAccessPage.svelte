@@ -20,6 +20,7 @@
   import OutboundGrantsList from './OutboundGrantsList.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import CustomPolicyCreator from './CustomPolicyCreator.svelte'
+  import BrainQueryPolicyBaselineNote from './BrainQueryPolicyBaselineNote.svelte'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -273,6 +274,7 @@
     <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
       Policies &amp; collaborators
     </h2>
+    <BrainQueryPolicyBaselineNote />
     {#if busy && grantedByMe.length === 0 && grantedToMe.length === 0}
       <p class="m-0 text-[0.875rem] text-muted">Loading…</p>
     {:else}
@@ -303,7 +305,12 @@
     </button>
   </section>
 
-  <OutboundGrantsList grantedToMe={grantedToMe} customPolicies={customPolicies} />
+  <OutboundGrantsList
+    grantedToMe={grantedToMe}
+    customPolicies={customPolicies}
+    onRemoveInbound={(id) => void removeGrant(id)}
+    removeBusyId={removeBusyId}
+  />
 
   <div class="flex flex-wrap gap-2">
     <button

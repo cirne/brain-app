@@ -184,4 +184,51 @@ describe('/api/brain-query', () => {
     })
     expect(del.status).toBe(200)
   })
+
+  it('DELETE /grants/:id as owner revokes reciprocal pair', async () => {
+    const layId = 'usr_c2c2c2c2c2c2c2c2c2c2'
+    const peerId = 'usr_d3d3d3d3d3d3d3d3d3d3'
+    const laySid = await sessionFor(layId, 'lay-demo')
+    await registerSessionTenant(laySid, layId)
+    await sessionFor(peerId, 'peer-demo')
+    const outbound = createBrainQueryGrant({ ownerId: layId, askerId: peerId })
+    createBrainQueryGrant({ ownerId: peerId, askerId: layId })
+
+    const app = mountBrainQuery()
+    const del = await app.request(`http://localhost/api/brain-query/grants/${outbound.id}`, {
+      method: 'DELETE',
+      headers: { cookie: `brain_session=${laySid}` },
+    })
+    expect(del.status).toBe(200)
+    const listRes = await app.request('http://localhost/api/brain-query/grants', {
+      headers: { cookie: `brain_session=${laySid}` },
+    })
+    expect(listRes.status).toBe(200)
+    const body = (await listRes.json()) as { grantedByMe: unknown[]; grantedToMe: unknown[] }
+    expect(body.grantedByMe).toHaveLength(0)
+    expect(body.grantedToMe).toHaveLength(0)
+  })
+
+  it('DELETE /grants/:id as asker revokes inbound grant only', async () => {
+    const ownerId = 'usr_e4e4e4e4e4e4e4e4e4e4'
+    const askerId = 'usr_f5f5f5f5f5f5f5f5f5f5'
+    const ownerSid = await sessionFor(ownerId, 'grantor')
+    await registerSessionTenant(ownerSid, ownerId)
+    const askerSid = await sessionFor(askerId, 'receiver')
+    await registerSessionTenant(askerSid, askerId)
+    const inbound = createBrainQueryGrant({ ownerId, askerId })
+
+    const app = mountBrainQuery()
+    const del = await app.request(`http://localhost/api/brain-query/grants/${inbound.id}`, {
+      method: 'DELETE',
+      headers: { cookie: `brain_session=${askerSid}` },
+    })
+    expect(del.status).toBe(200)
+
+    const peerList = await app.request('http://localhost/api/brain-query/grants', {
+      headers: { cookie: `brain_session=${ownerSid}` },
+    })
+    const peerBody = (await peerList.json()) as { grantedByMe: { askerId: string }[] }
+    expect(peerBody.grantedByMe.some((g) => g.askerId === askerId)).toBe(false)
+  })
 })
