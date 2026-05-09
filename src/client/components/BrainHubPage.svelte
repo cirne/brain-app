@@ -17,6 +17,7 @@
   import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
   import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
   import HubSharingSection from '@components/hub/HubSharingSection.svelte'
+  import OnboardingFirstRunPanel from '@components/onboarding/OnboardingFirstRunPanel.svelte'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
 
   /** Background snapshot read from `/api/background-status` — poll while Hub is open. */
@@ -32,6 +33,10 @@
   type Props = {
     /** Cross-workspace brain query hub summary; true only when server enables `BRAIN_B2B_ENABLED`. */
     brainQueryEnabled?: boolean
+    /** After onboarding mutations from Hub panel — refresh App vault/onboarding snapshot. */
+    refreshAppOnboardingStatus?: () => Promise<void>
+    /** Hosted vs desktop copy in first-run panel. */
+    multiTenant?: boolean
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** Opens Settings primary column (`/settings`); when set, Manage uses SPA navigation. */
     onOpenSettings?: () => void
@@ -39,7 +44,14 @@
     onOpenBrainAccess?: () => void
   }
 
-  let { brainQueryEnabled = false, onHubNavigate, onOpenSettings, onOpenBrainAccess }: Props = $props()
+  let {
+    brainQueryEnabled = false,
+    refreshAppOnboardingStatus,
+    multiTenant = false,
+    onHubNavigate,
+    onOpenSettings,
+    onOpenBrainAccess,
+  }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -53,6 +65,9 @@
   let backgroundStatusLoading = $state(true)
   let syncKickBusy = $state(false)
   let wikiBackgroundUpdateBusy = $state(false)
+
+  /** When false, show mail/indexing first-run panel above Activity. */
+  let onboardingHubDone = $state(true)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -217,6 +232,17 @@
     return bits.join(' · ')
   })
 
+  async function refreshOnboardingHubDone() {
+    try {
+      const r = await fetch('/api/onboarding/status', { credentials: 'include' })
+      if (!r.ok) return
+      const j = (await r.json()) as { state?: string }
+      onboardingHubDone = j.state === 'done'
+    } catch {
+      onboardingHubDone = false
+    }
+  }
+
   async function fetchData() {
     backgroundStatusLoading = true
     try {
@@ -238,6 +264,7 @@
         hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
       }
       wikiRecentEdits = await fetchWikiRecentEditsList()
+      await refreshOnboardingHubDone()
     } catch {
       /* ignore */
     } finally {
@@ -372,6 +399,18 @@
       </div>
     </div>
   </header>
+
+  {#if !onboardingHubDone}
+    <section class="flex flex-col gap-3" aria-label="First-run setup">
+      <OnboardingFirstRunPanel
+        refreshStatus={async () => {
+          await refreshAppOnboardingStatus?.()
+          await refreshOnboardingHubDone()
+        }}
+        {multiTenant}
+      />
+    </section>
+  {/if}
 
   <div class="hub-grid flex flex-col gap-10">
     <HubActivityOverview

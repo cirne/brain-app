@@ -6,7 +6,9 @@ import { ripmailBin } from './ripmailBin.js'
 import { buildRipmailStatusLogSnapshot } from './ripmailStatusParse.js'
 import { ripmailHomeForBrain, ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
-import { getDistributedTraceEnvForChild } from '@server/lib/observability/newRelicHelper.js'
+import {
+  withRipmailCliObservation,
+} from '@server/lib/observability/newRelicHelper.js'
 
 const KILL_ESCALATION_MS = 5000
 
@@ -158,8 +160,22 @@ function ripmailSubprocessLogErrorsOnly(): boolean {
 
 /**
  * Run ripmail with argv (no shell). Rejects on spawn error, abort, timeout, or nonzero exit.
+ * When `NEW_RELIC_LICENSE_KEY` is set, subprocess duration appears as `ripmail.cli/…` transaction segments.
  */
 export async function runRipmailArgv(
+  argv: string[],
+  options: RipmailRunOptions,
+): Promise<RipmailRunResult> {
+  if (options.signal?.aborted) {
+    throw Object.assign(new Error('ripmail aborted'), { name: 'AbortError' })
+  }
+  const labelOpt = options.label?.trim()
+  return withRipmailCliObservation(argv, labelOpt !== '' ? labelOpt : undefined, () =>
+    runRipmailArgvBody(argv, options),
+  )
+}
+
+async function runRipmailArgvBody(
   argv: string[],
   options: RipmailRunOptions,
 ): Promise<RipmailRunResult> {
@@ -173,7 +189,6 @@ export async function runRipmailArgv(
   if (options.label?.trim()) {
     mergedEnv.RIPMAIL_SPAWN_LABEL = options.label.trim()
   }
-  Object.assign(mergedEnv, getDistributedTraceEnvForChild())
   const secs =
     options.ripmailTimeoutSeconds ?? Math.max(1, Math.ceil(options.timeoutMs / 1000))
   if (mergedEnv.RIPMAIL_TIMEOUT === undefined) {

@@ -1,6 +1,10 @@
 # OPP-101: Ripmail (Rust) — OpenTelemetry
 
-**Status:** Proposed.
+**Status:** Proposed (on hold after rollback).
+
+**Update (2026-05):** An in-process **OTLP export** experiment in **`ripmail`** (NR OTLP/HTTP, `SimpleSpanProcessor`) was **removed**. Ripmail is a **short-lived subprocess**; blocking per-span export was a poor fit. **Today:** [`ripmail/src/observability/nr_diagnostic_logs.rs`](../../ripmail/src/observability/nr_diagnostic_logs.rs) (Log API), `sync.log` / `ripmail.log` files, and **Node** [`withRipmailCliObservation`](../../src/server/lib/observability/newRelicHelper.ts) (`ripmail.cli/…` under the web transaction). **W3C `TRACEPARENT` injection into the ripmail child env** was removed with the Rust OTLP code.
+
+Future OTLP in ripmail should only return if aligned with **async/batch export + flush policy** and product need for in-process spans; otherwise prefer **parent-side** tracing only.
 
 ## Summary
 

@@ -122,9 +122,18 @@ Custom events are recorded with the Node agent API `recordCustomEvent(eventType,
 
 These support **trace-style** NRQL (`WHERE agentTurnId = '…'`) without OpenTelemetry; they are **not** strict distributed traces.
 
-**Optional later:** in-process APM `startSegment` around tool execution for a native transaction waterfall (not implemented in v1).
+### APM transaction segments (native waterfall)
 
-Shared turn context is [`LlmTurnTelemetry`](../src/server/lib/newRelicHelper.ts) (`agentTurnId`, `source`, `agentKind`, `correlation`). `agent_end` uses `recordLlmTurnEndEvents` (completions + rollup). Tool result sizes use `toolResultSseForNr` (one `toolResultForSse` call). Call sites: [`streamAgentSse.ts`](../src/server/lib/streamAgentSse.ts) and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts).
+With distributed tracing enabled in [`newrelic.cjs`](../newrelic.cjs), the Node agent also records **`startSegment` spans**:
+
+- **Agent tools:** `ai.tool/<tool_name>` opened on `tool_execution_start` and closed on `tool_execution_end` (`beginToolCallSegment` / `endToolCallSegmentBridge` in [`newRelicHelper.ts`](../src/server/lib/observability/newRelicHelper.ts), wired from [`streamAgentSseHandlers.ts`](../src/server/lib/chat/streamAgentSseHandlers.ts) for chat SSE and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts) for wiki runs).
+- **Ripmail subprocesses:** `ripmail.cli/<label-or-subcommand>` for the lifetime of [`runRipmailArgv`](../src/server/lib/ripmail/ripmailRun.ts), via [`withRipmailCliObservation`](../src/server/lib/observability/newRelicHelper.ts).
+
+**Distributed tracing caveat:** Ripmail inherits W3C `TRACEPARENT` / `TRACESTATE` in its environment so downstream systems *could* continue the trace; the Rust binary does **not** report spans to New Relic by default, so in the NR UI these runs usually appear **only as in-process segments** under the Brain Node transaction (unless you add NR instrumentation inside ripmail).
+
+**Chat SSE caveat:** Synthetic post-turn UI (for example [`streamAgentSse.ts`](../src/server/lib/chat/streamAgentSse.ts) suggest-repair `tool_start` / `tool_end` without `tool_execution_*`) does not open `ai.tool/…` segments today.
+
+Shared turn context is [`LlmTurnTelemetry`](../src/server/lib/observability/newRelicHelper.ts) (`agentTurnId`, `source`, `agentKind`, `correlation`). `agent_end` uses `recordLlmTurnEndEvents` (completions + rollup). Tool result sizes use `toolResultSseForNr` (one `toolResultForSse` call). Call sites: [`streamAgentSse.ts`](../src/server/lib/chat/streamAgentSse.ts) and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts).
 
 **Querying custom events:**
 

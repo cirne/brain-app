@@ -25,7 +25,7 @@
 - Phase-1 sync helper: [`src/server/lib/platform/syncAll.ts`](../../src/server/lib/platform/syncAll.ts) (`syncInboxRipmailOnboarding` → `ripmail backfill 30d`)  
 - POST `/api/inbox/sync` dispatch: [`src/server/routes/inbox.ts`](../../src/server/routes/inbox.ts)  
 - Mail polling payload / ripmail JSON parse: [`src/server/lib/onboarding/onboardingMailStatus.ts`](../../src/server/lib/onboarding/onboardingMailStatus.ts), [`src/server/lib/ripmail/ripmailStatusParse.ts`](../../src/server/lib/ripmail/ripmailStatusParse.ts) (`refreshRunning` vs `backfillRunning`)  
-- Client: [`src/client/components/onboarding/Onboarding.svelte`](../../src/client/components/onboarding/Onboarding.svelte)  
+- Client first-run mail UX: [`src/client/components/onboarding/OnboardingFirstRunPanel.svelte`](../../src/client/components/onboarding/OnboardingFirstRunPanel.svelte) (Brain Hub); guided setup banner: [`OnboardingAssistantBanner.svelte`](../../src/client/components/onboarding/OnboardingAssistantBanner.svelte) on the main Assistant shell  
 - Thresholds: [`src/shared/onboardingProfileThresholds.ts`](../../src/shared/onboardingProfileThresholds.ts) (`ONBOARDING_PROFILE_INDEX_MANUAL_MIN` **500**, `WIKI_BUILDOUT_MIN_MESSAGES` **1000**; legacy constant **`ONBOARDING_BACKFILL_STILL_RUNNING_CODE`** retained only for stale references)
 - Small-inbox auto-advance gate: [`src/shared/onboardingMailGate.ts`](../../src/shared/onboardingMailGate.ts) (`isOnboardingInitialMailSyncComplete`, `canAdvanceToOnboardingAgent`)
 - Unified Hub status: [`GET /api/background-status`](./background-task-orchestration.md)
@@ -43,7 +43,7 @@ Stored in **`onboarding.json`** at the root of the tenant **chats** directory (`
 | `not-started` | First-run UX; mail may or may not be configured yet. |
 | `confirming-handle` | **Hosted synthetic gate** — reported by **GET `/api/onboarding/status`** until the tenant’s Brain handle is confirmed; may not appear on disk alone. |
 | `indexing` | “Getting to Know You”: first mail corpus building; user sees indexing hero; server/client gate advancement to interview. |
-| `onboarding-agent` | Guided onboarding interview (SSE agent); **`wiki/me.md`** authoring policy per OPP-054. |
+| `onboarding-agent` | Guided **initial bootstrap** in the **main Assistant chat** (`POST /api/chat` with merged onboarding + first-impression prompts while this state is active); **`wiki/me.md`** authoring policy per OPP-054. |
 | `done` | Onboarding finished; Hub/inbox handles ongoing mail sync (not onboarding state). |
 
 Legacy disk values **`profiling`**, **`reviewing-profile`**, **`seeding`** are **read-normalized** to `onboarding-agent` / `done` (`readOnboardingStateDoc`).
@@ -96,7 +96,7 @@ Table form (canonical `canTransition` in `onboardingState.ts`):
    - **Threshold path:** indexed count **≥** `ONBOARDING_PROFILE_INDEX_MANUAL_MIN` (**500**). Client auto-PATCHes (or user retries). Server rechecks the same threshold; it does **not** wait for `backfillRunning === false`. Phase **1** backfill (**30d**) keeps running to completion; it is **not** cancelled by advancing to interview.
    - **Small-inbox path:** indexed count is below **500** **but** the initial mail sync has fully drained — `configured && lastSyncedAt && !syncRunning && !backfillRunning && !refreshRunning && !pendingBackfill && !staleMailSyncLock && !indexingHint` (see `isOnboardingInitialMailSyncComplete`). Without this, brand‑new accounts with only a handful of messages would be stuck on the indexing hero forever (e.g. "37 / 500" with nothing more to fetch). Both client auto-advance and server PATCH gate accept this case.
 6. **Phase 2 mail** — On transition **`indexing` → `onboarding-agent`**, server enqueues **`ripmail backfill 1y`** in the **background**. Ripmail **chains** heavy jobs per home so **1y runs after** the active **30d** lane finishes rather than preempting it.  
-7. **Interview + finalize** — OPP-054; then **`done`** (`POST /finalize` / **`PATCH` → `done`**).  
+7. **Interview + finalize** — While state is **`onboarding-agent`**, the client kicks a single **initial bootstrap** stream on **`POST /api/chat`** (merged prompts + mail-index facts). **`POST /finalize`** / **`PATCH` → `done`** runs after `finish_conversation` (or Skip setup); there is **no** separate server “first chat pending” hop.  
 8. **Wiki first-draft bootstrap + Your Wiki supervisor** — When indexed ≥ **`WIKI_BUILDOUT_MIN_MESSAGES`** (**1000**) **and** mail is configured, **`kickWikiSupervisorIfIndexedGatePasses`** runs on **`GET /api/onboarding/mail`** and **`GET /api/background-status`** (often **during** indexing or interview — **before** step 7). **`notifyOnboardingInterviewDone`** also invokes it after finalize (**idempotent**). See **[OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)**:
    - **First:** a **one-shot bootstrap agent** may **`write`** bounded `people/` / `projects/` / `topics/` / `travel/` stubs (persisted completion in **`chats/onboarding/wiki-bootstrap.json`**).
    - **Then:** the continuous **Your Wiki** supervisor (`ensureYourWikiRunning`) runs enrich → cleanup laps (**deepen-only** steady state per archived OPP-067).

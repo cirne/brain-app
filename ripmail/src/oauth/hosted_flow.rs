@@ -14,7 +14,6 @@ use super::google_flow::{
 const GOOGLE_HOSTED_SCOPES: &str = GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS;
 use super::pkce::{code_challenge_s256, new_code_verifier};
 use super::token_http::{exchange_authorization_code, TokenEndpointResponse, TokenHttpError};
-use crate::observability::otel;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(800);
 const POLL_TIMEOUT: Duration = Duration::from_secs(600);
@@ -59,20 +58,17 @@ fn poll_url(relay_base: &str, state: &str) -> Result<String, GoogleOAuthHostedEr
 }
 
 fn poll_once(url: &str) -> Result<PollJson, String> {
-    otel::with_http_client_span("oauth.hosted.poll", "GET", url, || {
-        let resp = ureq::get(url)
-            .timeout(Duration::from_secs(25))
-            .call()
-            .map_err(|e| e.to_string())?;
-        let status = resp.status();
-        let body = resp.into_string().map_err(|e| e.to_string())?;
-        if !(200..300).contains(&status) {
-            return Err(format!("HTTP {status}: {body}"));
-        }
-        let j: PollJson =
-            serde_json::from_str(&body).map_err(|e| format!("poll JSON: {e}: {body}"))?;
-        Ok((j, status))
-    })
+    let resp = ureq::get(url)
+        .timeout(Duration::from_secs(25))
+        .call()
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body = resp.into_string().map_err(|e| e.to_string())?;
+    if !(200..300).contains(&status) {
+        return Err(format!("HTTP {status}: {body}"));
+    }
+    let j: PollJson = serde_json::from_str(&body).map_err(|e| format!("poll JSON: {e}: {body}"))?;
+    Ok(j)
 }
 
 /// Browser opens Google; redirect hits ripmail relay; CLI polls relay for the code, then exchanges tokens.

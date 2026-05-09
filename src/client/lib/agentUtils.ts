@@ -227,10 +227,13 @@ export function buildChatBody(opts: {
   context: SurfaceContext
   mentionedFiles: string[]
   isFirstMessage: boolean
-  /** Post-onboarding first turn: server opens with assistant (no user bubble). */
-  firstChatKickoff?: boolean
   /**
-   * Guided onboarding interview: send short kickoff text; server runs `ripmail whoami` and merges
+   * Unified initial bootstrap (onboarding-agent): assistant speaks first on `/api/chat`;
+   * server builds kickoff from ripmail whoami (no user bubble).
+   */
+  initialBootstrapKickoff?: boolean
+  /**
+   * Guided onboarding interview (`POST /api/onboarding/interview`): send short kickoff text; server runs `ripmail whoami` and merges
    * into the model prompt, and persists the turn without a user row (`interviewKickoff` on POST body).
    */
   interviewKickoff?: boolean
@@ -245,8 +248,8 @@ export function buildChatBody(opts: {
   const body: Record<string, unknown> = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   }
-  if (opts.firstChatKickoff) {
-    body.firstChatKickoff = true
+  if (opts.initialBootstrapKickoff) {
+    body.initialBootstrapKickoff = true
   } else {
     body.message = opts.message
     if (opts.interviewKickoff) {

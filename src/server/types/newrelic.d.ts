@@ -10,18 +10,18 @@ declare module 'newrelic' {
       attributes: Record<string, string | number | boolean>,
     ) => void
     addCustomAttribute: (key: string, value: string | number | boolean) => false | undefined
+    /** Active web transaction handle, or `undefined` when none (e.g. background work). */
+    getTransaction?: () =>
+      | {
+          insertDistributedTraceHeaders: (headers: Record<string, string | string[] | undefined>) => void
+        }
+      | undefined
     startSegment: <T>(
       name: string,
       record: boolean,
       handler: (cb?: () => void) => T,
       callback?: () => void,
     ) => T
-    /** Active web transaction handle, or `undefined` when none (e.g. background work). */
-    getTransaction?: () =>
-      | {
-          insertDistributedTraceHeaders: (headers: Record<string, string>) => void
-        }
-      | undefined
   }
   export default newrelic
 }

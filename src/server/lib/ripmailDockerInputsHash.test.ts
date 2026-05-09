@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -42,6 +43,48 @@ describe('ripmailDockerInputsHash', () => {
     expect(paths).toContain('Cargo.toml')
     expect(paths).toContain('Cargo.lock')
     expect(paths.some((p: string) => p.startsWith('ripmail/'))).toBe(true)
+
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('listRipmailDockerInputPaths excludes git-tracked ripmail paths missing on disk (unstaged delete)', () => {
+    const root = join(tmpdir(), `ripmail-git-missing-${Date.now()}`)
+    mkdirSync(join(root, 'ripmail', 'src'), { recursive: true })
+    writeFileSync(join(root, 'Cargo.toml'), '[workspace]\nmembers = ["ripmail"]\n')
+    writeFileSync(join(root, 'Cargo.lock'), '')
+    writeFileSync(
+      join(root, 'ripmail', 'Cargo.toml'),
+      '[package]\nname="ripmail"\nversion="0"\nedition="2021"\n',
+    )
+    writeFileSync(join(root, 'ripmail', 'src', 'lib.rs'), '')
+    writeFileSync(join(root, 'ripmail', 'src', 'stale.rs'), '// stale\n')
+
+    const gitEnv = {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'test',
+      GIT_AUTHOR_EMAIL: 'test@example.com',
+      GIT_COMMITTER_NAME: 'test',
+      GIT_COMMITTER_EMAIL: 'test@example.com',
+    }
+    expect(spawnSync('git', ['init'], { cwd: root, encoding: 'utf-8', env: gitEnv }).status).toBe(
+      0,
+    )
+    expect(spawnSync('git', ['add', '-A'], { cwd: root, encoding: 'utf-8', env: gitEnv }).status).toBe(
+      0,
+    )
+    expect(
+      spawnSync('git', ['commit', '-m', 'init', '--no-gpg-sign'], {
+        cwd: root,
+        encoding: 'utf-8',
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+
+    rmSync(join(root, 'ripmail', 'src', 'stale.rs'))
+
+    const paths = listRipmailDockerInputPaths(root)
+    expect(paths).not.toContain('ripmail/src/stale.rs')
+    expect(computeRipmailDockerInputsHash(root)).toMatch(/^sha256:[a-f0-9]{64}$/)
 
     rmSync(root, { recursive: true, force: true })
   })

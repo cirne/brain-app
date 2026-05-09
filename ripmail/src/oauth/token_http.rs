@@ -3,7 +3,6 @@
 use serde::Deserialize;
 
 use super::client::GoogleOAuthClientSettings;
-use crate::observability::otel;
 
 #[derive(Debug, Deserialize)]
 pub struct TokenEndpointResponse {
@@ -80,40 +79,37 @@ fn post_token(
         .collect::<Vec<_>>()
         .join("&");
 
-    let token_uri = settings.token_uri.clone();
-    otel::with_http_client_span("oauth.google.token", "POST", token_uri.as_str(), || {
-        let resp = ureq::post(&settings.token_uri)
-            .set("Content-Type", "application/x-www-form-urlencoded")
-            .send_string(&encoded)
-            .map_err(|e| TokenHttpError::Transport(e.to_string()))?;
+    let resp = ureq::post(&settings.token_uri)
+        .set("Content-Type", "application/x-www-form-urlencoded")
+        .send_string(&encoded)
+        .map_err(|e| TokenHttpError::Transport(e.to_string()))?;
 
-        let status = resp.status();
-        let text = resp
-            .into_string()
-            .map_err(|e| TokenHttpError::Transport(e.to_string()))?;
+    let status = resp.status();
+    let text = resp
+        .into_string()
+        .map_err(|e| TokenHttpError::Transport(e.to_string()))?;
 
-        if status >= 400 {
-            eprintln!("ripmail: OAuth token error {} response: {}", status, text);
-            if let Ok(err) = serde_json::from_str::<OAuth2ErrorBody>(&text) {
-                return Err(TokenHttpError::OAuth2 {
-                    error: err.error.unwrap_or_else(|| "unknown".into()),
-                    error_description: err.error_description.unwrap_or_default(),
-                });
-            }
-            return Err(TokenHttpError::Http(status, text));
+    if status >= 400 {
+        eprintln!("ripmail: OAuth token error {} response: {}", status, text);
+        if let Ok(err) = serde_json::from_str::<OAuth2ErrorBody>(&text) {
+            return Err(TokenHttpError::OAuth2 {
+                error: err.error.unwrap_or_else(|| "unknown".into()),
+                error_description: err.error_description.unwrap_or_default(),
+            });
         }
+        return Err(TokenHttpError::Http(status, text));
+    }
 
-        let parsed: TokenEndpointResponse =
-            serde_json::from_str(&text).map_err(|e| TokenHttpError::Json(e.to_string()))?;
+    let parsed: TokenEndpointResponse =
+        serde_json::from_str(&text).map_err(|e| TokenHttpError::Json(e.to_string()))?;
 
-        // Log the scopes returned if present (sometimes Google returns them in the token response)
-        // Note: TokenEndpointResponse doesn't have a scope field yet, but we can check the raw text
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(scope) = v.get("scope").and_then(|s| s.as_str()) {
-                eprintln!("ripmail: token issued with scopes: {}", scope);
-            }
+    // Log the scopes returned if present (sometimes Google returns them in the token response)
+    // Note: TokenEndpointResponse doesn't have a scope field yet, but we can check the raw text
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+        if let Some(scope) = v.get("scope").and_then(|s| s.as_str()) {
+            eprintln!("ripmail: token issued with scopes: {}", scope);
         }
+    }
 
-        Ok((parsed, status))
-    })
+    Ok(parsed)
 }

@@ -15,6 +15,10 @@ import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persisted
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { resolveEvalAnchoredNow } from '@server/lib/llm/evalAssistantClock.js'
 import { buildRipmailSourcesPromptSection } from '@server/lib/ripmail/ripmailSourcesPromptSection.js'
+import {
+  clearAllBootstrapSessions,
+  deleteBootstrapSession,
+} from './initialBootstrapAgent.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -67,12 +71,6 @@ export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, 
   })
 }
 
-function firstChatPromptSection(includeLocalMessageCapabilities: boolean): string {
-  return renderPromptTemplate('assistant/first-chat.hbs', {
-    includeLocalMessageCapabilities,
-  })
-}
-
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
   context?: string
@@ -85,8 +83,6 @@ export interface SessionOptions {
   wikiToolsRoot?: string
   /** IANA timezone from the browser client (e.g. "America/Chicago") */
   timezone?: string
-  /** First assistant turn after onboarding — extra prompt guidance (OPP-018). */
-  firstChat?: boolean
 }
 
 /**
@@ -143,10 +139,6 @@ ${dateTimeBlock}`
     systemPrompt += `\n\n${ripmailSourcesSection}`
   }
 
-  if (options.firstChat) {
-    systemPrompt += firstChatPromptSection(localMessagesEnabled)
-  }
-
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
   }
@@ -183,17 +175,19 @@ ${dateTimeBlock}`
 }
 
 export function deleteSession(sessionId: string): boolean {
+  const bootRemoved = deleteBootstrapSession(sessionId)
   const agent = sessions.get(sessionId)
   if (agent) {
     agent.abort()
     sessions.delete(sessionId)
     return true
   }
-  return false
+  return bootRemoved
 }
 
 /** Abort and drop all in-memory chat agents (e.g. dev hard-reset after deleting persisted sessions). */
 export function clearAllSessions(): void {
+  clearAllBootstrapSessions()
   for (const agent of sessions.values()) {
     agent.abort()
   }

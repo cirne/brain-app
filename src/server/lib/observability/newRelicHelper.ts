@@ -41,30 +41,6 @@ export function isAgentEnabled(): boolean {
   return Boolean(process.env.NEW_RELIC_LICENSE_KEY?.trim())
 }
 
-/**
- * W3C trace context for ripmail subprocesses (`TRACEPARENT` / `TRACESTATE`), from the active NR
- * transaction when distributed tracing is on. Empty when no license, no transaction, or API errors.
- */
-export function getDistributedTraceEnvForChild(): Record<string, string> {
-  if (!isAgentEnabled()) return {}
-  try {
-    const tx = newrelic.getTransaction?.()
-    if (!tx || typeof tx.insertDistributedTraceHeaders !== 'function') return {}
-    const headers: Record<string, string> = {}
-    tx.insertDistributedTraceHeaders(headers)
-    const out: Record<string, string> = {}
-    for (const [k, v] of Object.entries(headers)) {
-      if (v === undefined || v === null || String(v).length === 0) continue
-      const lower = k.toLowerCase()
-      if (lower === 'traceparent') out.TRACEPARENT = String(v)
-      if (lower === 'tracestate') out.TRACESTATE = String(v)
-    }
-    return out
-  } catch {
-    return {}
-  }
-}
-
 export type TransactionCustomAttributeValue = string | number | boolean
 
 /**
@@ -122,14 +98,63 @@ export function applyBrainTenantContextToNewRelicTransaction(): void {
   }
 }
 
-/** Sanitized, low-cardinality name for a custom segment in transaction traces. */
-function toolCallSegmentName(toolName: string): string {
-  const safe = String(toolName)
+/** Sanitized, low-cardinality fragment for NR custom segment names. */
+export function sanitizedNrSegmentFragment(raw: string, maxLen = 80): string {
+  const safe = String(raw)
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '')
-  const n = (safe.length > 0 ? safe : 'unknown').slice(0, 80)
-  return `ai.tool/${n}`
+  const n = (safe.length > 0 ? safe : 'unknown').slice(0, maxLen)
+  return n
+}
+
+/** Ripmail subprocess subcommand after skipping `--timeout <n>` and other flags — low cardinality. */
+export function ripmailArgvSegmentToken(argv: string[]): string {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (!a) continue
+    if (a === '--timeout' && i + 1 < argv.length) {
+      i += 1
+      continue
+    }
+    if (a.startsWith('-')) continue
+    return sanitizedNrSegmentFragment(a, 48)
+  }
+  return 'run'
+}
+
+/** APM/DistributedTracing segment name for one `runRipmailArgv` subprocess (shows under HTTP or parent span). */
+export function ripmailCliSegmentName(argv: string[], explicitLabel?: string): string {
+  const label = explicitLabel?.trim()
+  if (label && label.length > 0 && label !== 'ripmail') {
+    return `ripmail.cli/${sanitizedNrSegmentFragment(label)}`
+  }
+  return `ripmail.cli/${ripmailArgvSegmentToken(argv)}`
+}
+
+/**
+ * Wraps ripmail subprocess work in `startSegment` so transaction traces show `ripmail.cli/…`
+ * under the current web transaction.
+ */
+export async function withRipmailCliObservation<T>(
+  argv: string[],
+  explicitLabel: string | undefined,
+  work: () => Promise<T>,
+): Promise<T> {
+  if (!isAgentEnabled()) return work()
+  const name = ripmailCliSegmentName(argv, explicitLabel)
+  return new Promise<T>((resolve, reject) => {
+    try {
+      void newrelic.startSegment(name, true, () => work().then(resolve, reject))
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+/** Sanitized, low-cardinality name for a custom segment in transaction traces. */
+function toolCallSegmentName(toolName: string): string {
+  return `ai.tool/${sanitizedNrSegmentFragment(toolName)}`
 }
 
 /**

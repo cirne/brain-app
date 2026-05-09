@@ -43,7 +43,7 @@ import {
   waitForRipmailBackfillLaneIdle,
 } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
-import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
+import { deleteBootstrapSession } from '../agent/initialBootstrapAgent.js'
 import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
@@ -251,7 +251,7 @@ async function jsonMailStatus() {
 }
 
 /**
- * Mail progress for the **first-time onboarding** UI only (`Onboarding.svelte`).
+ * Mail progress for the **first-time onboarding** UI (`OnboardingFirstRunPanel` in Brain Hub).
  * Payload is global ripmail totals; see GET /api/inbox/mail-sync-status for Hub / post-setup surfaces.
  */
 onboarding.get('/mail', async (c) => {
@@ -465,7 +465,7 @@ onboarding.post('/interview', async (c) => {
 
 /**
  * After the interview stream ends: silent finalize (polish `me.md`, e.g. confidence + gaps),
- * scaffold vault, mark first-chat pending, transition to **done**.
+ * scaffold vault, transition to **done**, drop in-memory bootstrap agent for this session.
  */
 onboarding.post('/finalize', async (c) => {
   const doc = await readOnboardingStateDoc()
@@ -481,8 +481,8 @@ onboarding.post('/finalize', async (c) => {
   try {
     await runInterviewFinalize({ sessionId, timezone })
     await ensureWikiVaultScaffoldForBuildout(wikiDir())
-    await writeFirstChatPending()
     await setOnboardingState('done')
+    deleteBootstrapSession(sessionId)
     void notifyOnboardingInterviewDone()
     return c.json({ ok: true as const, state: 'done' })
   } catch (e) {

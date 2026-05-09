@@ -2,12 +2,21 @@ import { emptyOnboardingMail, type OnboardingMailStatus } from './onboardingType
 
 const SETUP_MAIL_TIMEOUT_MS = 125_000
 
+/** Node/Vitest `fetch` requires an absolute URL; browsers accept site-relative paths. */
+function apiUrl(path: string): string {
+  const origin =
+    typeof globalThis.location?.origin === 'string' && globalThis.location.origin.length > 0
+      ? globalThis.location.origin
+      : 'http://localhost'
+  return new URL(path, origin).href
+}
+
 export const SETUP_MAIL_ABORT_MESSAGE =
   'Setup took too long (over 2 minutes). The bundled server logs Hono and ripmail output to ~/Library/Logs/com.cirne.brain/node-server.log — tail that file to see progress or errors.'
 
 export async function fetchOnboardingMailStatus(): Promise<OnboardingMailStatus | null> {
   try {
-    const res = await fetch('/api/onboarding/mail')
+    const res = await fetch(apiUrl('/api/onboarding/mail'))
     if (!res.ok) {
       return null
     }
@@ -27,7 +36,7 @@ export async function fetchOnboardingMailStatus(): Promise<OnboardingMailStatus 
 }
 
 export async function fetchOnboardingState(): Promise<string> {
-  const res = await fetch('/api/onboarding/status')
+  const res = await fetch(apiUrl('/api/onboarding/status'))
   const j = (await res.json()) as { state: string }
   return j.state
 }
@@ -39,7 +48,7 @@ export type OnboardingPreferencesPayload = {
 
 export async function fetchOnboardingPreferences(): Promise<OnboardingPreferencesPayload> {
   try {
-    const res = await fetch('/api/onboarding/preferences')
+    const res = await fetch(apiUrl('/api/onboarding/preferences'))
     const j = (await res.json()) as {
       mailProvider?: 'apple' | 'google' | null
       appleLocalIntegrationsAvailable?: boolean
@@ -56,7 +65,7 @@ export async function fetchOnboardingPreferences(): Promise<OnboardingPreference
 }
 
 export async function patchOnboardingState(next: string): Promise<void> {
-  const res = await fetch('/api/onboarding/state', {
+  const res = await fetch(apiUrl('/api/onboarding/state'), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -73,7 +82,7 @@ export async function patchOnboardingState(next: string): Promise<void> {
 }
 
 export async function postInboxSyncStart(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const syncRes = await fetch('/api/inbox/sync', { method: 'POST' })
+  const syncRes = await fetch(apiUrl('/api/inbox/sync'), { method: 'POST' })
   const syncBody = (await syncRes.json().catch(() => ({}))) as { ok?: boolean; error?: string }
   if (!syncRes.ok || !syncBody.ok) {
     return { ok: false, error: syncBody.error ?? 'Could not start indexing your mail. Try again.' }
@@ -100,7 +109,7 @@ export function parseSetupMailJsonBody(
 }
 
 export async function postSetupAppleMail(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const res = await fetch('/api/onboarding/setup-mail', {
+  const res = await fetch(apiUrl('/api/onboarding/setup-mail'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
@@ -113,13 +122,13 @@ export async function postSetupAppleMail(): Promise<{ ok: true } | { ok: false; 
   if (!res.ok || !j.ok) {
     return { ok: false, error: j.error ?? 'Setup failed' }
   }
-  await fetch('/api/inbox/sync', { method: 'POST' })
+  await fetch(apiUrl('/api/inbox/sync'), { method: 'POST' })
   return { ok: true }
 }
 
 /** Run silent finalize after guided onboarding (polish `me.md`, e.g. confidence + gaps; marks onboarding done). */
 export async function postOnboardingFinalize(sessionId: string): Promise<void> {
-  const res = await fetch('/api/onboarding/finalize', {
+  const res = await fetch(apiUrl('/api/onboarding/finalize'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -136,7 +145,7 @@ export async function postOnboardingFinalize(sessionId: string): Promise<void> {
 export async function patchOnboardingPreferences(
   mailProvider: 'apple' | 'google' | null,
 ): Promise<void> {
-  await fetch('/api/onboarding/preferences', {
+  await fetch(apiUrl('/api/onboarding/preferences'), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mailProvider: mailProvider }),

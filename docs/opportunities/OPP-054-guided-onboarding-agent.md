@@ -7,7 +7,7 @@
 
 ## One-line summary
 
-Replace the first-chat drop into the main agent with a **structured onboarding conversation** that starts as soon as a **minimal indexed corpus** exists (on the order of ~200 messages). **Do not author `wiki/me.md` beforehand.** The interview opens by confirming the user’s identity and a short bio guess, then walks calendar defaults, inbox rules, and **who counts as an important person** (using existing contact tools). Wiki seeding runs in the background the whole time. When the interview completes, the system **writes `me.md` for the first time** from everything learned and triggers a **wiki refresh/rebuild** so pages align with the settings and people the user confirmed.
+Replace the legacy two-step handoff (separate interview UI → “first chat” pending marker) with **one structured initial bootstrap** on the **main Assistant** (`POST /api/chat` while persisted state is **`onboarding-agent`**): merged onboarding mission + first-impression mail insight prompts, mail-index **facts** injected server-side, and the normal chat shell (Hub, settings, history) available immediately. **Do not author `wiki/me.md` beforehand.** The flow opens by confirming identity and a short bio guess, then walks calendar defaults (and deferred phases per doc history). Wiki seeding runs in the background. When the user finishes or skips, **`POST /finalize`** transitions to **`done`** — no `first-chat-pending` second hop.
 
 ---
 
@@ -43,7 +43,7 @@ After the interview, `**me.md` is authored once** from confirmed answers + matur
 
 ## The guided onboarding agent
 
-This agent runs once the `**onboarding-agent`** state is entered **after** the corpus threshold is met — see **[docs/architecture/onboarding-state-machine.md](../architecture/onboarding-state-machine.md)**. Wiki **seeding continues in parallel** throughout; indexing also continues afterward. This flow **replaces** the first chat entirely and immediately precedes the user’s first open-ended session with the main agent.
+This agent runs once the `**onboarding-agent`** state is entered **after** the corpus threshold is met — see **[docs/architecture/onboarding-state-machine.md](../architecture/onboarding-state-machine.md)**. Wiki **seeding continues in parallel** throughout; indexing also continues afterward. Delivery is **the same main chat route** as everyday assistant use (`/api/chat`), with bootstrap tooling/prompts until **`done`** — not a fullscreen-only interview shell or a separate pending first-chat kickoff.
 
 It is a **structured interview** (five phases plus a silent finalize step), delivered as a flowing conversation with suggested actions — quick-select chips where appropriate, always with free-text correction. Each phase stays short.
 

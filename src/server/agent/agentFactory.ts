@@ -1,4 +1,5 @@
 import { Agent } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
@@ -61,6 +62,8 @@ export type CreateOnboardingAgentOptions = {
    * for `calendar` tool enrichment defaults.
    */
   timezone?: string
+  /** Hydrate from persisted `/api/chat` JSON (unified initial bootstrap continuing same session). */
+  initialMessages?: AgentMessage[]
 }
 
 /** Build an onboarding agent (profiling or seeding) with the restricted tool set. */
@@ -95,11 +98,13 @@ export function createOnboardingAgent(
     )
   }
 
+  const initialMessages = options?.initialMessages
   return new Agent({
     initialState: {
       systemPrompt,
       model,
       tools,
+      ...(initialMessages?.length ? { messages: initialMessages } : {}),
     },
     onPayload: (params, m) => chainLlmOnPayload(params, m),
     getApiKey: (p: string) => resolveLlmApiKey(p),
@@ -108,11 +113,9 @@ export function createOnboardingAgent(
 }
 
 /**
- * Build a wiki cleanup / lint agent: has `read`, `grep`, `find`, and `edit`
- * but no `write` (cannot create new pages). Used for the "Cleaning up" phase
- * of the Your Wiki continuous loop.
+ * One-shot silent agent to polish `me.md` after guided onboarding — interview may have edited it already (OPP-054).
+ * Wiki cleanup uses {@link createCleanupAgent} (read/grep/find/edit, no write).
  */
-/** One-shot silent agent to polish `me.md` after guided onboarding — interview may have edited it already (OPP-054). */
 export function createFinalizeAgent(systemPrompt: string, wikiRoot: string): Agent {
   const toolOpts = buildCreateAgentToolsOptions({
     onlyToolNames: ONBOARDING_FINALIZE_ONLY,

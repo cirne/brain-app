@@ -15,7 +15,6 @@ import {
   listSessions,
   patchSessionTitle,
 } from '@server/lib/chat/chatStorage.js'
-import { hasFirstChatPending, tryConsumeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import {
   streamAgentSseResponse,
@@ -32,22 +31,15 @@ import {
 } from '@server/lib/llm/slashSkill.js'
 import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPrompt.js'
 import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
-/**
- * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).
- * The first-chat system supplement still applies via {@link tryConsumeFirstChatPending}.
- */
-const FIRST_CHAT_KICKOFF_USER_MESSAGE = [
-  'The app just opened this chat right after onboarding — the user has not typed anything yet.',
-  'You speak first. Follow the "First conversation" section of your system instructions:',
-  'use tools to scan their wiki, calendar, and recent mail, then open with one sharp specific observation',
-  'that shows you already know their world. Do not greet generically. Do not list features.',
-].join(' ')
+import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
+import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
+import {
+  buildInitialBootstrapKickoffUserMessage,
+  formatMailIndexFactsForBootstrap,
+  getOrCreateInitialBootstrapSession,
+} from '../agent/initialBootstrapAgent.js'
 
 const chat = new Hono()
-
-chat.get('/first-chat-pending', async (c) => {
-  return c.json({ pending: await hasFirstChatPending() })
-})
 
 /** Ignore absurd limits from clients; sidebar uses a small fixed cap. */
 const CHAT_SESSIONS_LIST_MAX_QUERY = 500
@@ -76,23 +68,30 @@ chat.get('/sessions/:sessionId', async (c) => {
 })
 
 // POST /api/chat
-// Body: { message, sessionId?, context?, firstChatKickoff?, hearReplies? }
+// Body: { message, sessionId?, context?, initialBootstrapKickoff?, hearReplies? }
 // Response: SSE stream of agent events
 chat.post('/', async (c) => {
   const body = await c.req.json()
-  const firstChatKickoff = body.firstChatKickoff === true
+  const initialBootstrapKickoff = body.initialBootstrapKickoff === true
   const hearReplies = body.hearReplies === true
   const { sessionId = crypto.randomUUID(), context, timezone } = body
   const rawMessage = body.message
 
-  if (!firstChatKickoff && (!rawMessage || typeof rawMessage !== 'string')) {
+  let onboardingState = 'not-started'
+  try {
+    const doc = await readOnboardingStateDoc()
+    onboardingState = doc.state
+  } catch {
+    /* ignore */
+  }
+  const bootstrapMode = onboardingState === 'onboarding-agent'
+
+  if (!initialBootstrapKickoff && (!rawMessage || typeof rawMessage !== 'string')) {
     return c.json({ error: 'message is required' }, 400)
   }
-  if (firstChatKickoff && rawMessage != null && typeof rawMessage !== 'string') {
+  if (initialBootstrapKickoff && rawMessage != null && typeof rawMessage !== 'string') {
     return c.json({ error: 'message must be a string when provided' }, 400)
   }
-
-  const message = firstChatKickoff ? FIRST_CHAT_KICKOFF_USER_MESSAGE : (rawMessage as string)
 
   try {
     await ensureSessionStub(sessionId)
@@ -100,19 +99,23 @@ chat.post('/', async (c) => {
     /* best-effort — stream still runs */
   }
 
-  let firstChat = false
-  try {
-    const sessionDoc = await loadSession(sessionId)
-    if (sessionDoc && sessionDoc.messages.length === 0) {
-      firstChat = await tryConsumeFirstChatPending()
+  if (initialBootstrapKickoff) {
+    if (!bootstrapMode) {
+      return c.json({ error: 'initial bootstrap kickoff is not available' }, 400)
     }
-  } catch {
-    /* ignore */
+    try {
+      const sessionDoc = await loadSession(sessionId)
+      if (sessionDoc && sessionDoc.messages.length > 0) {
+        return c.json({ error: 'initial bootstrap kickoff requires an empty session' }, 400)
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
-  if (firstChatKickoff && !firstChat) {
-    return c.json({ error: 'first chat kickoff is not available' }, 400)
-  }
+  const promptMessage = initialBootstrapKickoff
+    ? await buildInitialBootstrapKickoffUserMessage()
+    : (rawMessage as string)
 
   const persist = async (args: {
     userMessage: string | null
@@ -132,7 +135,7 @@ chat.post('/', async (c) => {
   }
 
   if (
-    !firstChatKickoff &&
+    !initialBootstrapKickoff &&
     typeof rawMessage === 'string' &&
     isBrainFinishConversationSubmit(rawMessage.trim())
   ) {
@@ -188,13 +191,22 @@ chat.post('/', async (c) => {
   const selectionForSkill = typeof context === 'string' ? context : ''
   const openFileForSkill = validatedContextFiles?.length ? validatedContextFiles[0] : undefined
 
-  const slash = parseLeadingSlashCommand(message)
+  const slash = parseLeadingSlashCommand(promptMessage)
+  if (slash && bootstrapMode) {
+    return streamStaticAssistantSse(c, {
+      announceSessionId: sessionId,
+      userMessageForPersistence: promptMessage,
+      text: 'Finish setup in chat first. Slash skills are available after setup completes.',
+      onTurnComplete: persist,
+    })
+  }
+
   if (slash) {
     const skillDoc = await readSkillMarkdown(slash.slug)
     if (!skillDoc) {
       return streamStaticAssistantSse(c, {
         announceSessionId: sessionId,
-        userMessageForPersistence: message,
+        userMessageForPersistence: promptMessage,
         text: `Unknown skill \`/${slash.slug}\`. Use **GET /api/skills** to list skills, or add \`$BRAIN_HOME/skills/${slash.slug}/SKILL.md\` to override a bundled skill.`,
         onTurnComplete: persist,
       })
@@ -205,8 +217,8 @@ chat.post('/', async (c) => {
       openFile: openFileForSkill,
     })
     const skillMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
-    const promptMessages = hearReplies
-      ? [...buildHearRepliesPromptMessages(message), ...skillMessages]
+    const skillPromptMessages = hearReplies
+      ? [...buildHearRepliesPromptMessages(promptMessage), ...skillMessages]
       : skillMessages
 
     let initialSessionTitle: string | undefined
@@ -224,18 +236,17 @@ chat.post('/', async (c) => {
       /* ignore */
     }
 
-    const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
+    const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
 
     return runWithSkillRequestContextAsync(
       { selection: selectionForSkill, openFile: openFileForSkill },
       async () =>
-        await streamAgentSseResponse(c, agent, rawMessage ?? message, {
+        await streamAgentSseResponse(c, agent, rawMessage ?? promptMessage, {
           wikiDirForDiffs: wikiDir(),
           announceSessionId: sessionId,
           agentKind: 'chat_skill',
-          promptMessages,
-          userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
-          omitUserMessageFromPersistence: firstChatKickoff,
+          promptMessages: skillPromptMessages,
+          userMessageForPersistence: rawMessage as string,
           onTurnComplete: persist,
           onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
           initialSessionTitle,
@@ -244,20 +255,47 @@ chat.post('/', async (c) => {
     )
   }
 
-  const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
+  if (bootstrapMode) {
+    const mail = await getOnboardingMailStatus()
+    const mailFacts = formatMailIndexFactsForBootstrap(mail)
+    const agent = await getOrCreateInitialBootstrapSession(sessionId, {
+      timezone: typeof timezone === 'string' ? timezone : undefined,
+      mailFactsBlock: mailFacts,
+    })
+    const mainPromptMessages = hearReplies
+      ? buildHearRepliesPromptMessages(promptMessage)
+      : undefined
 
-  const mainPromptMessages = hearReplies ? buildHearRepliesPromptMessages(message) : undefined
+    return runWithSkillRequestContextAsync(
+      { selection: selectionForSkill, openFile: openFileForSkill },
+      async () =>
+        await streamAgentSseResponse(c, agent, promptMessage, {
+          wikiDirForDiffs: wikiDir(),
+          announceSessionId: sessionId,
+          agentKind: 'onboarding_interview',
+          promptMessages: mainPromptMessages,
+          userMessageForPersistence: initialBootstrapKickoff ? undefined : (rawMessage as string),
+          omitUserMessageFromPersistence: initialBootstrapKickoff,
+          onTurnComplete: persist,
+          onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
+          timezone: typeof timezone === 'string' ? timezone : undefined,
+        }),
+    )
+  }
+
+  const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
+
+  const mainPromptMessages = hearReplies ? buildHearRepliesPromptMessages(promptMessage) : undefined
 
   return runWithSkillRequestContextAsync(
     { selection: selectionForSkill, openFile: openFileForSkill },
     async () =>
-      await streamAgentSseResponse(c, agent, rawMessage ?? message, {
+      await streamAgentSseResponse(c, agent, promptMessage, {
         wikiDirForDiffs: wikiDir(),
         announceSessionId: sessionId,
         agentKind: 'chat',
         promptMessages: mainPromptMessages,
-        userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
-        omitUserMessageFromPersistence: firstChatKickoff,
+        userMessageForPersistence: rawMessage as string,
         onTurnComplete: persist,
         onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
         timezone: typeof timezone === 'string' ? timezone : undefined,

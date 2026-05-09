@@ -36,6 +36,7 @@ pub use run::{
     SyncMailboxSummary, SyncOptions, SyncResult,
 };
 pub use sync_log::{
+    append_ripmail_process_diag_line, ripmail_process_diag_log_path,
     sync_diag_forward_config_from_env_parts, sync_log_path, SyncDiagForwardConfig, SyncFileLogger,
 };
 pub use transport::{

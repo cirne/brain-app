@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
@@ -19,7 +19,9 @@ export function listRipmailDockerInputPaths(repoRoot: string): string[] {
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b))
     if (paths.length > 0) {
-      return paths
+      // Paths still listed by Git after an unstaged working-tree delete cause ENOENT
+      // below; Cargo only reads the filesystem, so hash what exists on disk.
+      return paths.filter((p) => existsSync(join(repoRoot, p)))
     }
   }
 

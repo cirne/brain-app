@@ -1,4 +1,6 @@
-//! Append-only sync file logger (`RIPMAIL_HOME/logs/sync.log` — mirrors Node `SYNC_LOG_PATH`).
+//! Append-only file loggers under `RIPMAIL_HOME/logs/`:
+//! - **`sync.log`** — IMAP/sync progress (mirrors Node `SYNC_LOG_PATH`).
+//! - **`ripmail.log`** — process diagnostics (OTel, etc.) when stdout/stderr are consumed by a parent.
 
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
@@ -56,6 +58,40 @@ fn sync_diag_forward_config_from_process_env() -> SyncDiagForwardConfig {
         std::env::var("BRAIN_TENANT_USER_ID").ok().as_deref(),
         std::env::var("BRAIN_WORKSPACE_HANDLE").ok().as_deref(),
     )
+}
+
+/// Fixed path for subprocess / process diagnostics (OTel startup, etc.).
+pub fn ripmail_process_diag_log_path(ripmail_home: &Path) -> PathBuf {
+    ripmail_home.join("logs").join("ripmail.log")
+}
+
+/// Append one line to `{RIPMAIL_HOME}/logs/ripmail.log` when `RIPMAIL_HOME` is set and non-empty.
+/// Ignores I/O errors so diagnostics never break the CLI. Same timestamp style as [`SyncFileLogger`].
+pub fn append_ripmail_process_diag_line(level: &str, msg: &str) {
+    let Some(raw) = std::env::var("RIPMAIL_HOME").ok() else {
+        return;
+    };
+    let home = raw.trim();
+    if home.is_empty() {
+        return;
+    }
+    let _ = append_ripmail_process_diag_line_under_home(Path::new(home), level, msg);
+}
+
+fn append_ripmail_process_diag_line_under_home(
+    ripmail_home: &Path,
+    level: &str,
+    msg: &str,
+) -> std::io::Result<()> {
+    let dir = ripmail_home.join("logs");
+    create_dir_all(&dir)?;
+    let path = ripmail_process_diag_log_path(ripmail_home);
+    let mut f = OpenOptions::new().create(true).append(true).open(path)?;
+    let ts = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
+    let line = format!("[{ts}] {level} {msg}\n");
+    f.write_all(line.as_bytes())?;
+    f.flush()?;
+    Ok(())
 }
 
 pub struct SyncFileLogger {
@@ -243,5 +279,30 @@ mod tests {
         );
         assert_eq!(c.tenant_user_id, None);
         assert_eq!(c.workspace_handle, None);
+    }
+
+    #[test]
+    fn ripmail_process_diag_log_path_segment() {
+        let p = ripmail_process_diag_log_path(Path::new("/tmp/rhome"));
+        assert_eq!(p.file_name().and_then(|s| s.to_str()), Some("ripmail.log"));
+    }
+
+    #[test]
+    fn append_ripmail_process_diag_writes_line() {
+        let base = std::env::temp_dir().join(format!(
+            "ripmail-proc-diag-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&base).expect("mkdir");
+        append_ripmail_process_diag_line_under_home(&base, "INFO", "ripmail: diag: test line")
+            .expect("append");
+        let log = ripmail_process_diag_log_path(&base);
+        let s = std::fs::read_to_string(&log).expect("read");
+        assert!(s.contains("ripmail: diag: test line"));
+        assert!(s.contains("INFO"));
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

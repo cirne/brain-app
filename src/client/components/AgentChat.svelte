@@ -81,6 +81,8 @@
      * {@link onUserInitiatedNewChat} — typically close the overlay.
      */
     onConversationFinishedByAgent = undefined as (() => void) | undefined,
+    /** Unified initial bootstrap: after `finish_conversation`, run finalize without `newChat`. */
+    onInitialBootstrapFinished = undefined as (() => void | Promise<void>) | undefined,
     /** Active session id changed (new chat, load, or SSE session event). */
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
@@ -171,6 +173,7 @@
     /** Optional; when set, a “new chat” control is shown beside the composer (non-empty thread). */
     onUserInitiatedNewChat?: () => void
     onConversationFinishedByAgent?: () => void
+    onInitialBootstrapFinished?: () => void | Promise<void>
     onSessionChange?: (
       _sessionId: string | null,
       _meta?: { chatTitle?: string | null },
@@ -436,7 +439,7 @@
       }
     })
     const m = autoSendMessage?.trim()
-    if (m) void tick().then(() => send(m, undefined, false, autoSendInterviewKickoffHidden))
+    if (m) void tick().then(() => send(m, undefined, autoSendInterviewKickoffHidden))
     return () => {
       unsubWikiList()
       unsubPrefs()
@@ -567,24 +570,24 @@
 
   /**
    * @param forSessionKey — when set (e.g. queued follow-up after a background stream ends), send targets this map key instead of the currently displayed session.
-   * @param firstChatKickoff — post-onboarding: assistant speaks first (no user bubble); see POST /api/chat `firstChatKickoff`.
-   * @param interviewKickoffHidden — guided onboarding: no user bubble; server prepends `ripmail whoami` to this message.
+   * @param interviewKickoffHidden — guided onboarding interview route: no user bubble; server prepends `ripmail whoami` to this message.
+   * @param sendOpts.initialBootstrapKickoff — unified bootstrap on main `/api/chat` (empty visible user turn).
    * @param sendOpts.userBubbleText — shown in the user bubble when different from wire `text` (e.g. finish chip label).
    */
   async function send(
     text: string,
     forSessionKey?: string,
-    firstChatKickoff = false,
     interviewKickoffHidden = false,
-    sendOpts?: { userBubbleText?: string },
+    sendOpts?: { userBubbleText?: string; initialBootstrapKickoff?: boolean },
   ) {
+    const initialBootstrapKickoff = sendOpts?.initialBootstrapKickoff === true
     const id = forSessionKey ?? displayedSessionId
-    if ((!text?.trim() && !firstChatKickoff) || !id) return
+    if ((!text?.trim() && !initialBootstrapKickoff) || !id) return
     const st = sessions.get(id)
     if (!st) return
 
     if (st.streaming) {
-      if (firstChatKickoff || interviewKickoffHidden) return
+      if (initialBootstrapKickoff || interviewKickoffHidden) return
       const t = text.trim()
       if (!t) return
       const prev = st.pendingQueuedMessages ?? []
@@ -598,10 +601,11 @@
 
     const streamKey = id
     let activeKey = streamKey
-    const mentionedFiles = firstChatKickoff || interviewKickoffHidden ? [] : extractMentionedFiles(text)
+    const mentionedFiles =
+      initialBootstrapKickoff || interviewKickoffHidden ? [] : extractMentionedFiles(text)
     const isFirstMessage = st.messages.length === 0
 
-    const hideUserBubble = firstChatKickoff || interviewKickoffHidden
+    const hideUserBubble = initialBootstrapKickoff || interviewKickoffHidden
     const userBubbleContent = sendOpts?.userBubbleText ?? text
     const nextMessages = hideUserBubble
       ? [...st.messages, { role: 'assistant' as const, content: '', parts: [] }]
@@ -628,7 +632,7 @@
       context,
       mentionedFiles,
       isFirstMessage,
-      firstChatKickoff,
+      initialBootstrapKickoff,
       interviewKickoff: interviewKickoffHidden,
       hearReplies: st.hearReplies === true,
       userMessageDisplay: sendOpts?.userBubbleText?.trim()
@@ -708,6 +712,7 @@
         scrollToBottom: () => conversationEl?.scrollToBottomIfFollowing(),
         onFinishConversation: () => {
           if (onConversationFinishedByAgent) onConversationFinishedByAgent()
+          else if (onInitialBootstrapFinished) void Promise.resolve(onInitialBootstrapFinished())
           else onUserInitiatedNewChat?.()
         },
       })
@@ -742,9 +747,20 @@
     }
   }
 
-  /** First turn after onboarding when the server marked first-chat pending — assistant opens, no user message. */
-  export async function sendFirstChatKickoff(forSessionKey?: string) {
-    await send('', forSessionKey, true)
+  /** Empty thread on `/api/chat` while onboarding-agent: assistant opens with merged bootstrap prompt. */
+  export async function sendInitialBootstrapKickoff(forSessionKey?: string) {
+    await send('', forSessionKey, false, { initialBootstrapKickoff: true })
+  }
+
+  export function canSendInitialBootstrapKickoff(): boolean {
+    const id = displayedSessionId
+    if (!id) return false
+    const st = sessions.get(id)
+    return !!st && !st.streaming && st.messages.length === 0
+  }
+
+  export function getDisplayedLocalSessionKey(): string | null {
+    return displayedSessionId
   }
 
   const placeholder = $derived(
@@ -1013,7 +1029,7 @@
             choicesDisabled={streaming}
             {onOpenWiki}
             onChoice={(c) =>
-              void send(c.submit, undefined, false, autoSendInterviewKickoffHidden, {
+              void send(c.submit, undefined, autoSendInterviewKickoffHidden, {
                 userBubbleText: isBrainFinishConversationSubmit(c.submit) ? c.label : undefined,
               })}
           />

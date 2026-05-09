@@ -2,8 +2,6 @@
 
 use serde::Deserialize;
 
-use crate::observability::otel;
-
 const GOOGLE_USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -22,25 +20,23 @@ struct UserInfoBody {
 }
 
 pub fn fetch_google_account_email(access_token: &str) -> Result<String, GoogleUserinfoError> {
-    otel::with_http_client_span("google.oauth2.userinfo", "GET", GOOGLE_USERINFO_URL, || {
-        let resp = ureq::get(GOOGLE_USERINFO_URL)
-            .set("Authorization", &format!("Bearer {access_token}"))
-            .call()
-            .map_err(|e| GoogleUserinfoError::Transport(e.to_string()))?;
-        let status = resp.status();
-        let body = resp
-            .into_string()
-            .map_err(|e| GoogleUserinfoError::Transport(e.to_string()))?;
-        if !(200..300).contains(&status) {
-            return Err(GoogleUserinfoError::Http(status, body));
-        }
-        let j: UserInfoBody = serde_json::from_str(&body)
-            .map_err(|e| GoogleUserinfoError::Transport(e.to_string()))?;
-        let email = j
-            .email
-            .filter(|s| !s.trim().is_empty())
-            .map(|s| s.trim().to_string())
-            .ok_or(GoogleUserinfoError::MissingEmail)?;
-        Ok((email, status))
-    })
+    let resp = ureq::get(GOOGLE_USERINFO_URL)
+        .set("Authorization", &format!("Bearer {access_token}"))
+        .call()
+        .map_err(|e| GoogleUserinfoError::Transport(e.to_string()))?;
+    let status = resp.status();
+    let body = resp
+        .into_string()
+        .map_err(|e| GoogleUserinfoError::Transport(e.to_string()))?;
+    if !(200..300).contains(&status) {
+        return Err(GoogleUserinfoError::Http(status, body));
+    }
+    let j: UserInfoBody =
+        serde_json::from_str(&body).map_err(|e| GoogleUserinfoError::Transport(e.to_string()))?;
+    let email = j
+        .email
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.trim().to_string())
+        .ok_or(GoogleUserinfoError::MissingEmail)?;
+    Ok(email)
 }

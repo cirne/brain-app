@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/svelte'
-import Onboarding from './Onboarding.svelte'
-
-vi.mock('./OnboardingWorkspace.svelte', () => import('../test-stubs/OnboardingWorkspaceStub.svelte'))
+import OnboardingFirstRunPanel from './OnboardingFirstRunPanel.svelte'
 
 function stubFetchForOnboardingAgent() {
   vi.stubGlobal(
@@ -46,26 +44,22 @@ function stubFetchForOnboardingAgent() {
   )
 }
 
-describe('Onboarding.svelte', () => {
+describe('OnboardingFirstRunPanel.svelte', () => {
   beforeEach(() => {
     stubFetchForOnboardingAgent()
   })
 
-  it('does not render the manual “finish setup” footer during guided interview', async () => {
-    render(Onboarding, {
+  it('points guided setup to Chat while mail may still index', async () => {
+    render(OnboardingFirstRunPanel, {
       props: {
-        onComplete: vi.fn(async () => {}),
         refreshStatus: vi.fn(async () => {}),
         multiTenant: false,
       },
     })
 
     await waitFor(() => {
-      expect(screen.getByTestId('onboarding-workspace-stub')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent(/Guided setup continues in/)
     })
-
-    expect(screen.queryByRole('region', { name: 'Finish setup' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/When you’re done with setup/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Continue to Braintunnel/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(/Chat/)
   })
 })

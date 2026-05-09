@@ -5,7 +5,7 @@ export const SEED_EARLY_EXIT_MIN_PAGES = 10
 export const ONBOARDING_SEEDING_MIN_DWELL_MS = 25_000
 
 /**
- * Legacy key still cleared by `clearBrainClientStorage()`. First-chat kickoff uses
- * `GET /api/chat/first-chat-pending` + `first-chat-pending.json` under Brain home.
+ * Legacy key still cleared by `clearBrainClientStorage()`. Unified bootstrap uses
+ * `POST /api/chat` with `initialBootstrapKickoff` while onboarding state is `onboarding-agent`.
  */
 export const FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY = 'brain-fresh-chat-after-onboarding'

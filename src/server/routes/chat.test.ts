@@ -5,6 +5,18 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
 
+async function seedOnboardingJson(brainHomeEnv: string, state: string): Promise<void> {
+  process.env.BRAIN_HOME = brainHomeEnv
+  const { chatDataDir } = await import('@server/lib/chat/chatStorage.js')
+  const dir = chatDataDir()
+  await mkdir(dir, { recursive: true })
+  await writeFile(
+    join(dir, 'onboarding.json'),
+    JSON.stringify({ state, updatedAt: new Date().toISOString() }),
+    'utf-8',
+  )
+}
+
 describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
   let brainHome: string
 
@@ -37,33 +49,6 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
     vi.resetModules()
   })
 
-  describe('GET /api/chat/first-chat-pending', () => {
-    it('returns pending false when marker missing', async () => {
-      const { default: chatRoute } = await import('./chat.js')
-      const app = new Hono()
-      app.route('/api/chat', chatRoute)
-
-      const res = await app.request('/api/chat/first-chat-pending')
-      expect(res.status).toBe(200)
-      const j = (await res.json()) as { pending: boolean }
-      expect(j.pending).toBe(false)
-    })
-
-    it('returns pending true when marker exists', async () => {
-      const { writeFirstChatPending } = await import('@server/lib/onboarding/firstChatPending.js')
-      await writeFirstChatPending()
-
-      const { default: chatRoute } = await import('./chat.js')
-      const app = new Hono()
-      app.route('/api/chat', chatRoute)
-
-      const res = await app.request('/api/chat/first-chat-pending')
-      expect(res.status).toBe(200)
-      const j = (await res.json()) as { pending: boolean }
-      expect(j.pending).toBe(true)
-    })
-  })
-
   describe('POST /api/chat', () => {
     it('returns 400 when message is missing', async () => {
       const { default: chatRoute } = await import('./chat.js')
@@ -78,7 +63,7 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       expect(res.status).toBe(400)
     })
 
-    it('returns 400 for firstChatKickoff when first chat is not pending', async () => {
+    it('returns 400 for initialBootstrapKickoff when onboarding is not onboarding-agent', async () => {
       const { default: chatRoute } = await import('./chat.js')
       const app = new Hono()
       app.route('/api/chat', chatRoute)
@@ -86,16 +71,15 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       const res = await app.request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstChatKickoff: true, timezone: 'UTC' }),
+        body: JSON.stringify({ initialBootstrapKickoff: true, timezone: 'UTC' }),
       })
       expect(res.status).toBe(400)
       const err = (await res.json()) as { error?: string }
-      expect(err.error).toContain('kickoff')
+      expect(err.error).toContain('initial bootstrap kickoff')
     })
 
-    it('accepts firstChatKickoff when first-chat pending and session is empty', async () => {
-      const { writeFirstChatPending } = await import('@server/lib/onboarding/firstChatPending.js')
-      await writeFirstChatPending()
+    it('accepts initialBootstrapKickoff when onboarding-agent and session is empty', async () => {
+      await seedOnboardingJson(brainHome, 'onboarding-agent')
 
       const { default: chatRoute } = await import('./chat.js')
       const app = new Hono()
@@ -105,11 +89,28 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       const res = await app.request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstChatKickoff: true, timezone: 'UTC', sessionId }),
+        body: JSON.stringify({ initialBootstrapKickoff: true, timezone: 'UTC', sessionId }),
       })
       expect(res.status).toBe(200)
       expect(res.headers.get('content-type')).toContain('text/event-stream')
       await res.body?.cancel()
+    })
+
+    it('returns static SSE for slash skill during onboarding-agent bootstrap', async () => {
+      await seedOnboardingJson(brainHome, 'onboarding-agent')
+
+      const { default: chatRoute } = await import('./chat.js')
+      const app = new Hono()
+      app.route('/api/chat', chatRoute)
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '/help', timezone: 'UTC' }),
+      })
+      expect(res.status).toBe(200)
+      const text = await res.text()
+      expect(text).toContain('Finish setup in chat first')
     })
 
     it('returns SSE stream with session event', async () => {

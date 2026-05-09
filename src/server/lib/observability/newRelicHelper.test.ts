@@ -4,7 +4,6 @@ import { runWithTenantContext } from '@server/lib/tenant/tenantContext.js'
 const recordCustomEvent = vi.fn()
 const addCustomAttribute = vi.fn()
 const setUserID = vi.fn()
-const getTransaction = vi.fn()
 const startSegment = vi.fn(
   (name: string, record: boolean, handler: (cb?: () => void) => unknown) => handler(),
 )
@@ -15,7 +14,6 @@ vi.mock('newrelic', () => ({
     setUserID: (...args: unknown[]) => setUserID(...args),
     recordCustomEvent: (...args: unknown[]) => recordCustomEvent(...args),
     addCustomAttribute: (...args: unknown[]) => addCustomAttribute(...args),
-    getTransaction: () => getTransaction(),
     startSegment: (
       name: string,
       record: boolean,
@@ -30,8 +28,6 @@ describe('newRelicHelper', () => {
     recordCustomEvent.mockClear()
     addCustomAttribute.mockClear()
     setUserID.mockClear()
-    getTransaction.mockClear()
-    getTransaction.mockReturnValue(undefined)
     startSegment.mockClear()
     startSegment.mockImplementation(
       (name: string, record: boolean, handler: (cb?: () => void) => unknown) => handler(),
@@ -433,44 +429,26 @@ describe('newRelicHelper', () => {
     expect(setUserID).not.toHaveBeenCalled()
   })
 
+  it('ripmailCliSegmentName prefers explicit label; skips --timeout when inferring argv', async () => {
+    const { ripmailCliSegmentName } = await import('@server/lib/observability/newRelicHelper.js')
+    expect(ripmailCliSegmentName(['refresh'], 'backfill')).toBe('ripmail.cli/backfill')
+    expect(ripmailCliSegmentName(['search', 'foo'], undefined)).toBe('ripmail.cli/search')
+    expect(ripmailCliSegmentName(['--timeout', '60', 'grep', '-i', 'pattern'], undefined)).toBe(
+      'ripmail.cli/grep',
+    )
+  })
+
+  it('withRipmailCliObservation wraps work in ripmail.cli startSegment when agent on', async () => {
+    const { withRipmailCliObservation } = await import('@server/lib/observability/newRelicHelper.js')
+    const r = await withRipmailCliObservation(['search'], 'inbox-scan', async () => 7)
+    expect(r).toBe(7)
+    expect(startSegment).toHaveBeenCalledWith('ripmail.cli/inbox-scan', true, expect.any(Function))
+  })
+
   it('beginToolCallSegment registers a startSegment and endToolCallSegmentBridge closes it', async () => {
     const { beginToolCallSegment, endToolCallSegmentBridge } = await import('@server/lib/observability/newRelicHelper.js')
     beginToolCallSegment('read_mail_message', 'tc-99')
     expect(startSegment).toHaveBeenCalledWith('ai.tool/read_mail_message', true, expect.any(Function))
     endToolCallSegmentBridge('tc-99')
-  })
-
-  describe('getDistributedTraceEnvForChild', () => {
-    it('returns TRACEPARENT and TRACESTATE from insertDistributedTraceHeaders', async () => {
-      const { getDistributedTraceEnvForChild } = await import('@server/lib/observability/newRelicHelper.js')
-      getTransaction.mockReturnValue({
-        insertDistributedTraceHeaders(h: Record<string, string>) {
-          h.traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01'
-          h.tracestate = 'nr=1'
-        },
-      })
-      expect(getDistributedTraceEnvForChild()).toEqual({
-        TRACEPARENT: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
-        TRACESTATE: 'nr=1',
-      })
-    })
-
-    it('returns empty when no active transaction', async () => {
-      const { getDistributedTraceEnvForChild } = await import('@server/lib/observability/newRelicHelper.js')
-      getTransaction.mockReturnValue(undefined)
-      expect(getDistributedTraceEnvForChild()).toEqual({})
-    })
-
-    it('returns empty when license key unset', async () => {
-      const { getDistributedTraceEnvForChild } = await import('@server/lib/observability/newRelicHelper.js')
-      delete process.env.NEW_RELIC_LICENSE_KEY
-      getTransaction.mockReturnValue({
-        insertDistributedTraceHeaders(h: Record<string, string>) {
-          h.traceparent = 'x'
-        },
-      })
-      expect(getDistributedTraceEnvForChild()).toEqual({})
-      process.env.NEW_RELIC_LICENSE_KEY = 'test-license'
-    })
   })
 })

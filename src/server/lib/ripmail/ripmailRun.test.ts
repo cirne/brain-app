@@ -3,17 +3,16 @@ import { chmod, mkdtemp, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const mockDistributedTraceEnv = vi.hoisted(() =>
-  vi.fn((): Record<string, string> => ({
-    TRACEPARENT: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
-  })),
-)
-
+/** NR `startSegment` is a no-op in Vitest; run work directly. */
 vi.mock('@server/lib/observability/newRelicHelper.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@server/lib/observability/newRelicHelper.js')>()
   return {
     ...mod,
-    getDistributedTraceEnvForChild: mockDistributedTraceEnv,
+    withRipmailCliObservation: (
+      _argv: string[],
+      _label: string | undefined,
+      work: () => Promise<unknown>,
+    ) => work(),
   }
 })
 
@@ -48,10 +47,6 @@ describe('runRipmailArgv', () => {
     process.env.BRAIN_HOME = brainHome
     process.env.RIPMAIL_HOME = join(brainHome, 'ripmail')
     process.env.NEW_RELIC_LICENSE_KEY = 'test-license'
-    mockDistributedTraceEnv.mockClear()
-    mockDistributedTraceEnv.mockImplementation(() => ({
-      TRACEPARENT: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
-    }))
   })
 
   afterEach(async () => {
@@ -98,7 +93,7 @@ describe('runRipmailArgv', () => {
     await expect(p).rejects.toMatchObject({ name: 'AbortError' })
   })
 
-  it('forwards TRACEPARENT and RIPMAIL_SPAWN_LABEL to ripmail child env', async () => {
+  it('forwards RIPMAIL_SPAWN_LABEL to ripmail child env', async () => {
     const envLog = join(binDir, 'env.log')
     const script = join(binDir, 'r-env')
     await writeFile(
@@ -114,9 +109,7 @@ exit 0
 
     await runRipmailArgv(['status', '--json'], { timeoutMs: 5000, label: 'inbox-list' })
     const envText = await readFile(envLog, 'utf-8')
-    expect(envText).toContain('TRACEPARENT=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')
     expect(envText).toContain('RIPMAIL_SPAWN_LABEL=inbox-list')
-    expect(mockDistributedTraceEnv).toHaveBeenCalled()
   })
 
   it('concurrent refresh same home shares one flight when argv match', async () => {

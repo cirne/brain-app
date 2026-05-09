@@ -5,6 +5,7 @@
   import Search from '@components/Search.svelte'
   import AppTopNav from '@components/AppTopNav.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
+  import OnboardingAssistantBanner from '@components/onboarding/OnboardingAssistantBanner.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
@@ -65,6 +66,7 @@
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
+  import { postOnboardingFinalize } from '@client/lib/onboarding/onboardingApi.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import {
@@ -105,8 +107,16 @@
   type AssistantProps = {
     /** When false, hide brain-to-brain UI (`BRAIN_B2B_ENABLED` unset vs `1`/`true`). */
     brainQueryEnabled?: boolean
+    /** Refetch vault + onboarding status after bootstrap completes (App passes shared refresher). */
+    refreshAppOnboardingStatus?: () => Promise<void>
+    /** Hosted vault — forwarded to Hub first-run panel copy. */
+    multiTenant?: boolean
   }
-  let { brainQueryEnabled = false }: AssistantProps = $props()
+  let {
+    brainQueryEnabled = false,
+    refreshAppOnboardingStatus,
+    multiTenant = false,
+  }: AssistantProps = $props()
 
   /**
    * `bind:this` targets — kept separate from shell state so refs stay obvious.
@@ -123,6 +133,77 @@
   let shell = $state(createAssistantShellState())
   /** `bind:this` targets for AgentChat / WorkspaceSplit / slide stack / history list. */
   let refs = $state<AssistantRefsState>({})
+
+  let onboardingMachineState = $state<string>('done')
+  let skipSetupBusy = $state(false)
+  let lastBootstrapKickoffLocalKey = $state<string | null>(null)
+
+  async function loadOnboardingMachineState() {
+    try {
+      const r = await fetch('/api/onboarding/status')
+      const j = (await r.json()) as { state?: string }
+      onboardingMachineState = typeof j.state === 'string' ? j.state : 'not-started'
+    } catch {
+      onboardingMachineState = 'not-started'
+    }
+  }
+
+  async function handleInitialBootstrapFinished() {
+    const sid = refs.agentChat?.getBackendSessionId()?.trim()
+    if (!sid) {
+      console.warn('[initial-bootstrap] finalize skipped: no session id')
+      return
+    }
+    try {
+      await postOnboardingFinalize(sid)
+    } catch (e) {
+      console.warn('[initial-bootstrap] finalize failed', e)
+      return
+    }
+    await loadOnboardingMachineState()
+    await refreshAppOnboardingStatus?.()
+  }
+
+  async function skipGuidedSetup() {
+    skipSetupBusy = true
+    try {
+      const sid = refs.agentChat?.getBackendSessionId()?.trim() || crypto.randomUUID()
+      await postOnboardingFinalize(sid)
+      await loadOnboardingMachineState()
+      await refreshAppOnboardingStatus?.()
+    } catch (e) {
+      console.warn('[skip setup]', e)
+    } finally {
+      skipSetupBusy = false
+    }
+  }
+
+  $effect(() => {
+    if (onboardingMachineState !== 'onboarding-agent') {
+      lastBootstrapKickoffLocalKey = null
+      return
+    }
+    void (async () => {
+      const chat = await waitUntilDefinedOrMaxTicks({
+        get: () => refs.agentChat,
+        tick,
+        maxIterations: 24,
+      })
+      if (!chat) return
+      await tick()
+      await tick()
+      const key = chat.getDisplayedLocalSessionKey()
+      if (!key || key === lastBootstrapKickoffLocalKey) return
+      if (!chat.canSendInitialBootstrapKickoff()) return
+      lastBootstrapKickoffLocalKey = key
+      try {
+        await chat.sendInitialBootstrapKickoff()
+      } catch (e) {
+        console.warn('[initial-bootstrap] kickoff failed', e)
+        lastBootstrapKickoffLocalKey = null
+      }
+    })()
+  })
 
   /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
   let wikiPrimarySlideHeader = $state<WikiSlideHeaderState | null>(null)
@@ -385,33 +466,7 @@
     }
     window.addEventListener('keydown', onKeydown, true)
 
-    void (async () => {
-      let wantKickoff = false
-      try {
-        const res = await fetch('/api/chat/first-chat-pending')
-        if (res.ok) {
-          const j = (await res.json()) as { pending?: boolean }
-          wantKickoff = j.pending === true
-        }
-      } catch {
-        return
-      }
-      if (!wantKickoff) return
-      const chat = await waitUntilDefinedOrMaxTicks({
-        get: () => refs.agentChat,
-        tick,
-        maxIterations: 16
-      })
-      if (chat) {
-        try {
-          chat.newChat()
-          await tick()
-          await chat.sendFirstChatKickoff()
-        } catch {
-          /* ignore */
-        }
-      }
-    })()
+    void loadOnboardingMachineState()
 
     const onMqChange = () => {
       syncMobile()
@@ -1249,6 +1304,13 @@
     mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
   />
 
+  <OnboardingAssistantBanner
+    onboardingState={onboardingMachineState}
+    onOpenHub={openHubActivity}
+    onSkipSetup={onboardingMachineState === 'onboarding-agent' ? skipGuidedSetup : undefined}
+    skipBusy={skipSetupBusy}
+  />
+
   <div class="app-main-row relative flex min-h-0 flex-1">
     {#if shell.sidebarOpen}
       {#if shell.isMobile}
@@ -1397,6 +1459,8 @@
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
                 <BrainHubPage
                   brainQueryEnabled={brainQueryEnabled}
+                  refreshAppOnboardingStatus={refreshAppOnboardingStatus}
+                  multiTenant={multiTenant}
                   onHubNavigate={navigateFromHub}
                   onOpenSettings={openSettings}
                   onOpenBrainAccess={openBrainAccessSettings}
@@ -1559,6 +1623,7 @@
               onOpenDraftFromAgent={openEmailDraftFromChat}
               onNewChat={closeOverlay}
               onUserInitiatedNewChat={historyNewChat}
+              onInitialBootstrapFinished={handleInitialBootstrapFinished}
               onOpenWikiAbout={() => navigateWikiPrimary()}
               onAfterDeleteChat={historyNewChat}
               onUserSendMessage={closeOverlayOnUserSend}

@@ -13,7 +13,6 @@ use serde_json::{json, Value};
 use crate::config::MailboxImapAuthKind;
 use crate::db::message_persist::{persist_attachments_from_parsed, persist_message};
 use crate::oauth::ensure_google_access_token;
-use crate::observability::otel;
 use crate::send::gmail_api_send::should_send_via_gmail_api;
 use crate::sync::parse_raw_message;
 use crate::sync::process_lock::{release_lock, SyncKind};
@@ -105,20 +104,18 @@ fn http_get_json(
     token: &str,
     url: &str,
     timeout: Duration,
-    span_operation: &'static str,
+    _span_operation: &'static str,
 ) -> Result<(u16, String), String> {
-    otel::with_http_client_span(span_operation, "GET", url, || {
-        let resp = ureq::get(url)
-            .set("Authorization", &format!("Bearer {token}"))
-            .timeout(timeout)
-            .call()
-            .map_err(|e| format!("Gmail API GET {url}: {e}"))?;
-        let status = resp.status();
-        let text = resp
-            .into_string()
-            .map_err(|e| format!("Gmail API read body: {e}"))?;
-        Ok(((status, text), status))
-    })
+    let resp = ureq::get(url)
+        .set("Authorization", &format!("Bearer {token}"))
+        .timeout(timeout)
+        .call()
+        .map_err(|e| format!("Gmail API GET {url}: {e}"))?;
+    let status = resp.status();
+    let text = resp
+        .into_string()
+        .map_err(|e| format!("Gmail API read body: {e}"))?;
+    Ok((status, text))
 }
 
 fn extract_history_message_ids(body: &str) -> Result<(Vec<String>, Option<String>), String> {

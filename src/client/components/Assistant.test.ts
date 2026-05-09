@@ -102,8 +102,8 @@ describe('Assistant.svelte', () => {
 
     const mockFetch = createMockFetch([
       {
-        match: (u: string) => u === '/api/chat/first-chat-pending',
-        response: () => jsonResponse({ pending: false }),
+        match: (u: string) => u === '/api/onboarding/status',
+        response: () => jsonResponse({ state: 'done' }),
       },
     ])
     vi.stubGlobal('fetch', mockFetch)
@@ -261,25 +261,6 @@ describe('Assistant.svelte', () => {
         (call) => call[0] === 'keydown'
       )
       expect(keydownCalls.length).toBeGreaterThan(0)
-    })
-  })
-
-  describe('first-chat pending', () => {
-    it('handles first-chat-pending check on mount', async () => {
-      const mockFetch = createMockFetch([
-        {
-          match: (u: string) => u === '/api/chat/first-chat-pending',
-          response: () => jsonResponse({ pending: false }),
-        },
-      ])
-      vi.stubGlobal('fetch', mockFetch)
-
-      render(Assistant)
-      await tick()
-
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/chat/first-chat-pending')
-      })
     })
   })
 
@@ -482,12 +463,12 @@ describe('Assistant.svelte', () => {
     })
   })
 
-  describe('first chat kickoff', () => {
-    it('triggers first chat kickoff when pending is true', async () => {
+  describe('onboarding status', () => {
+    it('fetches onboarding machine state on mount', async () => {
       const mockFetch = createMockFetch([
         {
-          match: (u: string) => u === '/api/chat/first-chat-pending',
-          response: () => jsonResponse({ pending: true }),
+          match: (u: string) => u === '/api/onboarding/status',
+          response: () => jsonResponse({ state: 'done' }),
         },
       ])
       vi.stubGlobal('fetch', mockFetch)
@@ -495,11 +476,11 @@ describe('Assistant.svelte', () => {
       render(Assistant)
 
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/chat/first-chat-pending')
+        expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/status')
       })
     })
 
-    it('handles first-chat-pending fetch error gracefully', async () => {
+    it('handles onboarding status fetch error gracefully', async () => {
       const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'))
       vi.stubGlobal('fetch', mockFetch)
 

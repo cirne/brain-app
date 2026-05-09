@@ -353,16 +353,16 @@ describe('buildChatBody', () => {
     expect('context' in body).toBe(false)
   })
 
-  it('firstChatKickoff omits message and sets flag', () => {
+  it('initialBootstrapKickoff omits message and sets flag', () => {
     const body = buildChatBody({
       message: 'ignored',
       sessionId: null,
       context: noContext,
       mentionedFiles: [],
       isFirstMessage: true,
-      firstChatKickoff: true,
+      initialBootstrapKickoff: true,
     })
-    expect(body.firstChatKickoff).toBe(true)
+    expect(body.initialBootstrapKickoff).toBe(true)
     expect('message' in body).toBe(false)
     expect('interviewKickoff' in body).toBe(false)
     expect(typeof body.timezone).toBe('string')
@@ -379,7 +379,7 @@ describe('buildChatBody', () => {
     })
     expect(body.message).toBe('Start the guided onboarding interview now.')
     expect(body.interviewKickoff).toBe(true)
-    expect('firstChatKickoff' in body).toBe(false)
+    expect('initialBootstrapKickoff' in body).toBe(false)
     expect(body.sessionId).toBe('sess-ob')
   })
 

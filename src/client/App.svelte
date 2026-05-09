@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import Assistant from '@components/Assistant.svelte'
   import FullDiskAccessGate from '@components/onboarding/FullDiskAccessGate.svelte'
-  import Onboarding from '@components/onboarding/Onboarding.svelte'
   import HostedSignIn from '@components/onboarding/HostedSignIn.svelte'
   import EnronDemoLogin from '@components/onboarding/EnronDemoLogin.svelte'
   import { parseRoute, type Route } from './router.js'
@@ -45,10 +44,6 @@
 
   const showHostedSignIn = $derived(
     vaultStatus?.checked === true && !vaultStatus.unlocked && !showEnronDemoPage,
-  )
-
-  const showOnboarding = $derived(
-    onboardingStatus != null && !showHostedSignIn && onboardingStatus.state !== 'done',
   )
 
   /** Already-onboarded users may land on `/welcome` after sign-in; send them to the main app. */
@@ -107,13 +102,6 @@
     })()
     return () => window.removeEventListener('popstate', onPop)
   })
-
-  async function onOnboardingComplete() {
-    await fetchVaultStatusSafe()
-    await fetchStatus()
-    history.replaceState(null, '', '/c')
-    route = parseRoute()
-  }
 </script>
 
 {#if !appReady}
@@ -128,17 +116,11 @@
   </div>
 {:else}
   <FullDiskAccessGate>
-    {#if showOnboarding}
-      <div class="flex h-full min-h-0 flex-col">
-        <Onboarding
-          onComplete={onOnboardingComplete}
-          refreshStatus={refreshVaultAndOnboardingStatus}
-          multiTenant={true}
-        />
-      </div>
-    {:else}
-      <Assistant brainQueryEnabled={vaultStatus?.brainQueryEnabled ?? false} />
-    {/if}
+    <Assistant
+      brainQueryEnabled={vaultStatus?.brainQueryEnabled ?? false}
+      refreshAppOnboardingStatus={refreshVaultAndOnboardingStatus}
+      multiTenant={vaultStatus?.multiTenant === true}
+    />
   </FullDiskAccessGate>
   <DesktopAppUpdate />
 {/if}

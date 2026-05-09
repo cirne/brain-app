@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import OnboardingWorkspace from './OnboardingWorkspace.svelte'
   import {
     fetchOnboardingMailStatus,
     fetchOnboardingPreferences,
@@ -9,7 +8,6 @@
     patchOnboardingPreferences,
     postInboxSyncStart,
     postSetupAppleMail,
-    postOnboardingFinalize,
     SETUP_MAIL_ABORT_MESSAGE,
   } from '@client/lib/onboarding/onboardingApi.js'
   import { computeIndexingCalmStatus } from '@client/lib/onboarding/onboardingIndexingUi.js'
@@ -29,12 +27,11 @@
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'
   interface Props {
-    onComplete: () => Promise<void>
     refreshStatus: () => Promise<void>
     /** Hosted multi-tenant: profiling uses alternate lead copy. */
     multiTenant?: boolean
   }
-  let { onComplete, refreshStatus, multiTenant = false }: Props = $props()
+  let { refreshStatus, multiTenant = false }: Props = $props()
 
   let state = $state<string>('not-started')
   /** From server; used for indexing-step copy (Apple vs Google). */
@@ -45,8 +42,6 @@
   let setupError = $state<string | null>(null)
   /** PATCH profiling failed while on indexing (e.g. below server minimum). */
   let indexingAdvanceError = $state<string | null>(null)
-  /** Finalize after onboarding interview */
-  let finalizeError = $state<string | null>(null)
   /** False until first `load()` finishes — avoids showing “Connect Google” while mail status is still default empty. */
   let mailHydrated = $state(false)
   let busy = $state(false)
@@ -58,7 +53,6 @@
   /** If PATCH /status refresh hangs, `busy` would otherwise stay true forever while mail polling still updates the bar. */
   const ONBOARDING_PATCH_CHAIN_TIMEOUT_MS = 60_000
 
-  let onboardingExitHandled = $state(false)
   /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (interview onward). */
   let onboardingLargeWindowApplied = $state(false)
   const mailIndexedCount = $derived(Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0))
@@ -452,65 +446,21 @@
     }
   }
 
-  let obWorkspace = $state<{ getInterviewSessionId: () => string | null } | null>(null)
-
-  /** Finalize after interview: agent `finish_conversation` (OnboardingWorkspace → AgentChat). Not onStreamFinished — each assistant turn would fire incorrectly. */
-  async function continueAfterInterview() {
-    finalizeError = null
-    busy = true
-    await tick()
-    try {
-      const sessionId = obWorkspace?.getInterviewSessionId() ?? null
-      if (!sessionId?.trim()) {
-        throw new Error(
-          'Send at least one message in the chat above so we can save your session, then try again.',
-        )
-      }
-      await postOnboardingFinalize(sessionId)
-      await refreshStatus()
-      await load()
-      await completeOnboardingToApp()
-    } catch (e) {
-      finalizeError = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy = false
-    }
-  }
-
-  async function completeOnboardingToApp() {
-    if (onboardingExitHandled) return
-    onboardingExitHandled = true
-    indexingAdvanceError = null
-    await onComplete()
-  }
 </script>
 
 <div
   class={cn(
-    'onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]',
+    'onboarding flex min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]',
     state !== 'onboarding-agent' && 'onboarding-wide',
   )}
 >
   {#if state === 'onboarding-agent'}
-    <div class="flex min-h-0 flex-1 flex-col">
-      {#if finalizeError}
-        <div
-          class="shrink-0 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-2"
-          role="alert"
-        >
-          <p class="text-sm text-red-600 dark:text-red-400">{finalizeError}</p>
-        </div>
-      {/if}
-      <OnboardingWorkspace
-        bind:this={obWorkspace}
-        chatEndpoint="/api/onboarding/interview"
-        headerFallbackTitle="Setup"
-        storageKey=""
-        inputPlaceholder="Type an answer or tap a suggestion above."
-        autoSendMessage="Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. After identity is confirmed, follow the system prompt for Google calendar defaults (list_calendars / configure_source only when they have more than one synced Google calendar). Do not configure inbox rules in this flow. Do not ask them to name you. Do not mention phases, steps, or numbered sections to the user."
-        onAgentFinishInterview={() => void continueAfterInterview()}
-        {multiTenant}
-      />
+    <div
+      class="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-muted"
+      role="status"
+    >
+      Guided setup continues in <strong class="text-foreground">Chat</strong>. Mail may keep indexing in the
+      background — the assistant will describe what’s indexed so far.
     </div>
   {:else if multiTenant && state === 'confirming-handle'}
     <OnboardingHandleStep

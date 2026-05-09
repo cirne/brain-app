@@ -58,8 +58,14 @@
   export function loadSession(_id: string): Promise<void> {
     return Promise.resolve()
   }
-  export function sendFirstChatKickoff(): Promise<void> {
+  export function sendInitialBootstrapKickoff(): Promise<void> {
     return Promise.resolve()
+  }
+  export function canSendInitialBootstrapKickoff(): boolean {
+    return false
+  }
+  export function getDisplayedLocalSessionKey(): string | null {
+    return null
   }
   export function newChatWithMessage(_message: string): Promise<void> {
     return Promise.resolve()
