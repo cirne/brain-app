@@ -37,7 +37,6 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f brain",
     "docker:deploy": "bash scripts/docker-deploy-do.sh",
-    "docker:publish": "npm run docker:deploy",
     "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load .",
     "brain:seed-enron-demo": "BRAIN_DATA_ROOT=./data node scripts/brain/seed-enron-demo-tenant.mjs --all",
     "eval:run": "BRAIN_DATA_ROOT=./data node scripts/eval-run.mjs",

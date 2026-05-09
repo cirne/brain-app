@@ -20,6 +20,9 @@
 #   RELEASE_NOTES_MODEL — optional OpenAI model for release notes (default: gpt-4.1-mini)
 #   SKIP_RELEASE_NOTES — set to 1 to skip LLM release notes + docs/release-notes/<tag>.md (NR falls back to generic description/changelog)
 #
+#   When release notes are generated, this script commits docs/release-notes/<tag>.md and pushes to origin main
+#   (fixed message: see commit_release_notes_if_any below).
+#
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -60,6 +63,23 @@ ensure_git_deploy_ready() {
     echo "docker-deploy-do: git remote origin is required" >&2
     exit 1
   }
+}
+
+# Commit message for generated release notes (fixed; amend locally if needed).
+COMMIT_MSG_RELEASE_NOTES='chore: publish deploy release notes'
+
+commit_release_notes_if_any() {
+  local rn_path="docs/release-notes/${TAG}.md"
+  if [[ ! -f "$rn_path" ]]; then
+    return 0
+  fi
+  git add -- "$rn_path"
+  if git diff --cached --quiet; then
+    return 0
+  fi
+  git commit -m "$COMMIT_MSG_RELEASE_NOTES"
+  git push origin main
+  echo "docker-deploy-do: committed and pushed $rn_path"
 }
 
 TAG="${DOCKER_IMAGE_TAG:-}"
@@ -113,6 +133,8 @@ if [[ "${SKIP_RELEASE_NOTES:-0}" != "1" ]]; then
     echo "docker-deploy-do: release notes written to docs/release-notes/$TAG.md"
   fi
 fi
+
+commit_release_notes_if_any
 
 if [[ "${SKIP_NEW_RELIC_DEPLOYMENT:-0}" == "1" ]]; then
   echo "docker-deploy-do: skipping New Relic deployment marker (SKIP_NEW_RELIC_DEPLOYMENT=1)" >&2
