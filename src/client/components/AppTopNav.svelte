@@ -10,7 +10,6 @@
     X,
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
-  import BrainHubWidget from '@components/BrainHubWidget.svelte'
   import AnchoredActionMenu from '@components/shell/AnchoredActionMenu.svelte'
 
   type Props = {
@@ -24,9 +23,8 @@
     showSyncErrors: boolean
     onOpenSearch: () => void
     onToggleSyncErrors: () => void
-    /** Opens Braintunnel Hub (desktop top nav only; mobile uses overflow “Brain Hub”). */
-    onOpenHub: () => void
-    /** L1 “New” — same flow as sidebar / ⌘N (e.g. `historyNewChat`). */
+    /** Opens Settings (`/settings`). */
+    onOpenSettings?: () => void
     onNewChat?: () => void
     /** When true, new-chat is disabled (already on idle `/c` with nothing in the bar — ⌘N is a no-op). */
     isEmptyChat?: boolean
@@ -37,8 +35,6 @@
     hostedHandlePill?: string
     /** Pending wiki share invites — dot on Settings / @handle when set; opens Sharing with badge. */
     shareInviteBadge?: boolean
-    /** Hosted and desktop: opens Settings (`/settings`). */
-    onOpenSettings?: () => void
     /** When pending invites exist, opens Settings scrolled to Sharing (`#sharing`). */
     onOpenSharing?: () => void
     /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
@@ -60,12 +56,11 @@
     showSyncErrors,
     onOpenSearch,
     onToggleSyncErrors,
-    onOpenHub,
+    onOpenSettings,
     onNewChat,
     isEmptyChat = false,
     hostedHandlePill,
     shareInviteBadge = false,
-    onOpenSettings,
     onOpenSharing,
     onWikiHome,
     mobileCenterTitle,
@@ -289,9 +284,6 @@
         >
           @{hostedHandlePill}
         </button>
-      {/if}
-      {#if !isMobile}
-        <BrainHubWidget onOpen={onOpenHub} />
       {/if}
       {#if syncErrors.length > 0}
         <button

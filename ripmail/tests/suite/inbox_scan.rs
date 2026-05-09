@@ -491,6 +491,105 @@ async fn archive_with_bare_json_style_message_id_excludes_from_subsequent_inbox_
     );
 }
 
+/// Regression: after the user explicitly archives notify/inform mail (`ripmail archive`),
+/// a follow-up `--thorough`/`--reapply` inbox scan must not silently un-archive that mail.
+/// The post-pass in `run_inbox_scan` ran `UPDATE messages SET is_archived = 0` for every
+/// notify/inform row in `processed`, undoing the user's archive — so the next plain
+/// `ripmail inbox` surfaced the same items again.
+#[tokio::test]
+async fn reapply_inbox_scan_does_not_unarchive_user_archived_inform_mail() {
+    let conn = open_memory().unwrap();
+    let recent = (Utc::now() - Duration::hours(2)).to_rfc3339();
+    insert_msg(
+        &conn,
+        "<reapply-keep-archive@test>",
+        "a@b.com",
+        "Quarterly update",
+        "body",
+        &recent,
+        1,
+        None,
+        "[]",
+    );
+    let cutoff = (Utc::now() - Duration::hours(24)).to_rfc3339();
+    let fp = "fp-reapply-keep-archive";
+
+    let inform_classifier = || {
+        MockInboxClassifier::new(|batch| {
+            batch
+                .iter()
+                .map(|m| InboxNotablePick {
+                    message_id: m.message_id.clone(),
+                    action: Some("inform".into()),
+                    matched_rule_ids: vec![],
+                    note: Some("note".into()),
+                    decision_source: Some("model".into()),
+                    requires_user_action: false,
+                    action_summary: None,
+                })
+                .collect()
+        })
+    };
+
+    let base_opts = RunInboxScanOptions {
+        surface_mode: InboxSurfaceMode::Review,
+        cutoff_iso: cutoff.clone(),
+        include_all: true,
+        replay: false,
+        reapply_llm: false,
+        include_archived_candidates: false,
+        diagnostics: false,
+        rules_fingerprint: Some(fp.into()),
+        owner_address: None,
+        owner_aliases: vec![],
+        candidate_cap: None,
+        notable_cap: None,
+        batch_size: None,
+        source_ids: vec![],
+    };
+
+    let mut mock_first = inform_classifier();
+    let r1 = run_inbox_scan(&conn, &base_opts, &mut mock_first)
+        .await
+        .unwrap();
+    assert_eq!(r1.candidates_scanned, 1);
+    assert!(r1
+        .surfaced
+        .iter()
+        .any(|r| r.message_id == "<reapply-keep-archive@test>"));
+
+    archive_messages_locally(&conn, &["<reapply-keep-archive@test>".into()], true).unwrap();
+    let archived: i64 = conn
+        .query_row(
+            "SELECT is_archived FROM messages WHERE message_id = '<reapply-keep-archive@test>'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(archived, 1, "user archive should set is_archived = 1");
+
+    let reapply_opts = RunInboxScanOptions {
+        reapply_llm: true,
+        ..base_opts.clone()
+    };
+    let mut mock_reapply = inform_classifier();
+    let _ = run_inbox_scan(&conn, &reapply_opts, &mut mock_reapply)
+        .await
+        .unwrap();
+
+    let archived_after: i64 = conn
+        .query_row(
+            "SELECT is_archived FROM messages WHERE message_id = '<reapply-keep-archive@test>'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        archived_after, 1,
+        "reapply scan must not undo the user's explicit archive of notify/inform mail",
+    );
+}
+
 #[tokio::test]
 async fn includes_attachment_metadata_on_notable_rows() {
     let conn = open_memory().unwrap();

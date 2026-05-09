@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { networkInterfaces, platform } from 'node:os'
-import { unlink } from 'node:fs/promises'
+import { unlink, appendFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import {
@@ -52,6 +52,15 @@ import { getCookie } from 'hono/cookie'
 import { isHandleConfirmedForTenant } from '@server/lib/tenant/handleMeta.js'
 
 const onboarding = new Hono()
+/** #region agent log */
+const DEBUG_LOG = '/Users/cirne/dev/brain-app/.cursor/debug-dcca47.log'
+function agentNdjson(obj: Record<string, unknown>): void {
+  void appendFile(
+    DEBUG_LOG,
+    JSON.stringify({ sessionId: 'dcca47', timestamp: Date.now(), ...obj }) + '\n',
+  ).catch(() => {})
+}
+/** #endregion */
 
 /** Clear the stale ripmail lock for the current tenant. */
 onboarding.post('/clear-stale-lock', async (c) => {
@@ -137,6 +146,14 @@ onboarding.get('/network-info', async (c) => {
 
 onboarding.get('/status', async (c) => {
   if (!tryGetTenantContext()) {
+    // #region agent log
+    agentNdjson({
+      hypothesisId: 'H1',
+      location: 'onboarding.ts:GET/status',
+      message: 'no tenant context',
+      data: { responseState: 'not-started' },
+    })
+    // #endregion
     return c.json({
       state: 'not-started',
       wikiMeExists: false,
@@ -146,9 +163,24 @@ onboarding.get('/status', async (c) => {
   const doc = await readOnboardingStateDoc()
   let state: OnboardingMachineState = doc.state
   const ctx = tryGetTenantContext()
-  if (ctx && !(await isHandleConfirmedForTenant(ctx.homeDir))) {
-    state = 'confirming-handle'
+  let handleOk = true
+  if (ctx) {
+    handleOk = await isHandleConfirmedForTenant(ctx.homeDir)
+    if (!handleOk) state = 'confirming-handle'
   }
+  // #region agent log
+  agentNdjson({
+    hypothesisId: 'H1',
+    location: 'onboarding.ts:GET/status',
+    message: 'tenant',
+    data: {
+      tenantUserId: ctx?.tenantUserId,
+      diskState: doc.state,
+      responseState: state,
+      handleConfirmed: handleOk,
+    },
+  })
+  // #endregion
   return c.json({
     state,
     wikiMeExists: wikiMeExists(),
@@ -468,14 +500,18 @@ onboarding.post('/interview', async (c) => {
  * scaffold vault, transition to **done**, drop in-memory bootstrap agent for this session.
  */
 onboarding.post('/finalize', async (c) => {
-  const doc = await readOnboardingStateDoc()
-  if (doc.state !== 'onboarding-agent') {
-    return c.json({ error: 'Onboarding interview is not active.' }, 400)
-  }
   const body = await c.req.json().catch(() => ({}))
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
   if (!sessionId) {
     return c.json({ error: 'sessionId is required' }, 400)
+  }
+  const doc = await readOnboardingStateDoc()
+  /** Idempotent: duplicate client finish (or retries) after a successful finalize must not 400. */
+  if (doc.state === 'done') {
+    return c.json({ ok: true as const, state: 'done' })
+  }
+  if (doc.state !== 'onboarding-agent') {
+    return c.json({ error: 'Onboarding interview is not active.' }, 400)
   }
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   try {

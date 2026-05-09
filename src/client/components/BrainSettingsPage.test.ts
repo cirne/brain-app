@@ -30,9 +30,66 @@ vi.mock('@client/lib/app/appEvents.js', () => ({
   emit: vi.fn(),
 }))
 
+vi.mock('@client/lib/hubEvents/hubEventsClient.js', () => ({
+  startHubEventsConnection: () => () => {},
+}))
+
 function defaultFetchHandler(): typeof fetch {
   return vi.fn((url: RequestInfo | URL) => {
     const u = requestUrlString(url)
+    if (u.includes('/api/onboarding/status')) {
+      return Promise.resolve(new Response(JSON.stringify({ state: 'done' }), { status: 200 }))
+    }
+    if (u.includes('/api/wiki') && !u.includes('edit-history')) {
+      return Promise.resolve(new Response(JSON.stringify({ files: [] }), { status: 200 }))
+    }
+    if (u.includes('/api/background-status')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            onboardingFlowActive: false,
+            mail: {
+              indexedTotal: 0,
+              ftsReady: 0,
+              messageAvailableForProgress: null,
+              configured: false,
+              dateRange: { from: null, to: null },
+              phase1Complete: false,
+              phase2Complete: false,
+              syncRunning: false,
+              backfillRunning: false,
+              backfillPhase: null,
+              refreshRunning: false,
+              lastSyncedAt: null,
+              syncLockAgeMs: null,
+              pendingBackfill: false,
+              staleMailSyncLock: false,
+            },
+            wiki: {
+              status: 'idle',
+              phase: 'idle',
+              pageCount: 0,
+              currentLap: 0,
+              detail: '',
+              lastRunAt: null,
+              autoStartEligible: false,
+              bootstrap: { status: 'not-started', completedAt: null },
+            },
+            onboarding: {
+              state: 'done',
+              wikiMeExists: false,
+              milestones: {
+                interviewReady: false,
+                wikiReady: false,
+                fullySynced: false,
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+    }
     if (u.includes('/api/hub/sources/mail-prefs')) {
       return Promise.resolve(
         new Response(
@@ -75,7 +132,7 @@ describe('BrainSettingsPage.svelte', () => {
     expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByText('@testuser')).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: 'Connections' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Workspace' })).toBeInTheDocument()
     })
   })
 
@@ -90,35 +147,26 @@ describe('BrainSettingsPage.svelte', () => {
     expect(window.location.search).toBe('')
   })
 
-  it('renders Add another Gmail account row', async () => {
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
-    })
-    await waitFor(() => {
-      expect(screen.getByText(/Add another Gmail account/i)).toBeInTheDocument()
-    })
-  })
-
-  it('Collaboration brain-access row requests brain-access overlay', async () => {
+  it('Brain to Brain access row opens brain-access overlay', async () => {
     const onSettingsNavigate = vi.fn()
     render(BrainSettingsPage, {
       props: { onSettingsNavigate, brainQueryEnabled: true },
     })
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Collaboration' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /brain to brain access/i })).toBeInTheDocument()
     })
     await fireEvent.click(screen.getByRole('button', { name: /brain to brain access/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access' })
   })
 
-  it('hides Collaboration when brainQueryEnabled is false', async () => {
+  it('hides Brain to Brain access when brainQueryEnabled is false', async () => {
     render(BrainSettingsPage, {
       props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: false },
     })
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     })
-    expect(screen.queryByRole('heading', { name: 'Collaboration' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /brain to brain access/i })).not.toBeInTheDocument()
   })
 
   it('renders chat tool display preference and persists when toggled', async () => {
@@ -148,149 +196,6 @@ describe('BrainSettingsPage.svelte', () => {
     await fireEvent.click(detailedRadio)
     expect(store['brain.chat.toolDisplay']).toBe('detailed')
     expect(detailedRadio).toBeChecked()
-  })
-
-  it('navigates to hub-source when a source row is clicked', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: RequestInfo) => {
-        const u = String(url)
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-              { status: 200 },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                sources: [
-                  {
-                    id: 'work_x',
-                    kind: 'imap',
-                    displayName: 'work@example.com',
-                    path: null,
-                  },
-                ],
-              }),
-              { status: 200 },
-            ),
-          )
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-    const onSettingsNavigate = vi.fn()
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate, brainQueryEnabled: true },
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /work@example\.com/i })).toBeInTheDocument()
-    })
-    await fireEvent.click(screen.getByRole('button', { name: /work@example\.com/i }))
-    expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'hub-source', id: 'work_x' })
-  })
-
-  it('marks the hub source row as selected when selectedHubSourceId matches', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: RequestInfo) => {
-        const u = String(url)
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-              { status: 200 },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                sources: [
-                  {
-                    id: 'mail_a',
-                    kind: 'imap',
-                    displayName: 'a@example.com',
-                    path: null,
-                  },
-                  {
-                    id: 'cal_b',
-                    kind: 'googleCalendar',
-                    displayName: 'b@example.com',
-                    path: null,
-                  },
-                ],
-              }),
-              { status: 200 },
-            ),
-          )
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), selectedHubSourceId: 'cal_b', brainQueryEnabled: true },
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /b@example\.com/i })).toHaveAttribute(
-        'aria-current',
-        'true',
-      )
-    })
-    expect(screen.getByRole('button', { name: /a@example\.com/i })).not.toHaveAttribute(
-      'aria-current',
-    )
-  })
-
-  it('shows Google Drive label for googleDrive sources', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: RequestInfo) => {
-        const u = String(url)
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-              { status: 200 },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources/detail')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ ok: false, error: 'not used' }), { status: 200 }),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                sources: [
-                  {
-                    id: 'gd1',
-                    kind: 'googleDrive',
-                    displayName: 'you@gmail.com',
-                    path: null,
-                  },
-                ],
-              }),
-              { status: 200 },
-            ),
-          )
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
-    })
-    await waitFor(() => {
-      expect(screen.getByText('Google Drive')).toBeInTheDocument()
-    })
   })
 
 })

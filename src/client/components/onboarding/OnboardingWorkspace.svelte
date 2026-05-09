@@ -48,8 +48,8 @@
     /** Composer hint; forwarded to AgentChat (e.g. guided onboarding interview). */
     inputPlaceholder = undefined as string | undefined,
     /**
-     * Guided interview only: when the model calls `finish_conversation`, same hook as main chat —
-     * runs finalize + exit onboarding (parent implements POST /finalize).
+     * Guided interview only: parent implements POST /finalize + exit onboarding. Wired into
+     * {@link AgentChat}'s `onAgentFinishConversation` when `chatEndpoint === '/api/onboarding/interview'`.
      */
     onAgentFinishInterview = undefined as (() => void | Promise<void>) | undefined,
   }: {
@@ -506,10 +506,10 @@
           onUserInitiatedNewChat={() => {
             agentChat?.newChat()
           }}
-          onConversationFinishedByAgent={chatEndpoint === '/api/onboarding/interview' &&
-          onAgentFinishInterview
-            ? () => void onAgentFinishInterview()
-            : undefined}
+          onAgentFinishConversation={() =>
+            chatEndpoint === '/api/onboarding/interview' && onAgentFinishInterview
+              ? void onAgentFinishInterview()
+              : agentChat?.newChat()}
           onOpenWikiAbout={() => openWikiDoc()}
           onUserSendMessage={closeOverlayOnUserSend}
           {onWriteStreaming}

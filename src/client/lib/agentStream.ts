@@ -104,7 +104,7 @@ export type ConsumeAgentChatStreamOptions = {
 export async function consumeAgentChatStream(
   res: Response,
   options: ConsumeAgentChatStreamOptions,
-): Promise<{ touchedWiki: boolean; sawDone: boolean }> {
+): Promise<{ touchedWiki: boolean; sawDone: boolean; deferredFinishConversation: boolean }> {
   const {
     getMessages,
     msgIdx,
@@ -136,7 +136,7 @@ export async function consumeAgentChatStream(
 
   const body = res.body
   if (!body) {
-    return { touchedWiki: false, sawDone: false }
+    return { touchedWiki: false, sawDone: false, deferredFinishConversation: false }
   }
 
   const reader = body.getReader()
@@ -144,8 +144,10 @@ export async function consumeAgentChatStream(
   let buffer = ''
   let lastEvent = 'message'
   let sawDone = false
+  let pendingFinishConversation = false
 
-  while (true) {
+  try {
+    while (true) {
     const { value, done } = await reader.read()
     if (done) break
 
@@ -385,7 +387,7 @@ export async function consumeAgentChatStream(
               }
             }
             if (name === 'finish_conversation' && !data.isError) {
-              onFinishConversation?.()
+              pendingFinishConversation = true
             }
             if (policy.streamToDetail === 'wiki') {
               writePathByToolId.delete(data.id)
@@ -407,7 +409,16 @@ export async function consumeAgentChatStream(
         }
       }
     }
+    }
+  } finally {
+    if (pendingFinishConversation) {
+      try {
+        onFinishConversation?.()
+      } catch {
+        /* user hook must not mask stream teardown */
+      }
+    }
   }
 
-  return { touchedWiki, sawDone }
+  return { touchedWiki, sawDone, deferredFinishConversation: pendingFinishConversation }
 }

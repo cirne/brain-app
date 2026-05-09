@@ -3,6 +3,8 @@ import { tick } from 'svelte'
 import Assistant from './Assistant.svelte'
 import { render, fireEvent, screen, waitFor } from '@client/test/render.js'
 import { createMockFetch, jsonResponse } from '@client/test/mocks/fetch.js'
+import * as onboardingApi from '@client/lib/onboarding/onboardingApi.js'
+import { setAgentChatStubBackendSessionId } from './test-stubs/agentChatStubSession.js'
 
 class ResizeObserverMock {
   observe() {}
@@ -46,8 +48,8 @@ if (typeof Element !== 'undefined' && !Element.prototype.animate) {
 
 vi.mock('./Search.svelte', () => import('./test-stubs/SearchStub.svelte'))
 vi.mock('./AppTopNav.svelte', () => import('./test-stubs/AppTopNavStub.svelte'))
-vi.mock('./BrainHubPage.svelte', () => import('./test-stubs/BrainHubPageStub.svelte'))
 vi.mock('./BrainSettingsPage.svelte', () => import('./test-stubs/BrainSettingsPageStub.svelte'))
+vi.mock('./BrainHubPage.svelte', () => import('./test-stubs/BrainHubPageStub.svelte'))
 vi.mock('./shell/SlideOver.svelte', () => import('./test-stubs/SlideOverStub.svelte'))
 vi.mock('./AgentChat.svelte', () => import('./test-stubs/AgentChatStub.svelte'))
 vi.mock('./ChatHistory.svelte', () => import('./test-stubs/ChatHistoryStub.svelte'))
@@ -88,6 +90,7 @@ const mockReplaceState = vi.fn()
 
 describe('Assistant.svelte', () => {
   beforeEach(() => {
+    setAgentChatStubBackendSessionId(null)
     vi.stubGlobal('location', {
       href: 'http://localhost/',
       pathname: '/',
@@ -145,7 +148,7 @@ describe('Assistant.svelte', () => {
       await tick()
 
       expect(screen.getByTestId('agent-chat-stub')).toBeInTheDocument()
-      expect(screen.queryByTestId('brain-hub-page-stub')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('brain-settings-page-stub')).not.toBeInTheDocument()
     })
 
     it('renders BrainSettingsPage when at /settings path', async () => {
@@ -162,7 +165,7 @@ describe('Assistant.svelte', () => {
       expect(screen.getByTestId('brain-settings-page-stub')).toBeInTheDocument()
     })
 
-    it('renders BrainHubPage when at /hub path', async () => {
+    it('renders BrainHubPage when at legacy /hub path', async () => {
       vi.stubGlobal('location', {
         href: 'http://localhost/hub',
         pathname: '/hub',
@@ -437,8 +440,8 @@ describe('Assistant.svelte', () => {
     })
   })
 
-  describe('hub routes with overlays', () => {
-    it('renders hub with wiki overlay at /hub?panel=wiki', async () => {
+  describe('legacy /hub routes with overlays', () => {
+    it('renders settings primary with wiki overlay at /hub?panel=wiki', async () => {
       vi.stubGlobal('location', {
         href: 'http://localhost/hub?panel=wiki&path=test.md',
         pathname: '/hub',
@@ -464,6 +467,41 @@ describe('Assistant.svelte', () => {
   })
 
   describe('onboarding status', () => {
+    it('after onboarding interview finalize, starts a fresh chat (history replace + clear)', async () => {
+      setAgentChatStubBackendSessionId('test-session-id')
+      let serverThinksFinalized = false
+      const fetchMock = vi.fn((input: string | Request | URL) => {
+        const u = typeof input === 'string' ? input : input instanceof Request ? input.url : input.href
+        if (u.includes('/api/onboarding/status')) {
+          return Promise.resolve(
+            jsonResponse({ state: serverThinksFinalized ? 'done' : 'onboarding-agent' }),
+          )
+        }
+        return Promise.resolve(jsonResponse({}))
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const finalizeSpy = vi.spyOn(onboardingApi, 'postOnboardingFinalize').mockImplementation(async () => {
+        serverThinksFinalized = true
+      })
+
+      mockReplaceState.mockClear()
+
+      render(Assistant)
+      await tick()
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some((c) => c[0] === '/api/onboarding/status'),
+        ).toBe(true)
+      })
+
+      await fireEvent.click(screen.getByTestId('agent-chat-stub-invoke-finish'))
+      await vi.waitFor(() => expect(finalizeSpy).toHaveBeenCalledWith('test-session-id'))
+      await vi.waitFor(() => expect(mockReplaceState).toHaveBeenCalled())
+
+      finalizeSpy.mockRestore()
+    })
+
     it('fetches onboarding machine state on mount', async () => {
       const mockFetch = createMockFetch([
         {

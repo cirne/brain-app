@@ -1,5 +1,37 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { parseSetupMailJsonBody, fetchOnboardingMailStatus } from './onboardingApi.js'
+import {
+  parseSetupMailJsonBody,
+  fetchOnboardingMailStatus,
+  postOnboardingFinalize,
+} from './onboardingApi.js'
+
+describe('postOnboardingFinalize', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('resolves when POST returns ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, state: 'done' }), { status: 200 }),
+      ),
+    )
+    await expect(postOnboardingFinalize('s1')).resolves.toBeUndefined()
+  })
+
+  it('throws with server error message when not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Onboarding interview is not active.' }), {
+          status: 400,
+        }),
+      ),
+    )
+    await expect(postOnboardingFinalize('s1')).rejects.toThrow('Onboarding interview is not active.')
+  })
+})
 
 describe('fetchOnboardingMailStatus', () => {
   beforeEach(() => {

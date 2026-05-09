@@ -8,6 +8,8 @@
   import { fetchVaultStatus, type VaultStatus } from '@client/lib/vaultClient.js'
   import { isReplayOnboardingWelcomeSearch } from '@client/lib/welcomeReplayDev.js'
   import DesktopAppUpdate from '@components/desktop/DesktopAppUpdate.svelte'
+  import OnboardingFirstRunPanel from '@components/onboarding/OnboardingFirstRunPanel.svelte'
+  import { needsDedicatedOnboardingSurface } from '@client/lib/onboarding/onboardingShellPolicy.js'
 
   let route = $state<Route>(parseRoute())
   /** DEV: prevents duplicate PATCH when replay-onboarding effect runs twice. */
@@ -15,6 +17,21 @@
   let appReady = $state(false)
   let onboardingStatus = $state<{ state: string } | null>(null)
   let vaultStatus = $state<(VaultStatus & { checked: boolean }) | null>(null)
+
+  /** When the machine is in chat-only states, normalize first-run URLs to `/c` (see `$effect` below). */
+  function syncUrlToChatIfTerminalOnboarding(st: string): void {
+    if (typeof location === 'undefined') return
+    if (st !== 'onboarding-agent' && st !== 'done') return
+    const raw = location.pathname
+    const p = raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw
+    const isBareRoot = p === '/' || p === ''
+    const isWelcome = p === '/welcome'
+    const isOnboardingPath = p.startsWith('/onboarding/')
+    if (!isBareRoot && !isWelcome && !isOnboardingPath) return
+    if (import.meta.env.DEV && isReplayOnboardingWelcomeSearch(location.search)) return
+    history.replaceState(null, '', '/c')
+    route = parseRoute()
+  }
 
   async function fetchVaultStatusSafe() {
     try {
@@ -27,9 +44,10 @@
 
   async function fetchStatus() {
     try {
-      const res = await fetch('/api/onboarding/status')
+      const res = await fetch('/api/onboarding/status', { credentials: 'include' })
       const j = (await res.json()) as { state: string }
       onboardingStatus = { state: j.state }
+      syncUrlToChatIfTerminalOnboarding(j.state)
     } catch {
       onboardingStatus = { state: 'not-started' }
     }
@@ -46,15 +64,34 @@
     vaultStatus?.checked === true && !vaultStatus.unlocked && !showEnronDemoPage,
   )
 
-  /** Already-onboarded users may land on `/welcome` after sign-in; send them to the main app. */
+  /** First-run handle + mail + indexing — not the Activity hub; see `onboardingShellPolicy.ts`. */
+  const showDedicatedOnboarding = $derived(
+    appReady &&
+      vaultStatus?.unlocked === true &&
+      onboardingStatus != null &&
+      needsDedicatedOnboardingSurface(onboardingStatus.state),
+  )
+
+  /**
+   * Keep the address bar on `/onboarding/{persisted-state}` during dedicated first-run (replaceState
+   * so OAuth / legacy `/welcome` does not stay sticky).
+   */
   $effect(() => {
-    if (!appReady || onboardingStatus == null || onboardingStatus.state !== 'done') return
-    if (route.flow !== 'welcome') return
-    if (import.meta.env.DEV && typeof location !== 'undefined' && isReplayOnboardingWelcomeSearch(location.search)) {
-      return
-    }
-    history.replaceState(null, '', '/c')
+    if (!appReady || onboardingStatus == null) return
+    if (typeof location === 'undefined') return
+    if (!showDedicatedOnboarding) return
+    const state = onboardingStatus.state
+    const nextPath = `/onboarding/${state}`
+    if (location.pathname === nextPath) return
+    history.replaceState(null, '', nextPath)
     route = parseRoute()
+  })
+
+  /** Chat-backed onboarding (`onboarding-agent`) and `done` belong on `/c`, not under `/onboarding/*` or bare `/`. */
+  $effect(() => {
+    if (!appReady || onboardingStatus == null) return
+    if (typeof location === 'undefined') return
+    syncUrlToChatIfTerminalOnboarding(onboardingStatus.state)
   })
 
   /**
@@ -80,7 +117,7 @@
         }
         /** Refresh before stripping query so redirect $effect never sees `done` on `/welcome` without the replay param. */
         await refreshVaultAndOnboardingStatus()
-        history.replaceState(null, '', '/welcome')
+        history.replaceState(null, '', '/onboarding/not-started')
         route = parseRoute()
       } catch {
         /* leave query in URL so dev can retry */
@@ -114,6 +151,21 @@
   <div class="flex h-full min-h-0 flex-col">
     <HostedSignIn />
   </div>
+{:else if showDedicatedOnboarding}
+  <FullDiskAccessGate>
+    <div class="box-border flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg)]">
+      <section
+        class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 md:px-10"
+        aria-label="First-run setup"
+      >
+        <OnboardingFirstRunPanel
+          refreshStatus={refreshVaultAndOnboardingStatus}
+          multiTenant={vaultStatus?.multiTenant === true}
+        />
+      </section>
+    </div>
+  </FullDiskAccessGate>
+  <DesktopAppUpdate />
 {:else}
   <FullDiskAccessGate>
     <Assistant

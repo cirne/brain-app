@@ -450,7 +450,7 @@
 
 <div
   class={cn(
-    'onboarding flex min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]',
+    'onboarding flex min-h-0 w-full flex-1 flex-col bg-[var(--bg)] text-[var(--text)]',
     state !== 'onboarding-agent' && 'onboarding-wide',
   )}
 >
@@ -462,7 +462,7 @@
       Guided setup continues in <strong class="text-foreground">Chat</strong>. Mail may keep indexing in the
       background — the assistant will describe what’s indexed so far.
     </div>
-  {:else if multiTenant && state === 'confirming-handle'}
+  {:else if state === 'confirming-handle'}
     <OnboardingHandleStep
       {refreshStatus}
       onComplete={async () => {

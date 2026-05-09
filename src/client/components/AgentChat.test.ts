@@ -46,7 +46,11 @@ const mockedConsume = vi.mocked(consumeAgentChatStream)
 
 describe('AgentChat.svelte', () => {
   beforeEach(() => {
-    mockedConsume.mockResolvedValue({ sawDone: true, touchedWiki: false })
+    mockedConsume.mockResolvedValue({
+      sawDone: true,
+      touchedWiki: false,
+      deferredFinishConversation: false,
+    })
   })
 
   afterEach(() => {
@@ -85,6 +89,72 @@ describe('AgentChat.svelte', () => {
     })
 
     await fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
+
+    expect(onUserInitiatedNewChat).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onAgentFinishConversation after stream when set; does not call onUserInitiatedNewChat', async () => {
+    const post = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    stubFetchForAgentChat({ extra: [agentChatPostHandler(post)] })
+
+    const onAgentFinishConversation = vi.fn()
+    const onUserInitiatedNewChat = vi.fn()
+    mockedConsume.mockImplementation(async (_res, opts) => {
+      opts.onFinishConversation?.()
+      return { sawDone: true, touchedWiki: false, deferredFinishConversation: false }
+    })
+
+    const { component } = render(AgentChat, {
+      props: {
+        context: { type: 'none' },
+        onAgentFinishConversation,
+        onUserInitiatedNewChat,
+      },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+    const ta = screen.getByRole('textbox')
+    await fireEvent.input(ta, { target: { value: 'Hi' } })
+    await fireEvent.keyDown(ta, { key: 'Enter', shiftKey: false })
+    await waitFor(() => expect(mockedConsume).toHaveBeenCalled())
+
+    expect(onAgentFinishConversation).toHaveBeenCalledTimes(1)
+    expect(onUserInitiatedNewChat).not.toHaveBeenCalled()
+  })
+
+  it('falls back to onUserInitiatedNewChat after stream when onAgentFinishConversation unset', async () => {
+    const post = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    stubFetchForAgentChat({ extra: [agentChatPostHandler(post)] })
+
+    const onUserInitiatedNewChat = vi.fn()
+    mockedConsume.mockImplementation(async (_res, opts) => {
+      opts.onFinishConversation?.()
+      return { sawDone: true, touchedWiki: false, deferredFinishConversation: false }
+    })
+
+    const { component } = render(AgentChat, {
+      props: { context: { type: 'none' }, onUserInitiatedNewChat },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+    const ta = screen.getByRole('textbox')
+    await fireEvent.input(ta, { target: { value: 'Hi' } })
+    await fireEvent.keyDown(ta, { key: 'Enter', shiftKey: false })
+    await waitFor(() => expect(mockedConsume).toHaveBeenCalled())
 
     expect(onUserInitiatedNewChat).toHaveBeenCalledTimes(1)
   })
@@ -555,7 +625,7 @@ describe('AgentChat.svelte', () => {
         await new Promise<void>((_, reject) => {
           setTimeout(() => reject(new DOMException('Aborted', 'AbortError')), 1000)
         })
-        return { sawDone: false, touchedWiki: false }
+        return { sawDone: false, touchedWiki: false, deferredFinishConversation: false }
       })
 
       const onStreamingChange = vi.fn()

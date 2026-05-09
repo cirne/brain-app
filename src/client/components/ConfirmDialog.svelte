@@ -13,7 +13,7 @@
     onDismiss: () => void
     onConfirm: () => void
     children: Snippet
-    /** When set, replaces the default Cancel/Confirm row. Backdrop click and Escape still call `onDismiss`. */
+    /** When set, replaces the default Cancel/Confirm row. Backdrop click and Escape still call `onDismiss`. Provide your own Tailwind classes on buttons in this snippet. */
     actions?: Snippet
     /** Extra class on `.cd-panel` (e.g. width presets from the parent). */
     panelClass?: string
@@ -68,10 +68,12 @@
     e.stopPropagation()
   }
 
-  const btnBase =
-    'cd-btn cursor-pointer rounded-md border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit] disabled:cursor-not-allowed disabled:opacity-50'
+  /** Footer buttons: Tailwind on the `<button>` elements only (scoped CSS no longer fights utilities). */
+  const btnNeutral =
+    'rounded-md border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit]'
   const btnDanger =
-    'cd-btn--danger border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] text-danger hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))]'
+    'rounded-md border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] px-3 py-[0.4rem] text-xs font-medium leading-tight text-danger transition-colors hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))] [font:inherit]'
+  const btnBase = 'cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
 </script>
 
 {#if open}
@@ -111,12 +113,12 @@
         {#if actions}
           {@render actions()}
         {:else}
-          <button type="button" class={btnBase} onclick={onDismiss}>
+          <button type="button" class={cn(btnBase, btnNeutral)} onclick={onDismiss}>
             {cancelLabel}
           </button>
           <button
             type="button"
-            class={cn(btnBase, confirmVariant === 'danger' && btnDanger)}
+            class={cn(btnBase, confirmVariant === 'danger' ? btnDanger : btnNeutral)}
             onclick={() => onConfirm()}
           >
             {confirmLabel}
@@ -132,43 +134,5 @@
   .cd-modal-shell::backdrop {
     background: rgba(0, 0, 0, 0.45);
     pointer-events: none;
-  }
-
-  /* Style buttons rendered inside the dialog body / actions snippet by their semantic class names. */
-  .cd-panel :global(button.cd-btn) {
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.75rem;
-    font-weight: 500;
-    line-height: 1.2;
-    padding: 0.4rem 0.75rem;
-    border-radius: 0.375rem;
-border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
-  }
-
-  .cd-panel :global(button.cd-btn--primary) {
-    border-color: transparent;
-    background: var(--accent);
-    color: #fff;
-    transition:
-      background 0.1s ease,
-      border-color 0.1s ease,
-      filter 0.1s ease;
-  }
-
-  .cd-panel :global(button.cd-btn--primary:hover:not(:disabled)) {
-    filter: brightness(1.08);
-  }
-
-  .cd-panel :global(button.cd-btn:not(.cd-btn--primary):not(.cd-btn--danger):hover:not(:disabled)) {
-    background: var(--bg-2);
-  }
-
-  .cd-panel :global(button.cd-btn:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 </style>

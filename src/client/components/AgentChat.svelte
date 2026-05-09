@@ -74,15 +74,17 @@
     /**
      * Full “new chat” chrome flow (navigate, session reset, `chatIsEmpty`, …). Shown as + beside the
      * composer when the thread has messages. Main app: same handler as the top bar / sidebar.
+     * Also used as the fallback when {@link onAgentFinishConversation} is unset after a successful
+     * SSE `finish_conversation` (embeds/tests that only need “same as new chat”).
      */
     onUserInitiatedNewChat = undefined as (() => void) | undefined,
     /**
-     * When set (e.g. Hub “add folders” panel), `finish_conversation` calls this instead of
-     * {@link onUserInitiatedNewChat} — typically close the overlay.
+     * After the stream completes a successful `finish_conversation` tool (including the wire
+     * shortcut). Hosts compose behavior here: e.g. main shell runs onboarding finalize vs
+     * `historyNewChat`, Hub closes a panel, onboarding interview runs finalize. When unset,
+     * {@link onUserInitiatedNewChat} is used instead.
      */
-    onConversationFinishedByAgent = undefined as (() => void) | undefined,
-    /** Unified initial bootstrap: after `finish_conversation`, run finalize without `newChat`. */
-    onInitialBootstrapFinished = undefined as (() => void | Promise<void>) | undefined,
+    onAgentFinishConversation = undefined as (() => void | Promise<void>) | undefined,
     /** Active session id changed (new chat, load, or SSE session event). */
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
@@ -172,8 +174,7 @@
     onUserSendMessage?: () => void
     /** Optional; when set, a “new chat” control is shown beside the composer (non-empty thread). */
     onUserInitiatedNewChat?: () => void
-    onConversationFinishedByAgent?: () => void
-    onInitialBootstrapFinished?: () => void | Promise<void>
+    onAgentFinishConversation?: () => void | Promise<void>
     onSessionChange?: (
       _sessionId: string | null,
       _meta?: { chatTitle?: string | null },
@@ -644,6 +645,7 @@
 
     let sawDone = false
     let touchedWiki = false
+    let closedWithDeferredFinish = false
 
     try {
       const res = await fetch(chatEndpoint, {
@@ -711,13 +713,13 @@
         },
         scrollToBottom: () => conversationEl?.scrollToBottomIfFollowing(),
         onFinishConversation: () => {
-          if (onConversationFinishedByAgent) onConversationFinishedByAgent()
-          else if (onInitialBootstrapFinished) void Promise.resolve(onInitialBootstrapFinished())
+          if (onAgentFinishConversation) void Promise.resolve(onAgentFinishConversation())
           else onUserInitiatedNewChat?.()
         },
       })
       touchedWiki = result.touchedWiki
       sawDone = result.sawDone
+      closedWithDeferredFinish = result.deferredFinishConversation
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
       const name = err instanceof Error ? err.name : ''
@@ -735,7 +737,7 @@
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
       notifyChatSessionsChanged()
       onChatPersisted?.()
-      if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
+      if (sawDone && (displayedSessionId === activeKey || closedWithDeferredFinish)) void onStreamFinished?.()
 
       const { next: queued, rest: queueRest } = shiftQueuedFollowUp(
         sessions.get(activeKey)?.pendingQueuedMessages,

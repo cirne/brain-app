@@ -46,7 +46,9 @@
       <p>{bodyText}</p>
     {/snippet}
     {#snippet actions()}
-      <button type="button" class="cd-btn" onclick={onExtra}>Extra</button>
+      <button type="button" class="rounded-md border border-border px-3 py-[0.4rem] text-xs" onclick={onExtra}>
+        Extra
+      </button>
     {/snippet}
   </ConfirmDialog>
 {:else}

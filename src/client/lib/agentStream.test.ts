@@ -482,7 +482,7 @@ describe('consumeAgentChatStream', () => {
         touchMessages: () => {},
         scrollToBottom: () => {},
       }),
-    ).resolves.toEqual({ touchedWiki: false, sawDone: false })
+    ).resolves.toEqual({ touchedWiki: false, sawDone: false, deferredFinishConversation: false })
     expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
   })
 

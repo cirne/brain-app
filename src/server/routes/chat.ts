@@ -33,6 +33,7 @@ import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPromp
 import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
 import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
 import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
+import { buildMailCoverageCaveatForMainAssistant } from '@server/lib/onboarding/mailCoverageCaveatPrompt.js'
 import {
   buildInitialBootstrapKickoffUserMessage,
   formatMailIndexFactsForBootstrap,
@@ -116,6 +117,16 @@ chat.post('/', async (c) => {
   const promptMessage = initialBootstrapKickoff
     ? await buildInitialBootstrapKickoffUserMessage()
     : (rawMessage as string)
+
+  let mailCoverageCaveat: string | undefined
+  if (!bootstrapMode) {
+    try {
+      mailCoverageCaveat =
+        buildMailCoverageCaveatForMainAssistant(await getOnboardingMailStatus()) ?? undefined
+    } catch {
+      /* ignore — main chat still works without caveat */
+    }
+  }
 
   const persist = async (args: {
     userMessage: string | null
@@ -236,7 +247,11 @@ chat.post('/', async (c) => {
       /* ignore */
     }
 
-    const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
+    const agent = await getOrCreateSession(sessionId, {
+      context: fileContext,
+      timezone,
+      mailCoverageCaveat,
+    })
 
     return runWithSkillRequestContextAsync(
       { selection: selectionForSkill, openFile: openFileForSkill },
@@ -283,7 +298,11 @@ chat.post('/', async (c) => {
     )
   }
 
-  const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
+  const agent = await getOrCreateSession(sessionId, {
+    context: fileContext,
+    timezone,
+    mailCoverageCaveat,
+  })
 
   const mainPromptMessages = hearReplies ? buildHearRepliesPromptMessages(promptMessage) : undefined
 

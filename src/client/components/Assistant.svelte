@@ -4,9 +4,10 @@
   import { cn } from '@client/lib/cn.js'
   import Search from '@components/Search.svelte'
   import AppTopNav from '@components/AppTopNav.svelte'
-  import BrainHubPage from '@components/BrainHubPage.svelte'
-  import OnboardingAssistantBanner from '@components/onboarding/OnboardingAssistantBanner.svelte'
+  import SettingsConnectionsPage from '@components/settings/SettingsConnectionsPage.svelte'
+  import SettingsWikiPage from '@components/settings/SettingsWikiPage.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
+  import BrainHubPage from '@components/BrainHubPage.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
   import AnswerPreviewPage from '@components/brain-access/AnswerPreviewPage.svelte'
@@ -39,6 +40,11 @@
   import { matchSessionIdByFlatPrefix } from '@client/lib/chatSessionTailResolve.js'
   import { applyHubDetailNavigation, applySettingsDetailNavigation } from '@client/lib/hubShellNavigate.js'
   import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
+  import { routeShowsWorkspaceSplitDetail } from '@client/lib/settings/settingsWorkspaceSplit.js'
+  import {
+    resolveSettingsPrimaryShell,
+    selectedHubSourceFromOverlay,
+  } from '@client/lib/settings/settingsPrimaryShell.js'
   import { mobileCompactNavCenterTitle } from '@client/lib/mobileCompactNavCenterTitle.js'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from '@client/lib/app/globalShortcuts.js'
@@ -96,7 +102,6 @@
   import type { WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
   import {
     BookOpen,
-    LayoutGrid,
     Search as SearchIcon,
     Settings,
     Trash2,
@@ -131,11 +136,16 @@
 
   /** Route bar, sync, overlays, and layout — one factory instead of a wall of `let` declarations. */
   let shell = $state(createAssistantShellState())
+
+  const workspaceShowsSplitDetail = $derived(routeShowsWorkspaceSplitDetail(shell.route))
+  const settingsPrimaryShell = $derived(
+    resolveSettingsPrimaryShell(shell.route.overlay, brainQueryEnabled),
+  )
   /** `bind:this` targets for AgentChat / WorkspaceSplit / slide stack / history list. */
   let refs = $state<AssistantRefsState>({})
 
-  let onboardingMachineState = $state<string>('done')
-  let skipSetupBusy = $state(false)
+  /** Pessimistic until GET /api/onboarding/status runs (avoids assuming `done` on first paint). */
+  let onboardingMachineState = $state<string>('not-started')
   let lastBootstrapKickoffLocalKey = $state<string | null>(null)
 
   async function loadOnboardingMachineState() {
@@ -148,34 +158,37 @@
     }
   }
 
-  async function handleInitialBootstrapFinished() {
+  /**
+   * App-level onboarding/vault refresh (parent) + reload machine state here so the initial-bootstrap
+   * `$effect` sees `onboarding-agent` after Hub PATCHes (otherwise chat stays empty until remount).
+   */
+  async function shellRefreshAppOnboardingStatus() {
+    await refreshAppOnboardingStatus?.()
+    await loadOnboardingMachineState()
+  }
+
+  /**
+   * Interview `finish_conversation` / chip: jump to a fresh main chat immediately (same as non-onboarding).
+   * Server finalize is slow; it runs in the background so the UI does not sit on the interview thread.
+   */
+  function handleInitialBootstrapFinished() {
     const sid = refs.agentChat?.getBackendSessionId()?.trim()
+    historyNewChat()
     if (!sid) {
       console.warn('[initial-bootstrap] finalize skipped: no session id')
       return
     }
-    try {
-      await postOnboardingFinalize(sid)
-    } catch (e) {
-      console.warn('[initial-bootstrap] finalize failed', e)
-      return
-    }
-    await loadOnboardingMachineState()
-    await refreshAppOnboardingStatus?.()
-  }
-
-  async function skipGuidedSetup() {
-    skipSetupBusy = true
-    try {
-      const sid = refs.agentChat?.getBackendSessionId()?.trim() || crypto.randomUUID()
-      await postOnboardingFinalize(sid)
-      await loadOnboardingMachineState()
-      await refreshAppOnboardingStatus?.()
-    } catch (e) {
-      console.warn('[skip setup]', e)
-    } finally {
-      skipSetupBusy = false
-    }
+    /** Stops the bootstrap kickoff `$effect` from auto-sending on the new empty session while still `onboarding-agent`. */
+    onboardingMachineState = 'done'
+    void (async () => {
+      try {
+        await postOnboardingFinalize(sid)
+        await shellRefreshAppOnboardingStatus()
+      } catch (e) {
+        console.warn('[initial-bootstrap] finalize failed', e)
+        await loadOnboardingMachineState()
+      }
+    })()
   }
 
   $effect(() => {
@@ -837,8 +850,8 @@
     const routeForNav: Route = {
       ...shell.route,
       sessionId: effectiveChatSessionId ?? shell.route.sessionId,
-      sessionTail: undefined
-      }
+      sessionTail: undefined,
+    }
     applyHubDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), hubActiveForNav)
     shell.route = parseRoute()
     syncMobileWikiStackFromHubSettings(prevOverlay)
@@ -847,7 +860,7 @@
         id: makeNavHistoryId('doc', overlay.path),
         type: 'doc',
         title: overlay.path,
-        path: overlay.path
+        path: overlay.path,
       })
     }
   }
@@ -949,6 +962,10 @@
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
+  /**
+   * New pending chat at the main column URL: empty `Route` + replace → `/c` via `routeToUrl` in `router.ts`
+   * (see `chatBasePath` when no session id).
+   */
   function historyNewChat() {
     shell.chatTitleForUrl = null
     navigateShell({ }, { replace: true })
@@ -1058,9 +1075,9 @@
     const onHubLike = shell.route.zone === 'hub' || shell.route.zone === 'settings'
     navigateShell({
       overlay: { type: 'hub-wiki-about' },
-      zone: (shell.route.zone === 'hub' || shell.route.zone === 'settings') ? shell.route.zone : undefined,
-      ...(onHubLike ? {} : chatSessionPart())
-      })
+      zone: shell.route.zone === 'hub' || shell.route.zone === 'settings' ? shell.route.zone : undefined,
+      ...(onHubLike ? {} : chatSessionPart()),
+    })
     shell.route = parseRoute()
   }
 
@@ -1068,9 +1085,9 @@
     const onHubLike = shell.route.zone === 'hub' || shell.route.zone === 'settings'
     navigateShell({
       overlay: { type: 'chat-history' },
-      zone: (shell.route.zone === 'hub' || shell.route.zone === 'settings') ? shell.route.zone : undefined,
-      ...(onHubLike ? {} : chatSessionPart())
-      })
+      zone: shell.route.zone === 'hub' || shell.route.zone === 'settings' ? shell.route.zone : undefined,
+      ...(onHubLike ? {} : chatSessionPart()),
+    })
     shell.route = parseRoute()
   }
 
@@ -1148,12 +1165,6 @@
 
   function openSettings() {
     navigateShell({ zone: 'settings' as RouteZone })
-    shell.route = parseRoute()
-    if (shell.isMobile) shell.sidebarOpen = false
-  }
-
-  function openHubActivity() {
-    navigateShell({ zone: 'hub' as RouteZone })
     shell.route = parseRoute()
     if (shell.isMobile) shell.sidebarOpen = false
   }
@@ -1240,17 +1251,6 @@
         <Settings size={18} strokeWidth={2} aria-hidden="true" />
       {/snippet}
     </AnchoredMenuRow>
-    <AnchoredMenuRow
-      label="Brain Hub"
-      onclick={() => {
-        openHubActivity()
-        dismiss()
-      }}
-    >
-      {#snippet leading()}
-        <LayoutGrid size={18} strokeWidth={2} aria-hidden="true" />
-      {/snippet}
-    </AnchoredMenuRow>
     {#if showMobileOverflowChatSessionActions}
       <AnchoredMenuRow
         label={chatHearReplies ? 'Turn audio off' : 'Turn audio on'}
@@ -1290,25 +1290,15 @@
     showSyncErrors={shell.showSyncErrors}
     onOpenSearch={() => { shell.showSearch = true }}
     onToggleSyncErrors={() => { shell.showSyncErrors = !shell.showSyncErrors }}
-    onOpenHub={() => {
-      openHubActivity()
-    }}
+    onOpenSettings={openSettings}
     onNewChat={historyNewChat}
     onWikiHome={() => navigateWikiPrimary()}
     isEmptyChat={topNavNewChatDisabled}
     hostedHandlePill={shell.hostedHandleNav}
-    onOpenSettings={openSettings}
     onOpenSharing={brainQueryEnabled ? openBrainAccessSettings : undefined}
     mobileCenterTitle={appMobileNavCenterTitle}
     mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
     mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
-  />
-
-  <OnboardingAssistantBanner
-    onboardingState={onboardingMachineState}
-    onOpenHub={openHubActivity}
-    onSkipSetup={onboardingMachineState === 'onboarding-agent' ? skipGuidedSetup : undefined}
-    skipBusy={skipSetupBusy}
   />
 
   <div class="app-main-row relative flex min-h-0 flex-1">
@@ -1353,25 +1343,8 @@
         bind:this={refs.workspaceSplit}
         workspaceColumnWidthPx={shell.workspaceColumnWidth}
         bind:detailFullscreen={shell.detailPaneFullscreen}
-        hasDetail={
-          shell.route.zone !== 'wiki' &&
-          !!shell.route.overlay &&
-          shell.route.overlay.type !== 'hub' &&
-          shell.route.overlay.type !== 'chat-history' &&
-          shell.route.overlay.type !== 'brain-access' &&
-          shell.route.overlay.type !== 'brain-access-policy' &&
-          shell.route.overlay.type !== 'brain-access-preview'
-        }
-        desktopDetailOpen={
-          shell.route.zone !== 'wiki' &&
-          !!shell.route.overlay &&
-          shell.route.overlay.type !== 'hub' &&
-          shell.route.overlay.type !== 'chat-history' &&
-          shell.route.overlay.type !== 'brain-access' &&
-          shell.route.overlay.type !== 'brain-access-policy' &&
-          shell.route.overlay.type !== 'brain-access-preview' &&
-          useDesktopSplitDetail
-        }
+        hasDetail={workspaceShowsSplitDetail}
+        desktopDetailOpen={workspaceShowsSplitDetail && useDesktopSplitDetail}
         onNavigateClear={closeOverlayImmediate}
       >
         {#snippet chat()}
@@ -1459,8 +1432,6 @@
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
                 <BrainHubPage
                   brainQueryEnabled={brainQueryEnabled}
-                  refreshAppOnboardingStatus={refreshAppOnboardingStatus}
-                  multiTenant={multiTenant}
                   onHubNavigate={navigateFromHub}
                   onOpenSettings={openSettings}
                   onOpenBrainAccess={openBrainAccessSettings}
@@ -1508,21 +1479,34 @@
           {:else if shell.route.zone === 'settings'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-                {#if brainQueryEnabled && shell.route.overlay?.type === 'brain-access'}
+                {#if settingsPrimaryShell === 'connections'}
+                  <SettingsConnectionsPage
+                    onSettingsNavigate={navigateFromSettings}
+                    selectedHubSourceId={selectedHubSourceFromOverlay(shell.route.overlay)}
+                    onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
+                  />
+                {:else if settingsPrimaryShell === 'wiki'}
+                  <SettingsWikiPage
+                    onSettingsNavigate={navigateFromSettings}
+                    onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
+                  />
+                {:else if settingsPrimaryShell === 'brain-access-list'}
                   <BrainAccessPage
                     onSettingsNavigate={navigateFromSettings}
                     onBackToSettingsMain={() => navigateShell({ zone: 'settings' })}
                   />
-                {:else if brainQueryEnabled && shell.route.overlay?.type === 'brain-access-policy'}
+                {:else if settingsPrimaryShell === 'brain-access-policy'}
                   <PolicyDetailPage
-                    policyId={shell.route.overlay.policyId}
+                    policyId={shell.route.overlay!.policyId}
                     onSettingsNavigate={navigateFromSettings}
+                    onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
                     onBackToBrainAccessList={() =>
                       navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
                   />
-                {:else if brainQueryEnabled && shell.route.overlay?.type === 'brain-access-preview'}
+                {:else if settingsPrimaryShell === 'brain-access-preview'}
                   <AnswerPreviewPage
-                    policyId={shell.route.overlay.policyId}
+                    policyId={shell.route.overlay!.policyId}
+                    onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
                     onBackToBrainAccessList={() =>
                       navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
                     onBackToPolicy={() => {
@@ -1537,22 +1521,13 @@
                 {:else}
                   <BrainSettingsPage
                     brainQueryEnabled={brainQueryEnabled}
+                    multiTenant={multiTenant}
                     onSettingsNavigate={navigateFromSettings}
-                    selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
-                      ? shell.route.overlay.id
-                      : undefined}
+                    selectedHubSourceId={selectedHubSourceFromOverlay(shell.route.overlay)}
                   />
                 {/if}
               </div>
-              {#if
-                !useDesktopSplitDetail &&
-                shell.route.overlay &&
-                shell.route.overlay.type !== 'hub' &&
-                shell.route.overlay.type !== 'chat-history' &&
-                shell.route.overlay.type !== 'brain-access' &&
-                shell.route.overlay.type !== 'brain-access-policy' &&
-                shell.route.overlay.type !== 'brain-access-preview'
-              }
+              {#if !useDesktopSplitDetail && workspaceShowsSplitDetail}
                 <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
                   <AssistantSlideOver
                     bind:this={refs.mobileSlideOver}
@@ -1623,7 +1598,10 @@
               onOpenDraftFromAgent={openEmailDraftFromChat}
               onNewChat={closeOverlay}
               onUserInitiatedNewChat={historyNewChat}
-              onInitialBootstrapFinished={handleInitialBootstrapFinished}
+              onAgentFinishConversation={() =>
+                onboardingMachineState === 'onboarding-agent'
+                  ? handleInitialBootstrapFinished()
+                  : historyNewChat()}
               onOpenWikiAbout={() => navigateWikiPrimary()}
               onAfterDeleteChat={historyNewChat}
               onUserSendMessage={closeOverlayOnUserSend}

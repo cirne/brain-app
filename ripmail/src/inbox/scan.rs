@@ -8,7 +8,7 @@ use regex::Regex;
 
 use async_trait::async_trait;
 use rusqlite::types::Value;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::attachments::{list_attachments_for_message, AttachmentListRow};
 use crate::inbox::state::{
@@ -1088,9 +1088,32 @@ pub async fn run_inbox_scan(
     .await?;
 
     let mut fresh_by_id: HashMap<String, RefreshPreviewRow> = HashMap::new();
+    let mut fresh_ids_set: HashSet<String> = HashSet::new();
     for row in fresh_rows.iter().cloned() {
+        fresh_ids_set.insert(row.message_id.clone());
         fresh_by_id.insert(row.message_id.clone(), row.clone());
     }
+
+    // Capture prior decision actions for soon-to-be-overwritten fresh rows. Used below to
+    // distinguish a user-explicit archive (prior action was notify/inform) from auto-archive
+    // under a stale `ignore` decision (prior action was ignore — fine to undo on rule change).
+    let mut prior_action_for_fresh: HashMap<String, String> = HashMap::new();
+    if !fresh_rows.is_empty() {
+        let fresh_ids: Vec<String> = fresh_rows.iter().map(|r| r.message_id.clone()).collect();
+        let placeholders = fresh_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT message_id, action FROM inbox_decisions WHERE message_id IN ({placeholders})"
+        );
+        let bind: Vec<Value> = fresh_ids.iter().cloned().map(Value::Text).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let mut rows = stmt.query(rusqlite::params_from_iter(bind.iter()))?;
+        while let Some(r) = rows.next()? {
+            let mid: String = r.get(0)?;
+            let action: String = r.get(1)?;
+            prior_action_for_fresh.insert(mid, action);
+        }
+    }
+
     persist_inbox_decisions(conn, &rules_fingerprint, &fresh_rows)?;
 
     let mut counts = InboxDispositionCounts::default();
@@ -1123,9 +1146,48 @@ pub async fn run_inbox_scan(
         processed.push(row);
     }
 
+    // Identify rows that the user explicitly archived after a prior notify/inform decision.
+    // Under `--thorough` / `--reapply`, archived rows are scan candidates again, and the
+    // post-pass below otherwise runs `SET is_archived = 0` for every notify/inform row —
+    // silently undoing the user's explicit archive. We skip the un-archive update only when:
+    //   (a) the row is currently archived, AND
+    //   (b) it had a prior `inbox_decisions.action` of notify/inform (so it had been surfaced
+    //       and the user archived it on purpose, rather than being auto-archived under ignore).
+    // Rows with no prior decision or a prior `ignore` decision still un-archive on rule change.
+    let mut user_archived: HashSet<String> = HashSet::new();
+    if !processed.is_empty() {
+        let mut stmt = conn.prepare("SELECT is_archived FROM messages WHERE message_id = ?1")?;
+        for row in &processed {
+            let is_archived: i64 = stmt
+                .query_row([&row.message_id], |r| r.get(0))
+                .optional()?
+                .unwrap_or(0);
+            if is_archived != 1 {
+                continue;
+            }
+            // Fresh rows: prior action came from `inbox_decisions` before persist overwrote it.
+            // Cached rows: classification didn't change, so the row's current action is also
+            // the prior action.
+            let prior = if fresh_ids_set.contains(&row.message_id) {
+                prior_action_for_fresh
+                    .get(&row.message_id)
+                    .map(String::as_str)
+            } else {
+                row.action.as_deref()
+            };
+            if matches!(prior, Some("notify" | "inform")) {
+                user_archived.insert(row.message_id.clone());
+            }
+        }
+    }
+
     // Sync local archive to triage action: notify/inform stay (or return to) the working set;
-    // ignore archives only when broad safe-to-archive signals match.
+    // ignore archives only when broad safe-to-archive signals match. User-explicit archives
+    // (notify/inform decision then `ripmail archive`) are left alone — user intent wins.
     for row in &processed {
+        if user_archived.contains(&row.message_id) {
+            continue;
+        }
         let action = normalize_action(row.action.as_deref());
         match action {
             "notify" | "inform" => {

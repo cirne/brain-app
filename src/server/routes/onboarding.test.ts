@@ -222,6 +222,27 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(400)
   })
 
+  it('POST /finalize returns 200 when already done (idempotent)', async () => {
+    interviewFinalizeMocks.runInterviewFinalize.mockClear()
+    const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+    await setOnboardingState('indexing')
+    await setOnboardingState('onboarding-agent')
+    await setOnboardingState('done')
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: '550e8400-e29b-41d4-a716-446655440099' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; state: string }
+    expect(j.ok).toBe(true)
+    expect(j.state).toBe('done')
+    expect(interviewFinalizeMocks.runInterviewFinalize).not.toHaveBeenCalled()
+  })
+
   const mailPayloadLow = {
     configured: true,
     indexedTotal: 400,

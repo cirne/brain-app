@@ -3,8 +3,6 @@ import AppTopNav from './AppTopNav.svelte'
 import AppTopNavMobileOverflowHarness from './test-stubs/AppTopNavMobileOverflowHarness.svelte'
 import { render, fireEvent, screen } from '@client/test/render.js'
 
-vi.mock('./BrainHubWidget.svelte', () => import('./test-stubs/BrainHubWidgetStub.svelte'))
-
 describe('AppTopNav.svelte', () => {
   const baseProps = {
     onToggleSidebar: vi.fn(),
@@ -12,7 +10,6 @@ describe('AppTopNav.svelte', () => {
     showSyncErrors: false,
     onOpenSearch: vi.fn(),
     onToggleSyncErrors: vi.fn(),
-    onOpenHub: vi.fn(),
   }
 
   beforeEach(() => {
@@ -20,15 +17,14 @@ describe('AppTopNav.svelte', () => {
   })
 
   describe('basic rendering', () => {
-    it('renders nav element with search and hub buttons on desktop', () => {
+    it('renders nav element with search on desktop', () => {
       render(AppTopNav, { props: baseProps })
 
       expect(screen.getByRole('navigation')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument()
-      expect(screen.getByTestId('brain-hub-widget-stub')).toBeInTheDocument()
     })
 
-    it('hides hub widget on mobile', () => {
+    it('hides search/wiki actions in mobile compact nav (⋯ overflow)', () => {
       render(AppTopNav, {
         props: {
           ...baseProps,
@@ -36,9 +32,10 @@ describe('AppTopNav.svelte', () => {
           onNewChat: vi.fn(),
           isEmptyChat: false,
           isMobile: true,
+          mobileOverflow: () => {},
         },
       })
-      expect(screen.queryByTestId('brain-hub-widget-stub')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument()
     })
 
     it('shows Braintunnel brand when sidebar is collapsed', () => {
@@ -47,13 +44,15 @@ describe('AppTopNav.svelte', () => {
       expect(screen.getByText('Braintunnel')).toBeInTheDocument()
     })
 
-    it('orders top actions search, wiki home, new chat, then hub (reading / tab order)', () => {
+    it('orders top actions search, wiki home, new chat, then settings (reading / tab order)', () => {
       const onWikiHome = vi.fn()
+      const onOpenSettings = vi.fn()
       render(AppTopNav, {
         props: {
           ...baseProps,
           onNewChat: vi.fn(),
           onWikiHome,
+          onOpenSettings,
           isEmptyChat: false,
           isMobile: false,
         },
@@ -61,11 +60,11 @@ describe('AppTopNav.svelte', () => {
       const search = screen.getByRole('button', { name: 'Search' })
       const wikiHome = screen.getByRole('button', { name: 'Wiki' })
       const newChat = screen.getByRole('button', { name: 'Chat' })
-      const hub = screen.getByTestId('brain-hub-widget-stub')
+      const settingsBtn = screen.getByRole('button', { name: 'Settings' })
       const after = globalThis.Node.DOCUMENT_POSITION_FOLLOWING
       expect(search.compareDocumentPosition(wikiHome) & after).toBe(after)
       expect(wikiHome.compareDocumentPosition(newChat) & after).toBe(after)
-      expect(newChat.compareDocumentPosition(hub) & after).toBe(after)
+      expect(newChat.compareDocumentPosition(settingsBtn) & after).toBe(after)
     })
 
     it('shows Wiki and Chat labels on desktop (not isMobile)', () => {
@@ -270,19 +269,6 @@ describe('AppTopNav.svelte', () => {
       })
 
       expect(screen.queryByText('Sync errors')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('hub widget', () => {
-    it('calls onOpenHub when hub widget is clicked', async () => {
-      const onOpenHub = vi.fn()
-      render(AppTopNav, {
-        props: { ...baseProps, onOpenHub },
-      })
-
-      await fireEvent.click(screen.getByTestId('brain-hub-widget-stub'))
-
-      expect(onOpenHub).toHaveBeenCalledTimes(1)
     })
   })
 

@@ -19,7 +19,7 @@ describe('GET /oauth/google/complete & /error', () => {
     expect(res.status).toBe(200)
     const text = await res.text()
     expect(text).toContain('Gmail connected')
-    expect(text).toContain('/welcome')
+    expect(text).toContain('/onboarding/not-started')
     expect(text).toContain('location.replace')
   })
 

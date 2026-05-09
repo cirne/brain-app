@@ -10,6 +10,7 @@ import {
   shouldWriteAgentDiagnostics,
   serializeAgentEventForDiagnostics,
   attachAgentDiagnosticsCollector,
+  writeSyntheticTurnDiagnosticsJsonl,
 } from './agentDiagnostics.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { generateUserId } from '@server/lib/tenant/handleMeta.js'
@@ -115,6 +116,70 @@ describe('agentDiagnostics', () => {
         expect(last.toolTrace).toEqual([])
         expect(last.summary.toolCallCount).toBe(0)
         expect(last.summary.durationMs).toBeGreaterThanOrEqual(0)
+      },
+    )
+  })
+
+  it('writeSyntheticTurnDiagnosticsJsonl writes JSONL with toolTrace and arbitrary transcript', async () => {
+    await runWithTenantContextAsync(
+      { tenantUserId: tenantUid, workspaceHandle: 'diag-synthetic', homeDir: brainHome },
+      async () => {
+        process.env.NODE_ENV = 'development'
+
+        const path = await writeSyntheticTurnDiagnosticsJsonl({
+          meta: {
+            agentTurnId: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+            agentKind: 'finish_conversation_shortcut',
+            source: 'chat_sse_finish_shortcut',
+            sessionId: 'sess-finish',
+          },
+          fileKind: 'finish_conversation_shortcut',
+          durationMs: 15,
+          toolTrace: [
+            {
+              toolCallId: 'tool-fc-1',
+              toolName: 'finish_conversation',
+              isError: false,
+              durationMs: 0,
+              argsJsonBytes: 2,
+              resultJsonBytes: 60,
+              resultTruncated: false,
+              resultSha256: 'abc',
+              resultPreview: 'ok',
+            },
+          ],
+          transcript: { shortcut: true, sseEmittedDone: true, extra: { note: 'any shape' } },
+          events: [
+            {
+              kind: 'event' as const,
+              seq: 1,
+              type: 'tool_execution_end',
+              toolCallId: 'tool-fc-1',
+              toolName: 'finish_conversation',
+              isError: false,
+              result: 'x',
+            },
+          ],
+        })
+        expect(path).toBeTypeOf('string')
+        expect(path!.endsWith('_finish_conversation_shortcut.jsonl')).toBe(true)
+
+        const raw = await readFile(path!, 'utf-8')
+        const objs = parseJsonl(raw)
+        expect(objs.length).toBe(3)
+        const head = objs[0] as { kind: string; meta: { agentKind: string; source: string } }
+        expect(head.meta.agentKind).toBe('finish_conversation_shortcut')
+        expect(head.meta.source).toBe('chat_sse_finish_shortcut')
+        const foot = objs[2] as {
+          kind: string
+          toolTrace: { toolName: string }[]
+          transcript: { shortcut?: boolean; extra?: { note: string } }
+        }
+        expect(foot.kind).toBe('diag_footer')
+        expect(foot.toolTrace).toHaveLength(1)
+        expect(foot.toolTrace[0].toolName).toBe('finish_conversation')
+        expect(foot.transcript.shortcut).toBe(true)
+        expect(foot.transcript.extra?.note).toBe('any shape')
       },
     )
   })

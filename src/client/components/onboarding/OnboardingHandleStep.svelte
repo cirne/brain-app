@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { ArrowRight } from 'lucide-svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import {
@@ -23,6 +23,7 @@
   let availabilityHint = $state<string | null>(null)
   let checking = $state(false)
   let debounceTimer: ReturnType<typeof setTimeout> | undefined
+  let handleInputEl = $state<HTMLInputElement | undefined>()
 
   /** `handle-meta` may temporarily mirror the tenant `usr_…` directory id — never pre-fill that. */
   function isPlaceholderWorkspaceHandle(handle: string, userId: string | undefined): boolean {
@@ -47,9 +48,57 @@
     }
   }
 
-  onMount(() => {
-    void boot()
+  /** Browsers often reset focus late on full reload; retry across tasks / frames / `load`. */
+  function scheduleFocusAttempts(
+    getEl: () => HTMLInputElement | undefined,
+    signal: AbortSignal,
+  ): () => void {
+    const run = () => {
+      if (signal.aborted) return
+      const el = getEl()
+      if (!el || el.disabled) return
+      el.focus({ preventScroll: true })
+    }
+
+    run()
+    void tick().then(run)
+    queueMicrotask(run)
+    let rafInner: number | undefined
+    const rafOuter = requestAnimationFrame(() => {
+      rafInner = requestAnimationFrame(run)
+    })
+    const t = window.setTimeout(run, 0)
+
+    let onLoad: (() => void) | undefined
+    if (document.readyState !== 'complete') {
+      onLoad = run
+      window.addEventListener('load', onLoad, { once: true })
+    }
+
     return () => {
+      cancelAnimationFrame(rafOuter)
+      if (rafInner !== undefined) cancelAnimationFrame(rafInner)
+      window.clearTimeout(t)
+      if (onLoad) window.removeEventListener('load', onLoad)
+    }
+  }
+
+  onMount(() => {
+    const ac = new AbortController()
+    let stopFocusAttempts: (() => void) | null = null
+
+    void (async () => {
+      await boot()
+      if (ac.signal.aborted) return
+      await tick()
+      await tick()
+      if (ac.signal.aborted) return
+      stopFocusAttempts = scheduleFocusAttempts(() => handleInputEl, ac.signal)
+    })()
+
+    return () => {
+      ac.abort()
+      stopFocusAttempts?.()
       if (debounceTimer !== undefined) clearTimeout(debounceTimer)
     }
   })
@@ -155,6 +204,7 @@
         </span>
         <input
           id="ob-handle-input"
+          bind:this={handleInputEl}
           type="text"
           class="ob-handle-input min-w-0 flex-1 border-none bg-transparent font-mono text-base text-[var(--text)] outline-none"
           autocomplete="username"

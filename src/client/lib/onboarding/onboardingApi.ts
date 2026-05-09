@@ -130,14 +130,15 @@ export async function postSetupAppleMail(): Promise<{ ok: true } | { ok: false; 
 export async function postOnboardingFinalize(sessionId: string): Promise<void> {
   const res = await fetch(apiUrl('/api/onboarding/finalize'), {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       sessionId,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     }),
   })
+  const j = (await res.json().catch(() => ({}))) as { error?: string }
   if (!res.ok) {
-    const j = (await res.json()) as { error?: string }
     throw new Error(j.error ?? 'Could not finish setup')
   }
 }

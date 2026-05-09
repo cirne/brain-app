@@ -178,10 +178,13 @@ async function start() {
           }
         })()
         const devResetPath = pathname === '/reset' || pathname === '/hard-reset'
+        /** OAuth “browser landing” HTML (`/oauth/google/complete`, `/error`) — must hit Hono, not Vite SPA. */
+        const oauthGoogleBrowserPath = pathname === '/oauth/google' || pathname.startsWith('/oauth/google/')
         const useHono =
           Boolean(req.url?.startsWith('/api/')) ||
           (req.method === 'GET' && pathname === '/logout') ||
-          (process.env.NODE_ENV !== 'production' && devResetPath)
+          (process.env.NODE_ENV !== 'production' && devResetPath) ||
+          oauthGoogleBrowserPath
         if (useHono) {
           honoHandler(req, res)
         } else {

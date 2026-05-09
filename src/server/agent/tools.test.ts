@@ -905,6 +905,7 @@ fi
         ripmailScript,
         `#!/bin/sh
 echo "$@" >> ${join(wikiDir, 'ripmail-archive.log')}
+printf '{"results":[{"messageId":"%s","local":{"ok":true,"isArchived":true},"providerMutation":{"attempted":false,"ok":false,"error":null}}]}\\n' "$2"
 `
       )
       await chmod(ripmailScript, 0o755)
@@ -921,11 +922,58 @@ echo "$@" >> ${join(wikiDir, 'ripmail-archive.log')}
       const tool = tools.find((t) => t.name === 'archive_emails')!
       const result = await tool.execute('ae-1', { message_ids: ['msg-a', 'msg-b'] })
       expect(toolResultFirstText(result)).toContain('Archived 2 message(s)')
+      const details = result.details as { ok?: boolean; archived?: string[]; failed?: string[] }
+      expect(details.ok).toBe(true)
+      expect(details.archived).toEqual(['msg-a', 'msg-b'])
+      expect(details.failed ?? []).toHaveLength(0)
       const { readFile } = await import('node:fs/promises')
       const log = await readFile(join(wikiDir, 'ripmail-archive.log'), 'utf8')
       expect(log).toContain('archive')
       expect(log).toContain('msg-a')
       expect(log).toContain('msg-b')
+    })
+  })
+
+  // Regression: when ripmail archive cannot resolve an id (unknown message), it exits 0
+  // with `local.ok: false` per result. The Brain tool used to ignore stdout and report
+  // "Archived N" anyway — the user saw "30 archived" but the next list_inbox showed the
+  // same 30 rows. The tool must reflect actual local archive success per message.
+  describe('archive_emails tool — unresolved ids', () => {
+    let ripmailScript: string
+
+    beforeEach(async () => {
+      ripmailScript = join(wikiDir, 'fake-ripmail-archive-noop')
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh
+if [ "$1" = "archive" ]; then
+  printf '{"results":[{"messageId":"%s","local":{"ok":false,"isArchived":true},"providerMutation":{"attempted":false,"ok":false,"error":null}}]}\\n' "$2"
+  exit 0
+fi
+exit 1
+`
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+    })
+
+    afterEach(() => {
+      delete process.env.RIPMAIL_BIN
+    })
+
+    it('does not claim success when ripmail reports local.ok=false for every id', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const tool = tools.find((t) => t.name === 'archive_emails')!
+      const result = await tool.execute('ae-noop', { message_ids: ['bogus-1', 'bogus-2'] })
+
+      const text = toolResultFirstText(result)
+      expect(text).not.toContain('Archived 2 message(s)')
+
+      const details = result.details as { ok?: boolean; archived?: string[]; failed?: string[] }
+      expect(details.ok).toBe(false)
+      expect(details.archived ?? []).toHaveLength(0)
+      expect(details.failed ?? []).toEqual(expect.arrayContaining(['bogus-1', 'bogus-2']))
     })
   })
 

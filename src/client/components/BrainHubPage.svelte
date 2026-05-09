@@ -6,7 +6,13 @@
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
-  import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
+  import { wikiOverviewSubtitle, wikiOverviewTitle } from '@client/lib/hub/wikiOverviewCopy.js'
+  import { sortHubRipmailSources } from '@client/lib/hub/hubSourceOrdering.js'
+  import { indexFeedSummaryFromHubSources } from '@client/lib/hub/indexFeedSummary.js'
+  import { buildInitialYourWikiDocFromWikiSlice } from '@client/lib/hub/yourWikiDocFromBackground.js'
+  import { HUB_BACKGROUND_STATUS_POLL_MS } from '@client/lib/hub/hubBackgroundPoll.js'
+  import { fetchWikiRecentEditsList } from '@client/lib/wiki/wikiRecentEditsFetch.js'
+  import { formatRelativeDate, type HubRipmailSourceRow } from '@client/lib/hub/hubRipmailSource.js'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
@@ -17,26 +23,11 @@
   import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
   import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
   import HubSharingSection from '@components/hub/HubSharingSection.svelte'
-  import OnboardingFirstRunPanel from '@components/onboarding/OnboardingFirstRunPanel.svelte'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
-
-  /** Background snapshot read from `/api/background-status` — poll while Hub is open. */
-  const HUB_BACKGROUND_STATUS_POLL_MS = 4000
-
-  type HubRipmailSourceRow = {
-    id: string
-    kind: string
-    displayName: string
-    path: string | null
-  }
 
   type Props = {
     /** Cross-workspace brain query hub summary; true only when server enables `BRAIN_B2B_ENABLED`. */
     brainQueryEnabled?: boolean
-    /** After onboarding mutations from Hub panel — refresh App vault/onboarding snapshot. */
-    refreshAppOnboardingStatus?: () => Promise<void>
-    /** Hosted vs desktop copy in first-run panel. */
-    multiTenant?: boolean
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** Opens Settings primary column (`/settings`); when set, Manage uses SPA navigation. */
     onOpenSettings?: () => void
@@ -46,8 +37,6 @@
 
   let {
     brainQueryEnabled = false,
-    refreshAppOnboardingStatus,
-    multiTenant = false,
     onHubNavigate,
     onOpenSettings,
     onOpenBrainAccess,
@@ -66,9 +55,6 @@
   let syncKickBusy = $state(false)
   let wikiBackgroundUpdateBusy = $state(false)
 
-  /** When false, show mail/indexing first-run panel above Activity. */
-  let onboardingHubDone = $state(true)
-
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
     wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
@@ -81,120 +67,15 @@
 
   const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
 
-  async function fetchWikiRecentEditsList(): Promise<{ path: string; date: string }[]> {
-    try {
-      const histRes = await fetch('/api/wiki/edit-history?limit=5')
-      if (histRes.ok) {
-        const j = (await histRes.json()) as { files?: { path: string; date: string }[] }
-        const files = Array.isArray(j.files) ? j.files : []
-        if (files.length > 0) return files
-      }
-      const recentRes = await fetch('/api/wiki/recent?limit=5')
-      if (recentRes.ok) {
-        const j = (await recentRes.json()) as { files?: { path: string; date: string }[] }
-        return Array.isArray(j.files) ? j.files : []
-      }
-    } catch {
-      /* ignore */
-    }
-    return []
-  }
+  const wikiHubTitle = $derived(wikiOverviewTitle(wikiDoc))
+  const wikiHubSub = $derived(wikiOverviewSubtitle(wikiDoc, wikiPageCount))
 
-  const wikiHubTitle = $derived.by(() => {
-    if (!wikiDoc) return 'Your Wiki'
-    switch (wikiPhase) {
-      case 'starting':
-        return 'Building your first pages'
-      case 'enriching':
-        return 'Expanding your wiki'
-      case 'cleaning':
-        return 'Tidying links and pages'
-      case 'paused':
-        return 'Wiki updates paused'
-      case 'error':
-        return 'Something went wrong'
-      case 'idle':
-        return wikiDoc.detail === 'Pausing between laps' ? 'Taking a short break' : 'Wiki is up to date'
-      default:
-        return 'Your Wiki'
-    }
-  })
-
-  const wikiHubSub = $derived.by(() => {
-    if (!wikiDoc) return 'Loading status…'
-    const last = wikiDoc.lastWikiPath?.trim()
-    const lastLine = last ? `Last: ${wikiVaultPathDisplayName(last)}` : null
-
-    switch (wikiPhase) {
-      case 'starting':
-        return lastLine ?? 'Getting everything ready…'
-      case 'enriching':
-        if (lastLine) return lastLine
-        if ((wikiDoc.detail ?? '').includes('Sync')) return wikiDoc.detail ?? 'Preparing sources…'
-        return 'Looking for pages to improve'
-      case 'cleaning':
-        return lastLine ?? 'Cleaning up links and orphaned pages'
-      case 'paused':
-        return lastLine ?? 'Tap Resume when you want background updates again'
-      case 'error': {
-        const msg = (wikiDoc.error ?? wikiDoc.detail ?? 'Open details for more').trim()
-        return msg.length > 140 ? `${msg.slice(0, 137)}…` : msg
-      }
-      case 'idle':
-        if (wikiDoc.detail === 'Pausing between laps') {
-          return lastLine ?? 'Next pass soon'
-        }
-        if (wikiDoc.idleReason) {
-          const short = wikiDoc.idleReason.split(/\s*[—–-]\s*/)[0]?.trim() ?? wikiDoc.idleReason
-          return lastLine ? `${short} · ${lastLine}` : short
-        }
-        return lastLine ?? (wikiPageCount != null ? `${wikiPageCount} pages in your wiki` : 'Ready when you are')
-      default:
-        return lastLine ?? (wikiDoc.detail || '…')
-    }
-  })
-
-  function sourceTier(kind: string): number {
-    if (kind === 'imap' || kind === 'applemail') return 0
-    if (
-      kind === 'googleCalendar' ||
-      kind === 'appleCalendar' ||
-      kind === 'icsSubscription' ||
-      kind === 'icsFile'
-    ) {
-      return 1
-    }
-    if (kind === 'localDir') return 2
-    return 3
-  }
-
-  const orderedHubSources = $derived(
-    [...hubSources].sort((a, b) => {
-      const t = sourceTier(a.kind) - sourceTier(b.kind)
-      if (t !== 0) return t
-      return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
-    }),
-  )
+  const orderedHubSources = $derived(sortHubRipmailSources(hubSources))
 
   function applyBackgroundStatusPayload(bg: BackgroundStatusResponse): void {
     mailStatus = onboardingMailStatusFromBackground(bg.mail)
     if (wikiDoc == null && bg.wiki) {
-      wikiDoc = {
-        id: 'your-wiki',
-        kind: 'your-wiki',
-        status: bg.wiki.status,
-        label: 'Your Wiki',
-        detail: bg.wiki.detail,
-        pageCount: bg.wiki.pageCount,
-        logLines: [],
-        logEntries: [],
-        timeline: [],
-        startedAt: bg.wiki.lastRunAt ?? bg.updatedAt,
-        updatedAt: bg.wiki.lastRunAt ?? bg.updatedAt,
-        phase: bg.wiki.phase,
-        lap: bg.wiki.currentLap,
-        error: bg.wiki.error,
-      }
+      wikiDoc = buildInitialYourWikiDocFromWikiSlice(bg.wiki, bg.updatedAt)
     }
   }
 
@@ -209,39 +90,7 @@
     }
   }
 
-  /** Summary line for connected sources row in the overview card. */
-  const indexFeedSummary = $derived.by(() => {
-    let mail = 0
-    let cal = 0
-    let other = 0
-    for (const s of orderedHubSources) {
-      if (s.kind === 'imap' || s.kind === 'applemail') mail++
-      else if (
-        s.kind === 'googleCalendar' ||
-        s.kind === 'appleCalendar' ||
-        s.kind === 'icsSubscription' ||
-        s.kind === 'icsFile'
-      ) {
-        cal++
-      } else other++
-    }
-    const bits: string[] = []
-    if (mail) bits.push(`${mail} mailbox${mail === 1 ? '' : 'es'}`)
-    if (cal) bits.push(`${cal} calendar${cal === 1 ? '' : 's'}`)
-    if (other) bits.push(`${other} folder${other === 1 ? '' : 's'}`)
-    return bits.join(' · ')
-  })
-
-  async function refreshOnboardingHubDone() {
-    try {
-      const r = await fetch('/api/onboarding/status', { credentials: 'include' })
-      if (!r.ok) return
-      const j = (await r.json()) as { state?: string }
-      onboardingHubDone = j.state === 'done'
-    } catch {
-      onboardingHubDone = false
-    }
-  }
+  const indexFeedSummary = $derived(indexFeedSummaryFromHubSources(orderedHubSources))
 
   async function fetchData() {
     backgroundStatusLoading = true
@@ -263,8 +112,7 @@
         hubSources = Array.isArray(j.sources) ? j.sources : []
         hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
       }
-      wikiRecentEdits = await fetchWikiRecentEditsList()
-      await refreshOnboardingHubDone()
+      wikiRecentEdits = await fetchWikiRecentEditsList(5)
     } catch {
       /* ignore */
     } finally {
@@ -334,24 +182,6 @@
     }
   })
 
-  function formatRelativeDate(iso: string): string {
-    const d = new Date(iso)
-    if (isNaN(d.getTime())) return iso
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
-    const diffSec = Math.floor(diffMs / 1000)
-    const diffMin = Math.floor(diffSec / 60)
-    const diffHour = Math.floor(diffMin / 60)
-    const diffDay = Math.floor(diffHour / 24)
-
-    if (diffSec < 60) return 'Just now'
-    if (diffMin < 60) return `${diffMin}m ago`
-    if (diffHour < 24) return `${diffHour}h ago`
-    if (diffDay === 1) return 'Yesterday'
-    if (diffDay < 7) return `${diffDay}d ago`
-    return d.toLocaleDateString()
-  }
-
   async function wikiPause() {
     if (wikiActionBusy) return
     wikiActionBusy = true
@@ -399,18 +229,6 @@
       </div>
     </div>
   </header>
-
-  {#if !onboardingHubDone}
-    <section class="flex flex-col gap-3" aria-label="First-run setup">
-      <OnboardingFirstRunPanel
-        refreshStatus={async () => {
-          await refreshAppOnboardingStatus?.()
-          await refreshOnboardingHubDone()
-        }}
-        {multiTenant}
-      />
-    </section>
-  {/if}
 
   <div class="hub-grid flex flex-col gap-10">
     <HubActivityOverview

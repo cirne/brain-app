@@ -62,4 +62,20 @@ describe('OnboardingFirstRunPanel.svelte', () => {
     })
     expect(screen.getByRole('status')).toHaveTextContent(/Chat/)
   })
+
+  it('welcome panel root stretches so hero shells can vertically center', async () => {
+    const { container } = render(OnboardingFirstRunPanel, {
+      props: {
+        refreshStatus: vi.fn(async () => {}),
+        multiTenant: false,
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(/Guided setup continues in/)
+    })
+
+    const root = container.querySelector('.onboarding')
+    expect(root?.className.includes('flex-1')).toBe(true)
+  })
 })

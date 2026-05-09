@@ -91,6 +91,21 @@ describe('ConfirmDialog.svelte', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
+  it('uses danger Tailwind bundle on the confirm button when confirmVariant is danger', () => {
+    render(ConfirmDialogHarness, {
+      props: {
+        open: true,
+        title: 'T',
+        confirmLabel: 'Delete',
+        confirmVariant: 'danger',
+        onDismiss: vi.fn(),
+        onConfirm: vi.fn(),
+      },
+    })
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('text-danger')
+  })
+
   it('calls onDismiss on Escape (cancel)', async () => {
     const onDismiss = vi.fn()
     render(ConfirmDialogHarness, {

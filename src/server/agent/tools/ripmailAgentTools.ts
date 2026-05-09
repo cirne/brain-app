@@ -818,17 +818,34 @@ export function createRipmailAgentTools(wikiDir: string) {
     }),
     async execute(_toolCallId: string, params: { message_ids: string[] }) {
       const rm = ripmailBin()
+      const archived: string[] = []
+      const failed: string[] = []
       for (const id of params.message_ids) {
-        await execRipmailAsync(`${rm} archive ${JSON.stringify(id)}`, { timeout: 30000 })
+        const { stdout } = await execRipmailAsync(`${rm} archive ${JSON.stringify(id)}`, {
+          timeout: 30000,
+        })
+        let localOk: boolean
+        try {
+          const parsed = JSON.parse(stdout) as {
+            results?: Array<{ local?: { ok?: boolean } }>
+          }
+          localOk = parsed.results?.some((r) => r.local?.ok === true) ?? false
+        } catch {
+          // Treat unparseable output as failure: ripmail prints valid JSON on success.
+          localOk = false
+        }
+        if (localOk) archived.push(id)
+        else failed.push(id)
       }
+      const ok = failed.length === 0
+      const text = ok
+        ? `Archived ${archived.length} message(s).`
+        : archived.length === 0
+          ? `Archived 0 of ${params.message_ids.length} message(s) — none of the supplied ids resolved to indexed mail.`
+          : `Archived ${archived.length} of ${params.message_ids.length} message(s); ${failed.length} id(s) did not resolve.`
       return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Archived ${params.message_ids.length} message(s).`,
-          },
-        ],
-        details: { ok: true, archived: params.message_ids },
+        content: [{ type: 'text' as const, text }],
+        details: { ok, archived, failed },
       }
     },
   })

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Context } from 'hono'
 import type { ChatMessage } from './chatTypes.js'
@@ -25,6 +25,8 @@ import {
 } from '@server/lib/observability/newRelicHelper.js'
 import {
   attachAgentDiagnosticsCollector,
+  writeSyntheticTurnDiagnosticsJsonl,
+  type DiagToolTraceEntry,
 } from '@server/lib/observability/agentDiagnostics.js'
 import {
   handleStreamAgentEnd,
@@ -39,6 +41,8 @@ import type {
   ToolExecutionEndPayload,
   ToolExecutionStartPayload,
 } from './streamAgentSseTypes.js'
+import { FINISH_CONVERSATION_TOOL_RESULT_TEXT } from '@shared/finishConversationShortcut.js'
+import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -337,10 +341,6 @@ export function streamAgentSseResponse(
   })
 }
 
-/** Matches `finish_conversation` execute text in `createUiAgentTools` (`uiAgentTools.ts`). */
-export const FINISH_CONVERSATION_TOOL_RESULT_TEXT =
-  'Conversation finish signaled; the app will apply the close/new-chat action.'
-
 /**
  * No LLM: emits `finish_conversation` like a real tool run so the client closes / starts fresh chat.
  * Pi-agent session is not updated — callers should only use this when the UI will abandon the thread.
@@ -355,6 +355,8 @@ export function streamFinishConversationShortcutSse(
 ): Response | Promise<Response> {
   const { announceSessionId, userMessageForPersistence, onTurnComplete } = options
   const toolId = randomUUID()
+  const diagTurnId = randomUUID()
+  const shortcutStartedAt = performance.now()
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
@@ -373,6 +375,7 @@ export function streamFinishConversationShortcutSse(
       false,
       { ok: true as const },
     )
+    let sseEmittedDone = false
     try {
       await stream.writeSSE({
         event: 'tool_start',
@@ -397,8 +400,60 @@ export function streamFinishConversationShortcutSse(
         event: 'done',
         data: JSON.stringify({}),
       })
+      sseEmittedDone = true
     } catch {
       /* stream closed */
+    } finally {
+      const durationMs = Math.max(0, Math.round(performance.now() - shortcutStartedAt))
+      const finishText = FINISH_CONVERSATION_TOOL_RESULT_TEXT
+      const resultPreview = truncateJsonResult(finishText, 2000)
+      const resultSha256 = createHash('sha256').update(finishText, 'utf8').digest('hex')
+      const argsJsonBytes = Buffer.byteLength(JSON.stringify({}), 'utf8')
+      const resultJsonBytes = Buffer.byteLength(finishText, 'utf8')
+      const toolTrace: DiagToolTraceEntry[] = [
+        {
+          toolCallId: toolId,
+          toolName: 'finish_conversation',
+          isError: false,
+          durationMs: 0,
+          argsJsonBytes,
+          resultJsonBytes,
+          resultTruncated: false,
+          resultSha256,
+          resultPreview,
+        },
+      ]
+      try {
+        await writeSyntheticTurnDiagnosticsJsonl({
+          meta: {
+            agentTurnId: diagTurnId,
+            agentKind: 'finish_conversation_shortcut',
+            source: 'chat_sse_finish_shortcut',
+            ...(announceSessionId !== undefined ? { sessionId: announceSessionId } : {}),
+          },
+          fileKind: 'finish_conversation_shortcut',
+          durationMs,
+          toolTrace,
+          transcript: {
+            shortcut: true,
+            sseEmittedDone,
+            userLinePreview: userMessageForPersistence,
+          },
+          events: [
+            {
+              kind: 'event' as const,
+              seq: 1,
+              type: 'tool_execution_end',
+              toolCallId: toolId,
+              toolName: 'finish_conversation',
+              isError: false,
+              result: finishText,
+            },
+          ],
+        })
+      } catch {
+        /* best-effort */
+      }
     }
     if (onTurnComplete) {
       try {

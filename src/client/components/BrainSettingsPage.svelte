@@ -2,19 +2,17 @@
   import { onMount } from 'svelte'
   import {
     User,
-    Mail,
     ChevronRight,
-    Folder,
-    Calendar,
-    HardDrive,
     LogOut,
-    Plus,
     Trash2,
     MessageSquare,
     Link2,
     Brain,
+    BookOpen,
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
+  import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
   import {
@@ -30,28 +28,47 @@
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
-  import {
-    sourceKindLabel,
-    type HubRipmailSourceRow,
-  } from '@client/lib/hub/hubRipmailSource.js'
+  import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
+  import SettingsSectionH2 from '@components/settings/SettingsSectionH2.svelte'
+  import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
+  import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
+  import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
+  import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
+  import { HUB_BACKGROUND_STATUS_POLL_MS } from '@client/lib/hub/hubBackgroundPoll.js'
+  import { sortHubRipmailSources } from '@client/lib/hub/hubSourceOrdering.js'
+  import { indexFeedSummaryFromHubSources } from '@client/lib/hub/indexFeedSummary.js'
+  import { buildInitialYourWikiDocFromWikiSlice } from '@client/lib/hub/yourWikiDocFromBackground.js'
+  import { wikiOverviewSubtitle, wikiOverviewTitle } from '@client/lib/hub/wikiOverviewCopy.js'
+  import type { HubRipmailSourceRow } from '@client/lib/hub/hubRipmailSource.js'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
-    /** When settings detail shows this hub connection (`overlay.type === 'hub-source'`), highlight its row. */
     selectedHubSourceId?: string
-    /** Cross-workspace brain query UI; true only when server enables `BRAIN_B2B_ENABLED`. */
     brainQueryEnabled?: boolean
+    multiTenant?: boolean
   }
 
-  let { onSettingsNavigate, selectedHubSourceId, brainQueryEnabled = false }: Props = $props()
+  let {
+    onSettingsNavigate,
+    selectedHubSourceId: _selectedHubSourceId,
+    brainQueryEnabled = false,
+    multiTenant = false,
+  }: Props = $props()
 
+  let docCount = $state<number | null>(null)
+  let wikiDoc = $state<BackgroundAgentDoc | null>(null)
+  let mailStatus = $state<OnboardingMailStatus | null>(null)
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
-  let mailHiddenFromDefault = $state<Set<string>>(new Set())
-  let defaultSendSourceId = $state<string | null>(null)
-  let addAccountBanner = $state<{ kind: 'ok' | 'err'; message: string } | null>(null)
-  let multiTenant = $state(false)
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
+  let wikiActionBusy = $state(false)
+  let backgroundStatusLoading = $state(true)
+  let syncKickBusy = $state(false)
+  let wikiBackgroundUpdateBusy = $state(false)
+
+  let addAccountBanner = $state<{ kind: 'ok' | 'err'; message: string } | null>(null)
   let accountBusy = $state(false)
   let deleteAllConfirmOpen = $state(false)
   let chatToolDisplayMode = $state<ChatToolDisplayMode>(readChatToolDisplayPreference())
@@ -61,68 +78,112 @@
     writeChatToolDisplayPreference(mode)
   }
 
-  function sourceTier(kind: string): number {
-    if (kind === 'imap' || kind === 'applemail') return 0
-    if (
-      kind === 'googleCalendar' ||
-      kind === 'appleCalendar' ||
-      kind === 'icsSubscription' ||
-      kind === 'icsFile'
-    ) {
-      return 1
-    }
-    if (kind === 'localDir' || kind === 'googleDrive') return 2
-    return 3
-  }
-
-  function sourceRowSecondary(s: HubRipmailSourceRow): string {
-    const k = sourceKindLabel(s.kind)
-    if (s.path) return `${k} · ${s.path}`
-    return k
-  }
-
-  const orderedHubSources = $derived(
-    [...hubSources].sort((a, b) => {
-      const t = sourceTier(a.kind) - sourceTier(b.kind)
-      if (t !== 0) return t
-      return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
-    }),
+  const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
+  const wikiIsActive = $derived(
+    wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
+  )
+  const wikiIsPaused = $derived(wikiPhase === 'paused')
+  const wikiIsIdle = $derived(
+    wikiPhase === 'idle' ||
+      (!wikiIsActive && wikiPhase !== 'paused' && wikiPhase !== 'error'),
   )
 
-  async function fetchData() {
+  const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
+
+  const wikiHubTitle = $derived(wikiOverviewTitle(wikiDoc))
+  const wikiHubSub = $derived(wikiOverviewSubtitle(wikiDoc, wikiPageCount))
+
+  const orderedHubSources = $derived(sortHubRipmailSources(hubSources))
+
+  function applyBackgroundStatusPayload(bg: BackgroundStatusResponse): void {
+    mailStatus = onboardingMailStatusFromBackground(bg.mail)
+    if (wikiDoc == null && bg.wiki) {
+      wikiDoc = buildInitialYourWikiDocFromWikiSlice(bg.wiki, bg.updatedAt)
+    }
+  }
+
+  async function refreshBackgroundStatusPoll(): Promise<void> {
     try {
-      const [sourcesRes, mailPrefsRes] = await Promise.all([
-        fetch('/api/hub/sources'),
-        fetch('/api/hub/sources/mail-prefs'),
-      ])
-      if (sourcesRes.ok) {
-        const j = (await sourcesRes.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
-        hubSources = Array.isArray(j.sources) ? j.sources : []
-        hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
-      }
-      if (mailPrefsRes.ok) {
-        const j = (await mailPrefsRes.json()) as {
-          ok?: boolean
-          mailboxes?: { id: string; includeInDefault: boolean }[]
-          defaultSendSource?: string | null
-        }
-        if (j.ok && Array.isArray(j.mailboxes)) {
-          const next = new Set<string>()
-          for (const m of j.mailboxes) {
-            if (m && m.includeInDefault === false) next.add(m.id)
-          }
-          mailHiddenFromDefault = next
-        }
-        defaultSendSourceId = typeof j.defaultSendSource === 'string' ? j.defaultSendSource : null
-      }
+      const bgRes = await fetch('/api/background-status', { credentials: 'include' })
+      if (!bgRes.ok) return
+      const bg = (await bgRes.json()) as BackgroundStatusResponse
+      applyBackgroundStatusPayload(bg)
     } catch {
       /* ignore */
     }
   }
 
-  /**
-   * After OAuth link callback redirects to `/settings?addedAccount=…`, show a banner and strip query params.
-   */
+  const indexFeedSummary = $derived(indexFeedSummaryFromHubSources(orderedHubSources))
+
+  async function fetchData() {
+    backgroundStatusLoading = true
+    try {
+      const [wikiRes, bgRes, sourcesRes] = await Promise.all([
+        fetch('/api/wiki', { credentials: 'include' }),
+        fetch('/api/background-status', { credentials: 'include' }),
+        fetch('/api/hub/sources', { credentials: 'include' }),
+      ])
+
+      if (wikiRes.ok) {
+        docCount = parseWikiListApiBody(await wikiRes.json()).files.length
+      }
+      if (bgRes.ok) {
+        applyBackgroundStatusPayload((await bgRes.json()) as BackgroundStatusResponse)
+      }
+      if (sourcesRes.ok) {
+        const j = (await sourcesRes.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
+        hubSources = Array.isArray(j.sources) ? j.sources : []
+        hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      backgroundStatusLoading = false
+    }
+  }
+
+  async function syncMailNow() {
+    if (syncKickBusy || mailStatus?.syncRunning) return
+    syncKickBusy = true
+    try {
+      await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
+      await fetchData()
+    } finally {
+      syncKickBusy = false
+    }
+  }
+
+  async function runWikiBackgroundUpdateNow() {
+    if (wikiBackgroundUpdateBusy) return
+    wikiBackgroundUpdateBusy = true
+    try {
+      await postYourWikiRunLap()
+      await fetchData()
+    } finally {
+      wikiBackgroundUpdateBusy = false
+    }
+  }
+
+  async function wikiPause() {
+    if (wikiActionBusy) return
+    wikiActionBusy = true
+    try {
+      await postYourWikiPause()
+    } finally {
+      wikiActionBusy = false
+    }
+  }
+
+  async function wikiResume() {
+    if (wikiActionBusy) return
+    wikiActionBusy = true
+    try {
+      await postYourWikiResume()
+    } finally {
+      wikiActionBusy = false
+    }
+  }
+
   function consumeAddAccountQuery() {
     if (typeof window === 'undefined') return
     const url = new URL(window.location.href)
@@ -144,14 +205,9 @@
     }, 8000)
   }
 
-  function startAddAnotherGmail() {
-    window.location.assign('/api/oauth/google/link/start')
-  }
-
   onMount(() => {
     void fetchVaultStatus()
       .then((v) => {
-        multiTenant = v.multiTenant === true
         if (
           v.multiTenant === true &&
           v.handleConfirmed === true &&
@@ -164,16 +220,28 @@
         }
       })
       .catch(() => {
-        multiTenant = false
         hostedWorkspaceHandle = undefined
       })
     consumeAddAccountQuery()
     void fetchData()
-    const unsub = subscribe((e) => {
-      if (e.type === 'hub:sources-changed' || e.type === 'sync:completed') void fetchData()
+    const pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void refreshBackgroundStatusPoll()
+    }, HUB_BACKGROUND_STATUS_POLL_MS)
+    const unsubEvents = subscribe((e) => {
+      if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated' || e.type === 'sync:completed') {
+        void fetchData()
+      }
     })
+    const unsubWikiStore = yourWikiDocFromEvents.subscribe((doc) => {
+      if (doc) wikiDoc = doc
+    })
+    const stopHubEvents = startHubEventsConnection()
     return () => {
-      unsub()
+      clearInterval(pollTimer)
+      unsubEvents()
+      unsubWikiStore()
+      stopHubEvents()
     }
   })
 
@@ -211,18 +279,10 @@
     }
   }
 
-  /** Section header. */
-  const sectionHeaderBase =
-    'section-header flex items-center gap-3 border-b border-border pb-3 text-foreground'
-  /**
-   * Settings link rows. Border-1 transparent gives stable row height; only the color changes
-   * on selection/focus so the fill sits flush with the row.
-   */
   const linkItemBase =
     'link-item flex cursor-pointer items-center justify-between border border-transparent border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent p-2 text-left text-foreground transition-[padding,color,background,border-color] duration-150 focus-visible:!border-accent focus-visible:bg-accent-dim focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55'
-  const linkItemSelected =
-    'link-item--selected !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-accent-dim focus-visible:!border-accent'
-
+  const drillRowBase =
+    'link-item flex cursor-pointer items-center justify-between border border-transparent border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent py-2 text-left text-foreground transition-[padding,color] duration-150 hover:not-disabled:pl-1 hover:not-disabled:text-accent'
 </script>
 
 <div
@@ -262,16 +322,92 @@
     </div>
   {/if}
 
+  <HubActivityOverview
+    mailStatus={mailStatus}
+    mailLoading={backgroundStatusLoading}
+    wikiTitle={wikiHubTitle}
+    wikiSubtitle={wikiHubSub}
+    wikiPhase={wikiPhase}
+    wikiIsActive={wikiIsActive}
+    wikiIsPaused={wikiIsPaused}
+    wikiIsIdle={wikiIsIdle}
+    showWikiControls={Boolean(wikiDoc && wikiPhase != null)}
+    onSyncNow={syncMailNow}
+    onWikiUpdateNow={runWikiBackgroundUpdateNow}
+    onPause={wikiPause}
+    onResume={wikiResume}
+    syncBusy={syncKickBusy || Boolean(mailStatus?.syncRunning)}
+    wikiUpdateBusy={wikiBackgroundUpdateBusy}
+    wikiActionBusy={wikiActionBusy}
+    indexFeedSummary={indexFeedSummary}
+    sourcesEmpty={orderedHubSources.length === 0}
+    sourcesError={hubSourcesError}
+    onOpenSettings={() => onSettingsNavigate({ type: 'settings-connections' })}
+  />
+
   <div class="settings-grid grid grid-cols-1 gap-14">
+    <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-drill-heading">
+      <SettingsSectionH2 label="Workspace" id="settings-drill-heading" />
+      <div class="links-list flex flex-col">
+        <button
+          type="button"
+          class={drillRowBase}
+          onclick={() => onSettingsNavigate({ type: 'settings-connections' })}
+        >
+          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+            <Link2 size={16} aria-hidden="true" />
+            <HubSourceRowBody
+              title="Connections"
+              subtitle="Mailboxes, calendars, and folders wired into Braintunnel"
+            />
+          </div>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          class={drillRowBase}
+          onclick={() => onSettingsNavigate({ type: 'settings-wiki' })}
+        >
+          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+            <BookOpen size={16} aria-hidden="true" />
+            <HubSourceRowBody
+              title="Wiki activity"
+              subtitle="Background jobs, recent edits, and wiki log"
+            />
+          </div>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+
+        {#if brainQueryEnabled}
+          <button
+            type="button"
+            class={drillRowBase}
+            onclick={() => onSettingsNavigate({ type: 'brain-access' })}
+          >
+            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+              <Brain size={16} aria-hidden="true" />
+              <HubSourceRowBody
+                title="Brain to Brain access"
+                subtitle="Policies, collaborators, and inbound activity"
+              />
+            </div>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        {/if}
+      </div>
+    </section>
+
     <section
       class="settings-section flex flex-col gap-6"
       aria-labelledby="settings-account-heading"
       aria-busy={accountBusy}
     >
-      <div class={sectionHeaderBase}>
-        <User size={18} />
-        <h2 id="settings-account-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Account</h2>
-      </div>
+      <SettingsSectionH2 label="Account" id="settings-account-heading">
+        {#snippet icon()}
+          <User size={18} aria-hidden="true" />
+        {/snippet}
+      </SettingsSectionH2>
       <div class="links-list flex flex-col">
         <button
           type="button"
@@ -315,128 +451,16 @@
       </div>
     </section>
 
-    <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-sources-heading">
-      <div class={sectionHeaderBase}>
-        <Link2 size={18} />
-        <h2 id="settings-sources-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Connections</h2>
-      </div>
-      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Mailboxes, calendars, and folders wired into Braintunnel. Open a row to change indexing, default send, or remove
-        a connection.
-      </p>
-      <div class="links-list flex flex-col">
-        {#if hubSourcesError}
-          <p class="empty-msg settings-sources-err m-0 cursor-help py-4 text-[0.9375rem] text-muted" title={hubSourcesError}>Could not load sources.</p>
-        {:else if orderedHubSources.length === 0}
-          <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">
-            {#if multiTenant}
-              No sources yet. Connect mail or add calendars below.
-            {:else}
-              No sources yet. Connect mail or add calendars.
-            {/if}
-          </p>
-        {:else}
-          {#each orderedHubSources as s (s.id)}
-            {@const isMail = s.kind === 'imap' || s.kind === 'applemail'}
-            {@const isDefaultSend = isMail && defaultSendSourceId === s.id}
-            {@const isHidden = isMail && mailHiddenFromDefault.has(s.id)}
-            <button
-              type="button"
-              class={cn(
-                linkItemBase,
-                'hub-source-row',
-                selectedHubSourceId === s.id && linkItemSelected,
-              )}
-              aria-current={selectedHubSourceId === s.id ? 'true' : undefined}
-              onclick={() => onSettingsNavigate({ type: 'hub-source', id: s.id })}
-            >
-              <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-                <HubSourceRowBody title={s.displayName} subtitle={sourceRowSecondary(s)}>
-                  {#snippet icon()}
-                    {#if s.kind === 'localDir'}
-                      <Folder size={16} />
-                    {:else if s.kind === 'googleDrive'}
-                      <HardDrive size={16} />
-                    {:else if s.kind === 'imap' || s.kind === 'applemail'}
-                      <Mail size={16} />
-                    {:else}
-                      <Calendar size={16} />
-                    {/if}
-                  {/snippet}
-                </HubSourceRowBody>
-              </div>
-              <div
-                class="hub-source-row-flags mr-2 inline-flex shrink-0 items-center gap-1.5"
-                aria-hidden={!isMail}
-              >
-                {#if isDefaultSend}
-                  <span
-                    class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
-                    title="Default mailbox for sending"
-                  >
-                    Default send
-                  </span>
-                {/if}
-                {#if isHidden}
-                  <span
-                    class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
-                    title="Excluded from default searches"
-                  >
-                    Hidden from search
-                  </span>
-                {/if}
-              </div>
-              <ChevronRight size={16} aria-hidden="true" />
-            </button>
-          {/each}
-        {/if}
-        <button type="button" class={cn(linkItemBase, 'hub-source-row')} onclick={startAddAnotherGmail}>
-          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-            <HubSourceRowBody
-              title="Add another Gmail account"
-              subtitle="Search and send from a second mailbox in the same workspace"
-            >
-              {#snippet icon()}
-                <Plus size={16} />
-              {/snippet}
-            </HubSourceRowBody>
-          </div>
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-      </div>
-    </section>
-
-    {#if brainQueryEnabled}
-      <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-collab-heading">
-        <div class={sectionHeaderBase}>
-          <Brain size={18} />
-          <h2 id="settings-collab-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Collaboration</h2>
-        </div>
-        <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-          Cross-workspace brain queries: who can ask your brain and what they’re allowed to learn.
-        </p>
-        <div class="links-list flex flex-col">
-          <button
-            type="button"
-            class={linkItemBase}
-            onclick={() => onSettingsNavigate({ type: 'brain-access' })}
-          >
-            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-              <Brain size={16} />
-              <span>Brain to Brain access</span>
-            </div>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </section>
-    {/if}
-
     <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-chat-prefs-heading">
-      <div class={sectionHeaderBase}>
-        <MessageSquare size={18} />
-        <h2 id="settings-chat-prefs-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Chat</h2>
-      </div>
-      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted" id="settings-chat-tool-display-desc">
+      <SettingsSectionH2 label="Chat" id="settings-chat-prefs-heading">
+        {#snippet icon()}
+          <MessageSquare size={18} aria-hidden="true" />
+        {/snippet}
+      </SettingsSectionH2>
+      <p
+        class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted"
+        id="settings-chat-tool-display-desc"
+      >
         How assistant tool use appears in your message history.
       </p>
       <div
@@ -455,7 +479,8 @@
           />
           <span class="settings-chat-pref-text flex flex-col gap-[0.15rem]">
             <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">Compact</span>
-            <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted">One-line summary per tool in the transcript.</span>
+            <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted"
+            >One-line summary per tool in the transcript.</span>
           </span>
         </label>
         <label class="settings-chat-pref-row flex cursor-pointer items-start gap-[0.6rem] py-[0.45rem]">
@@ -500,4 +525,3 @@
     keep using mail the same way you do today.
   </p>
 </ConfirmDialog>
-

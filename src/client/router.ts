@@ -26,6 +26,10 @@ export type Overlay =
   | { type: 'brain-access-policy'; policyId: string }
   /** Cross-brain answer preview for a policy (`.../policy/:policyId/preview`). */
   | { type: 'brain-access-preview'; policyId: string }
+  /** Mail/calendar connections (`/settings/connections`). */
+  | { type: 'settings-connections' }
+  /** Wiki background activity (`/settings/wiki`). */
+  | { type: 'settings-wiki' }
   | { type: 'hub-wiki-about' }
   | {
       type: 'wiki-dir'
@@ -35,6 +39,19 @@ export type Overlay =
 
 /** Primary surface of the current route. Absent (or `undefined`) means the default chat column (`/c`). */
 export type RouteZone = 'hub' | 'settings' | 'wiki'
+
+/** Dedicated first-run path segment under `/onboarding/…` (matches persisted onboarding states). */
+export type OnboardingUrlStep = 'not-started' | 'confirming-handle' | 'indexing'
+
+const ONBOARDING_URL_STEPS: readonly OnboardingUrlStep[] = [
+  'not-started',
+  'confirming-handle',
+  'indexing',
+] as const
+
+function isOnboardingUrlStep(seg: string): seg is OnboardingUrlStep {
+  return (ONBOARDING_URL_STEPS as readonly string[]).includes(seg)
+}
 
 /**
  * Chat-first shell: optional detail overlay in `?panel=` (+ payload); base path is `/c` or `/c/{slug}--{tail}`;
@@ -50,6 +67,10 @@ export type Route = {
   sessionTail?: string
   overlay?: Overlay
   flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
+  /**
+   * When `flow` is `welcome`, URL is `/onboarding/{onboardingStep}`. Legacy `/welcome` parses as `not-started`.
+   */
+  onboardingStep?: OnboardingUrlStep
   /**
    * Primary surface when not the default chat column.
    * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`.
@@ -344,6 +365,9 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
     case 'brain-access-preview':
       if (overlay.policyId) q.set('brainPolicy', overlay.policyId)
       break
+    case 'settings-connections':
+    case 'settings-wiki':
+      break
     default:
       break
   }
@@ -419,6 +443,10 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
         ? { type: 'brain-access-preview', policyId: brainPolicy }
         : { type: 'brain-access-preview', policyId: '' }
     }
+    case 'settings-connections':
+      return { type: 'settings-connections' }
+    case 'settings-wiki':
+      return { type: 'settings-wiki' }
     case 'hub-wiki-about':
       return { type: 'hub-wiki-about' }
     case 'hub':
@@ -448,6 +476,14 @@ function settingsRouteFromSearch(href: string): Route | null {
 
   if (url.pathname === '/settings/brain-access') {
     return { zone: 'settings', overlay: { type: 'brain-access' } }
+  }
+
+  if (url.pathname === '/settings/connections') {
+    return { zone: 'settings', overlay: { type: 'settings-connections' } }
+  }
+
+  if (url.pathname === '/settings/wiki') {
+    return { zone: 'settings', overlay: { type: 'settings-wiki' } }
   }
 
   const previewRest = url.pathname.match(/^\/settings\/brain-access\/policy\/([^/]+)\/preview$/)
@@ -500,8 +536,15 @@ export function parseRoute(href: string = location.href): Route {
   const url = new URL(href, 'http://localhost')
   const [, seg1, ...rest] = url.pathname.split('/')
 
-  if (seg1 === 'welcome' || seg1 === 'onboarding') {
-    return { flow: 'welcome' }
+  if (seg1 === 'welcome') {
+    return { flow: 'welcome', onboardingStep: 'not-started' }
+  }
+  if (seg1 === 'onboarding') {
+    const stepSeg = rest[0]?.trim() ?? ''
+    if (stepSeg && isOnboardingUrlStep(stepSeg)) {
+      return { flow: 'welcome', onboardingStep: stepSeg }
+    }
+    return { flow: 'welcome', onboardingStep: 'not-started' }
   }
   if (seg1 === 'hard-reset') {
     return { flow: 'hard-reset' }
@@ -589,7 +632,10 @@ export function parseRoute(href: string = location.href): Route {
 
 /** Convert a Route back to a URL string (path + `?panel=…` only; preserves no other query — see Hub OAuth banners). */
 export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
-  if (route.flow === 'welcome') return '/welcome'
+  if (route.flow === 'welcome') {
+    const step = route.onboardingStep ?? 'not-started'
+    return `/onboarding/${step}`
+  }
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'
@@ -622,6 +668,12 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
   if (zone === 'settings') {
     if (o?.type === 'brain-access') {
       return '/settings/brain-access'
+    }
+    if (o?.type === 'settings-connections') {
+      return '/settings/connections'
+    }
+    if (o?.type === 'settings-wiki') {
+      return '/settings/wiki'
     }
     if (o?.type === 'brain-access-policy') {
       const id = o.policyId?.trim()

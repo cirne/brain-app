@@ -25,7 +25,7 @@
 - Phase-1 sync helper: [`src/server/lib/platform/syncAll.ts`](../../src/server/lib/platform/syncAll.ts) (`syncInboxRipmailOnboarding` → `ripmail backfill 30d`)  
 - POST `/api/inbox/sync` dispatch: [`src/server/routes/inbox.ts`](../../src/server/routes/inbox.ts)  
 - Mail polling payload / ripmail JSON parse: [`src/server/lib/onboarding/onboardingMailStatus.ts`](../../src/server/lib/onboarding/onboardingMailStatus.ts), [`src/server/lib/ripmail/ripmailStatusParse.ts`](../../src/server/lib/ripmail/ripmailStatusParse.ts) (`refreshRunning` vs `backfillRunning`)  
-- Client first-run mail UX: [`src/client/components/onboarding/OnboardingFirstRunPanel.svelte`](../../src/client/components/onboarding/OnboardingFirstRunPanel.svelte) (Brain Hub); guided setup banner: [`OnboardingAssistantBanner.svelte`](../../src/client/components/onboarding/OnboardingAssistantBanner.svelte) on the main Assistant shell  
+- Client first-run mail UX: [`src/client/components/onboarding/OnboardingFirstRunPanel.svelte`](../../src/client/components/onboarding/OnboardingFirstRunPanel.svelte) (Brain Hub Activity)  
 - Thresholds: [`src/shared/onboardingProfileThresholds.ts`](../../src/shared/onboardingProfileThresholds.ts) (`ONBOARDING_PROFILE_INDEX_MANUAL_MIN` **500**, `WIKI_BUILDOUT_MIN_MESSAGES` **1000**; legacy constant **`ONBOARDING_BACKFILL_STILL_RUNNING_CODE`** retained only for stale references)
 - Small-inbox auto-advance gate: [`src/shared/onboardingMailGate.ts`](../../src/shared/onboardingMailGate.ts) (`isOnboardingInitialMailSyncComplete`, `canAdvanceToOnboardingAgent`)
 - Unified Hub status: [`GET /api/background-status`](./background-task-orchestration.md)

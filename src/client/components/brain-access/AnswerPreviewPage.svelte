@@ -32,6 +32,7 @@
     policyId: string
     onBackToBrainAccessList: () => void
     onBackToPolicy: () => void
+    onNavigateToSettingsRoot: () => void
   }
 
   let props: Props = $props()
@@ -320,23 +321,25 @@
   }
 </script>
 
-<div
-  class="answer-preview-page mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 pb-6 text-foreground max-md:px-4 max-md:pb-4"
->
-  <div class="-mx-8 min-w-0 max-md:-mx-4">
-    <PaneL2Header>
-      {#snippet center()}
-        <div class="flex min-h-0 min-w-0 flex-1 items-center">
-          <BrainAccessBreadcrumbs
-            variant="preview"
-            policyLabel={policyLabel}
-            onGoToList={() => props.onBackToBrainAccessList()}
-            onGoToPolicy={() => props.onBackToPolicy()}
-          />
-        </div>
-      {/snippet}
-    </PaneL2Header>
-  </div>
+<div class="answer-preview-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
+  <PaneL2Header>
+    {#snippet center()}
+      <div class="flex min-h-0 min-w-0 flex-1 items-center">
+        <BrainAccessBreadcrumbs
+          variant="preview"
+          policyLabel={policyLabel}
+          onGoToList={() => props.onBackToBrainAccessList()}
+          onGoToPolicy={() => props.onBackToPolicy()}
+          onGoToSettings={() => props.onNavigateToSettingsRoot()}
+        />
+      </div>
+    {/snippet}
+  </PaneL2Header>
+
+  <div class="answer-preview-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+    <div
+      class="answer-preview-inner mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 pb-6 pt-4 max-md:px-4 max-md:pb-4"
+    >
   <header class="flex flex-col gap-2">
     <h1 class="m-0 text-[1.35rem] font-extrabold tracking-tight text-foreground">Test policy responses</h1>
     <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
@@ -525,4 +528,6 @@
       {/if}
     </div>
   </section>
+    </div>
+  </div>
 </div>

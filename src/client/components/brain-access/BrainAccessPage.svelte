@@ -19,8 +19,7 @@
   import OutboundGrantsList from './OutboundGrantsList.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import CustomPolicyCreator from './CustomPolicyCreator.svelte'
-  import BrainAccessBreadcrumbs from './BrainAccessBreadcrumbs.svelte'
-  import PaneL2Header from '@components/PaneL2Header.svelte'
+  import SettingsSubpageHeader from '@components/settings/SettingsSubpageHeader.svelte'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -233,29 +232,24 @@
   })
 </script>
 
-<div class="brain-access-page mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 pt-0 text-foreground max-md:px-4 max-md:pb-4 max-md:pt-0">
+<div class="brain-access-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
   <h1 class="sr-only">Brain to Brain access</h1>
-  <div class="-mx-8 min-w-0 max-md:-mx-4">
-    <PaneL2Header>
-      {#snippet center()}
-        <div class="flex min-h-0 min-w-0 flex-1 items-center">
-          <BrainAccessBreadcrumbs variant="list" />
-        </div>
-      {/snippet}
-    </PaneL2Header>
-  </div>
-  <div class="flex items-start gap-2">
-    <ShieldCheck size={16} class="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
-    <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
-      Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.
-    </p>
-  </div>
+  <SettingsSubpageHeader pageTitle="Brain to Brain access" onNavigateToSettingsRoot={onBackToSettingsMain} />
 
-  {#if loadError}
-    <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
-  {/if}
+  <div class="brain-access-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+    <div class="brain-access-inner mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 pt-2 max-md:px-4 max-md:pb-4">
+      <div class="flex items-start gap-2">
+        <ShieldCheck size={16} class="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
+        <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
+          Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.
+        </p>
+      </div>
 
-  <section aria-labelledby="brain-access-policies-heading" class="flex flex-col gap-4">
+      {#if loadError}
+        <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
+      {/if}
+
+      <section aria-labelledby="brain-access-policies-heading" class="flex flex-col gap-4">
     <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
       Policies &amp; collaborators
     </h2>
@@ -296,22 +290,24 @@
     removeBusyId={removeBusyId}
   />
 
-  <div class="flex flex-wrap gap-2">
-    <button
-      type="button"
-      class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
-      disabled={busy}
-      onclick={() => void reload()}
-    >
-      Refresh
-    </button>
-    <button
-      type="button"
-      class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
-      onclick={() => onBackToSettingsMain()}
-    >
-      ← Back to Settings
-    </button>
+      <div class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
+          disabled={busy}
+          onclick={() => void reload()}
+        >
+          Refresh
+        </button>
+        <button
+          type="button"
+          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
+          onclick={() => onBackToSettingsMain()}
+        >
+          ← Back to Settings
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 

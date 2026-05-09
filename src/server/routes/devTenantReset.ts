@@ -25,7 +25,7 @@ function jsonOrRedirectAfterBrowserGet(
 ): Response {
   const accept = c.req.header('accept') ?? ''
   if (c.req.method === 'GET' && accept.includes('text/html')) {
-    const loc = payload.mode === 'hard' ? '/' : '/welcome'
+    const loc = payload.mode === 'hard' ? '/' : '/onboarding/not-started'
     return c.redirect(loc, 302)
   }
   return c.json(payload)

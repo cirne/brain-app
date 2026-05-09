@@ -8,7 +8,10 @@ import { submitFeedbackMarkdown } from '@server/lib/feedback/feedbackIssues.js'
 import { applySkillPlaceholders, readSkillMarkdown } from '@server/lib/llm/slashSkill.js'
 import { tryGetSkillRequestContext } from '@server/lib/llm/skillRequestContext.js'
 import { appendWikiEditRecord, resolveSafeWikiPath } from '../agentToolPolicy.js'
-import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
+import {
+  BRAIN_FINISH_CONVERSATION_SUBMIT,
+  FINISH_CONVERSATION_TOOL_RESULT_TEXT,
+} from '@shared/finishConversationShortcut.js'
 
 export function createUiAgentTools(wikiDir: string) {
   const finishConversation = defineTool({
@@ -22,7 +25,7 @@ export function createUiAgentTools(wikiDir: string) {
         content: [
           {
             type: 'text' as const,
-            text: 'Conversation finish signaled; the app will apply the close/new-chat action.',
+            text: FINISH_CONVERSATION_TOOL_RESULT_TEXT,
           },
         ],
         details: { ok: true as const },

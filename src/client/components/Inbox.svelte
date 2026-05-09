@@ -30,8 +30,8 @@
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
-      zone: r.zone === 'hub' ? r.zone : undefined,
-      ...(r.zone === 'hub' ? {} : sid ? { sessionId: sid } : {}),
+      zone: r.zone === 'settings' ? r.zone : undefined,
+      ...(r.zone === 'settings' ? {} : sid ? { sessionId: sid } : {}),
       overlay,
     })
   }
@@ -41,8 +41,8 @@
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
-      zone: r.zone === 'hub' ? r.zone : undefined,
-      ...(r.zone === 'hub' ? {} : sid ? { sessionId: sid } : {}),
+      zone: r.zone === 'settings' ? r.zone : undefined,
+      ...(r.zone === 'settings' ? {} : sid ? { sessionId: sid } : {}),
       overlay,
     })
   }

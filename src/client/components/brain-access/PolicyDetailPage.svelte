@@ -40,6 +40,8 @@
     policyId: string
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     onBackToBrainAccessList: () => void
+    /** Navigate to `/settings` root (settings hierarchy). */
+    onNavigateToSettingsRoot: () => void
   }
 
   /** Read props via proxy — do not destructure callbacks for async/use after await (Svelte 5 freezes destructured snapshots). */
@@ -391,26 +393,27 @@
   }
 </script>
 
-<div class="policy-detail-page mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 text-foreground max-md:px-4 max-md:pb-4">
-  <div class="-mx-8 min-w-0 max-md:-mx-4">
-    <PaneL2Header>
-      {#snippet center()}
-        <div class="flex min-h-0 min-w-0 flex-1 items-center">
-          <BrainAccessBreadcrumbs
-            variant="policy"
-            policyLabel={heading}
-            onGoToList={() => props.onBackToBrainAccessList()}
-          />
-        </div>
-      {/snippet}
-    </PaneL2Header>
-  </div>
+<div class="policy-detail-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
+  <PaneL2Header>
+    {#snippet center()}
+      <div class="flex min-h-0 min-w-0 flex-1 items-center">
+        <BrainAccessBreadcrumbs
+          variant="policy"
+          policyLabel={heading}
+          onGoToList={() => props.onBackToBrainAccessList()}
+          onGoToSettings={() => props.onNavigateToSettingsRoot()}
+        />
+      </div>
+    {/snippet}
+  </PaneL2Header>
 
-  {#if loadError}
-    <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
-  {/if}
+  <div class="policy-detail-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+    <div class="policy-detail-inner mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 pt-4 max-md:px-4 max-md:pb-4">
+      {#if loadError}
+        <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
+      {/if}
 
-  {#if !card && grantsInPolicy.length === 0 && !busy}
+      {#if !card && grantsInPolicy.length === 0 && !busy}
     <p class="m-0 text-[0.875rem] text-muted">This policy wasn’t found.</p>
   {:else}
     <header
@@ -571,6 +574,8 @@
   >
     Refresh
   </button>
+    </div>
+  </div>
 </div>
 
 <ChangePolicyDialog

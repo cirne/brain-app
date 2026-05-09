@@ -74,6 +74,8 @@ export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, 
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
   context?: string
+  /** Main assistant only: soft caveat when indexed mail is still “thin” (from Ripmail status). */
+  mailCoverageCaveat?: string
   /** Override personal vault directory (`wikis/me/`) for prompts / profile files */
   wikiDir?: string
   /**
@@ -141,6 +143,10 @@ ${dateTimeBlock}`
 
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
+  }
+
+  if (options.mailCoverageCaveat?.trim()) {
+    systemPrompt += `\n\n${options.mailCoverageCaveat.trim()}`
   }
 
   const skillLibrary = await formatSkillLibrarySection()

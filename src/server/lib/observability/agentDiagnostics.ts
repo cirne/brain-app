@@ -407,6 +407,68 @@ export function attachAgentDiagnosticsCollector(agent: Agent, meta: AgentDiagnos
   return unsub
 }
 
+/**
+ * Dev JSONL for turns that **do not** run through pi-agent `subscribe` (shortcuts, synthetic traces, etc.).
+ * Callers own `meta`, `toolTrace`, and an arbitrary JSON `transcript`; strings in `transcript` are truncated on write.
+ */
+export type SyntheticTurnDiagnosticsArgs = {
+  meta: AgentDiagnosticsMeta
+  /** Filename segment after timestamp and short agent id (sanitized). */
+  fileKind: string
+  durationMs: number
+  toolTrace: DiagToolTraceEntry[]
+  transcript: unknown
+  /** Optional middle rows (each JSON-serialized); use `kind: 'event'` lines to match Agent stream dumps. */
+  events?: unknown[]
+}
+
+export async function writeSyntheticTurnDiagnosticsJsonl(
+  args: SyntheticTurnDiagnosticsArgs,
+): Promise<string | null> {
+  if (!shouldWriteAgentDiagnostics()) return null
+  const diagnosticsDir = agentDiagnosticsRoot()
+  const shortId = args.meta.agentTurnId.slice(0, 8)
+  const fileStem = `${compactIsoForFilename()}_${shortId}_${sanitizeKindForFilename(args.fileKind)}`
+  const wallClockStarted = new Date().toISOString()
+  const summary = buildSummary(undefined, args.toolTrace.length, args.durationMs)
+  const footer: DiagFooterLine = {
+    kind: 'diag_footer',
+    wallClockEnded: new Date().toISOString(),
+    summary,
+    toolTrace: args.toolTrace,
+    transcript: truncateStringsInValue(args.transcript, MAX_REASONABLE_STRING),
+  }
+  const header: DiagHeaderLine = {
+    kind: 'diag_header',
+    schemaVersion: AGENT_DIAGNOSTICS_SCHEMA_VERSION,
+    meta: { ...args.meta },
+    wallClockStarted,
+  }
+  const lines = [JSON.stringify(header)]
+  if (args.events?.length) {
+    for (const ev of args.events) lines.push(JSON.stringify(ev))
+  }
+  lines.push(JSON.stringify(footer))
+  try {
+    const path = await writeAgentDiagnosticsJsonl(diagnosticsDir, fileStem, lines)
+    brainLogger.info(
+      {
+        agentDiagnosticsFile: path,
+        agentTurnId: args.meta.agentTurnId,
+        agentKind: args.meta.agentKind,
+        source: args.meta.source,
+        ...(args.meta.sessionId !== undefined ? { sessionId: args.meta.sessionId } : {}),
+        ...(args.meta.backgroundRunId !== undefined ? { backgroundRunId: args.meta.backgroundRunId } : {}),
+      },
+      'agent-diagnostics-written',
+    )
+    return path
+  } catch (e) {
+    brainLogger.warn({ err: e, agentTurnId: args.meta.agentTurnId }, 'agent-diagnostics-write-failed')
+    return null
+  }
+}
+
 export type SuggestReplyRepairDiagnosticsArgs = {
   parentAgentTurnId: string
   sessionId?: string

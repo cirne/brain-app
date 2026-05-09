@@ -9,9 +9,17 @@
     onGoToList?: () => void
     /** Preview only: open policy detail. */
     onGoToPolicy?: () => void
+    /** When set, prepend “Settings” as the root crumb (unified settings hierarchy). */
+    onGoToSettings?: () => void
   }
 
-  let { variant, policyLabel = 'Policy', onGoToList, onGoToPolicy }: Props = $props()
+  let {
+    variant,
+    policyLabel = 'Policy',
+    onGoToList,
+    onGoToPolicy,
+    onGoToSettings,
+  }: Props = $props()
 
   const crumbClass =
     'border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-accent [font:inherit] hover:underline'
@@ -19,6 +27,14 @@
 
 <nav aria-label="Brain access" class="min-w-0">
   <ol class="m-0 flex min-w-0 list-none flex-wrap items-center gap-x-1 gap-y-1 p-0 text-[0.8125rem]">
+    {#if onGoToSettings}
+      <li class="min-w-0 shrink">
+        <button type="button" class={crumbClass} onclick={() => onGoToSettings()}>Settings</button>
+      </li>
+      <li class="flex shrink-0 items-center text-muted" aria-hidden="true">
+        <ChevronRight size={14} />
+      </li>
+    {/if}
     {#if variant === 'list'}
       <li class="truncate font-semibold text-foreground" aria-current="page">Brain to Brain access</li>
     {:else}

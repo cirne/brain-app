@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SurfaceContext } from '@client/router.js'
   import type { Snippet } from 'svelte'
+  import { getAgentChatStubBackendSessionId } from './agentChatStubSession.js'
 
   let {
     context: _context = { type: 'none' } as SurfaceContext,
@@ -26,6 +27,10 @@
     onStreamingSessionsChange: _onStreamingSessionsChange = () => {},
     onWriteStreaming: _onWriteStreaming = () => {},
     onEditStreaming: _onEditStreaming = () => {},
+    onUserInitiatedNewChat: _onUserInitiatedNewChat = undefined as (() => void) | undefined,
+    onAgentFinishConversation: onAgentFinishConversation = undefined as
+      | (() => void | Promise<void>)
+      | undefined,
     mobileDetail,
   }: {
     context?: SurfaceContext
@@ -51,6 +56,8 @@
     onStreamingSessionsChange?: (_ids: ReadonlySet<string>) => void
     onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
     onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
+    onUserInitiatedNewChat?: () => void
+    onAgentFinishConversation?: () => void | Promise<void>
     mobileDetail?: Snippet
   } = $props()
 
@@ -67,6 +74,9 @@
   export function getDisplayedLocalSessionKey(): string | null {
     return null
   }
+  export function getBackendSessionId(): string | null {
+    return getAgentChatStubBackendSessionId()
+  }
   export function newChatWithMessage(_message: string): Promise<void> {
     return Promise.resolve()
   }
@@ -75,6 +85,14 @@
 </script>
 
 <div data-testid="agent-chat-stub" class="agent-chat-stub">
+  <!-- test hook: invoke hosted finish handler (onboarding finalize vs new chat) -->
+  <button
+    type="button"
+    data-testid="agent-chat-stub-invoke-finish"
+    class="sr-only"
+    aria-hidden="true"
+    onclick={() => void Promise.resolve(onAgentFinishConversation?.())}
+  ></button>
   AgentChat
   {#if mobileDetail}
     {@render mobileDetail()}

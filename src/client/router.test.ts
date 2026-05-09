@@ -84,12 +84,40 @@ describe('navigate', () => {
 })
 
 describe('parseRoute', () => {
-  it('parses /welcome as welcome flow', () => {
-    expect(parseRoute('http://localhost/welcome')).toEqual({ flow: 'welcome' })
+  it('parses /welcome as welcome flow (legacy; same as not-started)', () => {
+    expect(parseRoute('http://localhost/welcome')).toEqual({
+      flow: 'welcome',
+      onboardingStep: 'not-started',
+    })
   })
 
-  it('parses /onboarding as welcome flow (legacy path)', () => {
-    expect(parseRoute('http://localhost/onboarding')).toEqual({ flow: 'welcome' })
+  it('parses /onboarding as welcome flow with not-started', () => {
+    expect(parseRoute('http://localhost/onboarding')).toEqual({
+      flow: 'welcome',
+      onboardingStep: 'not-started',
+    })
+  })
+
+  it('parses /onboarding/:step for dedicated first-run states', () => {
+    expect(parseRoute('http://localhost/onboarding/not-started')).toEqual({
+      flow: 'welcome',
+      onboardingStep: 'not-started',
+    })
+    expect(parseRoute('http://localhost/onboarding/confirming-handle')).toEqual({
+      flow: 'welcome',
+      onboardingStep: 'confirming-handle',
+    })
+    expect(parseRoute('http://localhost/onboarding/indexing')).toEqual({
+      flow: 'welcome',
+      onboardingStep: 'indexing',
+    })
+  })
+
+  it('treats unknown /onboarding/... segment as not-started', () => {
+    expect(parseRoute('http://localhost/onboarding/foo')).toEqual({
+      flow: 'welcome',
+      onboardingStep: 'not-started',
+    })
   })
 
   it('parses /hard-reset as hard-reset flow', () => {
@@ -298,7 +326,7 @@ describe('parseRoute your-wiki / hub', () => {
     })
   })
 
-  it('parses /hub as hub main', () => {
+  it('parses /hub as Activity (legacy URL)', () => {
     expect(parseRoute('http://localhost/hub')).toEqual({
       zone: 'hub',
     })
@@ -328,6 +356,20 @@ describe('parseRoute your-wiki / hub', () => {
     expect(parseRoute('http://localhost/settings/brain-access/policy/trusted/preview')).toEqual({
       zone: 'settings',
       overlay: { type: 'brain-access-preview', policyId: 'trusted' },
+    })
+  })
+
+  it('parses /settings/connections', () => {
+    expect(parseRoute('http://localhost/settings/connections')).toEqual({
+      zone: 'settings',
+      overlay: { type: 'settings-connections' },
+    })
+  })
+
+  it('parses /settings/wiki', () => {
+    expect(parseRoute('http://localhost/settings/wiki')).toEqual({
+      zone: 'settings',
+      overlay: { type: 'settings-wiki' },
     })
   })
 
@@ -391,7 +433,7 @@ describe('parseRoute hub-source', () => {
     })
   })
 
-  it('parses hub-source with id', () => {
+  it('parses hub-source with id on legacy /hub URL', () => {
     expect(parseRoute('http://localhost/hub?panel=hub-source&id=src-1')).toEqual({
       zone: 'hub',
       overlay: { type: 'hub-source', id: 'src-1' },
@@ -457,9 +499,9 @@ describe('routeToUrl', () => {
     )
   })
 
-  it('hub with wiki-dir overlay', () => {
-    expect(routeToUrl({ zone: 'hub', overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
-      '/hub?panel=wiki-dir&path=people',
+  it('settings primary with wiki-dir overlay', () => {
+    expect(routeToUrl({ zone: 'settings', overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
+      '/settings?panel=wiki-dir&path=people',
     )
   })
 
@@ -569,7 +611,10 @@ describe('routeToUrl', () => {
   })
 
   it('flows unchanged', () => {
-    expect(routeToUrl({ flow: 'welcome' })).toBe('/welcome')
+    expect(routeToUrl({ flow: 'welcome' })).toBe('/onboarding/not-started')
+    expect(
+      routeToUrl({ flow: 'welcome', onboardingStep: 'confirming-handle' }),
+    ).toBe('/onboarding/confirming-handle')
     expect(routeToUrl({ flow: 'enron-demo' })).toBe('/demo')
   })
 })
@@ -608,7 +653,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     },
     { overlay: { type: 'messages' as const } },
     { overlay: { type: 'messages' as const, chat: '+15550001111' } },
-    { flow: 'welcome' as const },
+    { flow: 'welcome' as const, onboardingStep: 'not-started' as const },
     { flow: 'hard-reset' as const },
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
