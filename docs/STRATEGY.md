@@ -56,7 +56,7 @@ The product manifestation of **network + trust** is **brain-to-brain**: bilatera
 
 **Email as analogy:** federation, identity-bearing addresses, and **value that grows with who else participates**. Brain-to-brain aims for similarly **network-shaped** upside with **much higher-bandwidth coordination** delegated to agents — while keeping sovereignty visible.
 
-Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)** (Phase 1: **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** / [archive](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md); **`wikis/`** layout **[OPP-091](opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)**).
+**Current sequencing (B2B):** **[ideas/IDEA-brain-query-delegation.md](ideas/IDEA-brain-query-delegation.md)** — `ask_brain`, per-connection policy + grants, Hub Brain access (see [brain-to-brain-access-policy.md](architecture/brain-to-brain-access-policy.md)). **Historical wiki-share + `wikis/` shipped work:** **[IDEA-wiki-sharing-collaborators (archived)](ideas/archive/IDEA-wiki-sharing-collaborators.md)** — Phase 1 **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** / [archive](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md); **`wikis/`** layout **[OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md)**.
 
 ---
 
@@ -70,4 +70,5 @@ Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas
 | [the-wiki-question.md](the-wiki-question.md)                                         | Open analysis: is the maintained wiki worth its cost vs ripmail-only?   |
 | [PRODUCTIZATION.md](PRODUCTIZATION.md)                                               | Blockers/tradeoffs to multi-user productization                         |
 | [SECURITY.md](SECURITY.md)                                                           | Security architecture and risk register                                 |
-| [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) | Brain-to-brain product + sequencing                                     |
+| [ideas/IDEA-brain-query-delegation.md](ideas/IDEA-brain-query-delegation.md) | Brain-query delegation (B2B) — active product direction                                          |
+| [ideas/archive/IDEA-wiki-sharing-collaborators.md](ideas/archive/IDEA-wiki-sharing-collaborators.md) | Brain-to-brain collaboration — **archived** (superseded by B2B brain-query); shipped wiki-share + sequencing history |

@@ -30,6 +30,7 @@ import {
   pauseCleanupSession,
 } from './wikiExpansionRunner.js'
 import { refreshMailAndWait } from '@server/lib/platform/syncAll.js'
+import type { WikiSupervisorMailSyncDeferSnapshot } from '@server/lib/platform/scheduledMailSyncPolicy.js'
 import {
   getTenantContextStore,
   tryGetTenantContext,
@@ -54,6 +55,8 @@ const NO_OP_BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000]
 // ─── In-memory state ─────────────────────────────────────────────────────────
 
 let loopRunning = false
+/** Tenant id for the ALS-bound supervisor loop in this process (when {@link loopRunning}). */
+let supervisorLoopBoundTenantUserId: string | null = null
 let wakeResolver: (() => void) | null = null
 let backoffTimer: ReturnType<WikiSupervisorClock['setTimeout']> | null = null
 
@@ -293,6 +296,7 @@ function kickSupervisorLoop(timezone?: string, tenantForLoop: TenantContext | nu
 async function supervisorLoop(timezone?: string): Promise<void> {
   if (loopRunning) return
   loopRunning = true
+  supervisorLoopBoundTenantUserId = tryGetTenantContext()?.tenantUserId ?? null
 
   try {
     const doc = await loadOrCreateDoc()
@@ -444,6 +448,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
     scheduleSupervisorCrashRestart(timezone)
   } finally {
     loopRunning = false
+    supervisorLoopBoundTenantUserId = null
   }
 }
 
@@ -524,6 +529,15 @@ export function requestLapNow(): void {
   if (isPaused) return
   cancelBackoff()
   kickSupervisorLoop(undefined, tryGetTenantContext() ?? null)
+}
+
+export function getWikiSupervisorMailSyncDeferSnapshot(): WikiSupervisorMailSyncDeferSnapshot {
+  return {
+    loopRunning,
+    isPaused,
+    shutdownRequested: wikiSupervisorShutdownRequested,
+    loopTenantUserId: supervisorLoopBoundTenantUserId,
+  }
 }
 
 /** Return the current supervisor doc for the API, or a default "not yet started" shape. */

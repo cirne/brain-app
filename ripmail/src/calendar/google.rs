@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 
 use crate::oauth::ensure_google_access_token;
+use crate::observability::otel;
 use crate::sync::sync_log::SyncFileLogger;
 
 use super::db;
@@ -312,27 +313,30 @@ fn sync_google_calendar_incremental(
 }
 
 fn fetch_json(auth: &str, url: &str) -> Result<Value, Box<dyn std::error::Error>> {
-    eprintln!(
-        "ripmail: fetching calendar JSON from {}",
-        sanitize_calendar_url_for_log(url)
-    );
-    let resp = match ureq::get(url)
-        .set("Authorization", &format!("Bearer {auth}"))
-        .call()
-    {
-        Ok(r) => r,
-        Err(ureq::Error::Status(410, _)) => {
-            return Err("gcal_410_sync_token".into());
+    otel::with_http_client_span("calendar.api.fetch", "GET", url, || {
+        eprintln!(
+            "ripmail: fetching calendar JSON from {}",
+            sanitize_calendar_url_for_log(url)
+        );
+        let resp = match ureq::get(url)
+            .set("Authorization", &format!("Bearer {auth}"))
+            .call()
+        {
+            Ok(r) => r,
+            Err(ureq::Error::Status(410, _)) => {
+                return Err("gcal_410_sync_token".into());
+            }
+            Err(e) => return Err(e.into()),
+        };
+        let status = resp.status();
+        let body = resp.into_string().unwrap_or_default();
+        if !(200..300).contains(&status) {
+            eprintln!("ripmail: Google Calendar API error {}: {}", status, body);
+            return Err(format!("Google Calendar API HTTP {status}: {body}").into());
         }
-        Err(e) => return Err(e.into()),
-    };
-    let status = resp.status();
-    let body = resp.into_string().unwrap_or_default();
-    if !(200..300).contains(&status) {
-        eprintln!("ripmail: Google Calendar API error {}: {}", status, body);
-        return Err(format!("Google Calendar API HTTP {status}: {body}").into());
-    }
-    Ok(serde_json::from_str(&body)?)
+        let v: Value = serde_json::from_str(&body)?;
+        Ok((v, status))
+    })
 }
 
 /// Parses Google Calendar [`calendarList`](https://developers.google.com/calendar/api/v3/reference/calendarList/list) response `items`.
@@ -896,18 +900,22 @@ pub fn get_google_calendar_event(
     let eid = urlencoding::encode(event_id.trim());
     let url = format!("{GCAL_EVENTS}/{cid}/events/{eid}");
     eprintln!("ripmail: Google Calendar get event (GET) …");
-    let resp = ureq::get(&url)
-        .set("Authorization", &format!("Bearer {token}"))
-        .call()
-        .map_err(|e| format!("Google Calendar events.get (HTTP): {e}"))?;
-    let status = resp.status();
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("Google Calendar events.get: read body: {e}"))?;
-    if !(200..300).contains(&status) {
-        return Err(calendar_event_http_error(status, &text, "get"));
-    }
-    serde_json::from_str(&text).map_err(|e| format!("Google Calendar events.get JSON: {e}: {text}"))
+    otel::with_http_client_span("calendar.events.get", "GET", url.as_str(), || {
+        let resp = ureq::get(&url)
+            .set("Authorization", &format!("Bearer {token}"))
+            .call()
+            .map_err(|e| format!("Google Calendar events.get (HTTP): {e}"))?;
+        let status = resp.status();
+        let text = resp
+            .into_string()
+            .map_err(|e| format!("Google Calendar events.get: read body: {e}"))?;
+        if !(200..300).contains(&status) {
+            return Err(calendar_event_http_error(status, &text, "get"));
+        }
+        let v: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("Google Calendar events.get JSON: {e}: {text}"))?;
+        Ok((v, status))
+    })
 }
 
 /// PATCH calendar event (`events.patch`).
@@ -934,19 +942,23 @@ pub fn patch_google_calendar_event_json(
     let url = format!("{GCAL_EVENTS}/{cid}/events/{eid}?{su}");
     let body_str = body.to_string();
     eprintln!("ripmail: Google Calendar patch event (PATCH) …");
-    let resp = ureq::request("PATCH", &url)
-        .set("Authorization", &format!("Bearer {token}"))
-        .set("Content-Type", "application/json; charset=utf-8")
-        .send_string(&body_str)
-        .map_err(|e| format!("Google Calendar events.patch (HTTP): {e}"))?;
-    let status = resp.status();
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("Google Calendar events.patch: read body: {e}"))?;
-    if !(200..300).contains(&status) {
-        return Err(calendar_event_http_error(status, &text, "patch"));
-    }
-    serde_json::from_str(&text).map_err(|e| format!("Google Calendar response JSON: {e}: {text}"))
+    otel::with_http_client_span("calendar.events.patch", "PATCH", url.as_str(), || {
+        let resp = ureq::request("PATCH", &url)
+            .set("Authorization", &format!("Bearer {token}"))
+            .set("Content-Type", "application/json; charset=utf-8")
+            .send_string(&body_str)
+            .map_err(|e| format!("Google Calendar events.patch (HTTP): {e}"))?;
+        let status = resp.status();
+        let text = resp
+            .into_string()
+            .map_err(|e| format!("Google Calendar events.patch: read body: {e}"))?;
+        if !(200..300).contains(&status) {
+            return Err(calendar_event_http_error(status, &text, "patch"));
+        }
+        let v: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("Google Calendar response JSON: {e}: {text}"))?;
+        Ok((v, status))
+    })
 }
 
 /// DELETE calendar event.
@@ -970,18 +982,20 @@ pub fn delete_google_calendar_event(
     };
     let url = format!("{GCAL_EVENTS}/{cid}/events/{eid}?{su}");
     eprintln!("ripmail: Google Calendar delete event (DELETE) …");
-    let resp = ureq::delete(&url)
-        .set("Authorization", &format!("Bearer {token}"))
-        .call()
-        .map_err(|e| format!("Google Calendar events.delete (HTTP): {e}"))?;
-    let status = resp.status();
-    let text = resp.into_string().unwrap_or_default();
-    if status == 204 || (200..300).contains(&status) {
-        return Ok(());
-    }
-    Err(format!(
-        "Google Calendar events.delete: HTTP {status} — {text}"
-    ))
+    otel::with_http_client_span("calendar.events.delete", "DELETE", url.as_str(), || {
+        let resp = ureq::delete(&url)
+            .set("Authorization", &format!("Bearer {token}"))
+            .call()
+            .map_err(|e| format!("Google Calendar events.delete (HTTP): {e}"))?;
+        let status = resp.status();
+        let text = resp.into_string().unwrap_or_default();
+        if status == 204 || (200..300).contains(&status) {
+            return Ok(((), status));
+        }
+        Err(format!(
+            "Google Calendar events.delete: HTTP {status} — {text}"
+        ))
+    })
 }
 
 /// Shorten a recurring master's RRULE so occurrences strictly before `until_compact` remain.
@@ -1170,21 +1184,25 @@ pub fn insert_google_calendar_event(
     let cid = urlencoding::encode(calendar_id.trim());
     let url = format!("{GCAL_EVENTS}/{cid}/events?sendUpdates=none");
     eprintln!("ripmail: Google Calendar create event (POST) …");
-    let resp = ureq::post(&url)
-        .set("Authorization", &format!("Bearer {token}"))
-        .set("Content-Type", "application/json; charset=utf-8")
-        .send_string(&body_str)
-        .map_err(|e| format!("Google Calendar events.insert (HTTP): {e}"))?;
-    let status = resp.status();
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("Google Calendar events.insert: read body: {e}"))?;
-    if !(200..300).contains(&status) {
-        return Err(format!(
-            "Google Calendar events.insert: HTTP {status} — {text}"
-        ));
-    }
-    serde_json::from_str(&text).map_err(|e| format!("Google Calendar response JSON: {e}: {text}"))
+    otel::with_http_client_span("calendar.events.insert", "POST", url.as_str(), || {
+        let resp = ureq::post(&url)
+            .set("Authorization", &format!("Bearer {token}"))
+            .set("Content-Type", "application/json; charset=utf-8")
+            .send_string(&body_str)
+            .map_err(|e| format!("Google Calendar events.insert (HTTP): {e}"))?;
+        let status = resp.status();
+        let text = resp
+            .into_string()
+            .map_err(|e| format!("Google Calendar events.insert: read body: {e}"))?;
+        if !(200..300).contains(&status) {
+            return Err(format!(
+                "Google Calendar events.insert: HTTP {status} — {text}"
+            ));
+        }
+        let v: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("Google Calendar response JSON: {e}: {text}"))?;
+        Ok((v, status))
+    })
 }
 
 #[cfg(test)]

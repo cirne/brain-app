@@ -37,7 +37,7 @@ import {
   type LlmUsageSnapshot,
 } from '@server/lib/llm/llmUsage.js'
 import { tryStandardBrainLlmForTelemetry } from '@server/lib/llm/effectiveBrainLlm.js'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 import { readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
@@ -467,7 +467,7 @@ export function attachWikiBackgroundRunTracker(
             const fb = tryStandardBrainLlmForTelemetry()
             const provider = pFromMsg ?? fb?.provider ?? 'unknown'
             const model = mFromMsg ?? fb?.modelId ?? 'unknown'
-            logger.info(
+            brainLogger.info(
               {
                 source: nrOpts.source,
                 kind: agentKind,
@@ -635,7 +635,7 @@ export async function runCleanupInvocation(
     trigger,
   })
 
-  logger.info(
+  brainLogger.info(
     {
       kind: 'cleanup-invocation',
       backgroundRunId: runId,

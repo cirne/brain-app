@@ -3,6 +3,7 @@ import {
   buildRipmailStatusLogSnapshot,
   computeIndexingActionHint,
   computeIndexingUserHint,
+  listRipmailStatusAnomalies,
   parseRipmailStatusJson,
 } from './ripmailStatusParse.js'
 
@@ -272,6 +273,62 @@ describe('parseRipmailStatusJson', () => {
 
   it('returns null when sync missing', () => {
     expect(parseRipmailStatusJson('{"search":{}}')).toBeNull()
+  })
+})
+
+describe('listRipmailStatusAnomalies', () => {
+  it('is empty for normal fixtures', () => {
+    expect(listRipmailStatusAnomalies(parseRipmailStatusJson(emptyInstallFixture)!)).toEqual([])
+    expect(listRipmailStatusAnomalies(parseRipmailStatusJson(populatedFixture)!)).toEqual([])
+    expect(listRipmailStatusAnomalies(parseRipmailStatusJson(staleLockFixture)!)).toEqual([])
+  })
+
+  it('flags hang suspected when no lane is considered live', () => {
+    const raw = `{
+      "sync": {
+        "isRunning": false,
+        "initialSyncHangSuspected": true,
+        "lockHeldByLiveProcess": false,
+        "staleLockInDb": false,
+        "lockAgeMs": null
+      },
+      "search": { "indexedMessages": 0 },
+      "mailboxes": []
+    }`
+    const p = parseRipmailStatusJson(raw)!
+    expect(p.syncRunning).toBe(false)
+    expect(listRipmailStatusAnomalies(p)).toContain('hang_suspected_without_live_sync')
+  })
+
+  it('flags negative lock age', () => {
+    const raw = `{
+      "sync": {
+        "isRunning": true,
+        "lockHeldByLiveProcess": true,
+        "staleLockInDb": false,
+        "lockAgeMs": -1
+      },
+      "search": { "indexedMessages": 0 },
+      "mailboxes": []
+    }`
+    expect(listRipmailStatusAnomalies(parseRipmailStatusJson(raw)!)).toContain('negative_lock_age_ms')
+  })
+
+  it('flags very long lock age while running', () => {
+    const age = 2 * 60 * 60 * 1000
+    const raw = `{
+      "sync": {
+        "isRunning": true,
+        "lockHeldByLiveProcess": true,
+        "staleLockInDb": false,
+        "lockAgeMs": ${age}
+      },
+      "search": { "indexedMessages": 0 },
+      "mailboxes": []
+    }`
+    expect(listRipmailStatusAnomalies(parseRipmailStatusJson(raw)!)).toContain(
+      'lock_age_exceeds_1h_while_running',
+    )
   })
 })
 

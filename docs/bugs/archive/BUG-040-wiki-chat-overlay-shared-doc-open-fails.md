@@ -2,7 +2,7 @@
 
 **Status:** Open  
 **Severity:** P2 (core wiki + share UX; blocking “open collaborator file from agent”)  
-**Tracks under:** [OPP-091: Unified wiki namespace](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) — client route + viewer must use the **same path vocabulary** as `wikis/me/` and `wikis/@handle/` without parallel `shareHandle` state.
+**Tracks under:** [OPP-091: Unified wiki namespace](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) — client route + viewer must use the **same path vocabulary** as `wikis/me/` and `wikis/@handle/` without parallel `shareHandle` state.
 
 ---
 
@@ -88,6 +88,6 @@ Temporary NDJSON / HTTP ingest logging was used during investigation; **it has b
 
 ## References
 
-- [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) — unified `wikis/` namespace; **link BUG-040** from client follow-up rows until closed.
+- [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) — unified `wikis/` namespace; **link BUG-040** from client follow-up rows until closed.
 - Related UX: shared vs personal label in slide header / crumbs.
 

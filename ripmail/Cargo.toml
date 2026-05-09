@@ -50,6 +50,11 @@ include_dir = "0.7"
 ignore = "0.4"
 globset = "0.4"
 mime_guess = "2"
+opentelemetry = "0.32"
+opentelemetry_sdk = { version = "0.32", features = ["trace"] }
+opentelemetry-otlp = "0.32"
+opentelemetry-http = "0.32"
+opentelemetry-semantic-conventions = "0.32"
 
 [dev-dependencies]
 printpdf = "0.7"

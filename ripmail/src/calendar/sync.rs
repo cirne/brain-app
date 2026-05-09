@@ -7,6 +7,7 @@ use std::time::Instant;
 use rusqlite::Connection;
 
 use crate::config::{CalendarSourceResolved, ResolvedMailbox, SourceKind};
+use crate::observability::otel;
 use crate::sync::run::SyncResult;
 use crate::sync::sync_log::SyncFileLogger;
 
@@ -173,14 +174,22 @@ fn sync_ics_url(
     source_kind: &str,
     url: &str,
 ) -> Result<u32, Box<dyn std::error::Error>> {
-    let resp = ureq::get(url)
-        .timeout(std::time::Duration::from_secs(60))
-        .call()?;
-    if !(200..300).contains(&resp.status()) {
-        return Err(format!("ICS fetch HTTP {}", resp.status()).into());
-    }
-    let raw = resp.into_string()?;
-    apply_ics_rows(conn, source_id, source_kind, url, &raw)
+    let n = otel::with_http_client_span("calendar.ics.fetch", "GET", url, || {
+        let resp = ureq::get(url)
+            .timeout(std::time::Duration::from_secs(60))
+            .call()
+            .map_err(|e| -> String { e.to_string() })?;
+        let status = resp.status();
+        if !(200..300).contains(&status) {
+            return Err(format!("ICS fetch HTTP {status}"));
+        }
+        let raw = resp.into_string().map_err(|e| e.to_string())?;
+        let count =
+            apply_ics_rows(conn, source_id, source_kind, url, &raw).map_err(|e| e.to_string())?;
+        Ok((count, status))
+    })
+    .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    Ok(n)
 }
 
 fn apply_ics_rows(

@@ -5,7 +5,8 @@ import { tokenizeRipmailArgString } from './ripmailArgvTokenize.js'
 import { ripmailBin } from './ripmailBin.js'
 import { buildRipmailStatusLogSnapshot } from './ripmailStatusParse.js'
 import { ripmailHomeForBrain, ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { getDistributedTraceEnvForChild } from '@server/lib/observability/newRelicHelper.js'
 
 const KILL_ESCALATION_MS = 5000
 
@@ -134,13 +135,15 @@ function formatRipmailCommandLine(parts: string[]): string {
     .join(' ')
 }
 
-/** Ripmail subprocess spawn/close: structured debug log (avoid noise at default `LOG_LEVEL=info`). */
+/** Ripmail subprocess spawn/close: structured debug log (`LOG_LEVEL` default `info` suppresses these; NR uses the same cutoff). */
 function logRipmailLine(payload: Record<string, unknown>): void {
   const argvRaw = payload.argv
   const parts = Array.isArray(argvRaw) ? (argvRaw as string[]) : []
   const cmdLine = parts.length > 0 ? formatRipmailCommandLine(parts) : '(ripmail argv missing)'
   const { argv: _omitArgv, ...meta } = payload
-  logger.debug({ cmd: cmdLine, ...meta }, 'ripmail')
+  const phase = typeof meta.phase === 'string' ? meta.phase : '?'
+  const label = typeof meta.label === 'string' ? meta.label : '?'
+  brainLogger.debug({ cmd: cmdLine, ...meta }, `ripmail:${phase}:${label}`)
 }
 
 /**
@@ -163,10 +166,14 @@ export async function runRipmailArgv(
   const bin = ripmailBin()
   const maxBuffer = options.maxBuffer ?? 1024 * 1024
   const label = options.label ?? argv[0] ?? 'ripmail'
-  const mergedEnv = {
+  const mergedEnv: Record<string, string | undefined> = {
     ...ripmailProcessEnv(),
     ...options.env,
   }
+  if (options.label?.trim()) {
+    mergedEnv.RIPMAIL_SPAWN_LABEL = options.label.trim()
+  }
+  Object.assign(mergedEnv, getDistributedTraceEnvForChild())
   const secs =
     options.ripmailTimeoutSeconds ?? Math.max(1, Math.ceil(options.timeoutMs / 1000))
   if (mergedEnv.RIPMAIL_TIMEOUT === undefined) {

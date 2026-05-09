@@ -5,7 +5,7 @@ description: Locates brain-app dev-only agent diagnostics under BRAIN_HOME (JSON
 
 # Debug agent (diagnostics artifacts)
 
-brain-app writes **developer-only** per-turn agent diagnostics when **`isDevRuntime()`** is true — the same predicate as server bootstrap (`src/server/index.ts`) and structured logging (`src/server/lib/observability/logger.ts`): `process.env.NODE_ENV !== 'production'`. Exported as [`isDevRuntime()`](../../../src/server/lib/platform/isDevRuntime.ts). Production builds **never** write these files (tool bodies stay off disk). Implementation: [`agentDiagnostics.ts`](../../../src/server/lib/observability/agentDiagnostics.ts) (`shouldWriteAgentDiagnostics`).
+brain-app writes **developer-only** per-turn agent diagnostics when **`isDevRuntime()`** is true — the same predicate as server bootstrap (`src/server/index.ts`) and **`brainLogger`** (`src/server/lib/observability/brainLogger.ts`): `process.env.NODE_ENV !== 'production'`. Exported as [`isDevRuntime()`](../../../src/server/lib/platform/isDevRuntime.ts). Production builds **never** write these files (tool bodies stay off disk). Implementation: [`agentDiagnostics.ts`](../../../src/server/lib/observability/agentDiagnostics.ts) (`shouldWriteAgentDiagnostics`).
 
 ## Schema invariant (never migrate old logs)
 

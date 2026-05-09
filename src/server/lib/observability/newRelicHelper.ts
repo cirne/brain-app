@@ -41,6 +41,30 @@ export function isAgentEnabled(): boolean {
   return Boolean(process.env.NEW_RELIC_LICENSE_KEY?.trim())
 }
 
+/**
+ * W3C trace context for ripmail subprocesses (`TRACEPARENT` / `TRACESTATE`), from the active NR
+ * transaction when distributed tracing is on. Empty when no license, no transaction, or API errors.
+ */
+export function getDistributedTraceEnvForChild(): Record<string, string> {
+  if (!isAgentEnabled()) return {}
+  try {
+    const tx = newrelic.getTransaction?.()
+    if (!tx || typeof tx.insertDistributedTraceHeaders !== 'function') return {}
+    const headers: Record<string, string> = {}
+    tx.insertDistributedTraceHeaders(headers)
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(headers)) {
+      if (v === undefined || v === null || String(v).length === 0) continue
+      const lower = k.toLowerCase()
+      if (lower === 'traceparent') out.TRACEPARENT = String(v)
+      if (lower === 'tracestate') out.TRACESTATE = String(v)
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
 export type TransactionCustomAttributeValue = string | number | boolean
 
 /**

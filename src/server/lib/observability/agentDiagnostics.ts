@@ -21,10 +21,9 @@ import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 import { brainHome } from '@server/lib/platform/brainHome.js'
 import { brainLayoutVarDir } from '@server/lib/platform/brainLayout.js'
 import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
-import { logger } from './logger.js'
+import { brainLogger } from './brainLogger.js'
 
-/** Same predicate as bootstrap / logger (`isDevRuntime()` → `NODE_ENV !== 'production'`). */
-export function shouldWriteAgentDiagnostics(): boolean {
+/** Same predicate as bootstrap / {@link brainLogger} (`isDevRuntime()` → `NODE_ENV !== 'production'`). */export function shouldWriteAgentDiagnostics(): boolean {
   return isDevRuntime()
 }
 
@@ -390,7 +389,7 @@ export function attachAgentDiagnosticsCollector(agent: Agent, meta: AgentDiagnos
     lines.push(JSON.stringify(footer))
     try {
       const path = await writeAgentDiagnosticsJsonl(diagnosticsDir, fileStem, lines)
-      logger.info(
+      brainLogger.info(
         {
           agentDiagnosticsFile: path,
           agentTurnId: meta.agentTurnId,
@@ -402,7 +401,7 @@ export function attachAgentDiagnosticsCollector(agent: Agent, meta: AgentDiagnos
         'agent-diagnostics-written',
       )
     } catch (e) {
-      logger.warn({ err: e, agentTurnId: meta.agentTurnId }, 'agent-diagnostics-write-failed')
+      brainLogger.warn({ err: e, agentTurnId: meta.agentTurnId }, 'agent-diagnostics-write-failed')
     }
   })
   return unsub
@@ -448,7 +447,7 @@ export async function writeSuggestReplyRepairDiagnostics(args: SuggestReplyRepai
       userBodyPreview: truncateDeepString(args.userBody, REPAIR_PREVIEW),
     }
     await writeFile(path, `${JSON.stringify(payload, null, 2)}\n`, 'utf-8')
-    logger.info(
+    brainLogger.info(
       {
         agentDiagnosticsFile: path,
         agentTurnId: args.parentAgentTurnId,
@@ -460,7 +459,7 @@ export async function writeSuggestReplyRepairDiagnostics(args: SuggestReplyRepai
     )
     return path
   } catch (e) {
-    logger.warn({ err: e, agentTurnId: args.parentAgentTurnId }, 'agent-diagnostics-write-failed')
+    brainLogger.warn({ err: e, agentTurnId: args.parentAgentTurnId }, 'agent-diagnostics-write-failed')
     return null
   }
 }

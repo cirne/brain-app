@@ -82,7 +82,22 @@ pub(crate) fn run() -> CliResult {
     for n in notes {
         eprintln!("ripmail: note: {n}");
     }
-    commands::handle_command(cli)
+
+    ripmail::observability::otel::init_from_env();
+    let probe = args::Cli::command();
+    let subcommand_label = {
+        let prefix = known_subcommand_prefix(&probe, &args);
+        if prefix.is_empty() {
+            "(none)".to_string()
+        } else {
+            prefix.join(" ")
+        }
+    };
+    let res = ripmail::observability::otel::run_invocation_traced(&subcommand_label, || {
+        commands::handle_command(cli)
+    });
+    ripmail::observability::otel::shutdown();
+    res
 }
 
 #[cfg(test)]

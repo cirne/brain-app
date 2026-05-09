@@ -4,7 +4,7 @@ Read-only **directory-level** wiki shares: an owner invites a collaborator by **
 
 The global file **`brain-global.sqlite`** includes a **`brain_global_schema`** table with a **version** row. When the code’s schema version (`BRAIN_GLOBAL_SCHEMA_VERSION` in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts)) does not match the file, the server **deletes and recreates** the database (no `ALTER TABLE` migrations for this store yet).
 
-**Phase 1 (stub):** [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · **`wikis/` namespace (active):** [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Projection ↔ DB sync (ADR):** [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) · **Idea / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) · **Cross-brain policy model (draft, brain-query + future):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md)
+**Phase 1 (stub):** [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · **`wikis/` namespace (active):** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Projection ↔ DB sync (ADR):** [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) · **Idea / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Cross-brain policy model (draft, brain-query + future):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md)
 
 ---
 
@@ -126,7 +126,7 @@ Renaming the **shared folder** on disk without updating `path_prefix` **breaks**
 | Path | Frequency | Expectation |
 | ---- | --------- | ----------- |
 | **Read / list / open shared subtree** | High | Cheap — validated reads ([`/api/wiki/shared/...`](#cross-tenant-wiki-reads)) plus symlink projection under **`.brain-share-mount`** for tool/browser parity ([OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)). |
-| **Invite accept, revoke, narrow prefix, repair granted root after rename** | Low | **`syncWikiShareProjectionsForGrantee`** (or successor) refreshes mounts; retries / explicit repair — **layout simplification:** [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md). |
+| **Invite accept, revoke, narrow prefix, repair granted root after rename** | Low | **`syncWikiShareProjectionsForGrantee`** (or successor) refreshes mounts; retries / explicit repair — **layout simplification:** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md). |
 
 ---
 
@@ -145,7 +145,7 @@ Unless **every write path** the server cares about participates (hard when edits
 
 ## Grantee filesystem projection (shipped)
 
-Grantees have **materialized paths** under `wiki/<wikiShareMount>/` so `grep` / `find` / `read` align with HTTP and `@handle` browse today; **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)** proposes folding **my wiki + shares** under one **`wikis/`** root and stripping tool-layer coercion.
+Grantees have **materialized paths** under `wiki/<wikiShareMount>/` so `grep` / `find` / `read` align with HTTP and `@handle` browse today; **[OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md)** proposes folding **my wiki + shares** under one **`wikis/`** root and stripping tool-layer coercion.
 
 - **Single contiguous prefix (Phase 1 scope)** favors **one symlink per accepted share** at the granted subtree (or single-file leaf) rather than arbitrary subsets — disjoint roots remain future complexity.
 - **Symlinks store path strings**, not FDs — **renames inside** the shared directory typically **do not** break a **directory-level** link to that prefix; **renaming the granted root** or per-file links imply **repair** / resync (`syncWikiShareProjectionsForGrantee`).

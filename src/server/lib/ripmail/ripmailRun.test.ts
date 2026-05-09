@@ -1,7 +1,22 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { chmod, mkdtemp, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+const mockDistributedTraceEnv = vi.hoisted(() =>
+  vi.fn((): Record<string, string> => ({
+    TRACEPARENT: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+  })),
+)
+
+vi.mock('@server/lib/observability/newRelicHelper.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@server/lib/observability/newRelicHelper.js')>()
+  return {
+    ...mod,
+    getDistributedTraceEnvForChild: mockDistributedTraceEnv,
+  }
+})
+
 import {
   runRipmailArgv,
   execRipmailCleanYes,
@@ -32,12 +47,18 @@ describe('runRipmailArgv', () => {
     binDir = await mkdtemp(join(tmpdir(), 'ripmail-bin-'))
     process.env.BRAIN_HOME = brainHome
     process.env.RIPMAIL_HOME = join(brainHome, 'ripmail')
+    process.env.NEW_RELIC_LICENSE_KEY = 'test-license'
+    mockDistributedTraceEnv.mockClear()
+    mockDistributedTraceEnv.mockImplementation(() => ({
+      TRACEPARENT: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+    }))
   })
 
   afterEach(async () => {
     delete process.env.BRAIN_HOME
     delete process.env.RIPMAIL_HOME
     delete process.env.RIPMAIL_BIN
+    delete process.env.NEW_RELIC_LICENSE_KEY
     await rm(brainHome, { recursive: true, force: true }).catch(() => {})
     await rm(binDir, { recursive: true, force: true }).catch(() => {})
   })
@@ -75,6 +96,27 @@ describe('runRipmailArgv', () => {
     const p = runRipmailArgv(['refresh'], { timeoutMs: 10_000, signal: ac.signal })
     ac.abort()
     await expect(p).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
+  it('forwards TRACEPARENT and RIPMAIL_SPAWN_LABEL to ripmail child env', async () => {
+    const envLog = join(binDir, 'env.log')
+    const script = join(binDir, 'r-env')
+    await writeFile(
+      script,
+      `#!/bin/sh
+env | sort > ${JSON.stringify(envLog)}
+exit 0
+`,
+      'utf-8',
+    )
+    await chmod(script, 0o755)
+    process.env.RIPMAIL_BIN = script
+
+    await runRipmailArgv(['status', '--json'], { timeoutMs: 5000, label: 'inbox-list' })
+    const envText = await readFile(envLog, 'utf-8')
+    expect(envText).toContain('TRACEPARENT=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')
+    expect(envText).toContain('RIPMAIL_SPAWN_LABEL=inbox-list')
+    expect(mockDistributedTraceEnv).toHaveBeenCalled()
   })
 
   it('concurrent refresh same home shares one flight when argv match', async () => {

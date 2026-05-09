@@ -1,10 +1,15 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { computeIndexingActionHint, parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
+import {
+  computeIndexingActionHint,
+  listRipmailStatusAnomalies,
+  parseRipmailStatusJson,
+  type ParsedRipmailStatus,
+} from '@server/lib/ripmail/ripmailStatusParse.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { execRipmailAsync, RIPMAIL_STATUS_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 export { ripmailBin }
 
@@ -48,6 +53,37 @@ function onboardingMailDebugLevel(): 'off' | 'summary' | 'full' {
   return onboardingMailDebugLevelFromEnv(process.env.ONBOARDING_MAIL_DEBUG)
 }
 
+/** Avoid spam when Hub polls every few seconds. */
+const RIPMAIL_ANOMALY_WARN_COOLDOWN_MS = 90_000
+let lastRipmailAnomalyWarnKey = ''
+let lastRipmailAnomalyWarnAt = 0
+
+function maybeWarnRipmailStatusAnomalies(parsed: ParsedRipmailStatus, execMs: number): void {
+  const anomalies = listRipmailStatusAnomalies(parsed)
+  if (anomalies.length === 0) return
+  const key = anomalies.join(',')
+  const now = Date.now()
+  if (key === lastRipmailAnomalyWarnKey && now - lastRipmailAnomalyWarnAt < RIPMAIL_ANOMALY_WARN_COOLDOWN_MS) {
+    return
+  }
+  lastRipmailAnomalyWarnKey = key
+  lastRipmailAnomalyWarnAt = now
+  brainLogger.warn(
+    {
+      msg: 'ripmail status poll: unusual parsed state',
+      anomalies,
+      execMs,
+      syncRunning: parsed.syncRunning,
+      refreshRunning: parsed.refreshRunning,
+      backfillRunning: parsed.backfillRunning,
+      syncLockAgeMs: parsed.syncLockAgeMs,
+      staleLockInDb: parsed.staleLockInDb,
+      initialSyncHangSuspected: parsed.initialSyncHangSuspected,
+    },
+    'onboarding/mail',
+  )
+}
+
 function logOnboardingMailDebug(
   phase: string,
   data: Record<string, unknown>,
@@ -56,7 +92,7 @@ function logOnboardingMailDebug(
   const want = onboardingMailDebugLevel()
   if (want === 'off') return
   if (level === 'full' && want !== 'full') return
-  const logFn = level === 'full' ? logger.trace.bind(logger) : logger.debug.bind(logger)
+  const logFn = level === 'full' ? brainLogger.trace.bind(brainLogger) : brainLogger.debug.bind(brainLogger)
   logFn({ phase, ...data }, 'onboarding/mail')
 }
 
@@ -150,6 +186,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     }
 
     if (parsed) {
+      maybeWarnRipmailStatusAnomalies(parsed, ms)
       const payload: OnboardingMailStatusPayload = {
         configured: true,
         indexedTotal: parsed.indexedTotal,

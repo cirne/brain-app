@@ -64,7 +64,7 @@ The single-user brain is useful from day one. The differentiation that **compoun
 
 Strategy, competitive dynamics, moats (**network**, **trust/security**), and the email analogy: **[STRATEGY.md](./STRATEGY.md)**.
 
-**Product spec and sequencing:** [IDEA: Brain-to-brain collaboration](ideas/IDEA-wiki-sharing-collaborators.md). First concrete step (Phase 1): [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md). Unified wiki filesystem: [OPP-091](opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md).
+**Product spec and sequencing:** **[IDEA: Brain-query delegation](ideas/IDEA-brain-query-delegation.md)** (B2B). **Historical** P2P wiki collaboration doc (archived): [IDEA: Brain-to-brain collaboration](ideas/archive/IDEA-wiki-sharing-collaborators.md). First concrete shipped step (Phase 1): [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md). Unified wiki filesystem: [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md).
 
 ---
 

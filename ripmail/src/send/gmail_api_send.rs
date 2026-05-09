@@ -2,6 +2,8 @@
 
 use base64::Engine;
 
+use crate::observability::otel;
+
 const GMAIL_SEND_URL: &str = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
 const GMAIL_PROFILE_URL: &str = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
 
@@ -30,47 +32,51 @@ pub fn send_raw_message_via_gmail_api(access_token: &str, rfc822: &[u8]) -> Resu
     let raw = base64url_raw_message(rfc822);
     let body = serde_json::json!({ "raw": raw }).to_string();
 
-    let resp = ureq::post(GMAIL_SEND_URL)
-        .set("Authorization", &format!("Bearer {access_token}"))
-        .set("Content-Type", "application/json")
-        .send_string(&body)
-        .map_err(|e| format!("Gmail API send (HTTP): {e}"))?;
+    otel::with_http_client_span("gmail.messages.send", "POST", GMAIL_SEND_URL, || {
+        let resp = ureq::post(GMAIL_SEND_URL)
+            .set("Authorization", &format!("Bearer {access_token}"))
+            .set("Content-Type", "application/json")
+            .send_string(&body)
+            .map_err(|e| format!("Gmail API send (HTTP): {e}"))?;
 
-    let status = resp.status();
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("Gmail API send: read body: {e}"))?;
+        let status = resp.status();
+        let text = resp
+            .into_string()
+            .map_err(|e| format!("Gmail API send: read body: {e}"))?;
 
-    if status >= 400 {
-        return Err(format!(
-            "Gmail API send: HTTP {status} — {}",
-            format_gmail_api_error_for_log(&text)
-        ));
-    }
+        if status >= 400 {
+            return Err(format!(
+                "Gmail API send: HTTP {status} — {}",
+                format_gmail_api_error_for_log(&text)
+            ));
+        }
 
-    Ok(format_gmail_send_success_summary(&text))
+        Ok((format_gmail_send_success_summary(&text), status))
+    })
 }
 
 /// GET `users/me/profile` — verifies token + Gmail API reachability without SMTP.
 pub fn verify_gmail_api_access(access_token: &str) -> Result<(), String> {
-    let resp = ureq::get(GMAIL_PROFILE_URL)
-        .set("Authorization", &format!("Bearer {access_token}"))
-        .call()
-        .map_err(|e| format!("Gmail API profile (HTTP): {e}"))?;
+    otel::with_http_client_span("gmail.users.profile", "GET", GMAIL_PROFILE_URL, || {
+        let resp = ureq::get(GMAIL_PROFILE_URL)
+            .set("Authorization", &format!("Bearer {access_token}"))
+            .call()
+            .map_err(|e| format!("Gmail API profile (HTTP): {e}"))?;
 
-    let status = resp.status();
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("Gmail API profile: read body: {e}"))?;
+        let status = resp.status();
+        let text = resp
+            .into_string()
+            .map_err(|e| format!("Gmail API profile: read body: {e}"))?;
 
-    if status >= 400 {
-        return Err(format!(
-            "Gmail API profile: HTTP {status} — {}",
-            format_gmail_api_error_for_log(&text)
-        ));
-    }
+        if status >= 400 {
+            return Err(format!(
+                "Gmail API profile: HTTP {status} — {}",
+                format_gmail_api_error_for_log(&text)
+            ));
+        }
 
-    Ok(())
+        Ok(((), status))
+    })
 }
 
 fn format_gmail_send_success_summary(json_text: &str) -> String {

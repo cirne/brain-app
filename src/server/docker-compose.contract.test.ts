@@ -30,6 +30,7 @@ describe('Docker packaging (OPP-041 Phase 1)', () => {
     const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')) as {
       scripts: Record<string, string>
     }
+    expect(pkg.scripts.start).toBe('node dist/server/index.js')
     expect(pkg.scripts['docker:ripmail:build']).toContain('docker-prebuild-ripmail.ts')
     expect(pkg.scripts['docker:up']).toContain('docker:ripmail:build')
     expect(pkg.scripts['docker:build']).toContain('docker:ripmail:build')

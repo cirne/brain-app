@@ -2,7 +2,7 @@
 
 **Status:** Open  
 **Severity:** P3 (routing / maintainability — behavior works today via parallel endpoints)  
-**Tracks under:** [OPP-091: Unified wiki namespace (sharing projection)](../../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)
+**Tracks under:** [OPP-091: Unified wiki namespace (sharing projection)](../../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md)
 
 ---
 
@@ -52,6 +52,6 @@ List endpoints (`GET /api/wiki/` vs shared list) may follow in a second slice, b
 
 ## References
 
-- [OPP-091](../../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) — unified namespace direction.
+- [OPP-091](../../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) — unified namespace direction.
 - `src/server/routes/wiki.ts` — current split handlers (`shared-by-handle`, `:path{.+}`).
 - Archived narrative for related client fallout: [bugs/archive/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md](../archive/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md).

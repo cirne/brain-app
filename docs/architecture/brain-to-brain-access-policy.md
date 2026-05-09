@@ -4,7 +4,7 @@
 
 **Near-term:** **Spike 1 (Hub brain-access admin)** is **closed** — see [Hub brain-access admin (shipped — OPP-099 closure)](#hub-brain-access-admin-shipped--opp-099-closure). **Next:** **Spike 2** (plaintext++) and **policy-by-reference** cleanup under **Denormalized `privacy_policy`**; later **Spikes 3–4** (fragments, hard predicates).
 
-**See also:** [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) · [wiki-sharing.md](./wiki-sharing.md) · [integrations.md](./integrations.md) (Ripmail boundary) · **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (closed epic — stub → archive)
+**See also:** [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) · [wiki-sharing.md](./wiki-sharing.md) · [integrations.md](./integrations.md) (Ripmail boundary) · **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (closed epic — stub → archive)
 
 ---
 
@@ -115,7 +115,7 @@ For **cross-brain** grants, prefer **allowlist-first** mail/wiki visibility (“
 
 ## Relation to existing permission vocabulary
 
-[IDEA-wiki-sharing-collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) lists capabilities such as `wiki:read`, `calendar:availability`, `query:general`. Treat those as **layer 1 examples** / user-facing labels—not an exhaustive schema. The **canonical decomposition** for implementation is this doc’s **three layers**; vocabulary rows map into **capability bundles** plus optional **hard** and **soft** attachments.
+[IDEA-wiki-sharing-collaborators](../ideas/archive/IDEA-wiki-sharing-collaborators.md) lists capabilities such as `wiki:read`, `calendar:availability`, `query:general`. Treat those as **layer 1 examples** / user-facing labels—not an exhaustive schema. The **canonical decomposition** for implementation is this doc’s **three layers**; vocabulary rows map into **capability bundles** plus optional **hard** and **soft** attachments.
 
 ---
 

@@ -2,6 +2,7 @@ import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailR
 import { prepareWikiSupervisorShutdown } from '@server/agent/yourWikiSupervisor.js'
 import { stopTunnel } from '@server/lib/platform/tunnelManager.js'
 import { restoreStdinForShell } from '@server/lib/platform/restoreStdinForShell.js'
+import { startScheduledRipmailSync } from './scheduledRipmailSync.js'
 
 let shuttingDown = false
 
@@ -18,6 +19,7 @@ export function registerPeriodicSyncAndShutdown(
   vite?: { close: () => Promise<void> },
 ): void {
   let lastDrainSignal: 'SIGINT' | 'SIGTERM' = 'SIGTERM'
+  const stopScheduledRipmail = startScheduledRipmailSync()
 
   const forcedExitFromRepeatSignal = (): never => {
     restoreStdinForShell()
@@ -27,6 +29,7 @@ export function registerPeriodicSyncAndShutdown(
   const shutdown = async () => {
     if (shuttingDown) forcedExitFromRepeatSignal()
     shuttingDown = true
+    stopScheduledRipmail()
     stopTunnel()
     prepareWikiSupervisorShutdown()
     terminateAllTrackedRipmailChildren('SIGTERM')

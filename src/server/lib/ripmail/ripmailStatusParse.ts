@@ -27,6 +27,31 @@ export type ParsedRipmailStatus = {
   messageAvailableForProgress: number | null
 }
 
+/** 1h — lock held longer while still “running” is worth surfacing in logs. */
+const RIPMAIL_LOCK_AGE_ANOMALY_MS = 60 * 60 * 1000
+
+/**
+ * Stable diagnostic codes for odd `ripmail status --json` combinations after {@link parseRipmailStatusJson}.
+ * Used when polling mail status (Hub / onboarding); keep messages out of the user payload.
+ */
+export function listRipmailStatusAnomalies(parsed: ParsedRipmailStatus): readonly string[] {
+  const codes: string[] = []
+  if (parsed.initialSyncHangSuspected && !parsed.syncRunning) {
+    codes.push('hang_suspected_without_live_sync')
+  }
+  if (parsed.syncLockAgeMs != null && parsed.syncLockAgeMs < 0) {
+    codes.push('negative_lock_age_ms')
+  }
+  if (
+    parsed.syncRunning &&
+    parsed.syncLockAgeMs != null &&
+    parsed.syncLockAgeMs > RIPMAIL_LOCK_AGE_ANOMALY_MS
+  ) {
+    codes.push('lock_age_exceeds_1h_while_running')
+  }
+  return codes
+}
+
 function readNum(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 }
@@ -192,8 +217,13 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
 
     const rAge = readNum(refresh.lockAgeMs)
     const bAge = backfill != null ? readNum(backfill.lockAgeMs) : null
+    const lockAges = [rAge, bAge].filter((x): x is number => x != null)
     const lockAge =
-      rAge != null || bAge != null ? Math.max(rAge ?? 0, bAge ?? 0) : null
+      lockAges.length === 0
+        ? null
+        : lockAges.some((a) => a < 0)
+          ? Math.min(...lockAges)
+          : Math.max(...lockAges)
 
     const hang = readBool(sync.initialSyncHangSuspected) === true
     const pendingRefresh = anyMailboxNeedsBackfill(j.mailboxes) && !syncRunning && !stale

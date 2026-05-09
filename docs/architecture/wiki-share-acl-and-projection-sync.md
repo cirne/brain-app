@@ -1,8 +1,8 @@
 # Wiki share ACL ↔ filesystem projection sync order
 
-**Status:** Accepted (design intent for [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md); implement before relying on **`wikis/@…`** projection as capability-without-read-checks.)  
+**Status:** Accepted (design intent for [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md); implement before relying on **`wikis/@…`** projection as capability-without-read-checks.)  
 **Scope:** `wiki_shares` in **`brain-global.sqlite`**, grantee projection under **`wikis/`** (`me/`, **`@handle/`** symlinks); server code paths that accept invites, revoke, and reconcile.  
-**See also:** [wiki-sharing.md](./wiki-sharing.md), [OPP-091 § Recommended order](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md#recommended-order-filesystem-vs-database) (OPP summary mirrors this ADR), [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md), [data-and-sync.md](./data-and-sync.md)
+**See also:** [wiki-sharing.md](./wiki-sharing.md), [OPP-091 § Recommended order](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md#recommended-order-filesystem-vs-database) (OPP summary mirrors this ADR), [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md), [data-and-sync.md](./data-and-sync.md)
 
 ---
 

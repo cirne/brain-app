@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 use crate::config::MailboxImapAuthKind;
 use crate::db::message_persist::{persist_attachments_from_parsed, persist_message};
 use crate::oauth::ensure_google_access_token;
+use crate::observability::otel;
 use crate::send::gmail_api_send::should_send_via_gmail_api;
 use crate::sync::parse_raw_message;
 use crate::sync::process_lock::{release_lock, SyncKind};
@@ -100,17 +101,24 @@ const GMAIL_API_HTTP_TIMEOUT_HISTORY: Duration = Duration::from_secs(120);
 /// Large `messages.get` RFC822 payloads.
 const GMAIL_API_HTTP_TIMEOUT_MESSAGE_RAW: Duration = Duration::from_secs(300);
 
-fn http_get_json(token: &str, url: &str, timeout: Duration) -> Result<(u16, String), String> {
-    let resp = ureq::get(url)
-        .set("Authorization", &format!("Bearer {token}"))
-        .timeout(timeout)
-        .call()
-        .map_err(|e| format!("Gmail API GET {url}: {e}"))?;
-    let status = resp.status();
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("Gmail API read body: {e}"))?;
-    Ok((status, text))
+fn http_get_json(
+    token: &str,
+    url: &str,
+    timeout: Duration,
+    span_operation: &'static str,
+) -> Result<(u16, String), String> {
+    otel::with_http_client_span(span_operation, "GET", url, || {
+        let resp = ureq::get(url)
+            .set("Authorization", &format!("Bearer {token}"))
+            .timeout(timeout)
+            .call()
+            .map_err(|e| format!("Gmail API GET {url}: {e}"))?;
+        let status = resp.status();
+        let text = resp
+            .into_string()
+            .map_err(|e| format!("Gmail API read body: {e}"))?;
+        Ok(((status, text), status))
+    })
 }
 
 fn extract_history_message_ids(body: &str) -> Result<(Vec<String>, Option<String>), String> {
@@ -159,7 +167,12 @@ fn fetch_raw_message(token: &str, message_id: &str) -> Result<Vec<u8>, String> {
         "https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=RAW",
         urlencoding::encode(message_id)
     );
-    let (status, body) = http_get_json(token, &url, GMAIL_API_HTTP_TIMEOUT_MESSAGE_RAW)?;
+    let (status, body) = http_get_json(
+        token,
+        &url,
+        GMAIL_API_HTTP_TIMEOUT_MESSAGE_RAW,
+        "gmail.messages.get.raw",
+    )?;
     if status >= 400 {
         return Err(format!(
             "messages.get RAW HTTP {status}: {}",
@@ -219,7 +232,12 @@ fn fetch_message_metadata(
     message_id: &str,
 ) -> Result<(Vec<String>, Option<String>), String> {
     let url = message_metadata_url(message_id);
-    let (status, body) = http_get_json(token, &url, GMAIL_API_HTTP_TIMEOUT_HISTORY)?;
+    let (status, body) = http_get_json(
+        token,
+        &url,
+        GMAIL_API_HTTP_TIMEOUT_HISTORY,
+        "gmail.messages.get.metadata",
+    )?;
     if status >= 400 {
         return Err(format!(
             "messages.get METADATA HTTP {status}: {}",
@@ -346,6 +364,7 @@ pub fn bootstrap_gmail_history_if_missing(
         &token,
         "https://gmail.googleapis.com/gmail/v1/users/me/profile",
         GMAIL_API_HTTP_TIMEOUT_HISTORY,
+        "gmail.users.profile",
     )
     .map_err(|e| e.to_string())?;
     if status >= 400 {
@@ -442,8 +461,13 @@ pub fn try_gmail_api_incremental_refresh(
 
     loop {
         let url = history_list_url(&start_hist, page_token.as_deref());
-        let (status, body) = http_get_json(&token, &url, GMAIL_API_HTTP_TIMEOUT_HISTORY)
-            .map_err(RunSyncError::Imap)?;
+        let (status, body) = http_get_json(
+            &token,
+            &url,
+            GMAIL_API_HTTP_TIMEOUT_HISTORY,
+            "gmail.users.history.list",
+        )
+        .map_err(RunSyncError::Imap)?;
 
         if status == 404 {
             clear_gmail_history_id(conn, mailbox_id, imap_folder)?;

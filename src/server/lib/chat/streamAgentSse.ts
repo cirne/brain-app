@@ -6,7 +6,7 @@ import { isZeroUsage, addLlmUsage } from '@server/lib/llm/llmUsage.js'
 import { coerceToolResultDetailsObject } from '@server/lib/llm/coerceToolResultDetails.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { runSuggestReplyRepairIfNeeded } from '@server/lib/chat/suggestReplyRepair.js'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { streamSSE } from 'hono/streaming'
 import {
   applyStreamError,
@@ -293,7 +293,7 @@ export function streamAgentSseResponse(
             }
           }
         } catch (e) {
-          logger.error({ err: e }, 'suggest-reply-repair failed')
+          brainLogger.error({ err: e }, 'suggest-reply-repair failed')
         }
       }
       try {

@@ -3,7 +3,7 @@ import { Type } from '@mariozechner/pi-ai'
 import matter from 'gray-matter'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryRun.js'
 import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
@@ -218,7 +218,7 @@ export function createRipmailAgentTools(wikiDir: string) {
   function runRipmailRefreshAgent(sourceId?: string): { ok: true } {
     const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
     void Promise.resolve(runRipmailRefreshForBrain(extra)).catch((e) => {
-      logger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (background) failed')
+      brainLogger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (background) failed')
     })
     return { ok: true }
   }

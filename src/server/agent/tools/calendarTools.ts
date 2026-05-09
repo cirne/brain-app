@@ -11,12 +11,12 @@ import { calendarEventsFromRipmailRangeJsonStdout } from '@server/lib/calendar/c
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 function runCalendarRefreshAgent(sourceId?: string): { ok: true } {
   const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
   void Promise.resolve(runRipmailRefreshForBrain(extra)).catch((e) => {
-    logger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (calendar background) failed')
+    brainLogger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (calendar background) failed')
   })
   return { ok: true }
 }

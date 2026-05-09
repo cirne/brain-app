@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 use crate::attachments::local_file_read_outcome;
 use crate::config::{FileSourceConfigJson, FileSourceRoot, ResolvedMailbox, SourceKind};
 use crate::oauth::ensure_google_access_token;
+use crate::observability::otel;
 use crate::sources::file_filter;
 use crate::sync::run::SyncResult;
 
@@ -46,11 +47,15 @@ pub fn content_fingerprint(md5_opt: Option<&str>, export_bytes: &[u8]) -> String
 }
 
 fn drive_get(token: &str, url: &str) -> Result<ureq::Response, Box<dyn std::error::Error>> {
-    let resp = ureq::get(url)
-        .set("Authorization", &format!("Bearer {token}"))
-        .timeout(std::time::Duration::from_secs(120))
-        .call()?;
-    Ok(resp)
+    otel::with_http_client_span("google.drive.get", "GET", url, || {
+        let resp = ureq::get(url)
+            .set("Authorization", &format!("Bearer {token}"))
+            .timeout(std::time::Duration::from_secs(120))
+            .call()
+            .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+        let status = resp.status();
+        Ok((resp, status))
+    })
 }
 
 fn drive_json(token: &str, url: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {

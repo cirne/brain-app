@@ -35,7 +35,7 @@ import {
   type LlmUsageSnapshot,
 } from '@server/lib/llm/llmUsage.js'
 import { tryStandardBrainLlmForTelemetry } from '@server/lib/llm/effectiveBrainLlm.js'
-import { logger } from '@server/lib/observability/logger.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import type { LlmAgentKind } from '@server/lib/llm/llmAgentKind.js'
 import type {
   MessageUpdatePayload,
@@ -354,8 +354,8 @@ export function handleStreamAgentEnd(
   const fb = tryStandardBrainLlmForTelemetry()
   const provider = pFromMsg ?? fb?.provider ?? 'unknown'
   const model = mFromMsg ?? fb?.modelId ?? 'unknown'
-  /** Same envelope as wiki Expansion/Cleanup {@link wikiExpansionRunner} `logger.info(..., 'llm-turn')` for grep/correlation. */
-  logger.info(
+  /** Same envelope as wiki Expansion/Cleanup {@link wikiExpansionRunner} `brainLogger.info(..., 'llm-turn')` for grep/correlation. */
+  brainLogger.info(
     {
       source: deps.turnLlm.source,
       kind: deps.agentKind,

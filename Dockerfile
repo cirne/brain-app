@@ -57,7 +57,4 @@ ENV RIPMAIL_BIN=/usr/local/bin/ripmail
 EXPOSE 4000
 # Reap zombie ripmail children if Node misses a wait (belt-and-suspenders with in-process reaping).
 ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
-# NOTE: NR ESM loader (--import newrelic/esm-loader.mjs) breaks @mariozechner/pi-* imports.
-# Without it, pino logs won't auto-forward to NR with APM entity context.
-# APM transactions + custom events still work; logs go to container stdout.
 CMD ["node", "dist/server/index.js"]

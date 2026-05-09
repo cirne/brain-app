@@ -4,7 +4,7 @@
 
 **Successor:** [OPP-091](OPP-091-wiki-unified-namespace-sharing-projection.md)
 
-**Living architecture (kept current in tree):** [wiki-sharing.md](../../architecture/wiki-sharing.md) · **Vision:** [IDEA: Brain-to-brain collaboration](../../ideas/IDEA-wiki-sharing-collaborators.md)
+**Living architecture (kept current in tree):** [wiki-sharing.md](../../architecture/wiki-sharing.md) · **Vision:** [IDEA: Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md)
 
 ---
 
@@ -14,7 +14,7 @@
 
 **Status (historical):** Shipped (Phase 1)  
 **Tags:** `wiki` · `sharing` · `collaboration` · `multi-tenant`  
-**Vision doc:** [IDEA: Brain-to-brain collaboration](../../ideas/IDEA-wiki-sharing-collaborators.md) (milestone M0 of the brain-to-brain sequencing)
+**Vision doc:** [IDEA: Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md) (milestone M0 of the brain-to-brain sequencing)
 
 ---
 
@@ -122,8 +122,8 @@ Best-effort `ripmail draft new` + send via `shareInviteEmail.ts`; failures do no
 - **Write access** — no edit, create, or delete through a share.
 - **Write / agent-backed edits into the owner vault** — no tool path grants mutation; collaborators only read projected paths ([wiki-sharing § Security notes](../../architecture/wiki-sharing.md#security-notes)).
 - **Vault FTS / search_index across shared trees** — indexing stays scoped to the grantee’s own vault; use markdown **`grep`** / **`find`** (or browse) for shared docs.
-- **Handle-based identity** — email only; handle resolution is M1 in the [brain-to-brain idea](../../ideas/IDEA-wiki-sharing-collaborators.md).
-- **In-app notification center** — invite/revoke via email; M1-pre (notification center) is the prerequisite for richer approval UX — see [brain-to-brain idea](../../ideas/IDEA-wiki-sharing-collaborators.md).
+- **Handle-based identity** — email only; handle resolution is M1 in the [brain-to-brain idea](../../ideas/archive/IDEA-wiki-sharing-collaborators.md).
+- **In-app notification center** — invite/revoke via email; M1-pre (notification center) is the prerequisite for richer approval UX — see [brain-to-brain idea](../../ideas/archive/IDEA-wiki-sharing-collaborators.md).
 - **Per-file invites** — directory prefix only.
 - **Expiry / time-bounded grants** — permanent until revoked.
 - **Group / role shares** — one grantee per share row; groups come later.
@@ -170,8 +170,8 @@ Tool friction alone does **not** cover editors or sync that bypass BrainTunnel u
 
 ## Related
 
-- [IDEA: Wiki sharing with collaborators](../../ideas/IDEA-wiki-sharing-collaborators.md) — full idea including open questions this OPP intentionally defers.
-- [Brain-to-brain collaboration](../../ideas/IDEA-wiki-sharing-collaborators.md) — full vision and sequencing; this OPP is M0.
+- [IDEA: Wiki sharing with collaborators](../../ideas/archive/IDEA-wiki-sharing-collaborators.md) — full idea including open questions this OPP intentionally defers.
+- [Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md) — full vision and sequencing; this OPP is M0.
 - [OPP-034](../OPP-034-wiki-snapshots-and-point-in-time-restore.md) — snapshots; complementary safety net, especially if write access ships in a follow-on.
 - [OPP-061](../OPP-061-wiki-top-level-dir-icons-vault-metadata.md) — wiki top-level dir icons; shared tree UX should fit the same directory model.
 - **[OPP-091](OPP-091-wiki-unified-namespace-sharing-projection.md)** — successor: unified wiki filesystem namespace + sharing projection (shipped MVP 2026-05-02).

@@ -4,7 +4,7 @@
 
 **Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (inc. [Hub closure §](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)) · **Tool:** `ask_brain`
 
-**Related:** [IDEA-wiki-sharing-collaborators.md](IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** may be the better long-term bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
+**Related:** [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol — **superseded** by this B2B direction). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** is the **current** bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
 
 ---
 
@@ -139,7 +139,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 
 - Requires handle resolution (endpoint URL for `@handle`)
 - HTTPS inter-instance request with signed payloads
-- Builds on the handle registry / endpoint discovery from IDEA-wiki-sharing-collaborators M1
+- Builds on the handle registry / endpoint discovery envisioned in archived [IDEA-wiki-sharing-collaborators](archive/IDEA-wiki-sharing-collaborators.md) (M1 — not scheduled as product)
 
 **Phase 2 — richer access controls:**
 
@@ -162,7 +162,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 
 ## Relationship to broader vision
 
-The broader brain-to-brain vision is in [IDEA-wiki-sharing-collaborators.md](IDEA-wiki-sharing-collaborators.md), which covers identity, protocol, public-brain tier, and write-access collaboration. That roadmap positions M2 as "ask the other brain for a status report — human approval required every time."
+The broader P2P wiki collaboration vision was in **[IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md)** (identity, protocol, public-brain tier, write access). That roadmap is **superseded** for net-new product work; brain-query + policy carries collaboration forward.
 
 This idea is a **fast path to M2**: skip the bilateral handshake infrastructure and the human approval UI for a first experiment, substitute LLM-instructed privacy filtering, and run it on the hosted instance where routing is already solved. The security model is weaker but the experiment value is high, and the lessons will inform the full protocol design.
 
