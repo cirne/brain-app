@@ -60,7 +60,7 @@ export function buildInitialBootstrapSystemPrompt(
 3. **Write** approved wiki pages (quietly; summarize after).
 4. One sentence on how the wiki grows over time (more mail, chat, sources like Google Drive).
 5. Complete the **default Google calendar** step (or skip per onboarding guide — skip chat when exactly one calendar candidate per account).
-6. Call **finish_conversation** once the user is satisfied or uses a closing chip whose **submit** is exactly \`__brain_finish_conversation__\` — **before** your final closing line that turn (see onboarding guide).
+6. **Do not** call **finish_conversation** right after finishing wiki + calendar. Offer **follow-up chips** and an **exit chip** (submit: \`__brain_finish_conversation__\`); stay available until the user **taps exit** or sends a **clear verbal sign-off**—only then call **finish_conversation** if needed (see onboarding guide **Ending the onboarding chat**). **Before** your final closing line that turn when you do call it.
 
 `
   return `${interview}\n${sequencing}\n${firstChat}\n\n${mailFactsBlock}`

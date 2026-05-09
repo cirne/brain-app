@@ -24,7 +24,7 @@ describe('buildOnboardingInterviewSystemPrompt', () => {
     expect(s).toContain('suggest_reply_options')
     expect(s).toMatch(/Phase 1|step numbers|checklist voice/i)
     expect(s).not.toContain('## Important people')
-    expect(s).toContain('## After that: default Google calendar (before closing)')
+    expect(s).toContain('## After that: default Google calendar (before wrap-up)')
   })
 })
 
