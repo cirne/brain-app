@@ -256,7 +256,7 @@ describe('POST /api/auth/demo/enron', () => {
     expect(res.status).toBe(200)
     const meta = await readHandleMeta(home)
     expect(meta?.userId).toBe(ENRON_DEMO_TENANT_USER_ID_DEFAULT)
-    expect(meta?.handle).toBe('enron-demo-kean')
+    expect(meta?.handle).toBe('demo-steve-kean')
     expect(meta?.confirmedAt).toBeNull()
   })
 
@@ -297,7 +297,7 @@ describe('POST /api/auth/demo/enron', () => {
     const layHome = tenantHomeDir(LAY_TENANT_ID)
     await writeHandleMeta(layHome, {
       userId: LAY_TENANT_ID,
-      handle: 'enron-demo-lay',
+      handle: 'demo-ken-lay',
       confirmedAt: '2026-01-01T00:00:00.000Z',
     })
     await mkdir(join(layHome, 'ripmail'), { recursive: true })

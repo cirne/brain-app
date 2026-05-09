@@ -1,25 +1,24 @@
 # Enron demo tenant (hosted testing)
 
-**OPP-051 Phase 0 + multi-mailbox demos.** Multi-tenant deployments (`BRAIN_DATA_ROOT` set) can expose **three fixed demo workspaces** (Steven Kean `kean-s`, Kenneth Lay `lay-k`, Jeff Skilling `skilling-j`), each as its own tenant directory — same tarball + ingest pipeline as `npm run eval:build`. **`/demo`** lets operators pick a mailbox then enter one shared secret. This gives **Google OAuth–free** sessions for manual QA, staging, Docker, sharing tests, and automation — without weakening vault or tenant middleware globally.
+**OPP-051 Phase 0 + multi-mailbox demos.** Multi-tenant deployments (`BRAIN_DATA_ROOT` set) expose **three fixed demo workspaces** with Braintunnel handles **`demo-steve-kean`**, **`demo-ken-lay`**, **`demo-jeff-skilling`** (stored slugs; `@` prefix is accepted in UI). Mail comes from the CMU Enron corpus—archive maildir users **`kean-s`**, **`lay-k`**, **`skilling-j`** map via manifests in [`eval/fixtures/enron-demo-registry.json`](../../eval/fixtures/enron-demo-registry.json). **`npm run brain:seed-enron-demo`** ingests all three under **`BRAIN_DATA_ROOT`**. That same seed supplies the **Kean** ripmail index used by **`npm run eval:run`** (default **`BRAIN_HOME`** = `./data/usr_enrondemo00000000001` when `BRAIN_DATA_ROOT=./data`). **`/demo`** picks a persona and shared secret — **Google OAuth–free** QA and automation.
 
 Canonical ids + manifest filenames live in [`eval/fixtures/enron-demo-registry.json`](../../eval/fixtures/enron-demo-registry.json).
 
-## Demo tenant vs eval harness
+## Demo + LLM eval (same Kean mail tree)
 
-Use this page for **hosted-style testing**: a real tenant directory under `$BRAIN_DATA_ROOT/<tenantUserId>/`, Bearer mint, `/demo`, and Playwright. For **LLM agent evals** (`npm run eval:run`, JSONL suites), use the isolated **eval home** only — see [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) and [eval/README.md](../../eval/README.md).
+**Hosted-style testing** (`/demo`, Bearer mint, Playwright) and **LLM JSONL evals** both read Kean’s indexed mail from **`$BRAIN_DATA_ROOT/usr_enrondemo00000000001`** — no separate `data-eval/brain`. Wiki JSONL cases still use isolated vaults under **`.data-eval/wiki-eval-cases/`**; JSON reports go to **`data-eval/eval-runs/`**. Details: [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md), [`eval/README.md`](../../eval/README.md).
 
-| | **Demo tenant** | **Eval harness** |
-|---|------------------|------------------|
-| **Purpose** | Manual QA, browser automation, user testing | LLM benchmarks, harness Vitest, JSONL runs |
-| **Data location** | `$BRAIN_DATA_ROOT/<usr_…>/` — Kean `usr_enrondemo00000000001`, Lay `…02`, Skilling `…03` | `./data-eval/brain` (`BRAIN_HOME`, Kean-only eval index) |
-| **Auth** | `BRAIN_ENRON_DEMO_SECRET` → `POST /api/auth/demo/enron` (JSON `demoUser`: `kean`, `lay`, or `skilling`) or `/demo` | N/A (tools read `data-eval/brain` directly) |
-| **Docs / tests** | This file; [`tests/e2e/README.md`](../../tests/e2e/README.md), `npm run test:e2e:playwright` | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md); `npm run test:e2e:enron` (ripmail CLI against eval home) |
+| | **Demo (`/demo`, Playwright)** | **LLM eval (`eval:run`)** |
+|---|-------------------------------|---------------------------|
+| **Purpose** | Manual QA, browser automation | Harness Vitest + JSONL suites |
+| **Mail index** | Per-persona tenant dirs under `$BRAIN_DATA_ROOT` | Same **Kean** tenant dir for mail tools (`usr_enrondemo00000000001`) |
+| **Auth** | `BRAIN_ENRON_DEMO_SECRET` | N/A (offline agent tools) |
 
-The tarball cache **`data-eval/.cache/enron/`** is shared when downloading the CMU corpus; that does **not** mean the demo tenant lives under `data-eval/` — live mail + SQLite for the demo workspace are under **`BRAIN_DATA_ROOT`**.
+Tarball cache when downloading: **`./data/.cache/enron/`** (ignored with `./data/`).
 
 ## Playwright E2E (repo)
 
-Automated browser/API tests live under [`tests/e2e/`](../../tests/e2e/). Run **`npm run dev`** on the usual port (**3000**) against **`./data`**, seed **all three** demo tenants (`npm run brain:seed-enron-demo:dev`, wraps `--all`), then `npm run test:e2e:playwright`. No separate data directory or server layout — see [`tests/e2e/README.md`](../../tests/e2e/README.md).
+Automated browser/API tests live under [`tests/e2e/`](../../tests/e2e/). Run **`npm run dev`** on port **3000** against **`./data`**, run **`npm run brain:seed-enron-demo`** once, then **`npm run test:e2e:playwright`**. See [`tests/e2e/README.md`](../../tests/e2e/README.md).
 
 ## When it is available
 
@@ -37,7 +36,7 @@ Inline placeholders: [`.env.example`](../../.env.example).
 
 1. Deploy or run with the env vars above (e.g. `npm run docker:up` after copying `.env.example` → `.env`).
 2. Open **`/demo`** directly (bookmark or typed URL).
-3. Choose **Steven Kean**, **Kenneth Lay**, or **Jeff Skilling**, then paste the shared demo secret and submit. Mail must already exist under **`BRAIN_DATA_ROOT`** (operators run **`npm run brain:seed-enron-demo:*`** first). If not provisioned, mint returns **503** with instructions — there is no server-side first-hit ingest from `/demo`.
+3. Choose **Steven Kean**, **Kenneth Lay**, or **Jeff Skilling**, then paste the shared demo secret and submit. Mail must already exist under **`BRAIN_DATA_ROOT`** (operators run **`npm run brain:seed-enron-demo`** first). If not provisioned, mint returns **503** with instructions — there is no server-side first-hit ingest from `/demo`.
 4. On **200**, the app sets a normal **`brain_session`** cookie for **that tenant** and redirects to `/c`.
 
 ### B. API (automation / Playwright)
@@ -68,8 +67,8 @@ Build each tenant **before** Bearer mint or **`/demo`** — there is no lazy dow
 **Local dev** (`npm run dev` already uses `./data`):
 
 ```sh
-npm run brain:seed-enron-demo:dev
-# seeds all three tenants (--all). optional: npm run brain:seed-enron-demo:dev -- --force
+npm run brain:seed-enron-demo
+# optional: npm run brain:seed-enron-demo -- --force
 ```
 
 Single mailbox only:
@@ -77,20 +76,20 @@ Single mailbox only:
 ```sh
 export BRAIN_DATA_ROOT=./data
 export BRAIN_ENRON_DEMO_USER=lay   # kean | lay | skilling
-npm run brain:seed-enron-demo
+node scripts/brain/seed-enron-demo-tenant.mjs
 ```
 
 Equivalent with an explicit root:
 
 ```sh
 export BRAIN_DATA_ROOT=/path/to/multitenant-root   # e.g. ./data or /brain-data
-# optional: export EVAL_ENRON_TAR=/path/to/enron_mail_20150507.tar.gz  (skip auto-download)
-npm run brain:seed-enron-demo:all
-# one tenant: BRAIN_ENRON_DEMO_USER=kean npm run brain:seed-enron-demo
-# optional: append -- --force
+# optional: export EVAL_ENRON_TAR=/path/to/enron_mail_20150507.tar.gz
+node scripts/brain/seed-enron-demo-tenant.mjs --all
+# one tenant: BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs
+# optional: append --force
 ```
 
-If `EVAL_ENRON_TAR` is unset, the script downloads the corpus (same URL + SHA as `npm run eval:build`) into **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** when needed.
+If `EVAL_ENRON_TAR` is unset, the script downloads the corpus into **`./data/.cache/enron/enron_mail_20150507.tar.gz`** when needed.
 
 In **Docker**, the image includes **`/app/seed-enron/`** (manifest + ingest scripts only; **no** corpus). You can `docker exec` the same Node command with `BRAIN_DATA_ROOT` and `EVAL_ENRON_TAR` mounted or copied in. See [`Dockerfile`](../../Dockerfile).
 

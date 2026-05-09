@@ -15,7 +15,7 @@
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | Manifest | `eval/fixtures/enron-kean-manifest.json` | CMU tarball pointer, SHA-256, user `kean-s` |
-| Build script | `scripts/eval/build-enron-kean.mjs` | Extract → `data-eval/brain/ripmail/` |
+| Ingest | `scripts/brain/seed-enron-demo-tenant.mjs` + `scripts/eval/enronKeanIngest.mjs` | Extract → tenant dir under `$BRAIN_DATA_ROOT` (Kean = `usr_enrondemo00000000001`) |
 | Task file | `eval/tasks/enron-v1.jsonl` | 16 agent prompts + expectations (LLM eval) |
 | Output | `data-eval/eval-runs/*.json` | Per-model pass rate, tokens, cost |
 
@@ -38,12 +38,12 @@
 1. **Stable tenant id and on-disk layout**
    - Choose a fixed `tenantUserId` (e.g. `usr_enrondemo00000000001`; must pass `isValidUserId()`).
    - Under `BRAIN_DATA_ROOT/<tenantUserId>/`, ensure full [brain layout](../../shared/brain-layout.json): `ripmail/`, `wiki/`, vault verifier if MT vault is required for product feedback routes, etc.
-   - Populate `ripmail/` using the same pipeline as eval: [eval/fixtures/enron-kean-manifest.json](../../eval/fixtures/enron-kean-manifest.json) → `scripts/eval/build-enron-kean.mjs` output shape (synthetic `mailboxId` / `accountEmail`; local `.eml` + SQLite — **no Gmail tokens**).
+   - Populate `ripmail/` using the same pipeline as the seed CLI: [eval/fixtures/enron-kean-manifest.json](../../eval/fixtures/enron-kean-manifest.json) → `enronKeanIngest` output shape (synthetic `mailboxId` / `accountEmail`; local `.eml` + SQLite — **no Gmail tokens**).
 
 2. **Seed data beside the image (CLI), not inside it**
-   - **CLI:** [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) + `npm run brain:seed-enron-demo:all` or `BRAIN_ENRON_DEMO_USER=kean npm run brain:seed-enron-demo` — requires `BRAIN_DATA_ROOT`, optional `EVAL_ENRON_TAR`, optional `--force` / `--all`. Writes `$BRAIN_DATA_ROOT/<tenantId>/` per [`enron-demo-registry.json`](../../eval/fixtures/enron-demo-registry.json) with the same ingest pipeline as eval ([`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs)).
+   - **CLI:** [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) — **`npm run brain:seed-enron-demo`** (all three) or `BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs` — requires `BRAIN_DATA_ROOT`, optional `EVAL_ENRON_TAR`, optional `--force` / `--all`. Writes `$BRAIN_DATA_ROOT/<tenantId>/` per [`enron-demo-registry.json`](../../eval/fixtures/enron-demo-registry.json) ([`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs)).
    - **Host:** Run from repo with `BRAIN_DATA_ROOT=./data` (or any path), or bind-mount that path into a container.
-   - **Docker / runtime:** No separate compose seed service. Operators **`docker exec`** (or CI) run the same **`npm run brain:seed-enron-demo:*`** pipeline against **`BRAIN_DATA_ROOT`** before minting. **`POST /api/auth/demo/enron`** and **`/demo`** return **503** `demo_not_seeded` until each tenant’s **`ripmail.db`** is non-empty (or provision marker exists). Poll **`GET /api/auth/demo/enron/seed-status`** only while an explicit **`GET …/reseed`** rebuild is running. Set **`EVAL_ENRON_TAR`** to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
+   - **Docker / runtime:** Operators **`docker exec`** (or CI) run the same seed CLI against **`BRAIN_DATA_ROOT`** before minting. **`POST /api/auth/demo/enron`** and **`/demo`** return **503** `demo_not_seeded` until each tenant’s **`ripmail.db`** is non-empty (or provision marker exists). Poll **`GET /api/auth/demo/enron/seed-status`** only while an explicit **`GET …/reseed`** rebuild is running. Set **`EVAL_ENRON_TAR`** to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
    - **Reset:** `--force` removes the tenant directory under `BRAIN_DATA_ROOT` and rebuilds from the tarball.
 
 3. **Environment flags and secrets**
@@ -64,7 +64,7 @@
    - No Playwright in repo requirement for Phase 0 closure; document the Playwright recipe below for milestone follow-through.
 
 6. **Playwright / browser automation (documentation + optional scaffold)**
-   - Pre-seed tenants (`npm run brain:seed-enron-demo:dev` or CI equivalent). One `request` call to `POST /api/auth/demo/enron` with bearer secret; capture `Set-Cookie` on **200**.
+   - Pre-seed tenants (`npm run brain:seed-enron-demo` or CI equivalent). One `request` call to `POST /api/auth/demo/enron` with bearer secret; capture `Set-Cookie` on **200**.
    - Save `storageState` and reuse for inbox + wiki specs.
    - **Documented:** [enron-demo-tenant.md](../architecture/enron-demo-tenant.md) (cross-links: [eval-home-and-mail-corpus.md](../architecture/eval-home-and-mail-corpus.md), [eval/README.md](../../eval/README.md)).
 
@@ -85,7 +85,7 @@ If the milestone is **only** `BRAIN_HOME` (no `BRAIN_DATA_ROOT`): bake Enron und
 
 ### Phase 1: Deterministic E2E Tests (no LLM)
 
-Add `npm run test:e2e:enron` that requires `data-eval/brain/ripmail/ripmail.db` and runs vitest cases against the real index.
+Add `npm run test:e2e:enron` that requires `./data/usr_enrondemo00000000001/ripmail/ripmail.db` and runs vitest cases against the real index.
 
 **Test coverage:**
 - `ripmail search` — FTS5 queries: exact phrase, `from:`, `to:`, date ranges, edge cases
@@ -109,15 +109,15 @@ describe('enron corpus e2e', () => {
 });
 ```
 
-**Skip logic:** Tests skip (not fail) when `data-eval/brain/ripmail/ripmail.db` is missing. Developers run `npm run eval:build` first; CI caches the artifact.
+**Skip logic:** Tests skip (not fail) when the Kean tenant `ripmail.db` is missing. Developers run **`npm run brain:seed-enron-demo`** first; CI caches `./data/.cache/enron/` or pre-seeds tenants.
 
 ### Phase 2: CI Artifact for Cloud Agents
 
 Publish pre-built `ripmail.db` (+ minimal maildir if needed) as a GitHub Release asset.
 
 **CI workflow:**
-1. On `main` push (or weekly schedule), run `npm run eval:build`
-2. Upload `data-eval/brain/ripmail/` as `enron-kean-eval-<sha>.tar.gz` to `eval-fixtures` release
+1. On `main` push (or weekly schedule), run `npm run brain:seed-enron-demo`
+2. Upload `./data/usr_enrondemo00000000001/ripmail/` as `enron-kean-eval-<sha>.tar.gz` to `eval-fixtures` release
 3. Cloud agents download + extract before running email-related work
 
 **CLOUD-AGENTS.md addition:**
@@ -136,7 +136,7 @@ tar -xzf enron-kean-eval-*.tar.gz -C data-eval/
 Per [ripmail OPP-026](../../ripmail/docs/opportunities/OPP-026-realistic-imap-test-corpus-and-timestamp-shift.md), Enron dates are 1999–2002. Add a build flag:
 
 ```bash
-npm run eval:build -- --shift-to-now
+npm run brain:seed-enron-demo -- --shift-to-now
 ```
 
 Behavior:
@@ -178,16 +178,16 @@ Each user gets a separate `RIPMAIL_HOME` under `data-eval/`. Tests verify:
 - [x] `POST /api/auth/demo/enron` mints `brain_session` bound to the demo tenant when bearer secret matches **and** tenant mail is provisioned; unprovisioned → **503** `demo_not_seeded`; demo not configured (no/short secret) → 404; single-tenant → 501
 - [x] `tenantMiddleware` / `vaultGate` allow the mint path always; **handler** enforces secret + bearer (no broad API bypass)
 - [x] Vitest coverage for happy path + rejected secret + demo off + misconfiguration (`src/server/routes/demoEnronAuth.test.ts`, `src/server/lib/auth/enronDemo.test.ts`)
-- [x] **Seed CLI** — `npm run brain:seed-enron-demo` / `brain:seed-enron-demo:all` / `scripts/brain/seed-enron-demo-tenant.mjs`; Docker runtime ships `/app/seed-enron/` (no corpus in image). See `.env.example` and `docker-compose.yml` comments.
+- [x] **Seed CLI** — `npm run brain:seed-enron-demo` / `scripts/brain/seed-enron-demo-tenant.mjs`; Docker runtime ships `/app/seed-enron/` (no corpus in image). See `.env.example` and `docker-compose.yml` comments.
 - [ ] Optional wiki reset procedure for long-lived demo deployments (cron / replace volume) noted separately
 - [x] Short Playwright recipe documented (pre-seed + Bearer + `POST /api/auth/demo/enron`; seed-status for reseed only) — [enron-demo-tenant.md](../architecture/enron-demo-tenant.md)
 
 ### Phase 1 (MVP)
-- [x] `npm run test:e2e:enron` runs Vitest (`vitest.enron-e2e.config.ts`) against `data-eval/brain` via ripmail CLI (`src/server/evals/e2e/enronRipmail.test.ts`)
+- [x] `npm run test:e2e:enron` runs Vitest (`vitest.enron-e2e.config.ts`) against `./data/usr_enrondemo00000000001` via ripmail CLI (`src/server/evals/e2e/enronRipmail.test.ts`)
 - [x] At least 5 test cases covering search, read, who, attachment list, inbox
 - [x] Tests skip gracefully when corpus not built (no CI failure on fresh clone)
 - [x] Document in `eval/README.md` + cross-links in [enron-demo-tenant.md](../architecture/enron-demo-tenant.md) / [eval-home-and-mail-corpus.md](../architecture/eval-home-and-mail-corpus.md)
-- [x] Playwright suite: [`tests/e2e/`](../../tests/e2e/), `npm run test:e2e:playwright` — against **`npm run dev`** (**`./data`**, `:3000`); seed with `npm run brain:seed-enron-demo:dev` before mint; demo secret via `.env` or CI env
+- [x] Playwright suite: [`tests/e2e/`](../../tests/e2e/), `npm run test:e2e:playwright` — against **`npm run dev`** (**`./data`**, `:3000`); seed with **`npm run brain:seed-enron-demo`** before mint; demo secret via `.env` or CI env
 
 ### Phase 2
 - [ ] CI workflow publishes `enron-kean-eval-*.tar.gz` to GitHub Releases
@@ -195,7 +195,7 @@ Each user gets a separate `RIPMAIL_HOME` under `data-eval/`. Tests verify:
 - [ ] Cloud agent can run `test:e2e:enron` after downloading artifact
 
 ### Phase 3
-- [ ] `--shift-to-now` flag on `eval:build` shifts indexed dates
+- [ ] `--shift-to-now` flag on **seed / ingest** shifts indexed dates
 - [ ] `ripmail inbox 7d` returns results on shifted corpus
 - [ ] Stamp includes shift anchor for reproducibility
 

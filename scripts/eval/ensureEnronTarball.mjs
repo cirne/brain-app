@@ -3,15 +3,15 @@
  *
  * Resolution order:
  * 1. `EVAL_ENRON_TAR` — if set and the file exists, SHA must match the manifest (or `ENRON_SHA256` override).
- * 2. Stable cache: `<repoRoot>/data-eval/.cache/enron/enron_mail_20150507.tar.gz` — use if present and SHA matches.
+ * 2. Stable cache: `<repoRoot>/data/.cache/enron/enron_mail_20150507.tar.gz` — use if present and SHA matches.
  * 3. Download from `ENRON_SOURCE_URL` or `manifest.sourceUrl` into that cache path (with `.part` + rename), then verify SHA.
  *
  * Download: prefers **`curl`** (HTTP/1.1, retries, **resume** via `-C -`) — much faster and more reliable on large
  * files than Node `fetch` streaming. Set `EVAL_ENRON_USE_NODE_FETCH=1` to force the old path. Partial `.part` files
  * are kept for resume (do not delete before re-running).
  *
- * Aligns tarball resolution with `enronDemoSeed` / CLI ingest, but persists under `data-eval/.cache/`
- * so local `npm run eval:build` survives reboots without re-downloading.
+ * Aligns tarball resolution with `enronDemoSeed` / CLI ingest, but persists under `data/.cache/`
+ * so local downloads survive reboots without re-downloading.
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, renameSync, rmSync, unlinkSync, createWriteStream } from 'node:fs'
@@ -82,7 +82,7 @@ async function downloadWithNodeFetch(url, partPath) {
 /**
  * @param {object} opts
  * @param {{ expectedSha256: string, sourceUrl?: string }} opts.manifest from enron-kean-manifest.json
- * @param {string} opts.repoRoot brain-app repo root (contains eval/fixtures and data-eval/)
+ * @param {string} opts.repoRoot brain-app repo root (contains eval/fixtures and data/.cache/enron/)
  * @returns {Promise<string>} absolute path to tarball
  */
 export async function ensureEnronTarballPath({ manifest, repoRoot }) {
@@ -108,7 +108,7 @@ export async function ensureEnronTarballPath({ manifest, repoRoot }) {
     return p
   }
 
-  const cacheDir = join(repoRoot, 'data-eval', '.cache', 'enron')
+  const cacheDir = join(repoRoot, 'data', '.cache', 'enron')
   mkdirSync(cacheDir, { recursive: true })
   const cached = join(cacheDir, 'enron_mail_20150507.tar.gz')
 

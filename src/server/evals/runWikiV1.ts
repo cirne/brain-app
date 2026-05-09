@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { runLlmJsonlEvalMain, getEvalRepoRoot } from './harness/runLlmJsonlEval.js'
+import { resolveEvalBrainHome } from './evalDefaultBrainHome.js'
 import { loadWikiV1TasksFromFile } from './harness/loadJsonlEvalTasks.js'
 import { runWikiAgentEvalCase } from './harness/runWikiAgentEvalCase.js'
 import { seedEnronEvalWiki } from './harness/seedEnronEvalWiki.js'
@@ -77,12 +78,11 @@ export async function runWikiV1SubprocessWorker(): Promise<number> {
   }
 
   const root = getEvalRepoRoot()
-  const defaultBrain = join(root, 'data-eval', 'brain')
-  const brain = process.env.BRAIN_HOME ? resolve(process.env.BRAIN_HOME) : defaultBrain
+  const brain = resolveEvalBrainHome(root)
   process.env.BRAIN_HOME = brain
   const rip = join(brain, 'ripmail', 'ripmail.db')
   if (!existsSync(rip)) {
-    console.error(`[eval:wiki-v1:worker] ripmail index missing. Run: npm run eval:build (${rip})`)
+    console.error(`[eval:wiki-v1:worker] ripmail index missing. Run: npm run brain:seed-enron-demo (${rip})`)
     return 1
   }
 
@@ -216,6 +216,6 @@ export async function runWikiV1Main(): Promise<number> {
       model: c.model,
       provider: c.provider,
     }),
-    ripIndexHint: 'Run: npm run eval:build',
+    ripIndexHint: 'Run: npm run brain:seed-enron-demo',
   })
 }

@@ -1,6 +1,6 @@
 /**
  * Shared Enron maildir → Brain ripmail layout (extract, .eml flatten, rebuild-index).
- * Used by `build-enron-kean.mjs` (eval) and `scripts/brain/seed-enron-demo-tenant.mjs` (demo tenant seed).
+ * Used by `scripts/brain/seed-enron-demo-tenant.mjs` (demo tenants + eval mail corpus).
  */
 import { execFileSync } from 'node:child_process'
 import {
@@ -43,7 +43,7 @@ export function* walkMailFiles(dir) {
  * @param {string} manifest.mailboxId
  * @param {string} manifest.accountEmail
  * @param {string} tarPath
- * @param {string} brainRoot Brain home (`data-eval/brain` or multi-tenant tenant dir)
+ * @param {string} brainRoot Brain home (multi-tenant tenant dir under BRAIN_DATA_ROOT, or explicit BRAIN_HOME)
  * @param {string} ripmailBin
  * @param {string} extractParent Directory under which `tar -xzf … pathInsideArchive` is extracted (e.g. …/expand)
  * @param {boolean} force

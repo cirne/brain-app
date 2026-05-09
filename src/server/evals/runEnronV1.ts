@@ -1,6 +1,6 @@
 /**
  * Enron v1 eval runner: load JSONL tasks, run with bounded parallelism, write JSON report.
- * CLI: `BRAIN_HOME=./data-eval/brain npx tsx src/server/evals/enronV1cli.ts`
+ * CLI: `BRAIN_DATA_ROOT=./data npx tsx src/server/evals/enronV1cli.ts`
  * Env: EVAL_MAX_CONCURRENCY (default 12), EVAL_TASKS (path to jsonl, default eval/tasks/enron-v1.jsonl).
  * If **EVAL_ASSISTANT_NOW** is unset/empty, sets default **2002-01-01** for the run (see `resolveEvalAnchoredNow` + assistant session date).
  */
@@ -46,6 +46,6 @@ async function runEnronV1MainInner(): Promise<number> {
       model: c.model,
       provider: c.provider,
     }),
-    ripIndexHint: 'Run: npm run eval:build',
+    ripIndexHint: 'Run: npm run brain:seed-enron-demo',
   })
 }

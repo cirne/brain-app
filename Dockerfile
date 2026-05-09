@@ -3,7 +3,7 @@
 # ripmail is **not** compiled in this file. Run `npm run docker:ripmail:build` first (host cargo on
 # Linux, or a one-off rust:bookworm container with cached Cargo volumes on macOS).
 #
-# Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo:all` or `BRAIN_ENRON_DEMO_USER=kean npm run brain:seed-enron-demo` (host) or
+# Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo` or `BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs` (host) or
 # `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.
 # syntax=docker/dockerfile:1
 

@@ -11,7 +11,7 @@ const resolveAlias = {
   '@shared': join(root, 'src/shared'),
 }
 
-/** Deterministic ripmail checks against `data-eval/brain` (after `npm run eval:build`). */
+/** Deterministic ripmail checks against `./data/usr_enrondemo00000000001` after `npm run brain:seed-enron-demo`. */
 export default defineConfig({
   resolve: { alias: resolveAlias },
   test: {

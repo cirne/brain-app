@@ -21,9 +21,11 @@ export class InvalidWorkspaceHandleError extends Error {
   }
 }
 
-/** Trim + lowercase (filesystem-safe directory name). */
+/** Trim + lowercase (filesystem-safe directory name). Leading `@` is stripped (Braintunnel-style mention). */
 export function normalizeWorkspaceHandle(raw: string): string {
-  return raw.trim().toLowerCase()
+  let s = raw.trim().toLowerCase()
+  if (s.startsWith('@')) s = s.slice(1)
+  return s
 }
 
 export function isReservedWorkspaceHandle(normalized: string): boolean {

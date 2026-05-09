@@ -1,5 +1,5 @@
 # Enron kean-s eval v1. Golden substrings/ids from `ripmail search` / `read` on an index
-# built with `npm run eval:build` (see eval/README.md). Corpus dates ~1997–2001.
+# Seed mail with `npm run brain:seed-enron-demo` (see eval/README.md). Corpus dates ~1997–2001.
 # User messages are intentionally vague—no tool names; real users won’t know the agent stack.
 {"id":"enron-001-weekly-report","userMessage":"I’m trying to track down a weekly report Janet Butler sent around mid–late December 2001 (before Christmas). Can you find it and give me the full message id your system uses for that email?","expect":{"all":[{"kind":"toolResultIncludes","substring":"2322798.1075855417584.JavaMail.evans@thyme"},{"kind":"toolResultIncludes","substring":"janet.butler@enron.com","caseInsensitive":true}]}}
 {"id":"enron-002-kean-dubuque","userMessage":"Somewhere in 2001, Jeff Kean (j..kean@enron.com) emailed about Dubuque—there’s a thread that says RE: Hello. I need the message id for that one.","expect":{"all":[{"kind":"toolResultIncludes","substring":"20174821.1075855417815.JavaMail.evans@thyme"}]}}

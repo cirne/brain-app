@@ -22,9 +22,9 @@ import {
   startEnronDemoForceReseed,
 } from '@server/lib/auth/enronDemoSeed.js'
 
-/** Operator hint when mint hits before `npm run brain:seed-enron-demo:*`. */
+/** Operator hint when mint hits before seed. */
 export const ENRON_DEMO_NOT_SEEDED_HINT =
-  'Pre-seed Enron demo mail under BRAIN_DATA_ROOT first (e.g. npm run brain:seed-enron-demo:dev for all personas, or BRAIN_ENRON_DEMO_USER=lay npm run brain:seed-enron-demo). See docs/architecture/enron-demo-tenant.md.'
+  'Pre-seed Enron demo mail under BRAIN_DATA_ROOT first (e.g. npm run brain:seed-enron-demo for all personas, or BRAIN_ENRON_DEMO_USER=lay with the seed CLI). See docs/architecture/enron-demo-tenant.md.'
 
 const app = new Hono()
 

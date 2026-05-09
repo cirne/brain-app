@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pLimit from 'p-limit'
 import { addLlmUsage, isZeroUsage, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
@@ -12,6 +12,7 @@ import {
 } from './effectiveLlmEnv.js'
 import { parseEvalMaxConcurrency } from './llmPreflight.js'
 import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
+import { resolveEvalBrainHome } from '../evalDefaultBrainHome.js'
 
 const ZERO: LlmUsageSnapshot = {
   input: 0,
@@ -65,8 +66,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   }
 
   const root = getEvalRepoRoot()
-  const defaultBrain = join(root, 'data-eval', 'brain')
-  const brain = process.env.BRAIN_HOME ? resolve(process.env.BRAIN_HOME) : defaultBrain
+  const brain = resolveEvalBrainHome(root)
   const rip = join(brain, 'ripmail', 'ripmail.db')
   process.env.BRAIN_HOME = brain
 

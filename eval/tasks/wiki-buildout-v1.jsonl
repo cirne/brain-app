@@ -1,5 +1,5 @@
 # Wiki buildout agent eval v1 (Enron kean-s). Same subprocess + seeded wiki as wiki-v1 harness.
-# Requires: npm run eval:build  (BRAIN_HOME ripmail index)
+# Requires: npm run brain:seed-enron-demo  (BRAIN_HOME ripmail index)
 #
 # Golden message ids match eval/tasks/enron-v1.jsonl (same corpus).
 {"id":"wiki-bo-001-janet-weekly-topic","agent":"buildout","userMessage":"Eval pass only: use search_index to find mail from janet.butler@enron.com in December 2001 whose subject includes Weekly Report. Then edit topics/wiki-bo-janet-weekly-snippet.md to include exactly two markdown bullets; the first bullet must cite message id 2322798.1075855417584.JavaMail.evans@thyme. Stop after that edit.","expect":{"all":[{"kind":"toolNamesIncludeAll","names":["search_index","edit"]},{"kind":"toolResultIncludes","substring":"2322798.1075855417584.JavaMail.evans@thyme"},{"kind":"toolResultIncludes","substring":"wiki-bo-janet-weekly-snippet.md","caseInsensitive":true}]}}

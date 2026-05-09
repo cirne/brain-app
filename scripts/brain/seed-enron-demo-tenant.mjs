@@ -2,6 +2,8 @@
 /**
  * Seed or rebuild OPP-051 Enron demo tenant(s) under BRAIN_DATA_ROOT (multi-tenant layout).
  *
+ * npm default (see package.json): `npm run brain:seed-enron-demo` seeds **all three** personas under `./data`.
+ *
  * Required env:
  *   BRAIN_DATA_ROOT — tenant parent (e.g. ./data or /brain-data in Docker)
  *
@@ -12,13 +14,11 @@
  * Seed **all** registry demo tenants:
  *   node scripts/brain/seed-enron-demo-tenant.mjs --all
  *
- * Tarball: same as `npm run eval:build` — `EVAL_ENRON_TAR` or cache under data-eval/.cache/enron/.
+ * Tarball: `EVAL_ENRON_TAR` or stable cache under `<repo>/data/.cache/enron/`.
  *
  * Flags:
  *   --force — remove existing tenant dir(s) and rebuild from tarball
  *   --all   — seed every user in enron-demo-registry.json (ignores BRAIN_ENRON_DEMO_USER)
- *
- * Local all-three dev: `npm run brain:seed-enron-demo:dev`
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

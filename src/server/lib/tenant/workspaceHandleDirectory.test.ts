@@ -14,7 +14,7 @@ import {
 describe('workspaceHandleMatchRank', () => {
   it('orders full handle prefix before segment prefix before substring', () => {
     expect(workspaceHandleMatchRank('sk-demo', 'sk')).toBe(0)
-    expect(workspaceHandleMatchRank('enron-demo-skilling', 'sk')).toBe(1)
+    expect(workspaceHandleMatchRank('demo-jeff-skilling', 'sk')).toBe(1)
     expect(workspaceHandleMatchRank('axxskyy-prefix', 'sk')).toBe(2)
     expect(workspaceHandleMatchRank('abc', 'z')).toBeNull()
   })
@@ -103,27 +103,27 @@ describe('workspaceHandleDirectory', () => {
     expect(sResults.map((r) => r.handle)).toEqual(['sterling'])
 
     await seedTenant({ handle: 'sk-root', primaryEmail: 'a@x.com' })
-    await seedTenant({ handle: 'enron-demo-skilling', primaryEmail: 'b@x.com' })
-    await seedTenant({ handle: 'zzz-enron-demo-skilling', primaryEmail: 'c@x.com' })
+    await seedTenant({ handle: 'demo-jeff-skilling', primaryEmail: 'b@x.com' })
+    await seedTenant({ handle: 'zzz-demo-jeff-skilling', primaryEmail: 'c@x.com' })
     await seedTenant({ handle: 'xxskyy-test', primaryEmail: 'd@x.com' })
 
     const skRanked = await searchWorkspaceHandleDirectory({ query: 'sk' })
     expect(skRanked.map((r) => r.handle)).toEqual([
       'sk-root',
-      'enron-demo-skilling',
-      'zzz-enron-demo-skilling',
+      'demo-jeff-skilling',
+      'zzz-demo-jeff-skilling',
       'xxskyy-test',
     ])
 
     const allResults = await searchWorkspaceHandleDirectory({ query: '' })
     expect(allResults.map((r) => r.handle)).toEqual([
       'cirne',
+      'demo-jeff-skilling',
       'donna',
-      'enron-demo-skilling',
       'sk-root',
       'sterling',
       'xxskyy-test',
-      'zzz-enron-demo-skilling',
+      'zzz-demo-jeff-skilling',
     ])
   })
 

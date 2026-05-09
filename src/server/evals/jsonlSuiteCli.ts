@@ -18,8 +18,8 @@ process environment; use --provider / --model to set BRAIN_LLM for this run.
   1. Enron v1 — assistant / mail tasks → data-eval/eval-runs/enron-v1-*.json
   2. Wiki v1 — buildout + cleanup → data-eval/eval-runs/wiki-v1-*.json
 
-Both use BRAIN_HOME (default ./data-eval/brain via npm script) and the Enron
-ripmail index from npm run eval:build.
+Both use BRAIN_HOME (default: Kean demo tenant usr_enrondemo00000000001 under BRAIN_DATA_ROOT; eval:run sets BRAIN_DATA_ROOT=./data) and the Enron
+ripmail index from npm run brain:seed-enron-demo.
 
 Options:
   --provider, -p   Merged into BRAIN_LLM (with --model or registry default)

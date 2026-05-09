@@ -3,10 +3,11 @@ import { existsSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execRipmailArgv } from '@server/lib/ripmail/ripmailRun.js'
+import { ENRON_DEMO_TENANT_USER_ID_DEFAULT } from '@server/lib/auth/enronDemo.js'
 
 /** Repo root: …/src/server/evals/e2e → ../../../.. */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..', '..')
-const evalBrain = resolve(repoRoot, 'data-eval', 'brain')
+const evalBrain = resolve(repoRoot, 'data', ENRON_DEMO_TENANT_USER_ID_DEFAULT)
 const ripmailHome = join(evalBrain, 'ripmail')
 const ripmailDb = join(ripmailHome, 'ripmail.db')
 
@@ -24,7 +25,7 @@ async function indexedMessageCount(): Promise<number> {
   return j.search?.indexedMessages ?? 0
 }
 
-describe('Enron corpus ripmail E2E (data-eval/brain)', () => {
+describe('Enron corpus ripmail E2E (Kean demo tenant under ./data)', () => {
   let corpusReady = false
 
   beforeAll(async () => {

@@ -23,6 +23,7 @@ pub mod mail_read;
 pub mod mailbox;
 pub mod mime_decode;
 pub mod oauth;
+pub mod observability;
 pub mod rebuild_index;
 
 pub use oauth::{
@@ -172,11 +173,13 @@ pub use sync::{
     parse_read_full_with_body_preference, parse_since_to_date, read_sync_lock_row_optional,
     release_lock, resolve_sync_folder_for_host, resolve_sync_mailbox, resolve_sync_since_ymd,
     run_refresh_foreground_subprocess, run_sync, run_sync_with_parallel_imap_connect,
-    same_calendar_day, should_early_exit_forward, spawn_sync_background_detached, sync_log_path,
-    write_maildir_message, FakeImapTransport, FetchedMessage, ImapAuth, ImapStatusData, LockResult,
-    MailboxEntry, MaildirWrite, ParseMessageOptions, ParsedAttachment, ParsedMessage,
-    ReadBodyPreference, ReadForCli, RealImapTransport, RunSyncError, SyncDirection, SyncFileLogger,
-    SyncImapTransport, SyncKind, SyncLockRow, SyncMailboxSummary, SyncOptions, SyncResult,
+    same_calendar_day, should_early_exit_forward, spawn_sync_background_detached,
+    sync_diag_forward_config_from_env_parts, sync_log_path, write_maildir_message,
+    FakeImapTransport, FetchedMessage, ImapAuth, ImapStatusData, LockResult, MailboxEntry,
+    MaildirWrite, ParseMessageOptions, ParsedAttachment, ParsedMessage, ReadBodyPreference,
+    ReadForCli, RealImapTransport, RunSyncError, SyncDiagForwardConfig, SyncDirection,
+    SyncFileLogger, SyncImapTransport, SyncKind, SyncLockRow, SyncMailboxSummary, SyncOptions,
+    SyncResult,
 };
 pub use thread_view::{list_thread_messages, ThreadMessageRow};
 pub use wizard::{run_wizard, WizardOptions};

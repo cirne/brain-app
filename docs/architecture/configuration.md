@@ -27,9 +27,9 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `SYNC_INTERVAL_SECONDS` | `300` (`getSyncIntervalMs`) | **Reserved:** parsed in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts); **no** server `setInterval` consumes it today — see **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)** |
 | `BRAIN_ENRON_DEMO_SECRET` | — | **Hosted/demo only:** any non-empty value enables `POST /api/auth/demo/enron`, `GET /api/auth/demo/enron/seed-status`, and the `/demo` page (no link from hosted Google sign-in). Bearer must match (timing-safe). See [enron-demo-tenant.md](./enron-demo-tenant.md). |
 | `BRAIN_ENRON_DEMO_TENANT_ID` | _(unset)_ | Optional lock: mint/seed only the demo user whose `tenantUserId` matches (see `eval/fixtures/enron-demo-registry.json`). |
-| `EVAL_ENRON_TAR` | — | Optional: path to `enron_mail_20150507.tar.gz`. If unset, **`npm run eval:build`** and **`npm run brain:seed-enron-demo`** / **`brain:seed-enron-demo:all`** download once (SHA-checked) to **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** (host/server ingest helpers reuse that cache path before `tmpdir`). |
+| `EVAL_ENRON_TAR` | — | Optional: path to `enron_mail_20150507.tar.gz`. If unset, **`npm run brain:seed-enron-demo`** and ingest helpers download once (SHA-checked) to **`./data/.cache/enron/enron_mail_20150507.tar.gz`** (before `tmpdir` fallback). |
 | `BRAIN_SEED_REPO_ROOT` | — | **Lazy seed only:** repo root containing `eval/fixtures/enron-kean-manifest.json` (defaults: `/app/seed-enron` in image, else `process.cwd()`). |
-| `ENRON_SOURCE_URL` / `ENRON_SHA256` | — | Override CMU tarball URL/hash when downloading (air-gapped mirrors). Used by **`npm run eval:build`**, demo seed CLI, and operator **reseed** ingest. |
+| `ENRON_SOURCE_URL` / `ENRON_SHA256` | — | Override CMU tarball URL/hash when downloading (air-gapped mirrors). Used by **`npm run brain:seed-enron-demo`**, demo seed CLI, and operator **reseed** ingest. |
 
 ### Agent LLM default (2026, staging and COGS)
 

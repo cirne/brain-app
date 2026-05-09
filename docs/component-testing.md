@@ -2,7 +2,7 @@
 
 Brain-app’s **UI unit tests** live next to components as `*.test.ts` under [`src/client/components/`](../src/client/components/). They use **Vitest** with the **jsdom** environment, **@testing-library/svelte**, and **@testing-library/jest-dom** matchers.
 
-End-to-end browser tests use **Playwright** against the Enron **demo tenant** in **`./data`** while **`npm run dev`** serves on **:3000** (Bearer mint): [`tests/e2e/`](../tests/e2e/), `npm run test:e2e:playwright`, [docs/architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md). Deterministic **ripmail** checks against the eval corpus: `npm run test:e2e:enron`.
+End-to-end browser tests use **Playwright** against the Enron **demo tenant** in **`./data`** while **`npm run dev`** serves on **:3000** (Bearer mint): [`tests/e2e/`](../tests/e2e/), `npm run test:e2e:playwright`, [docs/architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md). Deterministic **ripmail** checks against the Kean tenant index: `npm run test:e2e:enron`.
 
 ## Running tests
 

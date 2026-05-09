@@ -39,7 +39,7 @@ This document outlines workflows that are difficult to automate due to browser i
 
 ## Enron demo tenant (no Google OAuth)
 
-For **automated browser or API testing** with the public Enron mailboxes under **the same `./data` tree as `npm run dev`**, set **`BRAIN_ENRON_DEMO_SECRET` in `.env`**, run **`npm run brain:seed-enron-demo:dev`** once to seed **Kean, Lay, and Skilling**, then use `POST /api/auth/demo/enron` with `{ "demoUser": "kean" }` (or `lay` / `skilling`) or **`npm run test:e2e:playwright`** with **`npm run dev`** on **:3000** — see [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) and [`tests/e2e/README.md`](../tests/e2e/README.md). For **ripmail-only** checks against the eval index (`data-eval/brain`, Kean-only), run `npm run test:e2e:enron` after `npm run eval:build`.
+For **automated browser or API testing** with the public Enron mailboxes under **the same `./data` tree as `npm run dev`**, set **`BRAIN_ENRON_DEMO_SECRET` in `.env`**, run **`npm run brain:seed-enron-demo`** once to seed **Kean, Lay, and Skilling**, then use `POST /api/auth/demo/enron` with `{ "demoUser": "kean" }` (or `lay` / `skilling`) or **`npm run test:e2e:playwright`** with **`npm run dev`** on **:3000** — see [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) and [`tests/e2e/README.md`](../tests/e2e/README.md). For **ripmail-only** checks against the Kean demo index (`./data/usr_enrondemo00000000001`), run **`npm run test:e2e:enron`** after **`npm run brain:seed-enron-demo`**.
 
 ## UI and Agentic Workflows
 

@@ -11,7 +11,7 @@ const resolveAlias = {
   '@shared': join(root, 'src/shared'),
 }
 
-/** Eval Vitest slice (`src/server/evals` glob in `include`) — first phase of `npm run eval:run` (after `eval:build` when tests need the Enron index). */
+/** Eval Vitest slice — first phase of `npm run eval:run` (after `brain:seed-enron-demo` when tests need the Enron index). */
 export default defineConfig({
   resolve: { alias: resolveAlias },
   test: {

@@ -11,6 +11,10 @@ describe('workspaceHandle', () => {
     expect(normalizeWorkspaceHandle('  Lewis  ')).toBe('lewis')
   })
 
+  it('strips leading @ before normalization', () => {
+    expect(normalizeWorkspaceHandle('@Demo-Steve-Kean')).toBe('demo-steve-kean')
+  })
+
   it('parses valid handles', () => {
     expect(parseWorkspaceHandle('lewiscirne')).toBe('lewiscirne')
     expect(parseWorkspaceHandle('ab-c')).toBe('ab-c')

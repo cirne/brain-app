@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
+import { runWithTenantContext } from '@server/lib/tenant/tenantContext.js'
 
 const keys = ['RIPMAIL_LLM_PROVIDER', 'BRAIN_LLM', 'LLM_PROVIDER'] as const
 let saved: Record<string, string | undefined> = {}
@@ -50,5 +51,28 @@ describe('ripmailProcessEnv', () => {
     process.env.RIPMAIL_LLM_PROVIDER = 'ollama'
     const env = ripmailProcessEnv()
     expect(env.RIPMAIL_LLM_PROVIDER).toBe('ollama')
+  })
+
+  it('adds BRAIN_TENANT_USER_ID and BRAIN_WORKSPACE_HANDLE from tenant context', () => {
+    runWithTenantContext(
+      {
+        tenantUserId: 'usr_testtenant',
+        workspaceHandle: 'my-workspace',
+        homeDir: '/tmp/brain-tenant-home',
+      },
+      () => {
+        const env = ripmailProcessEnv()
+        expect(env.BRAIN_TENANT_USER_ID).toBe('usr_testtenant')
+        expect(env.BRAIN_WORKSPACE_HANDLE).toBe('my-workspace')
+      },
+    )
+  })
+
+  it('does not put tenant keys on the returned env outside tenant context', () => {
+    const env = ripmailProcessEnv()
+    expect(env.BRAIN_TENANT_USER_ID).toBeUndefined()
+    expect(env.BRAIN_WORKSPACE_HANDLE).toBeUndefined()
+    expect(process.env.BRAIN_TENANT_USER_ID).toBeUndefined()
+    expect(process.env.BRAIN_WORKSPACE_HANDLE).toBeUndefined()
   })
 })

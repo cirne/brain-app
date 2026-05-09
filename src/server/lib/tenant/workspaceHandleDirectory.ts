@@ -59,7 +59,7 @@ async function resolvePrimaryEmail(home: string): Promise<string | null> {
 /**
  * Search confirmed workspace handles by case-insensitive substring (`query`). Excludes `excludeUserId`
  * (typically the caller's own tenant). Matches anywhere in the handle, but sorts so full-handle prefixes
- * come first, then segment prefixes (`enron-demo-x` hyphen segments), then other substring hits.
+ * come first, then segment prefixes (`demo-*` hyphen segments), then other substring hits.
  */
 export async function searchWorkspaceHandleDirectory(params: {
   /** Search text (`@` prefix ignored). Empty returns all handles (still capped). */

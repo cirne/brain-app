@@ -220,7 +220,7 @@ See `[docs/ASK.md](docs/ASK.md)` for **`ripmail ask`** vs primitives and for the
 
 ### Sync logging and background execution
 
-**Recommended:** Run sync in the background for long-running syncs. Each sync run writes a log file to `{RIPMAIL_HOME}/logs/sync-{date}-{time}.log`:
+**Recommended:** Run sync in the background for long-running syncs. Sync writes append-only **`{RIPMAIL_HOME}/logs/sync.log`** (same path when Brain drives ripmail under that home).
 
 ```bash
 # Run sync in background
@@ -229,11 +229,13 @@ ripmail refresh --since 1y &
 # Check sync status
 ripmail status
 
-# Inspect the latest log (stdout shows log path)
-tail -f ~/.ripmail/logs/sync-*.log
+# Inspect the log (CLI may also print the path)
+tail -f ~/.ripmail/logs/sync.log
 ```
 
-The CLI prints the log file path to stdout (e.g., `Sync log: ~/.ripmail/logs/sync-20250306-143022.log`) so agents can tail/inspect it. Verbose logging goes to the file, not stdout, making background execution clean.
+The CLI may print the log file path to stdout so agents can tail/inspect it. **Stdout/stderr** stay reserved for the **normal CLI / JSON contract** (search, inbox, tool output) — sync diagnostics are **not** written there.
+
+**New Relic (optional):** when **`NEW_RELIC_LICENSE_KEY`** is set and either **`NODE_ENV=production`** or **`RIPMAIL_NR_DIAGNOSTICS=1`**, sync diagnostics are **POST**ed to the [New Relic Log API](https://docs.newrelic.com/docs/logs/log-api/introduction-log-api/) (HTTPS) from the ripmail process — same structured fields as before (`source` / `ripmail_sync`, optional **`tenantUserId`** / **`workspaceHandle`** from **`BRAIN_TENANT_USER_ID`** / **`BRAIN_WORKSPACE_HANDLE`** when the parent sets them). Failures are ignored so sync never breaks. Does not use stdout.
 
 **Using `ripmail` from the repo:** `cargo run -- <command> [args]` from the repository root, or `./target/release/ripmail` after `cargo build --release`.
 

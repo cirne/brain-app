@@ -89,6 +89,11 @@ export function ripmailProcessEnv(): typeof process.env {
       out.RIPMAIL_LLM_PROVIDER = 'openai'
     }
   }
+  const tenantCtx = tryGetTenantContext()
+  if (tenantCtx) {
+    out.BRAIN_TENANT_USER_ID = tenantCtx.tenantUserId
+    out.BRAIN_WORKSPACE_HANDLE = tenantCtx.workspaceHandle
+  }
   return out
 }
 

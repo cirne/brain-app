@@ -1,13 +1,13 @@
 # Playwright E2E (Enron demo tenant)
 
-Tests hit your **normal local dev setup**: `./data`, port **3000**, `npm run dev`. Enron fixtures use **three tenant dirs** (`usr_enrondemo00000000001` Kean, `…02` Lay, `…03` Skilling — see `eval/fixtures/enron-demo-registry.json`); only auth is special (Bearer + `/demo`). Pre-seed all three with `npm run brain:seed-enron-demo:dev`. This is **not** the LLM eval harness (`data-eval/brain`). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
+Tests hit your **normal local dev setup**: `./data`, port **3000**, `npm run dev`. Enron fixtures use **three tenant dirs** (`usr_enrondemo00000000001` Kean, `…02` Lay, `…03` Skilling — see `eval/fixtures/enron-demo-registry.json`); only auth is special (Bearer + `/demo`). Pre-seed with **`npm run brain:seed-enron-demo`**. LLM evals use the same **Kean** tree for mail — see [eval/README.md](../eval/README.md) and [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
 
 ## One-time seed (recommended)
 
 Uses the **same tree** dev already serves:
 
 ```sh
-npm run brain:seed-enron-demo:dev
+npm run brain:seed-enron-demo
 ```
 
 (`BRAIN_DATA_ROOT=./data` — matches [`scripts/run-dev.mjs`](../scripts/run-dev.mjs)); seeds **Kean, Lay, and Skilling** (`--all`). First run downloads the corpus if needed.
@@ -41,5 +41,5 @@ Tests **skip** if `BRAIN_ENRON_DEMO_SECRET` is still missing after loading `.env
 
 ## Related
 
-- `npm run test:e2e:enron` — Vitest + ripmail CLI against `data-eval/brain` ([eval/README.md](../eval/README.md)).
+- `npm run test:e2e:enron` — Vitest + ripmail CLI against **`./data/usr_enrondemo00000000001`** ([eval/README.md](../eval/README.md)).
 - Helper: [`helpers/mintEnronDemoSession.ts`](./helpers/mintEnronDemoSession.ts).

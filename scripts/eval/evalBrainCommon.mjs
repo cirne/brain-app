@@ -1,5 +1,5 @@
 /**
- * Shared eval home layout: `data-eval/brain` + synthetic ripmail IMAP fixture + rebuild-index.
+ * Shared ripmail fixture helpers (sha256, rebuild-index env) used by eval ingest scripts.
  */
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'

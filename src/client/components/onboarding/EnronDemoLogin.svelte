@@ -137,7 +137,7 @@
         Pick a mailbox (Steven Kean, Kenneth Lay, or Jeff Skilling), then enter the shared demo password you were
         given. Demo mail must be pre-seeded on the server (<code
           class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]"
-          >npm run brain:seed-enron-demo:dev</code>). Data comes from the public Enron email dataset (roughly 1998–2001). For background, see
+          >npm run brain:seed-enron-demo</code>). Data comes from the public Enron email dataset (roughly 1998–2001). For background, see
         <a
           href="https://www.cs.cmu.edu/~enron/"
           target="_blank"

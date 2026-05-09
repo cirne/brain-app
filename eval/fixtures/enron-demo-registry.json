@@ -4,21 +4,21 @@
       "key": "kean",
       "label": "Steven Kean",
       "tenantUserId": "usr_enrondemo00000000001",
-      "workspaceHandle": "enron-demo-kean",
+      "workspaceHandle": "demo-steve-kean",
       "manifestFile": "enron-kean-manifest.json"
     },
     {
       "key": "lay",
       "label": "Kenneth Lay",
       "tenantUserId": "usr_enrondemo00000000002",
-      "workspaceHandle": "enron-demo-lay",
+      "workspaceHandle": "demo-ken-lay",
       "manifestFile": "enron-lay-manifest.json"
     },
     {
       "key": "skilling",
       "label": "Jeff Skilling",
       "tenantUserId": "usr_enrondemo00000000003",
-      "workspaceHandle": "enron-demo-skilling",
+      "workspaceHandle": "demo-jeff-skilling",
       "manifestFile": "enron-skilling-manifest.json"
     }
   ]

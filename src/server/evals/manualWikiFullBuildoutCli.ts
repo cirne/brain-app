@@ -1,10 +1,10 @@
 /**
  * One-shot wiki buildout (production WIKI_EXPANSION_INITIAL_MESSAGE) for manual inspection.
- * Usage: `BRAIN_HOME=./data-eval/brain npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutCli.ts` (see eval/README.md)
+ * Usage: `BRAIN_DATA_ROOT=./data npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutCli.ts` (see eval/README.md)
  */
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from '../agent/wikiBuildoutAgent.js'
@@ -15,6 +15,7 @@ import {
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { collectAgentPromptMetrics } from './harness/collectAgentPromptMetrics.js'
 import { getEvalRepoRoot } from './harness/runLlmJsonlEval.js'
+import { resolveEvalBrainHome } from './evalDefaultBrainHome.js'
 import { seedEnronEvalWiki } from './harness/seedEnronEvalWiki.js'
 import { loadEvalEnvAndLlmCli } from './parseEvalLlmCli.js'
 
@@ -24,7 +25,7 @@ loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/
 
 Runs one full wiki enrich pass (same user message as “Your Wiki” deepen lap). Seeds starter + Enron eval me.md / assistant.md + buildout eval stubs into the vault.
 
-Requires BRAIN_HOME with Enron ripmail index (npm run eval:build).
+Requires BRAIN_HOME (default: Kean demo tenant under ./data) with Enron ripmail index; run npm run brain:seed-enron-demo first.
 
 Options:
   --provider, -p       Merged into BRAIN_LLM (with --model or registry default)
@@ -35,8 +36,7 @@ Options:
 
 async function main(): Promise<void> {
   const root = getEvalRepoRoot()
-  const defaultBrain = join(root, 'data-eval', 'brain')
-  const brain = process.env.BRAIN_HOME ? resolve(process.env.BRAIN_HOME) : defaultBrain
+  const brain = resolveEvalBrainHome(root)
   process.env.BRAIN_HOME = brain
 
   if (process.env.EVAL_RIPMAIL_SEND_DRY_RUN === undefined) {
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
 
   const rip = join(brain, 'ripmail', 'ripmail.db')
   if (!existsSync(rip)) {
-    console.error(`[eval:wiki:full-pass] ripmail index missing. Run: npm run eval:build (${rip})`)
+    console.error(`[eval:wiki:full-pass] ripmail index missing. Run: npm run brain:seed-enron-demo (${rip})`)
     process.exit(1)
   }
 

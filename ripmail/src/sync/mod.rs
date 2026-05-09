@@ -35,7 +35,9 @@ pub use run::{
     run_sync_with_parallel_imap_connect, should_early_exit_forward, SyncDirection,
     SyncMailboxSummary, SyncOptions, SyncResult,
 };
-pub use sync_log::{sync_log_path, SyncFileLogger};
+pub use sync_log::{
+    sync_diag_forward_config_from_env_parts, sync_log_path, SyncDiagForwardConfig, SyncFileLogger,
+};
 pub use transport::{
     connect_imap_for_resolved_mailbox, connect_imap_session, connect_imap_session_with_auth,
     FakeImapTransport, FetchedMessage, ImapAuth, ImapStatusData, RealImapTransport,

@@ -100,6 +100,14 @@ Prefer real revision identifiers from CI or `git`; NRQL queries do **not** repla
 
 Standard APM data types apply: **Transaction**, **TransactionError**, **Span** (if distributed tracing is enabled), **Log** (if forwarding is configured).
 
+### Ripmail sync diagnostics (Log API, Rust CLI)
+
+The **`ripmail`** crate can send **sync diagnostic lines** (same events as `{RIPMAIL_HOME}/logs/sync.log`) to **New Relic Logs** via the **[Log API](https://docs.newrelic.com/docs/logs/log-api/introduction-log-api/)** (`POST https://log-api.newrelic.com/log/v1`, header **`Api-Key`** = ingest license key). This path **does not use stdout/stderr** and does not depend on the host Infrastructure agent tailing Docker logs.
+
+**Enable when:** `NEW_RELIC_LICENSE_KEY` is non-empty **and** (`NODE_ENV=production` **or** `RIPMAIL_NR_DIAGNOSTICS=1`). Optional: `NEW_RELIC_APP_NAME`, `HOSTNAME`; Brain subprocesses inherit tenant **`BRAIN_TENANT_USER_ID`** / **`BRAIN_WORKSPACE_HANDLE`** from [`ripmailProcessEnv`](../../src/server/lib/platform/brainHome.ts).
+
+**NRQL examples:** `WHERE message LIKE '%ripmail%'` or facet attributes such as `service.name`, `source` (see ingested shape).
+
 ## Custom event types
 
 Custom events are recorded with the Node agent API `recordCustomEvent(eventType, attributes)`. Event type names are alphanumeric (e.g. `ToolCall`).

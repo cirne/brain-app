@@ -64,4 +64,4 @@ Example usage in `wiki-v1.jsonl`:
 
 ## Effort
 
-Small-medium. `llmJudgeCheck` is ~30 lines. The main integration work is plumbing it through `checkExpect` and surfacing reasons in the report JSON. Existing eval infrastructure (harness, report format, `npm run eval:build`) is unchanged.
+Small-medium. `llmJudgeCheck` is ~30 lines. The main integration work is plumbing it through `checkExpect` and surfacing reasons in the report JSON. Existing eval infrastructure (harness, report format) is unchanged.

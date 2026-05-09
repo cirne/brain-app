@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { timingSafeEqual } from 'node:crypto'
 import type { Context } from 'hono'
@@ -30,13 +30,20 @@ export function resetEnronDemoRegistryCacheForTests(): void {
 function repoRootForRegistry(): string {
   const env = process.env.BRAIN_SEED_REPO_ROOT?.trim()
   if (env) return env
-  return process.cwd()
+  const cwd = process.cwd()
+  const underSeedEnron = join(cwd, 'seed-enron', 'eval/fixtures/enron-demo-registry.json')
+  if (existsSync(underSeedEnron)) return join(cwd, 'seed-enron')
+  return cwd
 }
 
 export function loadEnronDemoRegistry(): EnronDemoRegistryFile {
   if (cachedRegistry) return cachedRegistry
   const root = repoRootForRegistry()
   const p = join(root, 'eval/fixtures/enron-demo-registry.json')
+  if (!existsSync(p)) {
+    cachedRegistry = { users: [] }
+    return cachedRegistry
+  }
   const raw = readFileSync(p, 'utf8')
   const j = JSON.parse(raw) as EnronDemoRegistryFile
   if (!j.users?.length) {

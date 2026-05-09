@@ -21,7 +21,7 @@ Reports are JSON under `data-eval/eval-runs/` (gitignored).
 ## Prerequisites
 
 1. **Node:** from repo root, `nvm use` before any `npm`/`npx` (see [`AGENTS.md`](../../../AGENTS.md)).
-2. **Enron index (Enron + wiki evals):** `npm run eval:build` once so `data-eval/brain/ripmail/ripmail.db` exists ([`eval/README.md`](../../../eval/README.md)).
+2. **Enron index (Enron + wiki evals):** `npm run brain:seed-enron-demo` once so `./data/usr_enrondemo00000000001/ripmail/ripmail.db` exists ([`eval/README.md`](../../../eval/README.md)).
 3. **API keys:** repo-root `.env` (same as `npm run dev`) with keys for each provider you run (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` for Gemini, etc. — matches [`@mariozechner/pi-ai`](../../../docs/architecture/pi-agent-stack.md) conventions).
 4. **Model IDs:** each **`BRAIN_LLM`** value must resolve via `parseBrainLlmSpec` → `resolveModel()` / `getModel()` from `@mariozechner/pi-ai`. Git-tracked lineup: [`src/server/evals/supported-llm-models.json`](../../../src/server/evals/supported-llm-models.json) (validated by `vitest.eval.config.ts` tests).
 
@@ -38,7 +38,7 @@ Flags after `--` apply to the **JSONL phase** only. For JSONL help without runni
 
 **JSONL only** (advanced): run `enronV1cli.ts` or `wikiV1cli.ts` with `npx tsx --tsconfig tsconfig.server.json …` from repo root; see [`eval/README.md`](../../../eval/README.md).
 
-Optional env: `EVAL_MAX_CONCURRENCY`, `EVAL_TASKS` / `EVAL_WIKI_TASKS`, `BRAIN_HOME` (defaults to `./data-eval/brain` in the npm script).
+Optional env: `EVAL_MAX_CONCURRENCY`, `EVAL_TASKS` / `EVAL_WIKI_TASKS`, `BRAIN_HOME` (defaults to Kean tenant under `./data` when unset and `BRAIN_DATA_ROOT=./data`).
 
 **Implementation note:** The npm scripts use `tsx --tsconfig tsconfig.server.json` so `@server/...` imports resolve. If you invoke the CLI by hand, include the same `--tsconfig` or imports break.
 
