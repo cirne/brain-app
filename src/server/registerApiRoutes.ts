@@ -21,16 +21,19 @@ import hubRoute from './routes/hub.js'
 import hubEventsRoute from './routes/hubEvents.js'
 import vaultRoute from './routes/vault.js'
 import accountRoute from './routes/account.js'
+import appConfigRoute from './routes/appConfig.js'
 import transcribeRoute from './routes/transcribe.js'
 import devicesRoute from './routes/devices.js'
 import ingestRoute from './routes/ingest.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
 import { B2B_ENABLED } from './lib/features.js'
+import { createDevApiRouter } from './routes/devApi.js'
 
 /** Mount all API (and related) routes on the main Hono app — single place for `app.route` prefixes. */
 export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void {
   const { isDev } = options
   app.route('/api/vault', vaultRoute)
+  app.route('/api/config', appConfigRoute)
   app.route('/api/account', accountRoute)
   app.route('/api/chat', chatRoute)
   app.route('/api/transcribe', transcribeRoute)
@@ -60,5 +63,8 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/oauth/google', oauthGoogleBrowserPages)
   if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
     app.route('/api/debug', debugRipmailChildrenRoute)
+  }
+  if (isDev) {
+    app.route('/api/dev', createDevApiRouter())
   }
 }

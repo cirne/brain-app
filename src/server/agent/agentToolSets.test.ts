@@ -18,7 +18,7 @@ describe('ONBOARDING_INTERVIEW_ONLY', () => {
     expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('list_inbox')
   })
 
-  it('includes suggest_reply_options for composer quick replies (same as main assistant)', () => {
-    expect(ONBOARDING_INTERVIEW_ONLY).toContain('suggest_reply_options')
+  it('includes web_search for onboarding bootstrap context rounding', () => {
+    expect(ONBOARDING_INTERVIEW_ONLY).toContain('web_search')
   })
 })

@@ -66,7 +66,14 @@ export type Route = {
    */
   sessionTail?: string
   overlay?: Overlay
-  flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
+  flow?:
+    | 'welcome'
+    | 'hard-reset'
+    | 'restart-seed'
+    | 'first-chat'
+    | 'enron-demo'
+    /** Dev soft reset (`/reset`): client POST + replace to `/c`, or full-page GET handled by the server. */
+    | 'dev-soft-reset'
   /**
    * When `flow` is `welcome`, URL is `/onboarding/{onboardingStep}`. Legacy `/welcome` parses as `not-started`.
    */
@@ -546,6 +553,9 @@ export function parseRoute(href: string = location.href): Route {
     }
     return { flow: 'welcome', onboardingStep: 'not-started' }
   }
+  if (seg1 === 'reset') {
+    return { flow: 'dev-soft-reset' }
+  }
   if (seg1 === 'hard-reset') {
     return { flow: 'hard-reset' }
   }
@@ -636,6 +646,7 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     const step = route.onboardingStep ?? 'not-started'
     return `/onboarding/${step}`
   }
+  if (route.flow === 'dev-soft-reset') return '/reset'
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'

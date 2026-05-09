@@ -162,7 +162,8 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
 export type OnboardingAgentToolVariant = 'buildout' | 'bootstrap' | 'profiling' | 'interview'
 
 /**
- * Guided onboarding interview: mail + wiki + calendar list/configure only (see `calendarAllowedOps` in createAgentTools).
+ * Guided onboarding interview: mail + wiki + optional web_search + calendar list/configure only
+ * (see `calendarAllowedOps` in createAgentTools).
  */
 export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'read',
@@ -174,6 +175,8 @@ export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'read_mail_message',
   'read_indexed_file',
   'find_person',
+  /** Round out people/project context when mail shows importance but detail is thin (bootstrap onboarding). */
+  'web_search',
   /** Default calendar selection before first chat (`list_calendars` / `configure_source` only at runtime). */
   'calendar',
   /** Same quick-reply chips as main chat (`ComposerContextBar`). */

@@ -120,6 +120,10 @@ describe('parseRoute', () => {
     })
   })
 
+  it('parses /reset as dev-soft-reset flow', () => {
+    expect(parseRoute('http://localhost/reset')).toEqual({ flow: 'dev-soft-reset' })
+  })
+
   it('parses /hard-reset as hard-reset flow', () => {
     expect(parseRoute('http://localhost/hard-reset')).toEqual({ flow: 'hard-reset' })
   })
@@ -654,6 +658,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { overlay: { type: 'messages' as const } },
     { overlay: { type: 'messages' as const, chat: '+15550001111' } },
     { flow: 'welcome' as const, onboardingStep: 'not-started' as const },
+    { flow: 'dev-soft-reset' as const },
     { flow: 'hard-reset' as const },
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },

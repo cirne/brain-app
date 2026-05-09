@@ -177,7 +177,11 @@ async function start() {
             return ''
           }
         })()
-        const devResetPath = pathname === '/reset' || pathname === '/hard-reset'
+        const devResetPath =
+          pathname === '/reset' ||
+          pathname === '/hard-reset' ||
+          pathname === '/reset/' ||
+          pathname === '/hard-reset/'
         /** OAuth “browser landing” HTML (`/oauth/google/complete`, `/error`) — must hit Hono, not Vite SPA. */
         const oauthGoogleBrowserPath = pathname === '/oauth/google' || pathname.startsWith('/oauth/google/')
         const useHono =

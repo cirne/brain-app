@@ -25,13 +25,14 @@ function jsonOrRedirectAfterBrowserGet(
 ): Response {
   const accept = c.req.header('accept') ?? ''
   if (c.req.method === 'GET' && accept.includes('text/html')) {
-    const loc = payload.mode === 'hard' ? '/' : '/onboarding/not-started'
+    /** Soft reset leaves onboarding at `onboarding-agent` (main chat bootstrap); skip `/onboarding/*` mismatch. */
+    const loc = payload.mode === 'hard' ? '/' : '/c'
     return c.redirect(loc, 302)
   }
   return c.json(payload)
 }
 
-async function handleSoftReset(c: Context): Promise<Response> {
+export async function devTenantSoftResetHandler(c: Context): Promise<Response> {
   if (!isDevRuntime()) return devResetDisabledResponse()
 
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
@@ -48,7 +49,7 @@ async function handleSoftReset(c: Context): Promise<Response> {
   const workspaceHandle = meta?.handle ?? tenantUserId
   const ctx = { tenantUserId, workspaceHandle, homeDir }
 
-  /** `/reset` skips `/api/*` tenant middleware — vault session IO uses {@link brainHome()} and needs ALS. */
+  /** Top-level `/reset` skips `/api/*` tenant middleware; `/api/dev/soft-reset` runs after it (hosted port-forward). */
   return runWithTenantContextAsync(ctx, async () => {
     if (!(await validateVaultSession(sid))) {
       return c.json({ error: 'auth_required', message: 'Sign in with Google to continue.' }, 401)
@@ -69,7 +70,7 @@ async function handleSoftReset(c: Context): Promise<Response> {
   })
 }
 
-async function handleHardReset(c: Context): Promise<Response> {
+export async function devTenantHardResetHandler(c: Context): Promise<Response> {
   if (!isDevRuntime()) return devResetDisabledResponse()
 
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
@@ -110,8 +111,8 @@ async function handleHardReset(c: Context): Promise<Response> {
 }
 
 export function registerDevTenantResetRoutes(app: Hono): void {
-  app.post('/reset', handleSoftReset)
-  app.get('/reset', handleSoftReset)
-  app.post('/hard-reset', handleHardReset)
-  app.get('/hard-reset', handleHardReset)
+  app.post('/reset', devTenantSoftResetHandler)
+  app.get('/reset', devTenantSoftResetHandler)
+  app.post('/hard-reset', devTenantHardResetHandler)
+  app.get('/hard-reset', devTenantHardResetHandler)
 }

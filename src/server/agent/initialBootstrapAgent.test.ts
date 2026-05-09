@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { formatMailIndexFactsForBootstrap } from './initialBootstrapAgent.js'
+import {
+  DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS,
+  formatMailIndexFactsForBootstrap,
+} from './initialBootstrapAgent.js'
 
 describe('initialBootstrapAgent', () => {
+  it('DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS drives wiki-first substantive proposals', () => {
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/people.page|substantive/i)
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/find_person/)
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/web_search/)
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/common names|narrow/i)
+  })
   it('formatMailIndexFactsForBootstrap includes date span and lane flags', () => {
     const block = formatMailIndexFactsForBootstrap({
       configured: true,

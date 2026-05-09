@@ -131,6 +131,20 @@ describe('onboarding agent tools', () => {
     }
   })
 
+  it('onboarding interview preset includes web_search and omits heavy mail', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const opts = buildCreateAgentToolsOptions({
+      preset: 'onboarding',
+      onboardingVariant: 'interview',
+      includeLocalMessageTools: false,
+    })
+    const tools = createAgentTools(wikiDir, opts)
+    const names = tools.map((t: { name?: string }) => t.name)
+    expect(names).toContain('web_search')
+    expect(names).not.toContain('draft_email')
+    expect(names).not.toContain('list_inbox')
+  })
+
   it('buildCreateAgentToolsOptions profiling variant omits web and youtube search tools', async () => {
     const { createAgentTools } = await import('./tools.js')
     const opts = buildCreateAgentToolsOptions({

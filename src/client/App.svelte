@@ -10,10 +10,13 @@
   import DesktopAppUpdate from '@components/desktop/DesktopAppUpdate.svelte'
   import OnboardingFirstRunPanel from '@components/onboarding/OnboardingFirstRunPanel.svelte'
   import { needsDedicatedOnboardingSurface } from '@client/lib/onboarding/onboardingShellPolicy.js'
+  import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
 
   let route = $state<Route>(parseRoute())
   /** DEV: prevents duplicate PATCH when replay-onboarding effect runs twice. */
   let replayOnboardingDevLock = false
+  /** DEV: client `/reset` once; avoids double `POST /reset` if `$effect` re-runs. */
+  let devSoftResetLock = false
   let appReady = $state(false)
   let onboardingStatus = $state<{ state: string } | null>(null)
   let vaultStatus = $state<(VaultStatus & { checked: boolean }) | null>(null)
@@ -59,6 +62,35 @@
   }
 
   const showEnronDemoPage = $derived(route.flow === 'enron-demo')
+
+  /**
+   * `/reset` in the SPA (client navigation) must call `POST /reset` — unlike a full reload, the server
+   * handler never runs. Then land on `/c` so `onboarding-agent` initial bootstrap can open the first chat.
+   * Production: `/reset` URL normalizes to `/c` (API reset is dev-only).
+   */
+  $effect(() => {
+    if (!appReady || route.flow !== 'dev-soft-reset') return
+    if (typeof location === 'undefined') return
+    if (!import.meta.env.DEV) {
+      window.location.assign('/c')
+      return
+    }
+    if (devSoftResetLock) return
+    devSoftResetLock = true
+    void (async () => {
+      try {
+        await fetch('/api/dev/soft-reset', { method: 'POST', credentials: 'include' })
+        await refreshVaultAndOnboardingStatus()
+        clearBrainClientStorage()
+        window.location.assign('/c')
+      } catch {
+        clearBrainClientStorage()
+        window.location.assign('/c')
+      } finally {
+        devSoftResetLock = false
+      }
+    })()
+  })
 
   const showHostedSignIn = $derived(
     vaultStatus?.checked === true && !vaultStatus.unlocked && !showEnronDemoPage,

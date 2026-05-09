@@ -1,5 +1,5 @@
 /**
- * Unified initial assistant bootstrap: guided identity + calendar + first-impression mail insights,
+ * Unified initial assistant bootstrap: guided identity + wiki-first proposals/writes + optional calendar,
  * served from `POST /api/chat` while onboarding machine state is `onboarding-agent`.
  */
 import type { Agent } from '@mariozechner/pi-agent-core'
@@ -21,7 +21,7 @@ import {
 const bootstrapSessions = new Map<string, Agent>()
 
 export const DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS =
-  "Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. After identity is confirmed, follow the system prompt for Google calendar defaults (list_calendars / configure_source only when they have more than one synced Google calendar). Do not configure inbox rules in this flow. Do not ask them to name you. Do not mention phases, steps, or numbered sections to the user."
+  'Start the guided setup now. Before your first visible reply: (1) search_index for mail they sent from their whoami primary address (recent window, e.g. 180d) and read_mail_message on several promising sent messages for signatures, voice, projects, relationships; (2) search_index for active threads (e.g. multiple messages) to find important correspondents—for each people-page candidate, call find_person with their email address or a clear name query (ripmail who) to resolve canonical name and contact details; then read_mail_message on 2–3 messages from those threads; only keep candidates where you can write a substantive people page (role/relationship, what you work on together, contact details when present—not just high volume). Do not invent display names by stitching From-header fragments; use find_person output for names and titles; (3) identify recurring project/topic threads—only propose a project page if you can state what it is, the user\'s role, and collaborators from mail; (4) use web_search to confirm employers, companies, products, and roles implied by mail—do not guess facts you could verify online; for people with common names, include extra query terms from mail (company, domain, role, project, location) so results match the right person; (5) drop candidates where all you know is that they exchanged emails. Then open with a warm identity greeting (how they like to be named). After they confirm name: follow the system prompt—explain mail coverage using index facts, pitch the second brain wiki, propose 3–5 strong pages, write approved pages, one growth sentence, then Google calendar defaults (list_calendars / configure_source only when needed). Do not configure inbox rules. Do not ask them to name you. Do not mention phases, steps, or numbered sections to the user.'
 
 export function formatMailIndexFactsForBootstrap(mail: OnboardingMailStatusPayload): string {
   const lines: string[] = ['## Mail index snapshot (facts — cite honestly; do not invent dates)', '']
@@ -55,10 +55,12 @@ export function buildInitialBootstrapSystemPrompt(
   const sequencing = `
 
 ## Combined flow (strict order)
-1. Complete **Identity** and **me.md** edits per the onboarding guide above.
-2. Complete the **default Google calendar** step (or skip per those rules).
-3. Only after identity and calendar are settled: deliver the **First conversation** section below — concrete observations from mail/wiki and actionable offers; use **suggest_reply_options** with a closing chip whose **submit** is exactly \`__brain_finish_conversation__\`.
-4. Call **finish_conversation** once the user is satisfied or uses that chip — **before** your final closing line that turn (see onboarding guide).
+1. Complete **Identity** and **me.md** edits per the onboarding guide above (mail recon before first visible reply).
+2. After name is confirmed: explain mail coverage + pitch second brain wiki + **propose** high-quality pages per the **First conversation** section below — use **suggest_reply_options** (“Write all of them”, “Let me pick”, per-page).
+3. **Write** approved wiki pages (quietly; summarize after).
+4. One sentence on how the wiki grows over time (more mail, chat, sources like Google Drive).
+5. Complete the **default Google calendar** step (or skip per onboarding guide — skip chat when exactly one calendar candidate per account).
+6. Call **finish_conversation** once the user is satisfied or uses a closing chip whose **submit** is exactly \`__brain_finish_conversation__\` — **before** your final closing line that turn (see onboarding guide).
 
 `
   return `${interview}\n${sequencing}\n${firstChat}\n\n${mailFactsBlock}`

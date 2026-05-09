@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { rm, appendFile } from 'node:fs/promises'
+import { rm } from 'node:fs/promises'
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
@@ -14,16 +14,6 @@ import {
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { executeVaultLogout } from '@server/lib/vault/vaultLogoutCore.js'
 import { B2B_ENABLED } from '@server/lib/features.js'
-
-/** #region agent log */
-const DEBUG_LOG = '/Users/cirne/dev/brain-app/.cursor/debug-dcca47.log'
-function agentNdjson(obj: Record<string, unknown>): void {
-  void appendFile(
-    DEBUG_LOG,
-    JSON.stringify({ sessionId: 'dcca47', timestamp: Date.now(), ...obj }) + '\n',
-  ).catch(() => {})
-}
-/** #endregion */
 
 const vault = new Hono()
 
@@ -103,15 +93,6 @@ vault.post('/delete-all-data', async (c) => {
   if (existsSync(home)) {
     await rm(home, { recursive: true, force: true })
   }
-
-  // #region agent log
-  agentNdjson({
-    hypothesisId: 'H4',
-    location: 'vault.ts:POST/delete-all-data',
-    message: 'tenant wiped',
-    data: { tenantUserId: tid },
-  })
-  // #endregion
 
   clearBrainSessionCookie(c)
   return c.json({
