@@ -110,4 +110,19 @@ describe('verifyLlmAtStartup', () => {
       }),
     )
   })
+
+  it('uses 60s startup smoke timeout for cloud providers', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout')
+    await verifyLlmAtStartup()
+    expect(spy).toHaveBeenCalledWith(60_000)
+    spy.mockRestore()
+  })
+
+  it('uses 180s startup smoke timeout for mlx-local', async () => {
+    process.env.BRAIN_LLM = 'mlx-local/mlx-community/Qwen3.6-27B-4bit'
+    const spy = vi.spyOn(AbortSignal, 'timeout')
+    await verifyLlmAtStartup()
+    expect(spy).toHaveBeenCalledWith(180_000)
+    spy.mockRestore()
+  })
 })

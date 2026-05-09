@@ -2,8 +2,12 @@ import { completeSimple } from '@mariozechner/pi-ai'
 import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm, warnDeprecatedLlmEnvIfSet } from './effectiveBrainLlm.js'
 import { resolveLlmApiKey, resolveModel } from './resolveModel.js'
 import { chainLlmOnPayload } from './llmOnPayloadChain.js'
+import { isMlxLocalProvider } from './mlxLocalModel.js'
 
-const SMOKE_TIMEOUT_MS = 60_000
+/** Cloud APIs respond quickly if keys are valid; MLX LM server often loads weights on first request and can exceed this. */
+const SMOKE_TIMEOUT_MS_REMOTE = 60_000
+/** Cold start + first prefill on a local 27B+ model routinely runs past {@link SMOKE_TIMEOUT_MS_REMOTE}. */
+const SMOKE_TIMEOUT_MS_MLX_LOCAL = 180_000
 
 function hasCredentials(apiKey: string | undefined): boolean {
   if (apiKey === undefined || apiKey === '') return false
@@ -51,12 +55,16 @@ export async function verifyLlmAtStartup(): Promise<void> {
     ],
   }
 
+  const smokeTimeoutMs = isMlxLocalProvider(provider)
+    ? SMOKE_TIMEOUT_MS_MLX_LOCAL
+    : SMOKE_TIMEOUT_MS_REMOTE
+
   try {
     const msg = await completeSimple(model, context, {
       apiKey,
       maxTokens: 16,
       // Omit temperature: some models (e.g. OpenAI gpt-5) reject the parameter entirely.
-      signal: AbortSignal.timeout(SMOKE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(smokeTimeoutMs),
       // Same as Agent `onPayload`: pi-ai maps "thinking off" to reasoning.effort "none",
       // which gpt-5-codex rejects (requires low/medium/high).
       onPayload: (params, m) => chainLlmOnPayload(params, m),

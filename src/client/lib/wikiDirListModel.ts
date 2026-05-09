@@ -74,6 +74,9 @@ export function wikiBrowseFolderDirIconKey(unifiedFolderPath: string): string | 
 
 /**
  * When listing a child of the current wiki-dir overlay, build a vault-relative path for navigation.
+ *
+ * {@link listWikiDirChildren} passes **full** vault-relative paths (`people/foo.md`), not only basenames;
+ * when those are merged again with the parent dir we must not duplicate the prefix (`people/people/foo.md`).
  */
 export function mergeWikiBrowseChildPath(
   parent: { type: string; path?: string } | null | undefined,
@@ -86,7 +89,12 @@ export function mergeWikiBrowseChildPath(
   if (!parent || parent.type !== 'wiki-dir') return c
   const pp = normalizeWikiDirPath(parent.path ?? '')
   if (!pp) return c
-  return `${pp}/${c}`
+  const normalizedChild = normalizeWikiDirPath(c)
+  const prefix = `${pp}/`
+  if (normalizedChild === pp || normalizedChild.startsWith(prefix)) {
+    return normalizedChild
+  }
+  return `${pp}/${normalizedChild}`
 }
 
 /**

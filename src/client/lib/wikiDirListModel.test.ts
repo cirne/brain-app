@@ -44,6 +44,12 @@ describe('wikiDirListModel (personal wiki)', () => {
 
   it('mergeWikiBrowseChildPath', () => {
     expect(mergeWikiBrowseChildPath({ type: 'wiki-dir', path: 'ideas' }, 'note.md')).toBe('ideas/note.md')
+    expect(
+      mergeWikiBrowseChildPath({ type: 'wiki-dir', path: 'people' }, 'people/adam.md'),
+    ).toBe('people/adam.md')
+    expect(mergeWikiBrowseChildPath({ type: 'wiki-dir', path: 'people' }, 'people/team')).toBe(
+      'people/team',
+    )
     expect(mergeWikiBrowseChildPath({ type: 'wiki-dir' }, 'x')).toBe('x')
     expect(mergeWikiBrowseChildPath(null, 'me/a.md')).toBe('me/a.md')
   })
