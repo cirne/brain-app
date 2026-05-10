@@ -5,6 +5,7 @@
   import UserBubble from './UserBubble.svelte'
   import { policyCardTone } from './policyColors.js'
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     model: PolicyCardModel
@@ -58,7 +59,7 @@
     tone.ring,
     tone.softBg,
   ]}
-  aria-label={`Open policy: ${model.label}`}
+  aria-label={$t('access.policyCard.ariaOpenPolicy', { label: model.label })}
   onclick={(e) => {
     const t = e.target as HTMLElement | null
     if (t && t.closest('[data-policy-card-stop]')) return
@@ -106,7 +107,7 @@
   </div>
 
   <p class="m-0 text-[0.6875rem] font-medium leading-snug text-muted">
-    {model.grants.length} collaborator{model.grants.length === 1 ? '' : 's'} · {policyActivityCount} recent
-    inbound quer{policyActivityCount === 1 ? 'y' : 'ies'}
+    {$t('access.policyCard.collaboratorsCount', { count: model.grants.length })} ·
+    {$t('access.policyCard.recentInboundQueries', { count: policyActivityCount })}
   </p>
 </div>

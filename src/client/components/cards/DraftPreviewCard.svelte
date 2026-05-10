@@ -1,5 +1,6 @@
 <script lang="ts">
   import { FileEdit } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     draftId,
@@ -18,7 +19,7 @@
   type="button"
   class="draft-tool-preview group mt-1 flex min-w-0 max-w-full cursor-pointer items-start gap-2 border-none bg-transparent py-1 text-left font-[inherit] text-[inherit]"
   onclick={onOpen}
-  aria-label="Open email draft: {subject}"
+  aria-label={$t('cards.draftPreviewCard.ariaOpenEmailDraft', { subject })}
 >
   <span class="draft-tool-lead mt-px shrink-0 text-muted" aria-hidden="true">
     <FileEdit size={14} />

@@ -3,6 +3,7 @@
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCardShared.js'
   import { searchHitPrimarySubtitle, searchHitSnippetLine } from '@client/lib/cards/searchHitRowMeta.js'
   import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   const PREVIEW_ROWS = 3
 
@@ -54,7 +55,7 @@
     title={queryLine}
   >{queryLine}</div>
   {#if rows.length === 0}
-    <p class="mail-search-empty m-0 text-xs text-muted">No matching emails or indexed files.</p>
+    <p class="mail-search-empty m-0 text-xs text-muted">{$t('cards.mailSearchHitsPreviewCard.empty')}</p>
   {:else}
     <ul class="mail-search-list m-0 flex list-none flex-col gap-0 p-0" role="list">
       {#each rows as row (row.id)}
@@ -76,7 +77,7 @@
               </span>
               <span
                 class="mail-search-subject flex-1 min-w-0 truncate text-xs font-semibold leading-[1.3] group-hover:text-accent"
-              >{row.subject || '(No subject)'}</span>
+              >{row.subject || $t('cards.mailSearchHitsPreviewCard.noSubject')}</span>
             </span>
             {#if primaryLine(row)}
               <span
@@ -93,7 +94,7 @@
       {/each}
     </ul>
     {#if more > 0}
-      <p class="mail-search-more mt-1.5 text-[11px] text-muted">+{more} more</p>
+      <p class="mail-search-more mt-1.5 text-[11px] text-muted">{$t('cards.mailSearchHitsPreviewCard.more', { count: more })}</p>
     {/if}
   {/if}
 </div>

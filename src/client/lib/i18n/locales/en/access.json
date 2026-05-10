@@ -1,3 +1,61 @@
 {
-  "placeholder": {}
+  "brainAccessPage": {
+    "title": "Brain to Brain access",
+    "lead": "Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.",
+    "policiesHeading": "Policies & collaborators",
+    "createCustomPolicy": "+ Create custom policy",
+    "backToSettings": "← Back to Settings",
+    "errors": {
+      "failedToLoadGrants": "Failed to load brain query grants.",
+      "invalidGrantsResponse": "Invalid grants response.",
+      "couldNotAddHandle": "Couldn't add @{{handle}}.",
+      "removeFailed": "Remove failed ({{status}})",
+      "updateFailed": "Update failed ({{status}})"
+    }
+  },
+  "policyCard": {
+    "ariaOpenPolicy": "Open policy: {{label}}",
+    "collaboratorsCount_one": "{{count}} collaborator",
+    "collaboratorsCount_other": "{{count}} collaborators",
+    "recentInboundQueries_one": "{{count}} recent inbound query",
+    "recentInboundQueries_other": "{{count}} recent inbound queries"
+  },
+  "policyDetailPage": {
+    "fallbackPolicyLabel": "Policy",
+    "policyNotFound": "This policy wasn't found.",
+    "policyTextHeading": "Policy text",
+    "ariaTestThisPolicy": "Test this policy",
+    "ariaDeletePolicyRemoveCollaboratorsFirst": "Delete policy (remove all collaborators first)",
+    "ariaDeletePolicy": "Delete policy",
+    "emptyPolicyText": "—",
+    "editGuidance": "This text is guidance for your assistant when someone queries your brain under this policy.",
+    "privacyGuidanceLabel": "Privacy guidance",
+    "collaboratorsHeading": "Collaborators ({{count}})",
+    "recentActivityHeading": "Recent activity",
+    "actions": {
+      "testThisPolicy": "Test this policy",
+      "edit": "Edit",
+      "deletePolicy": "Delete policy",
+      "savePolicy": "Save policy"
+    },
+    "tooltips": {
+      "removeCollaboratorsFirst": "Remove all collaborators first"
+    },
+    "errors": {
+      "failedToLoadGrants": "Failed to load grants.",
+      "invalidGrantsResponse": "Invalid grants response.",
+      "missingPolicyText": "Missing policy text.",
+      "couldNotAddHandle": "Couldn't add @{{handle}}.",
+      "removeFailed": "Remove failed ({{status}})",
+      "saveFailed": "Save failed ({{status}})",
+      "couldNotUpdateSavedPolicy": "Could not update saved policy.",
+      "cannotSaveWithoutCollaborators": "Cannot save this policy without collaborators.",
+      "updateFailed": "Update failed ({{status}})"
+    },
+    "deletePolicyDialog": {
+      "title": "Delete policy?",
+      "confirmLabel": "Delete",
+      "body": "This will permanently remove \"{{label}}\" from your saved policies."
+    }
+  }
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Mail } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     subject,
@@ -18,7 +19,7 @@
   type="button"
   class="email-tool-preview group mt-1 flex min-w-0 max-w-full cursor-pointer items-start gap-2 border-none bg-transparent py-1 text-left font-[inherit] text-[inherit]"
   onclick={onOpen}
-  aria-label="Open email thread: {subject}"
+  aria-label={$t('cards.emailPreviewCard.ariaOpenEmailThread', { subject })}
 >
   <span class="email-tool-lead mt-px shrink-0 text-muted" aria-hidden="true">
     <Mail size={14} />

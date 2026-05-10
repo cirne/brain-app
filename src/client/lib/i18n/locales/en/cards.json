@@ -1,3 +1,56 @@
 {
-  "placeholder": {}
+  "calendarPreviewCard": {
+    "title": "Calendar",
+    "emptyInRange": "No events in this range.",
+    "moreDaysWithEvents_one": "+ {{count}} more day with events",
+    "moreDaysWithEvents_other": "+ {{count}} more days with events",
+    "openCalendar": "Open calendar"
+  },
+  "draftPreviewCard": {
+    "ariaOpenEmailDraft": "Open email draft: {{subject}}"
+  },
+  "editDiffPreviewCard": {
+    "ariaOpenWiki": "Open wiki: {{path}}"
+  },
+  "emailPreviewCard": {
+    "ariaOpenEmailThread": "Open email thread: {{subject}}"
+  },
+  "feedbackDraftPreviewCard": {
+    "ariaFeedbackDraft": "Feedback draft"
+  },
+  "filePreviewCard": {
+    "ariaOpenFile": "Open file: {{path}}"
+  },
+  "findPersonHitsPreviewCard": {
+    "empty": "No contacts in result.",
+    "more_one": "+{{count}} more",
+    "more_other": "+{{count}} more"
+  },
+  "inboxListPreviewCard": {
+    "title": "Inbox",
+    "messageCount_one": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "empty": "No messages in preview.",
+    "ariaOpen": "Open: {{subject}}",
+    "unknownSender": "(unknown)",
+    "ariaArchiveMessage": "Archive message",
+    "showFullInbox": "Show full inbox"
+  },
+  "indexedFilePreviewCard": {
+    "ariaOpenFile": "Open file: {{title}}"
+  },
+  "mailSearchHitsPreviewCard": {
+    "empty": "No matching emails or indexed files.",
+    "noSubject": "(No subject)",
+    "more_one": "+{{count}} more",
+    "more_other": "+{{count}} more"
+  },
+  "messageThreadPreviewCard": {
+    "ariaOpenMessageThread": "Open message thread: {{displayChat}}",
+    "shownInWindow": "{{shown}} shown · {{total}} in window"
+  },
+  "wikiPreviewCard": {
+    "ariaOpenDoc": "Open doc: {{path}}",
+    "ariaOpenWikiPreview": "Open wiki preview for {{path}}"
+  }
 }

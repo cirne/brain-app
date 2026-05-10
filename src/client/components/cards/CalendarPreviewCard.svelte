@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Calendar } from 'lucide-svelte'
   import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
+  import { t } from '@client/lib/i18n/index.js'
   import DayEvents from '@components/DayEvents.svelte'
   import type { CalendarEventLite } from '@client/lib/cards/contentCards.js'
 
@@ -57,12 +58,12 @@
 <div class="calendar-tool-preview mt-1 min-w-0 max-w-full">
   <div class="calendar-tool-head mb-2 flex flex-wrap items-center gap-2 text-muted">
     <Calendar size={14} strokeWidth={2} aria-hidden="true" />
-    <span class="calendar-tool-title text-xs font-semibold uppercase tracking-wide">Calendar</span>
+    <span class="calendar-tool-title text-xs font-semibold uppercase tracking-wide">{$t('cards.calendarPreviewCard.title')}</span>
     <span class="calendar-tool-meta ml-auto text-[11px] opacity-85">{start}{#if end !== start} – {end}{/if}</span>
   </div>
 
   {#if daysWithEvents.length === 0}
-    <p class="calendar-tool-empty mb-1.5 text-xs text-muted">No events in this range.</p>
+    <p class="calendar-tool-empty mb-1.5 text-xs text-muted">{$t('cards.calendarPreviewCard.emptyInRange')}</p>
   {:else}
     <div class="calendar-days-list flex flex-col gap-2.5">
       {#each displayDays as day (day.date)}
@@ -83,7 +84,9 @@
       {/each}
     </div>
     {#if hiddenCount > 0}
-      <p class="calendar-tool-more mt-2 text-[11px] text-muted">+ {hiddenCount} more {hiddenCount === 1 ? 'day' : 'days'} with events</p>
+      <p class="calendar-tool-more mt-2 text-[11px] text-muted">
+        {$t('cards.calendarPreviewCard.moreDaysWithEvents', { count: hiddenCount })}
+      </p>
     {/if}
   {/if}
 
@@ -92,6 +95,6 @@
       type="button"
       class="calendar-tool-full mt-2 cursor-pointer border-none bg-transparent p-0 text-left text-xs font-semibold text-accent hover:underline"
       onclick={() => onOpenCalendar(start)}
-    >Open calendar</button>
+    >{$t('cards.calendarPreviewCard.openCalendar')}</button>
   {/if}
 </div>

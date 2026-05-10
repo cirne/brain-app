@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '@client/lib/i18n/index.js'
   import '../../styles/agent-conversation/toolWriteLink.css'
 
   let {
@@ -17,7 +18,7 @@
     type="button"
     class="tool-write-link file-tool-open group block w-full max-w-full break-words text-[11px] text-muted mb-1.5 [overflow-wrap:anywhere]"
     onclick={onOpen}
-    aria-label="Open file: {path}"
+    aria-label={$t('cards.filePreviewCard.ariaOpenFile', { path })}
   >
     <span class="file-tool-path font-mono underline underline-offset-2 group-hover:text-accent">{path}</span>
   </button>

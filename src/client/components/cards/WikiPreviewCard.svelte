@@ -2,6 +2,7 @@
   import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { stripFrontMatter, takeFirstLines, WIKI_PREVIEW_MAX_LINES } from '@client/lib/markdown.js'
+  import { t } from '@client/lib/i18n/index.js'
   import '../../styles/agent-conversation/toolWriteLink.css'
 
   let {
@@ -47,7 +48,7 @@
     type="button"
     class="tool-write-link wiki-preview-file-link mb-1.5 flex w-full min-w-0 max-w-full flex-wrap items-baseline gap-[0.35em] text-left text-[11px] text-muted"
     onclick={() => onOpen()}
-    aria-label="Open doc: {path}"
+    aria-label={$t('cards.wikiPreviewCard.ariaOpenDoc', { path })}
   >
     <WikiFileName {path} />
   </button>
@@ -55,7 +56,7 @@
     class="wiki-tool-preview-body m-0 min-w-0 cursor-pointer border-t border-border pt-2 text-left outline-none focus-visible:[box-shadow:inset_2px_0_0_var(--accent),inset_-2px_0_0_var(--accent)] [&_.wiki-tool-preview-md]:block [&_.wiki-tool-preview-md]:max-h-[120px] [&_.wiki-tool-preview-md]:overflow-hidden [&_.wiki-tool-preview-md]:text-[13px] [&_.wiki-tool-preview-md]:leading-[1.45] [&_.wiki-tool-preview-md]:text-muted [&_.wiki-tool-preview-md_a]:cursor-pointer"
     role="button"
     tabindex="0"
-    aria-label="Open wiki preview for {path}"
+    aria-label={$t('cards.wikiPreviewCard.ariaOpenWikiPreview', { path })}
     onclick={onPreviewClick}
     onkeydown={onPreviewKeydown}
   >
