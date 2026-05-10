@@ -25,6 +25,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [chat-suggestions.md](./chat-suggestions.md) | Quick reply chips: `suggest_reply_options` tool + suggest-reply repair (same path for main chat and onboarding interview) |
 | [pi-agent-stack.md](./pi-agent-stack.md) | Pi packages reference (`pi-agent-core` / `pi-ai` / `pi-coding-agent`), Agent options; metering → [OPP-072](../opportunities/OPP-072-llm-usage-token-metering.md), NR telemetry + usage CLI → [OPP-071](../opportunities/OPP-071-llm-telemetry-traces-and-usage-cli.md) |
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |
+| [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) | **Git tag** `ripmail-rust-before-typescript-port` — recover last **Rust** `ripmail/` tree before **[OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)**; **[OPP-105 archive](../opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)** |
 | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) | Eval harness (`./data` Kean tenant), Enron fixtures, ripmail `.eml` rules — **living doc** |
 | [enron-demo-tenant.md](./enron-demo-tenant.md) | **OPP-051 Phase 0:** hosted Enron fixture tenants, Bearer mint, CLI pre-seed + optional operator reseed, Docker/staging/automation |
 | [local-mlx-llm.md](./local-mlx-llm.md) | **Apple Silicon:** run Qwen (etc.) via `mlx-lm` OpenAI-compatible server; `BRAIN_LLM=mlx-local/mlx-community/...`, `MLX_LOCAL_*` env |
@@ -43,6 +44,6 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [external-data-sources.md](./external-data-sources.md) | Unified corpus: local FTS query layer, `sources[]` kinds (mail, localDir, cloud files, SaaS docs), sync vs query split, contentless file indexing, MCP as optional sync aid — **Google Drive:** [OPP-045](../opportunities/OPP-045-google-drive.md) |
 | [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [STRATEGY.md](../STRATEGY.md); product spec → [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) |
 
-**Ripmail** (Rust CLI + index): [`../../ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).
+**Ripmail — Rust era (recoverable):** [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md). **Ripmail crate ADRs** (on branches that still ship `ripmail/`): [`../../ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).
 
 *Recorded considerations* are decisions or research notes that are **not** feature opportunities—they document why we chose a path or deferred an alternative, for future readers.

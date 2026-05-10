@@ -112,7 +112,8 @@ On-disk layout, integrations, evaluations, and the Rust inbox implementation.
 | External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
 | Eval home, Enron fixture mail, search index rebuild                           | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
 | Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)               | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
-| Ripmail crate (Rust internals)                                                | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                   |
+| **Rust ripmail — recoverable snapshot** (git tag before TS port; see [OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)) | [architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)                                                     |
+| Ripmail crate (Rust internals; on `main` until **[OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)** cutover)           | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                   |
 
 
 ---

@@ -3,6 +3,8 @@
 **Status:** Open  
 **Builds on:** **[archived OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — chat + **`notifications`** already ship in **`var/brain-tenant.sqlite`**; ripmail’s index remains a **second** SQLite under **`ripmail/`**. This OPP **merges** mail into the **same** tenant DB and ports ripmail to TypeScript.
 
+**Last Rust ripmail on `main` (archaeology):** annotated tag **`ripmail-rust-before-typescript-port`** — how to fetch and check out — [**architecture/ripmail-rust-snapshot.md**](../architecture/ripmail-rust-snapshot.md) · indexed as **[archived OPP-105](archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)**.
+
 **See also:** [chat-history-sqlite.md](../architecture/chat-history-sqlite.md) · [per-tenant-storage-defense.md](../architecture/per-tenant-storage-defense.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [brain-layout.json](../../shared/brain-layout.json) / [`brainLayout.ts`](../../src/server/lib/brainLayout.ts) · [ripmail ARCHITECTURE.md](../../ripmail/docs/ARCHITECTURE.md)
 
 ---

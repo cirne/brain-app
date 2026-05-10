@@ -2,6 +2,8 @@
 
 **Status:** Proposed — **Phase 1** (notification + review-before-send); **Phase 2** (optional auto-send) gated on Phase 1 user testing.
 
+**Strategy note (2026-05):** Product direction favors **mail as the canonical async plane** and **ruthless removal** of **`runBrainQuery` / `ask_brain`** in favor of email + classifications + existing draft/send flows. See **[OPP-106 — Email-first cross-brain collaboration](OPP-106-email-first-cross-brain-collaboration.md)** (supersedes this doc’s engineering approach).
+
 **See also:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **[OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant `notifications` — shipped) · [OPP-056](OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX patterns) · [OPP-100](OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT on grants)
 
 ## Problem
