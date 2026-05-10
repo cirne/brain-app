@@ -1,3 +1,52 @@
 {
-  "placeholder": {}
+  "brainSettingsPage": {
+    "title": "Settings",
+    "subtitle": "Your workspace, connections, and preferences.",
+    "dismiss": "Dismiss",
+    "addAccountBanner": {
+      "added": "Added {{mailbox}}. Braintunnel is syncing this mailbox now."
+    },
+    "sections": {
+      "workspace": "Workspace",
+      "account": "Account",
+      "chat": "Chat"
+    },
+    "workspace": {
+      "connections": {
+        "title": "Connections",
+        "subtitle": "Mailboxes, calendars, and folders wired into Braintunnel"
+      },
+      "wikiActivity": {
+        "title": "Wiki activity",
+        "subtitle": "Background jobs, recent edits, and wiki log"
+      },
+      "brainAccess": {
+        "title": "Brain to Brain access",
+        "subtitle": "Policies, collaborators, and inbound activity"
+      }
+    },
+    "account": {
+      "profile": "Your profile",
+      "signOut": "Sign out",
+      "deleteAllData": "Delete all my data",
+      "deleteAllDataHint": "Removes wiki, index, chats"
+    },
+    "chat": {
+      "description": "How assistant tool use appears in your message history.",
+      "compact": {
+        "title": "Compact",
+        "subtitle": "One-line summary per tool in the transcript."
+      },
+      "detailed": {
+        "title": "Detailed",
+        "subtitle": "Expandable arguments, results, and previews inline for each tool."
+      }
+    },
+    "deleteConfirm": {
+      "title": "Delete all your data?",
+      "confirmLabel": "Delete everything",
+      "bodyLine1": "This permanently removes your wiki, chats, and profile from Braintunnel, plus the search library Braintunnel built from your mail and other sources. You can't undo it.",
+      "bodyLine2": "Your email accounts stay as they are: Braintunnel doesn't change or delete messages at your provider, and you can keep using mail the same way you do today."
+    }
+  }
 }

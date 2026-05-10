@@ -3,5 +3,145 @@
     "hint": "Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar. Changes save as soon as you toggle a calendar.",
     "empty": "No calendars found yet. Try refreshing once your calendar account has connected.",
     "loading": "Loading calendars…"
+  },
+  "brainHubPage": {
+    "title": "Activity",
+    "wikiActivity": {
+      "ariaLabel": "Wiki activity",
+      "heading": "Wiki activity",
+      "pageCountLoading": "Page count loading",
+      "pagesLabel": "pages",
+      "description": "Peek at pages the background job touched recently-or open the full log to see each step.",
+      "logTitle": "Open wiki background log",
+      "logSubtitle": "Tool steps, timing, and errors",
+      "recentEditsAriaLabel": "Recent wiki edits",
+      "recentEditsLabel": "Recent edits",
+      "noRecentEdits": "No recent edits recorded yet."
+    }
+  },
+  "brainHubWidget": {
+    "phases": {
+      "starting": "Starting wiki…",
+      "enriching": "Enriching…",
+      "cleaning": "Cleaning up…",
+      "paused": "Paused"
+    },
+    "title": "Braintunnel Hub",
+    "titleActive": "{{activeLabel}} (Click for Braintunnel Hub)"
+  },
+  "hubAddFoldersPanel": {
+    "headerFallbackTitle": "Add folders to index",
+    "placeholder": "Reply to confirm which folders to add, adjust the list, or say no…",
+    "kickoffMessage": "/files Look through my Desktop and Documents folders for folders that would be good additions to my search index. Weed out poor fits (e.g. huge image-only archives, games, temp dirs). Recommend at most 5 candidates. Present them as a numbered list (1-5) so I can reply by number (e.g. \"add 1, 3, and 4\"). For each item, say what would be indexed: unless I should exclude certain file types or subdirectories, assume the whole tree under that folder path, including all subdirectories. If only part of a folder should be indexed (specific subdirs, or skip certain extensions), say that explicitly. When done, ask which numbers to add and wait for my confirmation before changing any indexing settings."
+  },
+  "hubWikiAboutPanel": {
+    "lead": {
+      "beforeWikiStrong": "Your ",
+      "wikiStrong": "wiki",
+      "afterWikiStrongBeforeVaultStrong": " is a private set of Markdown pages in ",
+      "vaultStrong": "your vault",
+      "afterVaultStrongBeforeEmphasis": ", stored with your account. Braintunnel keeps it growing and tidy automatically-so answers stay grounded in ",
+      "emphasis": "your",
+      "afterEmphasis": " world, not a generic model guess."
+    },
+    "sections": {
+      "howAutomaticUpdatesWork": "How automatic updates work",
+      "sourcesVsWiki": "Sources vs. wiki",
+      "youAreInControl": "You're in control"
+    },
+    "howAutomaticUpdates": {
+      "beforeYourWikiStrong": "The ",
+      "yourWikiStrong": "Your Wiki",
+      "afterYourWikiStrong": " background worker runs on its own schedule. Each time it wakes up it does two things:",
+      "enrichingLabel": "Enriching",
+      "enrichingDescriptionBeforeWikilinks": " - adds and deepens pages (people, projects, interests) from your mail, profile, and public sources. Pages are cross-linked with ",
+      "cleaningUpLabel": "Cleaning up",
+      "cleaningUpDescription": " - fixes broken links, checks orphan pages, and updates the index so navigation stays coherent.",
+      "whenFreshBeforeUpdateStrong": "When everything looks fresh, Braintunnel backs off until there's new mail-or you tap ",
+      "updateWikiNowStrong": "Update wiki now",
+      "whenFreshAfterUpdateStrong": " on the Activity page."
+    },
+    "sourcesVsWiki": {
+      "beforeSynthesizedKnowledgeBaseStrong": "Raw material lives in the things you connect: email, documents and folders, calendar, and (when available) Messages. Braintunnel searches those directly. The wiki is different - it is your ",
+      "synthesizedKnowledgeBaseStrong": "synthesized knowledge base",
+      "afterSynthesizedKnowledgeBaseStrong": ": names, projects, and context compiled into readable pages. Over time it becomes richer and more accurate without duplicating every raw message."
+    },
+    "control": {
+      "vaultLabel": "Vault.",
+      "vaultDescription": " Your vault is protected by the password you set at setup-you unlock it when you use Braintunnel.",
+      "pauseResumeLabel": "Pause / Resume.",
+      "pauseResumeDescription": " Pause anytime from Activity or the wiki detail pane. Resume always starts the next scheduled pass cleanly.",
+      "editYourselfLabel": "Edit yourself.",
+      "editYourselfDescription": " Open pages from hub or chat. The loop picks up your edits and works around them.",
+      "moveAroundQuicklyLabel": "Move around quickly.",
+      "moveAroundQuicklyBeforeAt": " Mention a page with ",
+      "moveAroundQuicklyAfterAt": " to open it from chat, or search when you know the name but not the path."
+    },
+    "footer": "Think of the wiki as the map of what matters to you: the distilled picture Braintunnel uses alongside live search so help stays personal, consistent, and yours."
+  },
+  "hubActivityOverview": {
+    "heading": "What's running",
+    "relativeTime": {
+      "justNow": "just now",
+      "minutesAgo_one": "{{count}}m ago",
+      "minutesAgo_other": "{{count}}m ago",
+      "hoursAgo_one": "{{count}}h ago",
+      "hoursAgo_other": "{{count}}h ago",
+      "yesterday": "yesterday",
+      "daysAgo_one": "{{count}}d ago",
+      "daysAgo_other": "{{count}}d ago"
+    },
+    "mail": {
+      "updatingTitle": "Mail index is updating",
+      "title": "Mail index",
+      "statusUnavailable": "Status unavailable",
+      "messagesIndexed": "messages indexed",
+      "syncing": " · Syncing{{lockAge}}…",
+      "lastSynced": " · Last synced {{value}}",
+      "noSyncTimeYet": " · No sync time yet",
+      "syncNow": "Sync mail now"
+    },
+    "wiki": {
+      "updatingTitle": "Wiki background updates running",
+      "title": "Your wiki",
+      "controlsAriaLabel": "Wiki background updates",
+      "pauseTitle": "Pause background wiki updates",
+      "resumeTitle": "Resume background wiki updates",
+      "updateNowTitle": "Run a background wiki refresh now",
+      "updateNow": "Update wiki now"
+    },
+    "sources": {
+      "title": "Connected sources",
+      "couldNotLoadSummary": "Could not load summary.",
+      "noneYet": "None yet - add mail or calendars so search and your wiki have material to work with.",
+      "manageInSettings": "Manage in Settings"
+    }
+  },
+  "hubBrainAccessSummary": {
+    "ariaLabel": "Brain sharing summary",
+    "title": "Brain to Brain",
+    "description": "Choose who can ask your brain and what each collaborator may learn - policies, audit-style activity, and revokes live in Settings.",
+    "manageTitle": "Manage Brain access",
+    "manageSubtitle": "Full-screen policies, collaborators, and inbound activity"
+  },
+  "hubBackgroundAgentsDetail": {
+    "lead": "Wiki expansion fills and updates your vault using your profile, indexed mail, optional Messages (when available), and public web research when that improves accuracy. Use a full pass for a broad overview or a continue pass to deepen or fix gaps after mail syncs.",
+    "expansionAriaLabel": "Wiki expansion",
+    "actions": {
+      "starting": "Starting…",
+      "fullExpansion": "Full expansion",
+      "continuePass": "Continue pass"
+    },
+    "runInProgressHint": "A run is already in progress - you can follow it in the activity log below. When it finishes, you can start another pass.",
+    "defaultAgentLabel": "Wiki Expansion",
+    "pageCount_one": "{{count}} page",
+    "pageCount_other": "{{count}} pages",
+    "empty": {
+      "noneInProgress": "No wiki expansion run in progress. Start a full or continue pass above when you want another pass.",
+      "noneYet": "No wiki expansion runs yet. Start a full pass above after onboarding or when you want a fresh overview."
+    },
+    "errors": {
+      "startFailed": "Could not start wiki expansion"
+    }
   }
 }

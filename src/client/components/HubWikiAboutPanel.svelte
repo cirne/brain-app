@@ -1,69 +1,85 @@
+<script lang="ts">
+  import { t } from '@client/lib/i18n/index.js'
+</script>
+
 <div class="hub-wiki-about min-h-0 flex-1 overflow-auto px-5 pb-7 pt-4">
   <div class="hub-wiki-about-inner flex max-w-[36rem] flex-col gap-4 [&_p]:m-0 [&_p]:text-[0.9375rem] [&_p]:leading-[1.55] [&_p]:text-foreground">
     <p class="hub-wiki-about-lead text-base leading-[1.55] text-foreground">
-      Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong>, stored with your
-      account. Braintunnel keeps it growing and tidy automatically—so answers stay grounded in <em>your</em> world, not
-      a generic model guess.
+      {$t('hub.hubWikiAboutPanel.lead.beforeWikiStrong')}
+      <strong>{$t('hub.hubWikiAboutPanel.lead.wikiStrong')}</strong>
+      {$t('hub.hubWikiAboutPanel.lead.afterWikiStrongBeforeVaultStrong')}
+      <strong>{$t('hub.hubWikiAboutPanel.lead.vaultStrong')}</strong>
+      {$t('hub.hubWikiAboutPanel.lead.afterVaultStrongBeforeEmphasis')}
+      <em>{$t('hub.hubWikiAboutPanel.lead.emphasis')}</em>
+      {$t('hub.hubWikiAboutPanel.lead.afterEmphasis')}
     </p>
 
     <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">
-      How automatic updates work
+      {$t('hub.hubWikiAboutPanel.sections.howAutomaticUpdatesWork')}
     </h3>
     <p>
-      The <strong>Your Wiki</strong> background worker runs on its own schedule. Each time it wakes up it does two things:
+      {$t('hub.hubWikiAboutPanel.howAutomaticUpdates.beforeYourWikiStrong')}
+      <strong>{$t('hub.hubWikiAboutPanel.howAutomaticUpdates.yourWikiStrong')}</strong>
+      {$t('hub.hubWikiAboutPanel.howAutomaticUpdates.afterYourWikiStrong')}
     </p>
     <ul
       class="hub-wiki-about-list m-0 flex flex-col gap-[0.65rem] pl-[1.15rem] text-[0.9375rem] leading-[1.5] text-foreground [&_li]:pl-[0.15rem]"
     >
       <li>
-        <strong>Enriching</strong> — adds and deepens pages (people, projects, interests) from your mail, profile,
-        and public sources. Pages are cross-linked with <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">[[wikilinks]]</span>.
+        <strong>{$t('hub.hubWikiAboutPanel.howAutomaticUpdates.enrichingLabel')}</strong>
+        {$t('hub.hubWikiAboutPanel.howAutomaticUpdates.enrichingDescriptionBeforeWikilinks')}
+        <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">[[wikilinks]]</span>.
       </li>
       <li>
-        <strong>Cleaning up</strong> — fixes broken links, checks orphan pages, and updates the index so
-        navigation stays coherent.
+        <strong>{$t('hub.hubWikiAboutPanel.howAutomaticUpdates.cleaningUpLabel')}</strong>
+        {$t('hub.hubWikiAboutPanel.howAutomaticUpdates.cleaningUpDescription')}
       </li>
     </ul>
     <p>
-      When everything looks fresh, Braintunnel backs off until there’s new mail—or you tap
-      <strong>Update wiki now</strong> on the Activity page.
+      {$t('hub.hubWikiAboutPanel.howAutomaticUpdates.whenFreshBeforeUpdateStrong')}
+      <strong>{$t('hub.hubWikiAboutPanel.howAutomaticUpdates.updateWikiNowStrong')}</strong>
+      {$t('hub.hubWikiAboutPanel.howAutomaticUpdates.whenFreshAfterUpdateStrong')}
     </p>
 
-    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">Sources vs. wiki</h3>
+    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">
+      {$t('hub.hubWikiAboutPanel.sections.sourcesVsWiki')}
+    </h3>
     <p>
-      Raw material lives in the things you connect: email, documents and folders, calendar, and (when available)
-      Messages. Braintunnel searches those directly. The wiki is different — it is your
-      <strong>synthesized knowledge base</strong>: names, projects, and context compiled into readable pages. Over
-      time it becomes richer and more accurate without duplicating every raw message.
+      {$t('hub.hubWikiAboutPanel.sourcesVsWiki.beforeSynthesizedKnowledgeBaseStrong')}
+      <strong>{$t('hub.hubWikiAboutPanel.sourcesVsWiki.synthesizedKnowledgeBaseStrong')}</strong>
+      {$t('hub.hubWikiAboutPanel.sourcesVsWiki.afterSynthesizedKnowledgeBaseStrong')}
     </p>
 
-    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">You're in control</h3>
+    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">
+      {$t('hub.hubWikiAboutPanel.sections.youAreInControl')}
+    </h3>
     <ul
       class="hub-wiki-about-list m-0 flex flex-col gap-[0.65rem] pl-[1.15rem] text-[0.9375rem] leading-[1.5] text-foreground [&_li]:pl-[0.15rem]"
     >
       <li>
-        <strong>Vault.</strong> Your vault is protected by the password you set at setup—you unlock it when you use
-        Braintunnel.
+        <strong>{$t('hub.hubWikiAboutPanel.control.vaultLabel')}</strong>
+        {$t('hub.hubWikiAboutPanel.control.vaultDescription')}
       </li>
       <li>
-        <strong>Pause / Resume.</strong> Pause anytime from Activity or the wiki detail pane.
-        Resume always starts the next scheduled pass cleanly.
+        <strong>{$t('hub.hubWikiAboutPanel.control.pauseResumeLabel')}</strong>
+        {$t('hub.hubWikiAboutPanel.control.pauseResumeDescription')}
       </li>
       <li>
-        <strong>Edit yourself.</strong> Open pages from hub or chat. The loop picks up your edits and works
-        around them.
+        <strong>{$t('hub.hubWikiAboutPanel.control.editYourselfLabel')}</strong>
+        {$t('hub.hubWikiAboutPanel.control.editYourselfDescription')}
       </li>
       <li>
-        <strong>Move around quickly.</strong> Mention a page with <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">@</span> to open it from chat, or
-        search when you know the name but not the path.
+        <strong>{$t('hub.hubWikiAboutPanel.control.moveAroundQuicklyLabel')}</strong>
+        {$t('hub.hubWikiAboutPanel.control.moveAroundQuicklyBeforeAt')}
+        <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">@</span>
+        {$t('hub.hubWikiAboutPanel.control.moveAroundQuicklyAfterAt')}
       </li>
     </ul>
 
     <p
       class="hub-wiki-about-foot mt-1 border-t border-[color-mix(in_srgb,var(--border)_55%,transparent)] pt-4 !text-[0.875rem] !leading-[1.5] !text-muted"
     >
-      Think of the wiki as the map of what matters to you: the distilled picture Braintunnel uses alongside live search
-      so help stays personal, consistent, and yours.
+      {$t('hub.hubWikiAboutPanel.footer')}
     </p>
   </div>
 </div>

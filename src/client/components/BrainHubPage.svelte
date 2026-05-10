@@ -24,6 +24,7 @@
   import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
   import HubSharingSection from '@components/hub/HubSharingSection.svelte'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     /** Cross-workspace brain query hub summary; true only when server enables `BRAIN_B2B_ENABLED`. */
@@ -213,7 +214,7 @@
 >
   <header class="hub-header border-b border-border pb-4">
     <div class="hub-header-content">
-      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">Activity</h1>
+      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">{$t('hub.brainHubPage.title')}</h1>
       <div
         class={cn(
           'hub-header-deck mt-2',
@@ -254,14 +255,21 @@
       onOpenSettings={onOpenSettings}
     />
 
-    <section class="hub-section your-wiki-section flex flex-col gap-5" aria-label="Wiki activity">
+    <section
+      class="hub-section your-wiki-section flex flex-col gap-5"
+      aria-label={$t('hub.brainHubPage.wikiActivity.ariaLabel')}
+    >
       <div class={cn(sectionHeaderBase, 'section-header-wiki')}>
         <BookOpen size={18} />
-        <h2 class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Wiki activity</h2>
+        <h2 class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
+          {$t('hub.brainHubPage.wikiActivity.heading')}
+        </h2>
         <span
           class="wiki-header-metrics ml-auto flex shrink-0 items-baseline gap-2"
           aria-live="polite"
-          aria-label={wikiPageCount != null ? `${wikiPageCount} pages` : 'Page count loading'}
+          aria-label={wikiPageCount != null
+            ? $t('nav.yourWiki.pageCount', { count: wikiPageCount })
+            : $t('hub.brainHubPage.wikiActivity.pageCountLoading')}
         >
           <span
             class="wiki-header-count text-[1.25rem] font-bold tracking-[-0.01em] tabular-nums text-foreground"
@@ -270,12 +278,12 @@
           <span
             class="wiki-header-count-label text-xs font-semibold uppercase tracking-[0.05em] text-muted"
             aria-hidden="true"
-          >pages</span>
+          >{$t('hub.brainHubPage.wikiActivity.pagesLabel')}</span>
         </span>
       </div>
 
       <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Peek at pages the background job touched recently—or open the full log to see each step.
+        {$t('hub.brainHubPage.wikiActivity.description')}
       </p>
 
       <div class="links-list flex flex-col">
@@ -287,7 +295,10 @@
           <div
             class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium"
           >
-            <HubSourceRowBody title="Open wiki background log" subtitle="Tool steps, timing, and errors">
+            <HubSourceRowBody
+              title={$t('hub.brainHubPage.wikiActivity.logTitle')}
+              subtitle={$t('hub.brainHubPage.wikiActivity.logSubtitle')}
+            >
               {#snippet icon()}
                 {#if wikiIsActive}
                   <RefreshCw size={16} class={cn('spin-icon shrink-0 text-accent')} aria-hidden="true" />
@@ -301,7 +312,7 @@
             <div class="link-status flex flex-col items-end gap-px">
               <span
                 class="status-pill paused bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] px-2 py-px text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-foreground"
-              >Paused</span>
+              >{$t('nav.yourWiki.phase.paused')}</span>
             </div>
           {/if}
           <ChevronRight size={16} aria-hidden="true" />
@@ -310,11 +321,11 @@
         {#if wikiRecentReady && wikiRecentEdits.length > 0}
           <div
             class="wiki-recent-block mt-[0.35rem] flex flex-col border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-3"
-            aria-label="Recent wiki edits"
+            aria-label={$t('hub.brainHubPage.wikiActivity.recentEditsAriaLabel')}
           >
             <p
               class="wiki-recent-label mb-[0.35rem] mt-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
-            >Recent edits</p>
+            >{$t('hub.brainHubPage.wikiActivity.recentEditsLabel')}</p>
             {#each wikiRecentEdits as f (f.path)}
               <button
                 type="button"
@@ -345,7 +356,7 @@
         {:else if wikiRecentReady}
           <p
             class="empty-msg wiki-recent-empty mt-2 border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] px-0 pb-0 pt-[0.65rem] text-[0.8125rem] text-muted"
-          >No recent edits recorded yet.</p>
+          >{$t('hub.brainHubPage.wikiActivity.noRecentEdits')}</p>
         {/if}
       </div>
     </section>
