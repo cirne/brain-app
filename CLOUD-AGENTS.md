@@ -39,6 +39,10 @@ bash ./scripts/cloud-agent/setup-node.sh
 npm install
 ```
 
+## Historical: Rust `ripmail` Linux binary (pre–TypeScript `main`)
+
+On **`main` before the OPP-103 cutover**, CI published `ripmail-linux-x86_64` under rolling release tag **`ripmail-latest`**. This branch runs mail **in-process** in Node—**no** separate binary or `RIPMAIL_BIN` download. For git tags that pin the last Rust tree and for the **CI/release teardown checklist** after merge, see **[docs/architecture/ripmail-rust-snapshot.md](docs/architecture/ripmail-rust-snapshot.md)**.
+
 ## Configuration
 
 Create `.env` from the example and add your API keys:
