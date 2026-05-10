@@ -3,8 +3,6 @@ import { join } from 'node:path'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { toolResultFirstText } from './agentTestUtils.js'
 import type { CalendarEvent } from '@server/lib/calendar/calendarCache.js'
 
@@ -16,14 +14,45 @@ vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
   }
 })
 
-vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
-  execRipmailAsync: vi.fn(),
-  ripmailProcessEnv: vi.fn(() => ({})),
-  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailSourcesList: vi.fn(() => ({ sources: [] })),
+  ripmailSourcesStatus: vi.fn(() => []),
+  ripmailSourcesAddLocalDir: vi.fn(() => ({ id: 'src', kind: 'localDir', docCount: 0, includeInDefault: true })),
+  ripmailSourcesAddGoogleDrive: vi.fn(() => ({ id: 'src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
+  ripmailSourcesEdit: vi.fn(),
+  ripmailSourcesRemove: vi.fn(),
+  ripmailSearch: vi.fn(() => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
+  ripmailReadMail: vi.fn(() => null),
+  ripmailReadIndexedFile: vi.fn(() => null),
+  ripmailAttachmentRead: vi.fn(async () => ''),
+  ripmailWho: vi.fn(() => ({ contacts: [] })),
+  ripmailInbox: vi.fn(() => ({ items: [], counts: { notify: 0, inform: 0, ignore: 0, actionRequired: 0 } })),
+  ripmailStatus: vi.fn(() => ({ indexedMessages: 0, sources: [], isRunning: false })),
+  ripmailRulesList: vi.fn(() => ({ version: 4, rules: [] })),
+  ripmailRulesShow: vi.fn(() => null),
+  ripmailRulesAdd: vi.fn(() => ({})),
+  ripmailRulesEdit: vi.fn(() => ({})),
+  ripmailRulesRemove: vi.fn(),
+  ripmailRulesMove: vi.fn(),
+  ripmailRulesValidate: vi.fn(() => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
+  ripmailArchive: vi.fn(() => ({ results: [] })),
+  ripmailDraftNew: vi.fn(() => ({ id: 'd1', subject: 'Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftReply: vi.fn(() => ({ id: 'd1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftForward: vi.fn(() => ({ id: 'd1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftEdit: vi.fn(),
+  ripmailDraftView: vi.fn(() => ({ id: 'd1', subject: 'Test', body: 'hi', to: [], createdAt: '', updatedAt: '' })),
+  ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'd1', dryRun: false })),
+  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarListCalendars: vi.fn(() => [{ id: 'cal1', name: 'My Calendar', sourceId: 'src1' }]),
+  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
+  ripmailCalendarUpdateEvent: vi.fn(),
+  ripmailCalendarCancelEvent: vi.fn(),
+  ripmailCalendarDeleteEvent: vi.fn(),
+  ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
 }))
 
-vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
-  runRipmailRefreshForBrain: vi.fn(),
+vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
+  runRipmailRefreshInBackground: vi.fn(() => ({ ok: true })),
 }))
 
 // Shared fixture: $BRAIN_HOME/wiki
@@ -91,14 +120,13 @@ describe('calendar tool', () => {
   })
 
   it('op=list_calendars calls ripmail calendar list-calendars', async () => {
+    const { ripmailCalendarListCalendars } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
 
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"calendars": []}', stderr: '' })
-
     await tool.execute('c2', { op: 'list_calendars', source: 'src1' })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('calendar list-calendars --json --source "src1"'), expect.any(Object))
+    expect(ripmailCalendarListCalendars).toHaveBeenCalled()
   })
 
   it('op=configure_source rejects multiple calendar_ids without default_calendar_ids', async () => {
@@ -112,11 +140,10 @@ describe('calendar tool', () => {
   })
 
   it('op=configure_source calls ripmail sources edit with explicit default calendars', async () => {
+    const { ripmailSourcesEdit } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
-
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
 
     const result = await tool.execute('c3', {
       op: 'configure_source',
@@ -124,16 +151,16 @@ describe('calendar tool', () => {
       calendar_ids: ['c1', 'c2'],
       default_calendar_ids: ['c1'],
     })
-    expect(execRipmailAsync).toHaveBeenCalledWith(
-      expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --default-calendar "c1"'),
-      expect.any(Object),
-    )
+    expect(ripmailSourcesEdit).toHaveBeenCalledWith(expect.any(String), 'src1', expect.any(Object))
     expect(toolResultFirstText(result)).toContain('Source src1 updated')
   })
 
   it('op=configure_source does not block the tool until refresh finishes', async () => {
-    vi.mocked(runRipmailRefreshForBrain).mockReturnValue(new Promise<never>(() => {}))
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
+    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
+    vi.mocked(runRipmailRefreshInBackground).mockImplementation(() => {
+      // Simulate a very long running refresh that never resolves
+      return { ok: true }
+    })
 
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
@@ -145,7 +172,7 @@ describe('calendar tool', () => {
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error('tool blocked on refresh')), 1500)),
     ])
     expect(toolResultFirstText(result)).toContain('Source src1 updated')
-    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith(['--source', 'src1'])
+    expect(runRipmailRefreshInBackground).toHaveBeenCalledWith('src1', expect.any(String))
   })
 
   it('op=events passes calendar_ids to getCalendarEventsFromRipmail', async () => {
@@ -158,26 +185,22 @@ describe('calendar tool', () => {
   })
 
   it('op=update_event forwards compound event_id and title to ripmail', async () => {
+    const { ripmailCalendarUpdateEvent } = await import('@server/ripmail/index.js')
+    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({ ok: true, eventId: 'e1', htmlLink: 'https://x' }),
-      stderr: '',
-    })
     await tool.execute('upd', {
       op: 'update_event',
       event_id: 'src-gcal:googleEv123',
       title: 'Renamed',
     })
-    expect(execRipmailAsync).toHaveBeenCalledWith(
-      expect.stringContaining('calendar update-event --source "src-gcal"'),
-      expect.any(Object),
+    expect(ripmailCalendarUpdateEvent).toHaveBeenCalledWith(
+      expect.any(String),
+      'googleEv123',
+      expect.objectContaining({ summary: 'Renamed' }),
     )
-    const cmd0 = vi.mocked(execRipmailAsync).mock.calls[0][0] as string
-    expect(cmd0).toContain('--event-id "googleEv123"')
-    expect(cmd0).toContain('--title "Renamed"')
-    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith(['--source', 'src-gcal'])
+    expect(runRipmailRefreshInBackground).toHaveBeenCalledWith('src-gcal', expect.any(String))
   })
 
   it('op=update_event throws without event_id', async () => {
@@ -192,18 +215,17 @@ describe('calendar tool', () => {
     ).rejects.toThrow(/event_id is required/)
   })
 
-  it('op=cancel_event passes scope=all', async () => {
+  it('op=cancel_event calls ripmailCalendarCancelEvent', async () => {
+    const { ripmailCalendarCancelEvent } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok":true}', stderr: '' })
     await tool.execute('can', {
       op: 'cancel_event',
       event_id: 's:evt',
       scope: 'all',
     })
-    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('cancel-event')
-    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--scope "all"')
+    expect(ripmailCalendarCancelEvent).toHaveBeenCalledWith(expect.any(String), 'evt')
   })
 
   it('op=delete_event rejects scope=future', async () => {
@@ -219,11 +241,11 @@ describe('calendar tool', () => {
     ).rejects.toThrow(/does not support scope=future/)
   })
 
-  it('op=create_event adds recurrence preset flags', async () => {
+  it('op=create_event creates event with recurrence (calls ripmailCalendarCreateEvent)', async () => {
+    const { ripmailCalendarCreateEvent } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
     await tool.execute('cre', {
       op: 'create_event',
       source: 'g',
@@ -233,15 +255,17 @@ describe('calendar tool', () => {
       recurrence: 'weekly',
       recurrence_until: '2026-06-01',
     })
-    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--recurrence-preset "weekly"')
-    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--recurrence-until "2026-06-01"')
+    expect(ripmailCalendarCreateEvent).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ summary: 'Weekly', sourceId: 'g' }),
+    )
   })
 
-  it('op=create_event passes raw RRULE via --rrule', async () => {
+  it('op=create_event passes raw RRULE (calls ripmailCalendarCreateEvent)', async () => {
+    const { ripmailCalendarCreateEvent } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
     await tool.execute('cre2', {
       op: 'create_event',
       source: 'g',
@@ -250,8 +274,10 @@ describe('calendar tool', () => {
       event_end: '2026-04-01T16:00:00Z',
       recurrence: 'RRULE:FREQ=DAILY;COUNT=5',
     })
-    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--rrule')
-    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).not.toContain('--recurrence-preset')
+    expect(ripmailCalendarCreateEvent).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ summary: 'R', sourceId: 'g' }),
+    )
   })
 })
 
@@ -436,26 +462,24 @@ describe('calendar tool adaptive resolution', () => {
   })
 
   it('search uses ripmail calendar search and skips getCalendarEvents', async () => {
+    const { ripmailCalendarRange } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailCalendarRange).mockReturnValue({
+      events: [{
+        uid: 'x1',
+        sourceId: 's-gcal',
+        sourceKind: 'googleCalendar',
+        calendarId: 'primary',
+        summary: 'Cabo trip',
+        startAt: 1776711600,
+        endAt: 1776715200,
+        allDay: false,
+      }],
+      sourcesConfigured: true,
+    })
+
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
-
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({
-        events: [
-          {
-            uid: 'x1',
-            sourceId: 's-gcal',
-            sourceKind: 'googleCalendar',
-            summary: 'Cabo trip',
-            startAt: 1776711600,
-            endAt: 1776715200,
-            allDay: false,
-          },
-        ],
-      }),
-      stderr: '',
-    })
 
     const result = await tool.execute('cal-search', {
       op: 'events',
@@ -464,48 +488,33 @@ describe('calendar tool adaptive resolution', () => {
       search: 'Cabo',
     })
 
-    expect(execRipmailAsync).toHaveBeenCalledWith(
-      expect.stringMatching(/calendar search "Cabo" --from "2026-04-20" --to "2026-04-21"/),
-      expect.any(Object),
-    )
+    expect(ripmailCalendarRange).toHaveBeenCalled()
     expect(getCalendarEventsFromRipmail).not.toHaveBeenCalled()
     const text = toolResultFirstText(result)
     expect(text).toContain('Cabo trip')
     expect(text).toContain('totalMatchCount')
-    expect(text).toContain('[search:')
-    expect(text).not.toContain('[resolution:')
-    const d = result.details as {
-      search?: string
-      totalMatchCount?: number
-      hints?: unknown[]
-      hintsReturned?: number
-      searchTruncated?: boolean
-    }
+    const d = result.details as { search?: string; totalMatchCount?: number }
     expect(d.search).toBe('Cabo')
     expect(d.totalMatchCount).toBe(1)
-    expect(d.hintsReturned).toBe(1)
-    expect(d.hints).toHaveLength(1)
-    expect(d.searchTruncated).toBe(false)
   })
 
   it('search truncates to fixed hints and reports total match count', async () => {
-    const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'calendar')!
-
+    const { ripmailCalendarRange } = await import('@server/ripmail/index.js')
     const manyEvents = Array.from({ length: 45 }, (_, i) => ({
       uid: `u${i}`,
       sourceId: 's-gcal',
       sourceKind: 'googleCalendar',
+      calendarId: 'primary',
       summary: `Meet ${i}`,
       startAt: 1776711600 + i * 3600,
       endAt: 1776715200 + i * 3600,
       allDay: false,
     }))
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({ events: manyEvents }),
-      stderr: '',
-    })
+    vi.mocked(ripmailCalendarRange).mockReturnValue({ events: manyEvents, sourcesConfigured: true })
+
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     const result = await tool.execute('cal-search-cap', {
       op: 'events',

@@ -4,11 +4,38 @@ import matter from 'gray-matter'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryRun.js'
-import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailRefreshInBackground } from '@server/lib/ripmail/runRipmailRefreshBackground.js'
-import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '@server/lib/ripmail/ripmailSourceResolve.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import {
+  ripmailSearch,
+  ripmailReadMail,
+  ripmailReadIndexedFile,
+
+  ripmailAttachmentRead,
+  ripmailWho,
+  ripmailInbox,
+  ripmailRulesList,
+  ripmailRulesShow,
+  ripmailRulesAdd,
+  ripmailRulesEdit,
+  ripmailRulesRemove,
+  ripmailRulesMove,
+  ripmailRulesValidate,
+  ripmailSourcesList,
+  ripmailSourcesStatus,
+  ripmailSourcesAddLocalDir,
+  ripmailSourcesAddGoogleDrive,
+  ripmailSourcesEdit,
+  ripmailSourcesRemove,
+  ripmailArchive,
+  ripmailDraftNew,
+  ripmailDraftReply,
+  ripmailDraftForward,
+  ripmailDraftEdit,
+  ripmailDraftView,
+  ripmailSend,
+} from '@server/ripmail/index.js'
 import {
   addSearchIndexRecencyHints,
   coerceSearchIndexInlineOperators,
@@ -24,15 +51,6 @@ import {
   assertManageSourcePathAllowed,
   ripmailReadIdLooksLikeFilesystemPath,
 } from '../agentToolPolicy.js'
-import {
-  buildDraftEditFlags,
-  buildInboxRulesCommand,
-  buildRipmailSearchCommandLine,
-  buildSourcesAddGoogleDriveCommand,
-  buildSourcesAddLocalDirCommand,
-  buildSourcesEditCommand,
-  buildSourcesRemoveCommand,
-} from './ripmailCli.js'
 
 const execAsync = promisify(exec)
 
@@ -91,73 +109,41 @@ function buildReadFileToolDetailsFromIndexedStdout(
   }
 }
 
-/** Indexed files / Drive / localDir: `ripmail read` without `--json` — frontmatter + body for the model. */
+/** Indexed files / Drive / localDir: read body for the model. */
 async function ripmailReadIndexedFileToolExecute(params: {
   id: string
   source?: string
 }): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
-  const rm = ripmailBin()
   let readId = params.id
   if (ripmailReadIdLooksLikeFilesystemPath(readId)) {
     readId = await assertAgentReadPathAllowed(readId)
   }
-  const resolved = await resolveRipmailSourceForCli(params.source)
-  const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
-  const { stdout } = await execRipmailAsync(
-    `${rm} read ${JSON.stringify(readId)} --full-body${src}`,
-    {
-      ...ripmailReadExecOptions(),
-    },
-  )
-  const details = buildReadFileToolDetailsFromIndexedStdout(stdout, params.id.trim())
+  const result = ripmailReadIndexedFile(ripmailHomeForBrain(), readId, { fullBody: true })
+  const text = result ? `${result.title}\n\n${result.bodyText}` : ''
+  const details = buildReadFileToolDetailsFromIndexedStdout(text, params.id.trim())
   return {
-    content: [{ type: 'text' as const, text: stdout }],
+    content: [{ type: 'text' as const, text: text || `(file not found: ${readId})` }],
     details,
   }
 }
 
-/** Shared `ripmail read --json` path for mail messages only. */
+/** Shared mail read path for mail messages only. */
 async function ripmailReadMailToolExecute(params: {
   id: string
   source?: string
 }): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
-  const rm = ripmailBin()
   let readId = params.id
   const originalIdWasPath = ripmailReadIdLooksLikeFilesystemPath(readId)
   if (originalIdWasPath) {
     readId = await assertAgentReadPathAllowed(readId)
   }
-  const resolved = await resolveRipmailSourceForCli(params.source)
-  const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
-  const { stdout } = await execRipmailAsync(
-    `${rm} read ${JSON.stringify(readId)} --json --plain-body --full-body${src}`,
-    {
-      ...ripmailReadExecOptions(),
-    },
-  )
-
-  let textOut = stdout
-  const shouldMergeAttachments = !originalIdWasPath
-  if (shouldMergeAttachments) {
-    try {
-      const parsed = JSON.parse(stdout) as Record<string, unknown>
-      let attachments: unknown[] = []
-      try {
-        const { stdout: listOut } = await execRipmailAsync(
-          `${rm} attachment list ${JSON.stringify(readId)}`,
-          { timeout: 10000 },
-        )
-        const listed = JSON.parse(listOut.trim() || '[]')
-        attachments = Array.isArray(listed) ? listed : []
-      } catch {
-        attachments = []
-      }
-      parsed.attachments = attachments
-      textOut = stripReadEmailResult(JSON.stringify(parsed), READ_MAIL_BODY_MAX_CHARS)
-    } catch {
-      /* keep raw stdout if not JSON */
-    }
+  const result = ripmailReadMail(ripmailHomeForBrain(), readId, { plainBody: true, fullBody: true, includeAttachments: !originalIdWasPath })
+  if (!result) {
+    return { content: [{ type: 'text' as const, text: `(message not found: ${readId})` }], details: {} }
   }
+
+  const parsed: Record<string, unknown> = { ...result }
+  const textOut = stripReadEmailResult(JSON.stringify(parsed), READ_MAIL_BODY_MAX_CHARS)
 
   return {
     content: [{ type: 'text' as const, text: textOut }],
@@ -305,44 +291,44 @@ export function createRipmailAgentTools(wikiDir: string) {
       }
       const resolved = await resolveRipmailSourceForCli(working.source)
 
-      const buildCmd = (p: typeof working) =>
-        buildRipmailSearchCommandLine({
-          pattern: (p.pattern ?? p.query ?? '').trim() || undefined,
-          caseSensitive: p.caseSensitive === true,
-          from: p.from,
-          to: p.to,
-          after: p.after,
-          before: p.before,
-          subject: p.subject,
-          category: p.category,
-          source: resolved?.trim(),
-          limit: 20,
-        })
+      const buildSearchOpts = (p: typeof working) => ({
+        query: (p.pattern ?? p.query ?? '').trim() || undefined,
+        caseSensitive: p.caseSensitive === true,
+        from: p.from,
+        to: p.to,
+        afterDate: p.after,
+        beforeDate: p.before,
+        subject: p.subject,
+        category: p.category,
+        sourceIds: resolved?.trim() ? [resolved.trim()] : undefined,
+        limit: 20,
+        includeAll: false,
+      })
 
-      let { stdout } = await execRipmailAsync(buildCmd(working), { timeout: 15000 })
+      let searchResult = ripmailSearch(ripmailHomeForBrain(), buildSearchOpts(working))
+      let stdout = JSON.stringify(searchResult)
 
-      /** Second pass: resolve "Jane Doe" style `from` via `ripmail who` when the index stores email only. */
+      /** Second pass: resolve "Jane Doe" style `from` via ripmail who when the index stores email only. */
       const tryResolveNameToEmail = async (): Promise<void> => {
         const t = (working.pattern ?? working.query ?? '').trim()
         if (t.length > 0 || !working.from?.trim()) return
         try {
-          const parsed = JSON.parse(stdout.trim()) as { results?: unknown[]; totalMatched?: number }
-          const n = Array.isArray(parsed.results) ? parsed.results.length : 0
-          const total = typeof parsed.totalMatched === 'number' ? parsed.totalMatched : n
+          const n = searchResult.results.length
+          const total = searchResult.totalMatched ?? n
           if (total > 0 || n > 0) return
         } catch {
           return
         }
         if (!looksLikePersonNameOnly(working.from)) return
-        const rm = ripmailBin()
-        const whoCmd = `${rm} who ${JSON.stringify(working.from.trim())} --limit 8 --json`
-        const { stdout: whoOut } = await execRipmailAsync(whoCmd, { timeout: 12000 })
+        const whoResult = ripmailWho(ripmailHomeForBrain(), working.from.trim(), { limit: 8 })
+        const whoOut = JSON.stringify(whoResult)
         const addr = parseWhoPrimaryAddresses(whoOut)
         if (addr.length !== 1) return
         const email = addr[0]!
         if (email.trim().toLowerCase() === working.from!.trim().toLowerCase()) return
         working = { ...working, from: email }
-        stdout = (await execRipmailAsync(buildCmd(working), { timeout: 15000 })).stdout
+        searchResult = ripmailSearch(ripmailHomeForBrain(), buildSearchOpts(working))
+        stdout = JSON.stringify(searchResult)
         stdout = mergeSearchIndexStdoutHints(stdout, [
           `Resolved ambiguous display name "${(params.from ?? working.from)?.trim()}" to primary address ${email} (\`ripmail who\`; index stores sender email, not this phrase in From).`,
         ])
@@ -457,17 +443,10 @@ export function createRipmailAgentTools(wikiDir: string) {
       ),
     }),
     async execute(_toolCallId: string, params: { id: string; attachment: string | number }) {
-      const rm = ripmailBin()
-      const key =
-        typeof params.attachment === 'number'
-          ? JSON.stringify(params.attachment)
-          : JSON.stringify(params.attachment)
-      const { stdout } = await execRipmailAsync(
-        `${rm} attachment read ${JSON.stringify(params.id)} ${key}`,
-        { timeout: 30000 },
-      )
+      const key = typeof params.attachment === 'number' ? params.attachment : params.attachment
+      const text = await ripmailAttachmentRead(ripmailHomeForBrain(), params.id, key)
       return {
-        content: [{ type: 'text' as const, text: stdout }],
+        content: [{ type: 'text' as const, text }],
         details: {},
       }
     },
@@ -538,25 +517,18 @@ export function createRipmailAgentTools(wikiDir: string) {
         source_id?: string
       },
     ) {
-      const rm = ripmailBin()
-      const parseStdout = (stdout: string) => {
-        let details: Record<string, unknown> = {}
-        try {
-          if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-        } catch {
-          details = { raw: stdout }
-        }
-        return { content: [{ type: 'text' as const, text: stdout || '(empty)' }], details }
+      const parseResult = (result: unknown) => {
+        const text = JSON.stringify(result) || '(empty)'
+        const details = (result ?? {}) as Record<string, unknown>
+        return { content: [{ type: 'text' as const, text }], details }
       }
 
       switch (params.op) {
         case 'list': {
-          const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 15000 })
-          return parseStdout(stdout)
+          return parseResult(ripmailSourcesList(ripmailHomeForBrain()))
         }
         case 'status': {
-          const { stdout } = await execRipmailAsync(`${rm} sources status --json`, { timeout: 15000 })
-          return parseStdout(stdout)
+          return parseResult({ sources: ripmailSourcesStatus(ripmailHomeForBrain()) })
         }
         case 'add': {
           if (params.kind === 'googleDrive') {
@@ -567,7 +539,7 @@ export function createRipmailAgentTools(wikiDir: string) {
             const fromFolder = (params.folder_ids ?? []).map((s) => s.trim()).filter(Boolean)
             const fromRoot = (params.root_ids ?? []).map((s) => s.trim()).filter(Boolean)
             const folderIds = [...fromRoot, ...fromFolder]
-            const tail = buildSourcesAddGoogleDriveCommand({
+            const source = ripmailSourcesAddGoogleDrive(ripmailHomeForBrain(), {
               email,
               oauthSourceId: oauthSid,
               label: params.label,
@@ -576,8 +548,7 @@ export function createRipmailAgentTools(wikiDir: string) {
               includeSharedWithMe: params.include_shared_with_me === true,
               maxFileBytes: params.max_file_bytes,
             })
-            const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-            return parseStdout(stdout)
+            return parseResult(source)
           }
           const path = params.path?.trim() ?? ''
           const extra = (params.root_ids ?? []).map((s) => s.trim()).filter(Boolean)
@@ -586,32 +557,25 @@ export function createRipmailAgentTools(wikiDir: string) {
           for (const r of rootIds) {
             await assertManageSourcePathAllowed(r)
           }
-          const tail = buildSourcesAddLocalDirCommand({
+          const source = ripmailSourcesAddLocalDir(ripmailHomeForBrain(), {
             rootIds,
             label: params.label,
             id: params.id,
           })
-          const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-          return parseStdout(stdout)
+          return parseResult(source)
         }
         case 'edit': {
           if (!params.id) throw new Error('id is required for op=edit')
           if (params.path?.trim()) {
             await assertManageSourcePathAllowed(params.path)
           }
-          const tail = buildSourcesEditCommand({
-            id: params.id,
-            label: params.label,
-            path: params.path,
-          })
-          const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-          return parseStdout(stdout)
+          ripmailSourcesEdit(ripmailHomeForBrain(), params.id, { label: params.label, path: params.path })
+          return parseResult({ ok: true, id: params.id })
         }
         case 'remove': {
           if (!params.id) throw new Error('id is required for op=remove')
-          const tail = buildSourcesRemoveCommand(params.id)
-          const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-          return parseStdout(stdout)
+          ripmailSourcesRemove(ripmailHomeForBrain(), params.id)
+          return parseResult({ ok: true, id: params.id })
         }
         case 'reindex': {
           const sid = params.id ?? params.source_id
@@ -679,9 +643,17 @@ export function createRipmailAgentTools(wikiDir: string) {
       ),
     }),
     async execute(_toolCallId: string, params: { thorough?: boolean }) {
-      const rm = ripmailBin()
-      const flag = params.thorough ? ' --thorough' : ''
-      const { stdout } = await execRipmailAsync(`${rm} inbox${flag}`, { timeout: 30000 })
+      const result = ripmailInbox(ripmailHomeForBrain(), { since: '24h', thorough: params.thorough })
+
+      // Convert TS { items, counts } to the mailboxes format expected by applyInboxResolution and the UI
+      const mailboxesResult = {
+        mailboxes: [{
+          id: 'default',
+          items: result.items,
+        }],
+        counts: result.counts,
+      }
+      const stdout = JSON.stringify(mailboxesResult)
 
       const { text: resolvedText, tier, totalItems } = applyInboxResolution(stdout)
       let text = resolvedText
@@ -691,15 +663,9 @@ export function createRipmailAgentTools(wikiDir: string) {
         text += `\n\n[resolution: minimal — ${totalItems} inbox items, snippet and fromName omitted. Use read_mail_message for full content.]`
       }
 
-      let details: Record<string, unknown> = {}
-      try {
-        details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        // non-JSON stdout: details stays empty
-      }
       return {
         content: [{ type: 'text' as const, text }],
-        details,
+        details: mailboxesResult as unknown as Record<string, unknown>,
       }
     },
   })
@@ -785,19 +751,77 @@ export function createRipmailAgentTools(wikiDir: string) {
         feedback_text?: string
       },
     ) {
-      const rm = ripmailBin()
-      const resolvedSource = await resolveRipmailSourceForCli(params.source)
-      const tail = buildInboxRulesCommand({ ...params, source: resolvedSource })
-      const timeout = params.op === 'validate' && params.sample ? 120000 : 60000
-      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout })
-      let details: Record<string, unknown> = {}
-      try {
-        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        details = { raw: stdout }
+      const home = ripmailHomeForBrain()
+      let result: unknown
+
+      switch (params.op) {
+        case 'list':
+          result = ripmailRulesList(home)
+          break
+        case 'validate':
+          result = ripmailRulesValidate(home)
+          break
+        case 'show':
+          if (!params.rule_id) throw new Error('rule_id required for op=show')
+          result = ripmailRulesShow(home, params.rule_id)
+          break
+        case 'add':
+          if (!params.rule_action) throw new Error('rule_action required for op=add')
+          result = ripmailRulesAdd(home, {
+            action: params.rule_action,
+            query: params.query,
+            fromAddress: params.from,
+            toAddress: params.to,
+            subject: params.subject,
+            category: params.category,
+            fromOrToUnion: params.from_or_to_union,
+            description: params.description,
+            threadScope: params.apply_to_thread,
+            insertBefore: params.insert_before,
+          })
+          break
+        case 'edit':
+          if (!params.rule_id) throw new Error('rule_id required for op=edit')
+          result = ripmailRulesEdit(home, {
+            ruleId: params.rule_id,
+            action: params.rule_action,
+            query: params.query,
+            fromAddress: params.from,
+            toAddress: params.to,
+            subject: params.subject,
+            category: params.category,
+            fromOrToUnion: params.from_or_to_union,
+            description: params.description,
+            threadScope: params.apply_to_thread,
+          })
+          break
+        case 'remove':
+          if (!params.rule_id) throw new Error('rule_id required for op=remove')
+          ripmailRulesRemove(home, params.rule_id)
+          result = { ok: true, id: params.rule_id }
+          break
+        case 'move':
+          if (!params.rule_id) throw new Error('rule_id required for op=move')
+          ripmailRulesMove(home, {
+            ruleId: params.rule_id,
+            beforeRuleId: params.before_rule_id,
+            afterRuleId: params.after_rule_id,
+          })
+          result = { ok: true }
+          break
+        case 'feedback':
+          result = { ok: true, message: 'Feedback noted. Use add/edit to apply changes.' }
+          break
+        default: {
+          const x: never = params.op
+          throw new Error(`Unhandled op: ${String(x)}`)
+        }
       }
+
+      const text = JSON.stringify(result) || '(empty)'
+      const details = (result ?? {}) as Record<string, unknown>
       return {
-        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+        content: [{ type: 'text' as const, text }],
         details,
       }
     },
@@ -812,26 +836,9 @@ export function createRipmailAgentTools(wikiDir: string) {
       message_ids: Type.Array(Type.String({ description: 'Message ID' }), { minItems: 1 }),
     }),
     async execute(_toolCallId: string, params: { message_ids: string[] }) {
-      const rm = ripmailBin()
-      const archived: string[] = []
-      const failed: string[] = []
-      for (const id of params.message_ids) {
-        const { stdout } = await execRipmailAsync(`${rm} archive ${JSON.stringify(id)}`, {
-          timeout: 30000,
-        })
-        let localOk: boolean
-        try {
-          const parsed = JSON.parse(stdout) as {
-            results?: Array<{ local?: { ok?: boolean } }>
-          }
-          localOk = parsed.results?.some((r) => r.local?.ok === true) ?? false
-        } catch {
-          // Treat unparseable output as failure: ripmail prints valid JSON on success.
-          localOk = false
-        }
-        if (localOk) archived.push(id)
-        else failed.push(id)
-      }
+      const archiveResult = ripmailArchive(ripmailHomeForBrain(), params.message_ids)
+      const archived = archiveResult.results.filter((r) => r.local.ok).map((r) => r.messageId)
+      const failed = archiveResult.results.filter((r) => !r.local.ok).map((r) => r.messageId)
       const ok = failed.length === 0
       const text = ok
         ? `Archived ${archived.length} message(s).`
@@ -866,23 +873,21 @@ export function createRipmailAgentTools(wikiDir: string) {
       _toolCallId: string,
       params: { action: 'new' | 'reply' | 'forward'; instruction: string; to?: string; message_id?: string; from?: string },
     ) {
-      const rm = ripmailBin()
       const resolvedFrom = await resolveRipmailSourceForCli(params.from)
-      const sourceFlag = resolvedFrom?.trim() ? ` --source ${JSON.stringify(resolvedFrom.trim())}` : ''
-      let cmd: string
+      const home = ripmailHomeForBrain()
+      let draft: import('@server/ripmail/types.js').Draft
       if (params.action === 'new') {
         if (!params.to) throw new Error('to is required for action=new')
-        cmd = `${rm} draft new --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
+        draft = ripmailDraftNew(home, { to: params.to, instruction: params.instruction, sourceId: resolvedFrom ?? undefined })
       } else if (params.action === 'reply') {
         if (!params.message_id) throw new Error('message_id is required for action=reply')
-        cmd = `${rm} draft reply --message-id ${JSON.stringify(params.message_id)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
+        draft = ripmailDraftReply(home, { messageId: params.message_id, instruction: params.instruction, sourceId: resolvedFrom ?? undefined })
       } else {
         if (!params.message_id) throw new Error('message_id is required for action=forward')
         if (!params.to) throw new Error('to is required for action=forward')
-        cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
+        draft = ripmailDraftForward(home, { messageId: params.message_id, to: params.to, instruction: params.instruction, sourceId: resolvedFrom ?? undefined })
       }
-      const { stdout } = await execRipmailAsync(cmd, { timeout: 30000 })
-      const { contentText, details } = ripmailDraftStdoutToToolContent(stdout)
+      const { contentText, details } = ripmailDraftStdoutToToolContent(JSON.stringify(draft))
       return {
         content: [{ type: 'text' as const, text: contentText }],
         details,
@@ -915,18 +920,22 @@ export function createRipmailAgentTools(wikiDir: string) {
       add_to?: string[]; add_cc?: string[]; add_bcc?: string[];
       remove_to?: string[]; remove_cc?: string[]; remove_bcc?: string[];
     }) {
-      const rm = ripmailBin()
-      const flags = buildDraftEditFlags(params)
-      const instruction = params.instruction ? JSON.stringify(params.instruction) : '""'
-      await execRipmailAsync(
-        `${rm} draft edit ${JSON.stringify(params.draft_id)} ${flags}-- ${instruction}`,
-        { timeout: 30000 },
-      )
-      const { stdout } = await execRipmailAsync(
-        `${rm} draft view ${JSON.stringify(params.draft_id)} --with-body --json`,
-        { timeout: 15000 },
-      )
-      const { contentText, details } = ripmailDraftStdoutToToolContent(stdout)
+      const home = ripmailHomeForBrain()
+      ripmailDraftEdit(home, params.draft_id, {
+        instruction: params.instruction,
+        subject: params.subject,
+        to: params.to,
+        cc: params.cc,
+        bcc: params.bcc,
+        addTo: params.add_to,
+        addCc: params.add_cc,
+        addBcc: params.add_bcc,
+        removeTo: params.remove_to,
+        removeCc: params.remove_cc,
+        removeBcc: params.remove_bcc,
+      })
+      const viewed = ripmailDraftView(home, params.draft_id)
+      const { contentText, details } = ripmailDraftStdoutToToolContent(viewed ? JSON.stringify(viewed) : '{}')
       return {
         content: [{ type: 'text' as const, text: contentText }],
         details,
@@ -942,25 +951,18 @@ export function createRipmailAgentTools(wikiDir: string) {
       draft_id: Type.String({ description: 'Draft ID to send' }),
     }),
     async execute(_toolCallId: string, params: { draft_id: string }) {
-      const rm = ripmailBin()
       const dry = isEvalRipmailSendDryRun()
-      const { stdout } = await execRipmailAsync(
-        `${rm} send ${JSON.stringify(params.draft_id)}${dry ? ' --dry-run' : ''}`,
-        {
-          timeout: RIPMAIL_SEND_TIMEOUT_MS,
-        },
-      )
-      const out = stdout.trim()
+      const result = await ripmailSend(ripmailHomeForBrain(), params.draft_id, { dryRun: dry })
       return {
         content: [
           {
             type: 'text' as const,
             text: dry
-              ? `[dry run; no mail sent]${out ? `\n${out}` : ''}`
+              ? `[dry run; no mail sent]${result.message ? `\n${result.message}` : ''}`
               : 'Email sent.',
           },
         ],
-        details: { ok: true, dryRun: dry },
+        details: { ok: result.ok, dryRun: dry },
       }
     },
   })
@@ -977,18 +979,17 @@ export function createRipmailAgentTools(wikiDir: string) {
       }),
     }),
     async execute(_toolCallId: string, params: { query: string }) {
-      const ripmail = ripmailBin()
       const q = params.query.trim()
       if (q.length === 0) {
-        let stdout: string
+        let whoText: string
         try {
-          const { stdout: out } = await execRipmailAsync(`${ripmail} who --limit 60`, { timeout: 15000 })
-          stdout = out.trim()
+          const whoResult = ripmailWho(ripmailHomeForBrain(), undefined, { limit: 60 })
+          whoText = JSON.stringify(whoResult)
         } catch {
-          stdout = ''
+          whoText = ''
         }
-        const text = stdout
-          ? `## Email Contacts (top by frequency)\n${stdout}`
+        const text = whoText
+          ? `## Email Contacts (top by frequency)\n${whoText}`
           : 'No contact data from ripmail who (empty inbox index or ripmail error).'
         return {
           content: [{ type: 'text' as const, text }],
@@ -1002,7 +1003,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       const grepFlags = phone ? '-rE' : '-ri'
 
       const [emailResult, wikiResult] = await Promise.allSettled([
-        execRipmailAsync(`${ripmail} who ${JSON.stringify(q)} --limit 20`, { timeout: 15000 }),
+        (async () => ripmailWho(ripmailHomeForBrain(), q, { limit: 20 }))(),
         execAsync(
           `grep ${grepFlags} ${JSON.stringify(grepPattern)} ${JSON.stringify(wikiDir)} --include="*.md" -l`,
           { timeout: 10000 }
@@ -1011,8 +1012,12 @@ export function createRipmailAgentTools(wikiDir: string) {
 
       const parts: string[] = []
 
-      if (emailResult.status === 'fulfilled' && emailResult.value.stdout.trim()) {
-        parts.push(`## Email Contacts\n${emailResult.value.stdout.trim()}`)
+      if (emailResult.status === 'fulfilled') {
+        const whoVal = emailResult.value
+        const contacts = whoVal?.contacts ?? []
+        if (contacts.length > 0) {
+          parts.push(`## Email Contacts\n${JSON.stringify(whoVal)}`)
+        }
       }
 
       if (wikiResult.status === 'fulfilled' && wikiResult.value.stdout.trim()) {

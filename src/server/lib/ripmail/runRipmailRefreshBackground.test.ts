@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
-vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
-  runRipmailRefreshForBrain: vi.fn(),
+vi.mock('@server/ripmail/sync/index.js', () => ({
+  refresh: vi.fn(),
 }))
 
-import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import { refresh } from '@server/ripmail/sync/index.js'
 import { runRipmailRefreshInBackground } from './runRipmailRefreshBackground.js'
 
 describe('runRipmailRefreshInBackground', () => {
   beforeEach(() => {
-    vi.mocked(runRipmailRefreshForBrain).mockReset()
-    vi.mocked(runRipmailRefreshForBrain).mockRejectedValue(new Error('refresh failed'))
+    vi.mocked(refresh).mockReset()
+    vi.mocked(refresh).mockRejectedValue(new Error('refresh failed'))
   })
 
   it('logs when background refresh rejects', async () => {

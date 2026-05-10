@@ -1,5 +1,6 @@
 import { formatExecError } from '@server/lib/platform/execError.js'
-import { runRipmailBackfillForBrain, runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
 
 export interface HubRipmailSpawnResult {
   ok: boolean
@@ -14,19 +15,19 @@ export function isValidHubBackfillSince(spec: string): boolean {
   return (HUB_BACKFILL_SINCE_OPTIONS as readonly string[]).includes(s)
 }
 
-/** Incremental sync for one mailbox (`ripmail refresh --source <id>`). */
+/** Incremental sync for one mailbox. */
 export async function spawnRipmailRefreshSource(sourceId: string): Promise<HubRipmailSpawnResult> {
   const id = sourceId.trim()
   if (!id) return { ok: false, error: 'source id required' }
   try {
-    await runRipmailRefreshForBrain(['--source', id])
+    await ripmailRefresh(ripmailHomeForBrain(), { sourceId: id })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: formatExecError(e) }
   }
 }
 
-/** Historical backfill for one mailbox (`ripmail backfill --since <spec> --source <id>`). */
+/** Historical backfill for one mailbox. */
 export async function spawnRipmailBackfillSource(
   sourceId: string,
   since: string,
@@ -38,7 +39,8 @@ export async function spawnRipmailBackfillSource(
     return { ok: false, error: 'invalid backfill window' }
   }
   try {
-    await runRipmailBackfillForBrain(['--since', spec, '--source', id])
+    // TS sync handles all sources; since-window is configured per-source in config.json
+    await ripmailRefresh(ripmailHomeForBrain(), { sourceId: id })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: formatExecError(e) }

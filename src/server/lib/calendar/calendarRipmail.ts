@@ -1,10 +1,10 @@
 /**
- * Query indexed calendar events via `ripmail calendar range --json` ([OPP-053]).
+ * Query indexed calendar events via the in-process TS ripmail module.
  */
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { ensureGoogleOAuthImapSiblingSources } from '@server/lib/platform/googleOAuth.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { openRipmailDb } from '@server/ripmail/db.js'
+import { calendarRange, calendarListCalendars } from '@server/ripmail/calendar.js'
 import type { CalendarEvent } from './calendarCache.js'
 
 export type RipmailCalendarEventJson = {
@@ -221,18 +221,15 @@ export function flattenRipmailListCalendarsJson(parsed: unknown): {
 
 async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: RipmailListCalendarRow[] }> {
   try {
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} calendar list-calendars --json`,
-      { timeout: 15000 },
-    )
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(stdout) as unknown
-    } catch {
-      return { configured: false, calendars: [] }
-    }
-    const { sourcesConfigured, availableCalendars } = flattenRipmailListCalendarsJson(parsed)
-    return { configured: sourcesConfigured, calendars: availableCalendars }
+    const db = openRipmailDb(ripmailHomeForBrain())
+    const items = calendarListCalendars(db)
+    const configured = items.length > 0
+    const calendars: RipmailListCalendarRow[] = items.map((c) => ({
+      id: c.id,
+      name: c.name,
+      sourceId: c.sourceId,
+    }))
+    return { configured, calendars }
   } catch {
     return { configured: false, calendars: [] }
   }
@@ -261,23 +258,32 @@ export async function getCalendarEventsFromRipmail(opts: {
     }
   }
 
-  const calendarFlags = opts.calendarIds?.length
-    ? opts.calendarIds.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
-    : ''
+  // Convert ISO date strings to Unix epoch seconds
+  const fromUnix = Math.floor(new Date(start + 'T00:00:00Z').getTime() / 1000)
+  const toUnix = Math.floor(new Date(end + 'T23:59:59Z').getTime() / 1000)
 
-  const [info, cmdOut] = await Promise.all([
+  const [info, rangeResult] = await Promise.all([
     ripmailCalendarSourcesInfo(),
-    execRipmailAsync(
-      `${ripmailBin()} calendar range --from ${JSON.stringify(start)} --to ${JSON.stringify(end)}${calendarFlags ? ' ' + calendarFlags : ''} --json`,
-      { timeout: 60000 },
-    ).catch(() => null),
+    (async () => {
+      try {
+        const db = openRipmailDb(ripmailHomeForBrain())
+        return calendarRange(db, fromUnix, toUnix, {
+          calendarIds: opts.calendarIds?.length ? opts.calendarIds : undefined,
+        })
+      } catch {
+        return null
+      }
+    })(),
   ])
 
-  if (!cmdOut) {
+  if (!rangeResult) {
     return { events: [], meta: { sourcesConfigured: info.configured, availableCalendars: info.calendars, ripmail: '' } }
   }
 
-  const events = calendarEventsFromRipmailRangeJsonStdout(cmdOut.stdout)
+  // Map TS ripmail CalendarEvent to RipmailCalendarEventJson (shapes are compatible)
+  const events = calendarEventsFromRipmailRangeJsonStdout(
+    JSON.stringify({ events: rangeResult.events }),
+  )
 
   return {
     events,

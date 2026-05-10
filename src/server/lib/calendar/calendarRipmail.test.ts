@@ -8,7 +8,14 @@ import {
   flattenRipmailListCalendarsJson,
   type RipmailCalendarEventJson,
 } from './calendarRipmail.js'
-import * as ripmailRun from '@server/lib/ripmail/ripmailRun.js'
+
+vi.mock('@server/ripmail/db.js', () => ({
+  openRipmailDb: vi.fn(() => ({})),
+}))
+vi.mock('@server/ripmail/calendar.js', () => ({
+  calendarRange: vi.fn(),
+  calendarListCalendars: vi.fn(() => []),
+}))
 
 describe('mapRipmailRowToCalendarEvent', () => {
   it('maps a timed event', () => {
@@ -281,24 +288,10 @@ describe('getCalendarEventsFromRipmail deduplication', () => {
       ]
     })
 
-    const listCalStdout = JSON.stringify({
-      calendars: [
-        {
-          sourceId: 'src-meta',
-          kind: 'googleCalendar',
-          calendars: [{ id: 'primary' }],
-        },
-      ],
-    })
-    vi.spyOn(ripmailRun, 'execRipmailAsync').mockImplementation(async (cmd: string) => {
-      if (cmd.includes('list-calendars')) {
-        return { stdout: listCalStdout, stderr: '' }
-      }
-      if (cmd.includes('calendar range')) {
-        return { stdout: mockStdout, stderr: '' }
-      }
-      return { stdout: '', stderr: '' }
-    })
+    const mockEvents = JSON.parse(mockStdout).events
+    const { calendarRange, calendarListCalendars } = await import('@server/ripmail/calendar.js')
+    vi.mocked(calendarRange).mockReturnValue({ events: mockEvents, sourcesConfigured: true })
+    vi.mocked(calendarListCalendars).mockReturnValue([{ id: 'primary', sourceId: 'src-meta' }])
 
     const result = await getCalendarEventsFromRipmail({ start: '2026-04-20', end: '2026-04-20' })
     

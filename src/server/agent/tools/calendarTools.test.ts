@@ -14,6 +14,24 @@ vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailCalendarListCalendars: vi.fn(() => []),
+  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
+  ripmailCalendarUpdateEvent: vi.fn(),
+  ripmailCalendarCancelEvent: vi.fn(),
+  ripmailCalendarDeleteEvent: vi.fn(),
+  ripmailSourcesEdit: vi.fn(),
+}))
+
+vi.mock('@server/lib/platform/brainHome.js', () => ({
+  ripmailHomeForBrain: vi.fn(() => '/tmp/test-ripmail-home'),
+}))
+
+vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
+  runRipmailRefreshInBackground: vi.fn(() => ({ ok: true })),
+}))
+
 describe('parseCalendarEventRef', () => {
   it('parses sourceId:eventUid', () => {
     expect(parseCalendarEventRef('mailbox-gcal:event_abc_20260315T120000Z')).toEqual({
@@ -70,13 +88,12 @@ describe('createCalendarTool allowedOps', () => {
   })
 
   it('allows list_calendars when restricted', async () => {
-    const { execRipmailAsync } = await import('@server/lib/ripmail/ripmailRun.js')
-    vi.mocked(execRipmailAsync).mockResolvedValueOnce({ stdout: '{"calendars":[]}', stderr: '' })
+    const { ripmailCalendarListCalendars } = await import('@server/ripmail/index.js')
     const { calendar } = createCalendarTool('UTC', {
       allowedOps: ['list_calendars', 'configure_source'],
     })
     const r = await calendar.execute('t2', { op: 'list_calendars' }, undefined, undefined, testToolCtx)
     expect(r.content[0]?.type).toBe('text')
-    expect(execRipmailAsync).toHaveBeenCalled()
+    expect(ripmailCalendarListCalendars).toHaveBeenCalled()
   })
 })

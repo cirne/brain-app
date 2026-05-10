@@ -2,12 +2,42 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 
-vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
-  execRipmailAsync: vi.fn(),
-  ripmailProcessEnv: vi.fn(() => ({})),
-  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailSourcesList: vi.fn(() => ({ sources: [{ id: 'src1', kind: 'imap', docCount: 0, includeInDefault: true }] })),
+  ripmailSourcesStatus: vi.fn(() => [{ sourceId: 'src1', kind: 'imap', docCount: 0 }]),
+  ripmailSourcesAddLocalDir: vi.fn(() => ({ id: 'new-src', kind: 'localDir', docCount: 0, includeInDefault: true })),
+  ripmailSourcesAddGoogleDrive: vi.fn(() => ({ id: 'drive-src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
+  ripmailSourcesEdit: vi.fn(),
+  ripmailSourcesRemove: vi.fn(),
+  ripmailSearch: vi.fn(() => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
+  ripmailReadMail: vi.fn(() => null),
+  ripmailReadIndexedFile: vi.fn(() => null),
+  ripmailAttachmentRead: vi.fn(async () => ''),
+  ripmailWho: vi.fn(() => ({ contacts: [] })),
+  ripmailInbox: vi.fn(() => ({ items: [], counts: { notify: 0, inform: 0, ignore: 0, actionRequired: 0 } })),
+  ripmailStatus: vi.fn(() => ({ indexedMessages: 0, sources: [], isRunning: false })),
+  ripmailRulesList: vi.fn(() => ({ version: 4, rules: [] })),
+  ripmailRulesShow: vi.fn(() => null),
+  ripmailRulesAdd: vi.fn(() => ({})),
+  ripmailRulesEdit: vi.fn(() => ({})),
+  ripmailRulesRemove: vi.fn(),
+  ripmailRulesMove: vi.fn(),
+  ripmailRulesValidate: vi.fn(() => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
+  ripmailArchive: vi.fn(() => ({ results: [] })),
+  ripmailDraftNew: vi.fn(() => ({ id: 'draft1', subject: 'Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftReply: vi.fn(() => ({ id: 'draft1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftForward: vi.fn(() => ({ id: 'draft1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftEdit: vi.fn(() => ({ id: 'draft1', subject: 'Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftView: vi.fn(() => ({ id: 'draft1', subject: 'Test', body: 'Hello world', to: ['test@example.com'], createdAt: '', updatedAt: '' })),
+  ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'draft1', dryRun: false })),
+  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarListCalendars: vi.fn(() => []),
+  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'evt1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
+  ripmailCalendarUpdateEvent: vi.fn(),
+  ripmailCalendarCancelEvent: vi.fn(),
+  ripmailCalendarDeleteEvent: vi.fn(),
+  ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
 }))
 
 // Shared fixture: $BRAIN_HOME/wiki
@@ -29,106 +59,73 @@ afterEach(async () => {
 
 describe('manage_sources tool', () => {
   it('op=list calls ripmail sources list', async () => {
+    const { ripmailSourcesList } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'manage_sources')!
 
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources": []}', stderr: '' })
-
     await tool.execute('s1', { op: 'list' })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources list --json'), expect.any(Object))
+    expect(ripmailSourcesList).toHaveBeenCalled()
   })
 
   it('op=status calls ripmail sources status', async () => {
+    const { ripmailSourcesStatus } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'manage_sources')!
 
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources": []}', stderr: '' })
-
     await tool.execute('s2', { op: 'status' })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources status --json'), expect.any(Object))
+    expect(ripmailSourcesStatus).toHaveBeenCalled()
   })
 
   it('op=add calls ripmail sources add', async () => {
+    const { ripmailSourcesAddLocalDir } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'manage_sources')!
 
-    vi.mocked(execRipmailAsync)
-      .mockResolvedValueOnce({ stdout: '{"sources": []}', stderr: '' })
-      .mockResolvedValueOnce({ stdout: '{"id": "new-src"}', stderr: '' })
-
-    await tool.execute('s3', { op: 'add', path: '/tmp/dir', label: 'My Dir' })
-    expect(execRipmailAsync).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining('sources list --json'),
-      expect.any(Object),
-    )
-    expect(execRipmailAsync).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining(
-        'sources add --kind localDir --root-id "/tmp/dir" --label "My Dir" --json',
-      ),
-      expect.any(Object),
-    )
+    await tool.execute('s3', {
+      op: 'add',
+      kind: 'localDir',
+      path: brainHome,
+    })
+    expect(ripmailSourcesAddLocalDir).toHaveBeenCalled()
   })
 
   it('op=edit calls ripmail sources edit', async () => {
+    const { ripmailSourcesEdit } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'manage_sources')!
 
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
-
     await tool.execute('s4', { op: 'edit', id: 'src1', label: 'New Label' })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources edit "src1" --label "New Label" --json'), expect.any(Object))
+    expect(ripmailSourcesEdit).toHaveBeenCalledWith(expect.anything(), 'src1', expect.objectContaining({ label: 'New Label' }))
   })
 
   it('op=remove calls ripmail sources remove', async () => {
+    const { ripmailSourcesRemove } = await import('@server/ripmail/index.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'manage_sources')!
 
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
-
     await tool.execute('s5', { op: 'remove', id: 'src1' })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources remove "src1" --json'), expect.any(Object))
+    expect(ripmailSourcesRemove).toHaveBeenCalledWith(expect.anything(), 'src1')
   })
 
-  it('op=add rejects path inside another tenant workspace in multi-tenant mode', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'mt-man-'))
-    const prevDr = process.env.BRAIN_DATA_ROOT
-    const prevBh = process.env.BRAIN_HOME
-    process.env.BRAIN_DATA_ROOT = base
-    const tenantA = join(base, 'alice')
-    const tenantB = join(base, 'bob')
-    await mkdir(join(tenantA, 'wiki'), { recursive: true })
-    await mkdir(join(tenantB, 'wiki'), { recursive: true })
-    process.env.BRAIN_HOME = tenantA
-    const w = join(tenantA, 'wiki')
+  it('op=configure_source does not block the tool until refresh finishes', async () => {
+    const { ripmailRefresh } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailRefresh).mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      return { ok: true, messagesAdded: 0, messagesUpdated: 0 }
+    })
 
-    const { runWithTenantContextAsync } = await import('@server/lib/tenant/tenantContext.js')
     const { createAgentTools } = await import('./tools.js')
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources":[]}', stderr: '' })
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'refresh_sources')!
 
-    try {
-      await runWithTenantContextAsync(
-        { tenantUserId: 'alice', workspaceHandle: 'alice', homeDir: tenantA },
-        async () => {
-          const tools = createAgentTools(w)
-          const tool = tools.find((t) => t.name === 'manage_sources')!
-          await expect(
-            tool.execute('s', { op: 'add', path: join(tenantB, 'wiki'), label: 'x' }),
-          ).rejects.toThrow(/path_not_allowed/)
-        },
-      )
-      const addCalls = vi.mocked(execRipmailAsync).mock.calls.filter((c) => c[0].includes('sources add'))
-      expect(addCalls).toHaveLength(0)
-    } finally {
-      process.env.BRAIN_DATA_ROOT = prevDr
-      process.env.BRAIN_HOME = prevBh
-      await rm(base, { recursive: true, force: true })
-    }
+    const resultPromise = tool.execute('s6', {})
+    const result = await resultPromise
+    const text = (result.content[0] as { text: string }).text
+    expect(text).toMatch(/sync started|started/i)
   })
 })

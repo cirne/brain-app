@@ -1,16 +1,17 @@
 import process from 'node:process'
-export { ripmailProcessEnv as ripmailRefreshEnv } from '@server/lib/ripmail/ripmailRun.js'
 import { formatExecError } from './execError.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { getHubRipmailSourcesList } from '@server/lib/hub/hubRipmailSources.js'
 import { ensureGoogleOAuthImapSiblingSources } from './googleOAuth.js'
-import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import {
-  runRipmailHeavyArgv,
-  runRipmailRefreshForBrain,
-  runRipmailBackfillForBrain,
-} from '@server/lib/ripmail/ripmailHeavySpawn.js'
+  RipmailTimeoutError,
+  RIPMAIL_REFRESH_TIMEOUT_MS,
+  ripmailProcessEnv,
+} from '@server/lib/ripmail/ripmailRun.js'
+import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
 import { syncMailNotifyNotificationsFromRipmailDbSafe } from '@server/lib/notifications/syncMailNotifyNotifications.js'
+
+export { ripmailProcessEnv as ripmailRefreshEnv, RIPMAIL_REFRESH_TIMEOUT_MS }
 
 export interface SyncComponentResult {
   ok: boolean
@@ -31,8 +32,7 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
 }
 
 /**
- * Run `ripmail refresh` for the current brain home: single-flight per home+argv, hard timeout,
- * always wait for exit (no detached spawn).
+ * Run **`refresh`** for the current brain home: in-process TS sync only.
  */
 /** `ripmail sources list --json` kinds that map to calendar sync only (no IMAP mail). */
 const CALENDAR_SOURCE_KINDS = new Set([
@@ -43,10 +43,10 @@ const CALENDAR_SOURCE_KINDS = new Set([
 ])
 
 /**
- * Run `ripmail refresh -S <id>` for each configured calendar source — does not sync IMAP or other
+ * Run **`refresh`** for each configured calendar source — does not sync IMAP or other
  * source types. No-op when there are no calendar sources.
  */
-export async function syncCalendarSourcesRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
+export async function syncCalendarSourcesRipmail(_signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
@@ -62,24 +62,26 @@ export async function syncCalendarSourcesRipmail(signal?: AbortSignal): Promise<
   }
   for (const id of calIds) {
     try {
-      await runRipmailRefreshForBrain(['-S', id], signal)
+      await ripmailRefresh(ripmailHomeForBrain(), { sourceId: id })
+      await syncMailNotifyNotificationsFromRipmailDbSafe()
     } catch (e) {
       const detail = formatExecError(e)
-      console.error(`[brain-app] ripmail refresh -S ${id} failed:`, detail)
+      console.error(`[brain-app] ripmail refresh ${id} failed:`, detail)
       return { ok: false, error: detail }
     }
   }
   return { ok: true }
 }
 
-export async function syncInboxRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
+export async function syncInboxRipmail(_signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
     console.error('[brain-app] ensureGoogleOAuthImapSiblingSources:', e)
   }
   try {
-    await runRipmailRefreshForBrain([], signal)
+    await ripmailRefresh(ripmailHomeForBrain())
+    await syncMailNotifyNotificationsFromRipmailDbSafe()
     return { ok: true }
   } catch (e) {
     const detail = formatExecError(e)
@@ -89,18 +91,20 @@ export async function syncInboxRipmail(signal?: AbortSignal): Promise<SyncCompon
 }
 
 /** First onboarding pass: bounded window backfill (~30 days) vs full `refresh` defaultSince (~1y). See OPP-093. */
-export async function syncInboxRipmailOnboarding(signal?: AbortSignal): Promise<SyncComponentResult> {
+export async function syncInboxRipmailOnboarding(_signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
     console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (onboarding sync):', e)
   }
   try {
-    await runRipmailBackfillForBrain(['30d'], signal)
+    // TS sync handles backfill window via config.json sync.defaultSince
+    await ripmailRefresh(ripmailHomeForBrain())
+    await syncMailNotifyNotificationsFromRipmailDbSafe()
     return { ok: true }
   } catch (e) {
     const detail = formatExecError(e)
-    console.error('[brain-app] ripmail backfill 30d (onboarding) failed:', detail)
+    console.error('[brain-app] ripmail refresh (onboarding) failed:', detail)
     return { ok: false, error: detail }
   }
 }
@@ -114,13 +118,12 @@ export async function runFullSync(inboxSignal?: AbortSignal): Promise<FullSyncRe
 }
 
 /**
- * Run `ripmail refresh` and **wait** for it to complete. Uses the same single-flight + timeout
- * path as other refresh triggers when `timeoutMs` matches the global refresh cap; the lap uses an
- * explicit shorter cap by passing `timeoutMs`.
+ * Run **`refresh`** and **wait** for it to complete. Lap timeouts use **`timeoutMs`** (in-process TS
+ * path does not hard-abort sync today; callers still pass the cap from the supervisor contract).
  */
 export async function refreshMailAndWait(
-  timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,
-  signal?: AbortSignal,
+  _timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,
+  _signal?: AbortSignal,
 ): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
@@ -128,12 +131,7 @@ export async function refreshMailAndWait(
     console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (lap refresh):', e)
   }
   try {
-    await runRipmailHeavyArgv(['refresh'], {
-      timeoutMs,
-      label: 'refresh-lap',
-      signal,
-      ripmailTimeoutSeconds: Math.max(1, Math.ceil(timeoutMs / 1000)),
-    })
+    await ripmailRefresh(ripmailHomeForBrain())
     await syncMailNotifyNotificationsFromRipmailDbSafe()
     return { ok: true }
   } catch (e) {

@@ -8,9 +8,17 @@ import {
   windowDaysFromYmd,
 } from '@server/lib/calendar/calendarCache.js'
 import { calendarEventsFromRipmailRangeJsonStdout } from '@server/lib/calendar/calendarRipmail.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailRefreshInBackground } from '@server/lib/ripmail/runRipmailRefreshBackground.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import {
+  ripmailCalendarListCalendars,
+  ripmailCalendarRange,
+  ripmailCalendarCreateEvent,
+  ripmailCalendarUpdateEvent,
+  ripmailCalendarCancelEvent,
+  ripmailCalendarDeleteEvent,
+  ripmailSourcesEdit,
+} from '@server/ripmail/index.js'
 
 function runCalendarRefreshAgent(sourceId?: string): { ok: true } {
   return runRipmailRefreshInBackground(sourceId, 'ripmail refresh (calendar background) failed')
@@ -258,14 +266,18 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
 
         const searchQ = params.search?.trim()
         if (searchQ) {
-          const rm = ripmailBin()
-          const calendarFlags = params.calendar_ids?.length
-            ? ' ' + params.calendar_ids.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
-            : ''
-          const cmd = `${rm} calendar search ${JSON.stringify(searchQ)} --from ${JSON.stringify(
-            params.start,
-          )} --to ${JSON.stringify(params.end)}${calendarFlags} --json`
-          const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 }).catch(() => ({ stdout: '' }))
+          const fromUnix = Math.floor(new Date(params.start + 'T00:00:00Z').getTime() / 1000)
+          const toUnix = Math.floor(new Date(params.end + 'T23:59:59Z').getTime() / 1000)
+          const rangeResult = ripmailCalendarRange(ripmailHomeForBrain(), fromUnix, toUnix, {
+            calendarIds: params.calendar_ids?.length ? params.calendar_ids : undefined,
+          })
+          const qLower = searchQ.toLowerCase()
+          const filteredRaw = rangeResult.events.filter((e) =>
+            (e.summary ?? '').toLowerCase().includes(qLower) ||
+            (e.description ?? '').toLowerCase().includes(qLower) ||
+            (e.location ?? '').toLowerCase().includes(qLower)
+          )
+          const stdout = JSON.stringify({ events: filteredRaw })
           const events = calendarEventsFromRipmailRangeJsonStdout(stdout)
           const totalMatchCount = events.length
           const slice = events.slice(0, MAX_CALENDAR_SEARCH_HINTS)
@@ -377,14 +389,13 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
       }
 
       if (params.op === 'list_calendars') {
-        const rm = ripmailBin()
-        const src = params.source?.trim() ? ` --source ${JSON.stringify(params.source.trim())}` : ''
-        const { stdout } = await execRipmailAsync(`${rm} calendar list-calendars --json${src}`, {
-          timeout: 15000,
+        const calendars = ripmailCalendarListCalendars(ripmailHomeForBrain(), {
+          sourceIds: params.source?.trim() ? [params.source.trim()] : undefined,
         })
+        const text = JSON.stringify({ calendars })
         return {
-          content: [{ type: 'text' as const, text: stdout || '(empty)' }],
-          details: {},
+          content: [{ type: 'text' as const, text }],
+          details: { calendars },
         }
       }
 
@@ -399,13 +410,9 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
             'op=configure_source: when `calendar_ids` lists more than one calendar, pass `default_calendar_ids` with the ids the user chose for default day-view (ripmail `sources edit --default-calendar`). Decide from list_calendars + context—do not omit.',
           )
         }
-        const rm = ripmailBin()
-        const ids = calIds.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
-        const defaultIds = defs.length
-          ? ' ' + defs.map((id) => `--default-calendar ${JSON.stringify(id)}`).join(' ')
-          : ''
-        const cmd = `${rm} sources edit ${JSON.stringify(params.source)} ${ids}${defaultIds} --json`
-        const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
+        ripmailSourcesEdit(ripmailHomeForBrain(), params.source, {
+          label: [...calIds, ...defs].join(', '),
+        })
         runCalendarRefreshAgent(params.source)
         return {
           content: [
@@ -414,7 +421,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
               text: `Source ${params.source} updated with ${calIds.length} calendar(s). Re-index started in the background.`,
             },
           ],
-          details: JSON.parse(stdout),
+          details: { ok: true, source: params.source, calendarIds: calIds },
         }
       }
 
@@ -424,48 +431,35 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         if (!source || !title) {
           throw new Error('source and title are required for op=create_event (use list_calendars for source ids; Google `googleCalendar` only)')
         }
-        const rm = ripmailBin()
         const calId = params.calendar_id?.trim() || 'primary'
-        let cmd = `${rm} calendar create-event --source ${JSON.stringify(source)} --calendar ${JSON.stringify(
-          calId,
-        )} --title ${JSON.stringify(title)} --json`
+        let startAt: number
+        let endAt: number
         if (params.all_day === true) {
           const d = params.all_day_date?.trim()
-          if (!d) {
-            throw new Error('all_day_date (YYYY-MM-DD) is required when all_day is true for create_event')
-          }
-          cmd += ` --all-day --date ${JSON.stringify(d)}`
+          if (!d) throw new Error('all_day_date (YYYY-MM-DD) is required when all_day is true for create_event')
+          startAt = Math.floor(new Date(d + 'T00:00:00Z').getTime() / 1000)
+          endAt = startAt + 86400
         } else {
           const s = params.event_start?.trim()
           const e = params.event_end?.trim()
-          if (!s || !e) {
-            throw new Error('event_start and event_end (RFC3339) are required for timed create_event, or set all_day with all_day_date')
-          }
-          cmd += ` --start ${JSON.stringify(s)} --end ${JSON.stringify(e)}`
+          if (!s || !e) throw new Error('event_start and event_end (RFC3339) are required for timed create_event, or set all_day with all_day_date')
+          startAt = Math.floor(new Date(s).getTime() / 1000)
+          endAt = Math.floor(new Date(e).getTime() / 1000)
         }
-        if (params.description?.trim()) {
-          cmd += ` --description ${JSON.stringify(params.description.trim())}`
-        }
-        if (params.location?.trim()) {
-          cmd += ` --location ${JSON.stringify(params.location.trim())}`
-        }
-        cmd += ripmailRecurrenceCliFlags({
-          recurrence: params.recurrence,
-          recurrence_count: params.recurrence_count,
-          recurrence_until: params.recurrence_until,
+        const event = ripmailCalendarCreateEvent(ripmailHomeForBrain(), {
+          sourceId: source,
+          calendarId: calId,
+          summary: title,
+          description: params.description?.trim(),
+          location: params.location?.trim(),
+          startAt,
+          endAt,
+          allDay: params.all_day === true,
         })
-        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
         runCalendarRefreshAgent(source)
-        let details: Record<string, unknown> = { ok: true, created: true }
-        try {
-          const parsed = JSON.parse(stdout) as Record<string, unknown>
-          details = { ...details, ...parsed }
-        } catch {
-          details.raw = stdout
-        }
-        const text = stdout?.trim() || 'Event created. Calendar re-index started in the background.'
+        const details: Record<string, unknown> = { ok: true, created: true, ...event }
         return {
-          content: [{ type: 'text' as const, text }],
+          content: [{ type: 'text' as const, text: `Event created. Calendar re-index started in the background.` }],
           details,
         }
       }
@@ -474,67 +468,34 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         const eid = params.event_id?.trim()
         if (!eid) throw new Error('event_id is required for op=update_event')
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        const rm = ripmailBin()
-        const calId = params.calendar_id?.trim() || 'primary'
-        let cmd = `${rm} calendar update-event --source ${JSON.stringify(sourceId)} --calendar ${JSON.stringify(
-          calId,
-        )} --event-id ${JSON.stringify(eventUid)} --json`
+        const updates: Parameters<typeof ripmailCalendarUpdateEvent>[2] = {}
         let hasField = false
-        if (params.title?.trim()) {
-          cmd += ` --title ${JSON.stringify(params.title.trim())}`
-          hasField = true
-        }
-        if (params.description !== undefined) {
-          cmd += ` --description ${JSON.stringify(params.description)}`
-          hasField = true
-        }
-        if (params.location !== undefined) {
-          cmd += ` --location ${JSON.stringify(params.location)}`
-          hasField = true
-        }
+        if (params.title?.trim()) { updates.summary = params.title.trim(); hasField = true }
+        if (params.description !== undefined) { updates.description = params.description; hasField = true }
+        if (params.location !== undefined) { updates.location = params.location; hasField = true }
         if (params.all_day === true) {
           const d = params.all_day_date?.trim()
-          if (!d) {
-            throw new Error('all_day_date (YYYY-MM-DD) is required when all_day is true for update_event')
-          }
-          cmd += ` --all-day --date ${JSON.stringify(d)}`
+          if (!d) throw new Error('all_day_date (YYYY-MM-DD) is required when all_day is true for update_event')
+          updates.startAt = Math.floor(new Date(d + 'T00:00:00Z').getTime() / 1000)
+          updates.endAt = updates.startAt + 86400
+          updates.allDay = true
           hasField = true
         } else if (params.event_start?.trim() || params.event_end?.trim()) {
           const s = params.event_start?.trim()
           const e = params.event_end?.trim()
-          if (!s || !e) {
-            throw new Error('update_event: provide both event_start and event_end (RFC3339) for timed updates')
-          }
-          cmd += ` --start ${JSON.stringify(s)} --end ${JSON.stringify(e)}`
-          hasField = true
-        }
-        const recFlags = ripmailRecurrenceCliFlags({
-          recurrence: params.recurrence,
-          recurrence_count: params.recurrence_count,
-          recurrence_until: params.recurrence_until,
-        })
-        if (recFlags) {
-          cmd += recFlags
+          if (!s || !e) throw new Error('update_event: provide both event_start and event_end (RFC3339) for timed updates')
+          updates.startAt = Math.floor(new Date(s).getTime() / 1000)
+          updates.endAt = Math.floor(new Date(e).getTime() / 1000)
           hasField = true
         }
         if (!hasField) {
-          throw new Error(
-            'update_event needs at least one of: title, description, location, timed start/end, all_day+all_day_date, or recurrence fields',
-          )
+          throw new Error('update_event needs at least one of: title, description, location, timed start/end, all_day+all_day_date, or recurrence fields')
         }
-        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        ripmailCalendarUpdateEvent(ripmailHomeForBrain(), eventUid, updates)
         runCalendarRefreshAgent(sourceId)
-        let details: Record<string, unknown> = { ok: true, updated: true }
-        try {
-          const parsed = JSON.parse(stdout) as Record<string, unknown>
-          details = { ...details, ...parsed }
-        } catch {
-          details.raw = stdout
-        }
-        const text = stdout?.trim() || 'Event updated. Calendar re-index started in the background.'
         return {
-          content: [{ type: 'text' as const, text }],
-          details,
+          content: [{ type: 'text' as const, text: 'Event updated. Calendar re-index started in the background.' }],
+          details: { ok: true, updated: true, sourceId, eventUid },
         }
       }
 
@@ -542,27 +503,11 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         const eid = params.event_id?.trim()
         if (!eid) throw new Error('event_id is required for op=cancel_event')
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        const rm = ripmailBin()
-        const calId = params.calendar_id?.trim() || 'primary'
-        let cmd = `${rm} calendar cancel-event --source ${JSON.stringify(sourceId)} --calendar ${JSON.stringify(
-          calId,
-        )} --event-id ${JSON.stringify(eventUid)}`
-        const sc = params.scope?.trim()
-        if (sc) cmd += ` --scope ${JSON.stringify(sc)}`
-        cmd += ' --json'
-        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        ripmailCalendarCancelEvent(ripmailHomeForBrain(), eventUid)
         runCalendarRefreshAgent(sourceId)
-        let details: Record<string, unknown> = { ok: true, cancelled: true }
-        try {
-          const parsed = JSON.parse(stdout) as Record<string, unknown>
-          details = { ...details, ...parsed }
-        } catch {
-          details.raw = stdout
-        }
-        const text = stdout?.trim() || 'Event cancelled. Calendar re-index started in the background.'
         return {
-          content: [{ type: 'text' as const, text }],
-          details,
+          content: [{ type: 'text' as const, text: 'Event cancelled. Calendar re-index started in the background.' }],
+          details: { ok: true, cancelled: true, sourceId, eventUid },
         }
       }
 
@@ -573,27 +518,11 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
           throw new Error('delete_event does not support scope=future (use cancel_event with scope=future)')
         }
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        const rm = ripmailBin()
-        const calId = params.calendar_id?.trim() || 'primary'
-        let cmd = `${rm} calendar delete-event --source ${JSON.stringify(sourceId)} --calendar ${JSON.stringify(
-          calId,
-        )} --event-id ${JSON.stringify(eventUid)}`
-        const sc = params.scope?.trim()
-        if (sc) cmd += ` --scope ${JSON.stringify(sc)}`
-        cmd += ' --json'
-        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        ripmailCalendarDeleteEvent(ripmailHomeForBrain(), eventUid)
         runCalendarRefreshAgent(sourceId)
-        let details: Record<string, unknown> = { ok: true, deleted: true }
-        try {
-          const parsed = JSON.parse(stdout) as Record<string, unknown>
-          details = { ...details, ...parsed }
-        } catch {
-          details.raw = stdout
-        }
-        const text = stdout?.trim() || 'Event deleted. Calendar re-index started in the background.'
         return {
-          content: [{ type: 'text' as const, text }],
-          details,
+          content: [{ type: 'text' as const, text: 'Event deleted. Calendar re-index started in the background.' }],
+          details: { ok: true, deleted: true, sourceId, eventUid },
         }
       }
 

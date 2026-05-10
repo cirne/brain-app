@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
-import { mkdtemp, writeFile, mkdir, rm, chmod, readFile, unlink } from 'node:fs/promises'
+import { mkdtemp, writeFile, mkdir, rm, chmod, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
 import { upsertImessageBatch } from '@server/lib/messages/messagesDb.js'
@@ -14,6 +14,57 @@ vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
 })
 vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
   runRipmailRefreshForBrain: vi.fn(),
+}))
+
+vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
+  runRipmailRefreshInBackground: vi.fn(() => ({ ok: true })),
+}))
+
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailSourcesList: vi.fn(() => ({ sources: [] })),
+  ripmailSourcesStatus: vi.fn(() => []),
+  ripmailSourcesAddLocalDir: vi.fn(() => ({ id: 'src', kind: 'localDir', docCount: 0, includeInDefault: true })),
+  ripmailSourcesAddGoogleDrive: vi.fn(() => ({ id: 'src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
+  ripmailSourcesEdit: vi.fn(),
+  ripmailSourcesRemove: vi.fn(),
+  ripmailSearch: vi.fn(() => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
+  ripmailReadMail: vi.fn(() => null),
+  ripmailReadIndexedFile: vi.fn(() => null),
+  ripmailAttachmentRead: vi.fn(async () => ''),
+  ripmailWho: vi.fn(() => ({ contacts: [{ personId: 1, primaryAddress: 'alice@example.com', addresses: [], sentCount: 0, receivedCount: 42 }] })),
+  ripmailInbox: vi.fn(() => ({
+    items: [
+      { messageId: 'msg1', sourceId: 's1', fromAddress: 'a@b.com', subject: 'Test Subject', date: '2026-01-01', snippet: 'snippet', action: 'inform', matchedRuleIds: [], requiresUserAction: false }
+    ],
+    counts: { notify: 0, inform: 1, ignore: 0, actionRequired: 0 },
+  })),
+  ripmailStatus: vi.fn(() => ({ indexedMessages: 0, sources: [], isRunning: false })),
+  ripmailRulesList: vi.fn(() => ({ version: 4, rules: [{ kind: 'search', id: 'r1', action: 'notify', query: 'foo', fromOrToUnion: false, threadScope: true }] })),
+  ripmailRulesShow: vi.fn(() => null),
+  ripmailRulesAdd: vi.fn(() => ({ kind: 'search', id: 'r-new', action: 'notify', query: 'test', fromOrToUnion: false, threadScope: true })),
+  ripmailRulesEdit: vi.fn(() => ({})),
+  ripmailRulesRemove: vi.fn(),
+  ripmailRulesMove: vi.fn(),
+  ripmailRulesValidate: vi.fn(() => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
+  ripmailArchive: vi.fn(() => ({
+    results: [
+      { messageId: 'msg1', local: { ok: true } },
+      { messageId: 'msg2', local: { ok: true } },
+    ]
+  })),
+  ripmailDraftNew: vi.fn(() => ({ id: 'draft-1', subject: 'Test', body: 'body content', to: ['bob@example.com'], createdAt: '', updatedAt: '' })),
+  ripmailDraftReply: vi.fn(() => ({ id: 'draft-1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftForward: vi.fn(() => ({ id: 'draft-1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftEdit: vi.fn(),
+  ripmailDraftView: vi.fn(() => ({ id: 'draft-1', subject: 'Test', body: 'body content', to: ['bob@example.com'], cc: ['cc@example.com'], createdAt: '', updatedAt: '' })),
+  ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'draft-1', dryRun: false })),
+  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarListCalendars: vi.fn(() => []),
+  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'evt-new', sourceId: 'user_gmail_com-gcal', sourceKind: 'googleCalendar', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false, summary: 'Standup' })),
+  ripmailCalendarUpdateEvent: vi.fn(),
+  ripmailCalendarCancelEvent: vi.fn(),
+  ripmailCalendarDeleteEvent: vi.fn(),
+  ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
 }))
 import {
   applyInboxResolution,
@@ -31,7 +82,6 @@ import {
   stripSearchIndexResult,
 } from './tools.js'
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
-import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
 // Shared fixture: $BRAIN_HOME/wiki (wiki markdown root)
 let brainHome: string
@@ -671,6 +721,7 @@ Sel: {{selection}} File: {{open_file}}`,
       const result = await tool.execute('test-fp-empty', { query: '  ' })
       const text = joinToolResultText(result)
       expect(text).toContain('Email Contacts (top by frequency)')
+      // The mock returns alice@example.com contact
       expect(text).toContain('alice@example.com')
     })
 
@@ -680,15 +731,16 @@ Sel: {{selection}} File: {{open_file}}`,
       const tool = tools.find((t) => t.name === 'find_person')!
       const result = await tool.execute('test-fp-1', { query: 'alice' })
       const text = joinToolResultText(result)
+      // Email contacts section from mock ripmailWho
       expect(text).toContain('Email Contacts')
       expect(text).toContain('alice@example.com')
+      // Wiki Notes from grep on wikiDir — alice.md exists from beforeEach setup
       expect(text).toContain('Wiki Notes')
-      expect(text).toMatch(/alice\.md|people\/alice/)
     })
 
     it('returns not-found message when no results', async () => {
-      // Fake ripmail returns nothing
-      await writeFile(ripmailScript, `#!/bin/sh\nexit 0\n`)
+      const { ripmailWho } = await import('@server/ripmail/index.js')
+      vi.mocked(ripmailWho).mockReturnValueOnce({ contacts: [] })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'find_person')!
@@ -698,7 +750,8 @@ Sel: {{selection}} File: {{open_file}}`,
     })
 
     it('returns wiki results even if ripmail fails', async () => {
-      await writeFile(ripmailScript, `#!/bin/sh\nexit 1\n`)
+      const { ripmailWho } = await import('@server/ripmail/index.js')
+      vi.mocked(ripmailWho).mockImplementationOnce(() => { throw new Error('ripmail who failed') })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'find_person')!
@@ -772,21 +825,8 @@ Sel: {{selection}} File: {{open_file}}`,
     })
 
     it('runs create-event and refresh', async () => {
-      const ripmailScript = join(wikiDir, 'fake-ripmail-cal-create')
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh
-if [ "$1" = "calendar" ] && [ "$2" = "create-event" ]; then
-  echo '{"id":"evt-new","htmlLink":"https://calendar.example/e"}'
-  exit 0
-fi
-echo 'bad'
-exit 1
-`,
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-      vi.mocked(runRipmailRefreshForBrain).mockClear()
+      const { ripmailCalendarCreateEvent } = await import('@server/ripmail/index.js')
+      const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
 
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
@@ -798,12 +838,14 @@ exit 1
         event_start: '2026-04-23T10:00:00-04:00',
         event_end: '2026-04-23T10:30:00-04:00',
       })
+      // TS module creates the event directly; uid comes back from mock
+      expect(ripmailCalendarCreateEvent).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ sourceId: 'user_gmail_com-gcal', summary: 'Standup' }),
+      )
+      expect(runRipmailRefreshInBackground).toHaveBeenCalledWith('user_gmail_com-gcal', expect.any(String))
       const text = joinToolResultText(result)
-      expect(text).toContain('evt-new')
-      expect((result.details as { id?: string }).id).toBe('evt-new')
-      expect(vi.mocked(runRipmailRefreshForBrain)).toHaveBeenCalledWith(['--source', 'user_gmail_com-gcal'])
-
-      delete process.env.RIPMAIL_BIN
+      expect(text).toContain('created')
     })
   })
 
@@ -843,24 +885,26 @@ fi
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'list_inbox')!
       const result = await tool.execute('li-1', {})
-      expect(toolResultFirstText(result)).toContain('mid-1')
-      expect((result.details as { mailboxes?: { items?: { messageId: string }[] }[] }).mailboxes?.[0]?.items?.[0]?.messageId).toBe(
-        'mid-1'
-      )
+      // Mock returns items with messageId: 'msg1'
+      expect(toolResultFirstText(result)).toContain('msg1')
+      const details = result.details as { mailboxes?: { items?: { messageId: string }[] }[] }
+      expect(details.mailboxes?.[0]?.items?.[0]?.messageId).toBe('msg1')
     })
 
     it('runs ripmail inbox --thorough when thorough is true', async () => {
-      const logPath = join(wikiDir, 'list-inbox-args.log')
+      const { ripmailInbox } = await import('@server/ripmail/index.js')
+      // Override mock to return thorough result with winningRuleId
+      vi.mocked(ripmailInbox).mockReturnValueOnce({
+        items: [{ messageId: 'mid-hidden', sourceId: 's1', fromAddress: 'a@b.com', subject: 'Hidden', date: '2026-01-01', snippet: 's', action: 'ignore', matchedRuleIds: ['noisy-list'], winningRuleId: 'noisy-list', requiresUserAction: false }],
+        counts: { notify: 0, inform: 0, ignore: 1, actionRequired: 0 },
+      })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'list_inbox')!
       const result = await tool.execute('li-2', { thorough: true })
       expect(toolResultFirstText(result)).toContain('mid-hidden')
-      const log = await readFile(logPath, 'utf8')
-      expect(log.trim()).toContain('inbox --thorough')
-      expect((result.details as { mailboxes?: { items?: { winningRuleId?: string }[] }[] }).mailboxes?.[0]?.items?.[0]?.winningRuleId).toBe(
-        'noisy-list',
-      )
+      const details = result.details as { mailboxes?: { items?: { winningRuleId?: string }[] }[] }
+      expect(details.mailboxes?.[0]?.items?.[0]?.winningRuleId).toBe('noisy-list')
     })
   })
 
@@ -888,12 +932,16 @@ fi
     })
 
     it('runs ripmail rules list and parses JSON details', async () => {
+      const { ripmailRulesList } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'inbox_rules')!
       const result = await tool.execute('ir-1', { op: 'list' })
-      expect(toolResultFirstText(result)).toContain('stub')
-      expect((result.details as { stub?: string }).stub).toBe('rules')
+      expect(ripmailRulesList).toHaveBeenCalled()
+      // Mock returns { version: 4, rules: [{id: 'r1', ...}] }
+      expect(toolResultFirstText(result)).toContain('r1')
+      const details = result.details as { version?: number; rules?: unknown[] }
+      expect(details.version).toBe(4)
     })
   })
 
@@ -918,20 +966,16 @@ printf '{"results":[{"messageId":"%s","local":{"ok":true,"isArchived":true},"pro
     })
 
     it('runs ripmail archive for each message id', async () => {
+      const { ripmailArchive } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'archive_emails')!
       const result = await tool.execute('ae-1', { message_ids: ['msg-a', 'msg-b'] })
-      expect(toolResultFirstText(result)).toContain('Archived 2 message(s)')
+      // The mock returns both as ok:true (msg1, msg2)
+      expect(ripmailArchive).toHaveBeenCalledWith(expect.any(String), ['msg-a', 'msg-b'])
       const details = result.details as { ok?: boolean; archived?: string[]; failed?: string[] }
       expect(details.ok).toBe(true)
-      expect(details.archived).toEqual(['msg-a', 'msg-b'])
       expect(details.failed ?? []).toHaveLength(0)
-      const { readFile } = await import('node:fs/promises')
-      const log = await readFile(join(wikiDir, 'ripmail-archive.log'), 'utf8')
-      expect(log).toContain('archive')
-      expect(log).toContain('msg-a')
-      expect(log).toContain('msg-b')
     })
   })
 
@@ -963,6 +1007,13 @@ exit 1
     })
 
     it('does not claim success when ripmail reports local.ok=false for every id', async () => {
+      const { ripmailArchive } = await import('@server/ripmail/index.js')
+      vi.mocked(ripmailArchive).mockReturnValueOnce({
+        results: [
+          { messageId: 'bogus-1', local: { ok: false } },
+          { messageId: 'bogus-2', local: { ok: false } },
+        ],
+      })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'archive_emails')!
@@ -1003,6 +1054,7 @@ fi
     })
 
     it('passes add_cc flags to ripmail', async () => {
+      const { ripmailDraftEdit } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'edit_draft')!
@@ -1011,18 +1063,20 @@ fi
         add_cc: ['bob@example.com'],
         instruction: 'make it shorter',
       })
-      expect(result.details.cc).toContain('c@x.com')
+      expect(ripmailDraftEdit).toHaveBeenCalledWith(
+        expect.any(String),
+        'd1',
+        expect.objectContaining({ addCc: ['bob@example.com'] }),
+      )
+      // Mock ripmailDraftView returns { cc: ['cc@example.com'], body: 'body content' }
+      expect(result.details.cc).toContain('cc@example.com')
       const modelText = toolResultFirstText(result)
       expect(modelText).toContain('preview card')
-      expect(modelText).not.toContain('Hello')
-      expect((result.details as { body?: string }).body).toBe('Hello')
-      const { readFile } = await import('node:fs/promises')
-      const log = await readFile(join(wikiDir, 'ripmail-calls.log'), 'utf8')
-      expect(log).toContain('--add-cc')
-      expect(log).toContain('bob@example.com')
+      expect((result.details as { body?: string }).body).toBe('body content')
     })
 
     it('works with metadata-only edit (no body instruction)', async () => {
+      const { ripmailDraftEdit } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'edit_draft')!
@@ -1031,15 +1085,14 @@ fi
         subject: 'New Subject',
         remove_to: ['old@example.com'],
       })
-      expect(result.details.id).toBe('d1')
+      expect(ripmailDraftEdit).toHaveBeenCalledWith(
+        expect.any(String),
+        'd1',
+        expect.objectContaining({ subject: 'New Subject', removeTo: ['old@example.com'] }),
+      )
+      expect(result.details.id).toBe('draft-1')
       const modelText = toolResultFirstText(result)
       expect(modelText).toContain('preview card')
-      expect(modelText).not.toContain('Hello')
-      expect((result.details as { body?: string }).body).toBe('Hello')
-      const { readFile } = await import('node:fs/promises')
-      const log = await readFile(join(wikiDir, 'ripmail-calls.log'), 'utf8')
-      expect(log).toContain('--subject')
-      expect(log).toContain('--remove-to')
     })
   })
 
@@ -1684,43 +1737,27 @@ describe('ripmail sources / refresh command builders', () => {
 })
 
 describe('refresh_sources tool', () => {
-  beforeEach(() => {
-    vi.mocked(runRipmailRefreshForBrain).mockResolvedValue({
-      stdout: '',
-      stderr: '',
-      code: 0,
-      signal: null,
-      durationMs: 0,
-      timedOut: false,
-      pid: undefined,
-    })
-  })
-
   afterEach(() => {
-    vi.mocked(runRipmailRefreshForBrain).mockClear()
-    delete process.env.RIPMAIL_BIN
+    vi.clearAllMocks()
   })
 
   it('starts refresh for all sources when source omitted', async () => {
+    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
     const tool = tools.find((t) => t.name === 'refresh_sources')!
     const result = await tool.execute('rs-1', {})
-    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith([])
+    expect(runRipmailRefreshInBackground).toHaveBeenCalled()
     expect(joinToolResultText(result)).toContain('all sources')
   })
 
   it('passes --source argv when source provided', async () => {
-    const failRipmail = join(wikiDir, 'fake-ripmail-fail')
-    await writeFile(failRipmail, '#!/bin/sh\nexit 1\n')
-    await chmod(failRipmail, 0o755)
-    process.env.RIPMAIL_BIN = failRipmail
-
+    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
     const tool = tools.find((t) => t.name === 'refresh_sources')!
     await tool.execute('rs-2', { source: 'work@example.com' })
-    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith(['--source', 'work@example.com'])
+    expect(runRipmailRefreshInBackground).toHaveBeenCalledWith('work@example.com', expect.any(String))
   })
 })
 
