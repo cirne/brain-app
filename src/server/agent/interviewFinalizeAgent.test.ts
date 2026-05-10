@@ -5,8 +5,8 @@ import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 describe('interviewFinalizeAgent', () => {
   it('chatMessagesToInterviewTranscript flattens user and assistant text', () => {
     const messages: ChatMessage[] = [
-      { role: 'user', content: 'Hello' },
-      { role: 'assistant', content: '', parts: [{ type: 'text', content: 'Hi there' }] },
+      { id: 'u1', role: 'user', content: 'Hello' },
+      { id: 'a1', role: 'assistant', content: '', parts: [{ type: 'text', content: 'Hi there' }] },
     ]
     const t = chatMessagesToInterviewTranscript(messages)
     expect(t).toContain('### User')
@@ -18,6 +18,7 @@ describe('interviewFinalizeAgent', () => {
   it('chatMessagesToInterviewTranscript includes tool markers from parts', () => {
     const messages: ChatMessage[] = [
       {
+        id: 'a2',
         role: 'assistant',
         content: '',
         parts: [

@@ -3,6 +3,7 @@ import { tick } from 'svelte'
 import AgentConversation from './AgentConversation.svelte'
 import { render, screen, fireEvent } from '@client/test/render.js'
 import type { ChatMessage } from '@client/lib/agentUtils.js'
+import { newChatMessageId } from '@client/lib/agentUtils.js'
 
 vi.mock('./ChatMessageRow.svelte', () => import('../test-stubs/ChatMessageRowStub.svelte'))
 vi.mock('./ConversationEmptyState.svelte', () => import('../test-stubs/ConversationEmptyStateStub.svelte'))
@@ -37,11 +38,12 @@ if (typeof Element.prototype.animate !== 'function') {
 }
 
 function createUserMessage(content: string): ChatMessage {
-  return { role: 'user', content }
+  return { id: newChatMessageId(), role: 'user', content }
 }
 
 function createAssistantMessage(content: string, parts?: ChatMessage['parts']): ChatMessage {
   return {
+    id: newChatMessageId(),
     role: 'assistant',
     content,
     parts: parts ?? [{ type: 'text', content }],

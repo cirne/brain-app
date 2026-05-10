@@ -11,6 +11,7 @@ import {
 import { coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
 import { wikiToolRelTouchesPeerProjection, stripLegacyMePrefixFromRawPath } from '@server/agent/tools/wikiScopedFsTools.js'
 import { formatWikiKebabNormalizedFromNote } from '@server/lib/wiki/wikiPathNaming.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 export function createWikiFileManagementTools(wikiDir: string) {
   const moveFile = defineTool({
@@ -64,7 +65,9 @@ export function createWikiFileManagementTools(wikiDir: string) {
       }
       await mkdir(dirname(toAbs), { recursive: true })
       await rename(fromAbs, toAbs)
-      await appendWikiEditRecord(wikiDir, 'move', toRes.path, { fromPath: fromRel }).catch(() => {})
+      await appendWikiEditRecord(wikiDir, 'move', toRes.path, { fromPath: fromRel }).catch((err: unknown) => {
+        brainLogger.warn({ err }, 'wiki edit record failed')
+      })
       const tailNotes: string[] = []
       if (toRes.normalizedFrom) {
         tailNotes.push(formatWikiKebabNormalizedFromNote(toRes.path, toRes.normalizedFrom))
@@ -101,7 +104,9 @@ export function createWikiFileManagementTools(wikiDir: string) {
       }
       const abs = resolveSafeWikiPath(wikiDir, rel)
       await unlink(abs)
-      await appendWikiEditRecord(wikiDir, 'delete', rel).catch(() => {})
+      await appendWikiEditRecord(wikiDir, 'delete', rel).catch((err: unknown) => {
+        brainLogger.warn({ err }, 'wiki edit record failed')
+      })
       return {
         content: [{ type: 'text' as const, text: `Deleted ${rel}` }],
         details: { path: rel },

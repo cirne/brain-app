@@ -277,12 +277,15 @@ brainQuery.post('/', async (c) => {
       )
     }
     if (out.code === 'filter_blocked') {
-      return c.json({
-        ok: false as const,
-        code: out.code,
-        message: out.message,
-        logId: out.logId,
-      })
+      return c.json(
+        {
+          ok: false as const,
+          code: out.code,
+          message: out.message,
+          logId: out.logId,
+        },
+        403,
+      )
     }
     if (out.code === 'early_rejected') {
       return c.json(

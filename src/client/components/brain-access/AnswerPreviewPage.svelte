@@ -21,6 +21,7 @@
     cloneChatMessagesSnapshot,
     extractBrainQueryEarlyRejectionFromChatMessages,
     lastAssistantPlainTextFromMessages,
+    newChatMessageId,
   } from '@client/lib/agentUtils.js'
   import { readChatToolDisplayPreference } from '@client/lib/chatToolDisplayPreference.js'
   import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
@@ -179,8 +180,8 @@
     phase = 'research'
     streaming = true
     workingMessages = [
-      { role: 'user', content: question },
-      { role: 'assistant', content: '', parts: [] },
+      { id: newChatMessageId(), role: 'user', content: question },
+      { id: newChatMessageId(), role: 'assistant', content: '', parts: [] },
     ]
 
     abortController?.abort()

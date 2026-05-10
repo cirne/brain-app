@@ -9,16 +9,11 @@ import {
 } from '@server/lib/calendar/calendarCache.js'
 import { calendarEventsFromRipmailRangeJsonStdout } from '@server/lib/calendar/calendarRipmail.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import { runRipmailRefreshInBackground } from '@server/lib/ripmail/runRipmailRefreshBackground.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
-import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 function runCalendarRefreshAgent(sourceId?: string): { ok: true } {
-  const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
-  void Promise.resolve(runRipmailRefreshForBrain(extra)).catch((e) => {
-    brainLogger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (calendar background) failed')
-  })
-  return { ok: true }
+  return runRipmailRefreshInBackground(sourceId, 'ripmail refresh (calendar background) failed')
 }
 
 /** Full row cap for non-search range queries. */

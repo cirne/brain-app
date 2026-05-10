@@ -12,6 +12,7 @@ import {
   BRAIN_FINISH_CONVERSATION_SUBMIT,
   FINISH_CONVERSATION_TOOL_RESULT_TEXT,
 } from '@shared/finishConversationShortcut.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 export function createUiAgentTools(wikiDir: string) {
   const finishConversation = defineTool({
@@ -338,7 +339,9 @@ Returns the saved text; treat it as active for this session too.`,
 
       const newContent = lines.join('\n').trim() + '\n'
       await writeFile(mePath, newContent, 'utf8')
-      await appendWikiEditRecord(wikiDir, 'edit', 'me.md').catch(() => {})
+      await appendWikiEditRecord(wikiDir, 'edit', 'me.md').catch((err: unknown) => {
+        brainLogger.warn({ err }, 'wiki edit record failed')
+      })
 
       return {
         content: [{ type: 'text' as const, text: `Saved preference: ${params.preference}` }],

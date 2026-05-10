@@ -64,7 +64,7 @@
           {$t('onboarding.seedingView.progressHeading')}
         </h2>
         <ul class="ob-seed-progress" role="list">
-          {#each seedingProgress.events as event, idx (event.type === 'row' ? event.line.id : `txt-${idx}`)}
+          {#each seedingProgress.events as event (event.key)}
             {#if event.type === 'text'}
               <li class="ob-prof-chat-msg ob-seed-text-msg" role="article">
                 <div class="ob-prof-msg-label">{$t('chat.messageRow.assistant')}</div>

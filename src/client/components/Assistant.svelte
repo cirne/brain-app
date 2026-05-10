@@ -5,6 +5,7 @@ import { get } from 'svelte/store'
   import { cn } from '@client/lib/cn.js'
   import Search from '@components/Search.svelte'
   import AppTopNav from '@components/AppTopNav.svelte'
+import AppShell from '@components/app/AppShell.svelte'
   import SettingsConnectionsPage from '@components/settings/SettingsConnectionsPage.svelte'
   import SettingsWikiPage from '@components/settings/SettingsWikiPage.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
@@ -1220,8 +1221,7 @@ import { get } from 'svelte/store'
   />
 {/if}
 
-<div class="app flex h-full flex-col">
-  {#snippet mobileNavOverflowMenu({ dismiss })}
+{#snippet mobileNavOverflowMenu({ dismiss })}
     <AnchoredMenuRow
       label={$t('common.actions.search')}
       onclick={() => {
@@ -1290,6 +1290,9 @@ import { get } from 'svelte/store'
       {/if}
     {/if}
   {/snippet}
+
+<AppShell>
+  {#snippet topNav()}
   <AppTopNav
     isMobile={shell.isMobile}
     sidebarOpen={shell.sidebarOpen}
@@ -1308,8 +1311,9 @@ import { get } from 'svelte/store'
     mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
     mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
   />
+  {/snippet}
 
-  <div class="app-main-row relative flex min-h-0 flex-1">
+  {#snippet sidebar()}
     {#if shell.sidebarOpen}
       {#if shell.isMobile}
         <div
@@ -1345,7 +1349,9 @@ import { get } from 'svelte/store'
         </div>
       </aside>
     {/if}
+  {/snippet}
 
+  {#snippet workspace()}
     <div class="workspace-column flex min-h-0 min-w-0 flex-1 flex-col" bind:clientWidth={shell.workspaceColumnWidth}>
       <WorkspaceSplit
         bind:this={refs.workspaceSplit}
@@ -1698,8 +1704,8 @@ import { get } from 'svelte/store'
         {/snippet}
       </WorkspaceSplit>
     </div>
-  </div>
-</div>
+  {/snippet}
+</AppShell>
 
 <style>
   /* Hub / settings mobile overlays: fill layer and strip slide-over chrome (scoped; do not put

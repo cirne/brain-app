@@ -117,6 +117,11 @@
     '#f97316',
   ]
 
+  /** Inline `--accent` / `--custom-bg` for rows (Tailwind travel/personal tokens read these). */
+  function eventCssVars(color: string, mixPct: number): string {
+    return `--accent: ${color}; --custom-bg: color-mix(in srgb, ${color} ${mixPct}%, transparent);`
+  }
+
   function getColorForSource(e: CalendarEvent): string {
     const key = e.calendarId || e.source || 'default'
     let hash = 0
@@ -153,7 +158,7 @@
             isPast(e) && 'past opacity-45',
             selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
           )}
-          style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 15%, transparent);"
+          style={eventCssVars(eventColor, 15)}
           aria-label={onEventOpen
             ? $t('hub.dayEvents.aria.openInCalendar', { title: e.title })
             : $t('hub.dayEvents.aria.viewDetails', { title: e.title })}
@@ -167,7 +172,7 @@
     {:else}
       <li
         class={cn(baseRow, travelBg, isPast(e) && 'past opacity-45')}
-        style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 15%, transparent);"
+        style={eventCssVars(eventColor, 15)}
         title={e.location ?? ''}
       >
         <span class="de-icon shrink-0 text-[11px]">✈</span>
@@ -189,7 +194,7 @@
             isPast(e) && 'past opacity-45',
             selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
           )}
-          style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 10%, transparent);"
+          style={eventCssVars(eventColor, 10)}
           aria-label={onEventOpen
             ? $t('hub.dayEvents.aria.openInCalendar', { title: e.title })
             : $t('hub.dayEvents.aria.viewDetails', { title: e.title })}
@@ -209,7 +214,7 @@
           isPast(e) && 'past opacity-45',
           selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
         )}
-        style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 10%, transparent);"
+        style={eventCssVars(eventColor, 10)}
         title={[e.location, e.description].filter(Boolean).join(' · ')}
       >
         <span class="de-time min-w-[65px] shrink-0 text-[11px] tabular-nums text-muted">{formatTime(e.start)}</span>

@@ -28,7 +28,7 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId,
       userMessage: 'hi',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
+      assistantMessage: { id: 'asst-yo', role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
       title: 'Test title',
     })
     const name = await findFilenameForSession(sessionId)
@@ -37,7 +37,8 @@ describe('chatStorage', () => {
     expect(doc?.sessionId).toBe(sessionId)
     expect(doc?.title).toBe('Test title')
     expect(doc?.messages).toHaveLength(2)
-    expect(doc?.messages[0]).toEqual({ role: 'user', content: 'hi' })
+    expect(doc?.messages[0]).toEqual(expect.objectContaining({ role: 'user', content: 'hi' }))
+    expect(typeof doc?.messages[0].id).toBe('string')
   })
 
   it('appendTurn appends to existing file', async () => {
@@ -46,16 +47,17 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId,
       userMessage: 'a',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'A' }] },
+      assistantMessage: { id: 'asst-A', role: 'assistant', content: '', parts: [{ type: 'text', content: 'A' }] },
     })
     await appendTurn({
       sessionId,
       userMessage: 'b',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'B' }] },
+      assistantMessage: { id: 'asst-B', role: 'assistant', content: '', parts: [{ type: 'text', content: 'B' }] },
     })
     const doc = await loadSession(sessionId)
     expect(doc?.messages).toHaveLength(4)
-    expect(doc?.messages[2]).toEqual({ role: 'user', content: 'b' })
+    expect(doc?.messages[2]).toEqual(expect.objectContaining({ role: 'user', content: 'b' }))
+    expect(typeof doc?.messages[2].id).toBe('string')
   })
 
   it('listSessions returns metadata sorted newest first', async () => {
@@ -65,13 +67,13 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId: s1,
       userMessage: 'old',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: '1' }] },
+      assistantMessage: { id: 'asst-1', role: 'assistant', content: '', parts: [{ type: 'text', content: '1' }] },
     })
     await new Promise(r => setTimeout(r, 5))
     await appendTurn({
       sessionId: s2,
       userMessage: 'new',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: '2' }] },
+      assistantMessage: { id: 'asst-2', role: 'assistant', content: '', parts: [{ type: 'text', content: '2' }] },
     })
     const list = await listSessions()
     expect(list.map(x => x.sessionId)).toEqual([s2, s1])
@@ -88,7 +90,7 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId,
       userMessage: 'x',
-      assistantMessage: { role: 'assistant', content: '' },
+      assistantMessage: { id: 'asst-empty', role: 'assistant', content: '' },
     })
     expect(await loadSession(sessionId)).toBeTruthy()
     const ok = await deleteSessionFile(sessionId)
@@ -131,7 +133,7 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId,
       userMessage: null,
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'Welcome.' }] },
+      assistantMessage: { id: 'asst-welcome', role: 'assistant', content: '', parts: [{ type: 'text', content: 'Welcome.' }] },
     })
     const doc = await loadSession(sessionId)
     expect(doc?.messages).toHaveLength(1)
@@ -147,7 +149,7 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId,
       userMessage: 'hi',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
+      assistantMessage: { id: 'asst-merge-yo', role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
       title: 'Later',
     })
     const doc = await loadSession(sessionId)
@@ -162,7 +164,7 @@ describe('chatStorage', () => {
     await appendTurn({
       sessionId: 'aa0e8400-e29b-41d4-a716-446655440005',
       userMessage: 'hi',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
+      assistantMessage: { id: 'asst-del-all-yo', role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
     })
     expect((await listSessions())).toHaveLength(1)
     await deleteAllChatSessionFiles()

@@ -199,7 +199,7 @@
         {/if}
       {/if}
 
-      {#each messages as msg, i (i)}
+      {#each messages as msg, i (msg.id)}
         <ChatMessageRow
           {msg}
           {streaming}

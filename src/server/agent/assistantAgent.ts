@@ -1,6 +1,5 @@
 import { Agent } from '@mariozechner/pi-agent-core'
-import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
-import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
+import { resolveLlmApiKey } from '@server/lib/llm/resolveModel.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import Handlebars from 'handlebars'
 import { createAgentTools } from './tools.js'
@@ -13,12 +12,9 @@ import { formatSkillLibrarySection } from '@server/lib/llm/skillRegistry.js'
 import { loadSession } from '@server/lib/chat/chatStorage.js'
 import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persistedChatToAgentMessages.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
-import { resolveEvalAnchoredNow } from '@server/lib/llm/evalAssistantClock.js'
 import { buildRipmailSourcesPromptSection } from '@server/lib/ripmail/ripmailSourcesPromptSection.js'
-import {
-  clearAllBootstrapSessions,
-  deleteBootstrapSession,
-} from './initialBootstrapAgent.js'
+import { buildDateContext, requireStandardBrainLlm } from './agentFactory.js'
+import { clearAllBootstrapSessions, deleteBootstrapSession } from './initialBootstrapAgent.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -60,14 +56,18 @@ export function assistantProfilePromptSection(wikiRoot: string): string {
   return `\n## Assistant identity & charter (assistant.md)\nThe block below defines **your** role, priorities, tone, and boundaries from **assistant.md** at the wiki root. Follow it unless the user overrides in chat. **Do not** call the read tool for \`assistant.md\` unless the user explicitly asks you to reload it.\n\n${ASSISTANT_PROFILE_BEGIN}\n${body}${body.endsWith('\n') ? '' : '\n'}${ASSISTANT_PROFILE_END}\n`
 }
 
-export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoot: string): string {
+export function buildBaseSystemPrompt(
+  includeLocalMessageCapabilities: boolean,
+  wikiRoot: string,
+  multiTenant = true,
+): string {
   const meHint = meProfilePromptSection(wikiRoot)
   const assistantHint = assistantProfilePromptSection(wikiRoot)
   return renderPromptTemplate('assistant/base.hbs', {
     meHint: new Handlebars.SafeString(meHint),
     assistantHint: new Handlebars.SafeString(assistantHint),
     includeLocalMessageCapabilities,
-    multiTenant: true,
+    multiTenant,
   })
 }
 
@@ -116,22 +116,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
 
   // Build system prompt with local date/time in the user's timezone
   const tz = options.timezone ?? 'UTC'
-  const now = resolveEvalAnchoredNow() ?? new Date()
-  const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)  // YYYY-MM-DD
-  const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(now)
-  const localWeekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now)
-  // Compute the actual UTC offset for the user's timezone right now (accounts for DST)
-  const gmtOffset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
-    .formatToParts(now)
-    .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
-  const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
-  const dateTimeBlock = renderPromptTemplate('assistant/session-date-time.hbs', {
-    localWeekday,
-    localDate,
-    localTime,
-    tz,
-    utcOffset,
-  })
+  const dateTimeBlock = buildDateContext(tz)
   let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, personalVault)}
 
 ${dateTimeBlock}`
@@ -154,14 +139,7 @@ ${dateTimeBlock}`
     systemPrompt += `\n\n${skillLibrary}`
   }
 
-  // Model from BRAIN_LLM — pi-ai registry + Brain-only providers (e.g. mlx-local)
-  const { provider, modelId } = getStandardBrainLlm()
-  const model = resolveModel(provider, modelId)
-  if (!model) {
-    throw new Error(
-      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
-    )
-  }
+  const model = requireStandardBrainLlm()
 
   const agent = new Agent({
     initialState: {

@@ -106,11 +106,11 @@ describe('GET /api/inbox', () => {
     expect(emails[0]).toMatchObject({ id: 'msg-1', from: 'Alice', subject: 'Hello' })
   })
 
-  it('returns empty array when ripmail fails', async () => {
+  it('returns 503 when inbox ripmail fails', async () => {
     mockFailure()
     const res = await app.request('/api/inbox')
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual([])
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({ ok: false, error: 'ripmail_unavailable' })
   })
 })
 

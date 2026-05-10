@@ -3,7 +3,7 @@ import type { Agent } from '@mariozechner/pi-agent-core'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
-import { createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
+import { createOnboardingAgent, formatOnboardingPromptClock, resolveOnboardingSessionTimezone } from './agentFactory.js'
 
 /**
  * First user turn for guided onboarding: embed a **fresh** `ripmail whoami` payload before
@@ -28,14 +28,7 @@ export function buildInterviewKickoffUserMessage(whoamiRaw: string, instructions
 }
 
 export function buildOnboardingInterviewSystemPrompt(timezone: string, ripmailWhoami: string): string {
-  const tz = timezone || 'UTC'
-  const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
-  const localTime = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date())
+  const { todayYmd, localTime, tz } = formatOnboardingPromptClock(timezone || 'UTC')
   const who = parseWhoamiProfileSubject(ripmailWhoami)
   const name = who?.displayName ?? 'the account holder'
   const email = who?.primaryEmail ?? '(see whoami)'
@@ -74,6 +67,7 @@ export async function getOrCreateOnboardingInterviewAgent(
 }
 
 export function deleteInterviewSession(sessionId: string): void {
+  interviewSessions.get(sessionId)?.abort()
   interviewSessions.delete(sessionId)
 }
 

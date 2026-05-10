@@ -37,6 +37,7 @@ import {
   type TenantContext,
 } from '@server/lib/tenant/tenantContext.js'
 import { getWikiSupervisorClock, type WikiSupervisorClock } from './yourWikiSupervisorClock.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ async function savePersistedState(state: PersistedState): Promise<void> {
     await mkdir(supervisorStateDir(), { recursive: true })
     await writeFile(supervisorStatePath(), JSON.stringify(state, null, 2), 'utf-8')
   } catch (e) {
-    console.error('[your-wiki] failed to persist state:', e)
+    brainLogger.error({ err: e }, '[your-wiki] failed to persist state')
   }
 }
 
@@ -284,7 +285,7 @@ function kickSupervisorLoop(timezone?: string, tenantForLoop: TenantContext | nu
         ? store.run(tenantForLoop, () => supervisorLoop(timezone))
         : supervisorLoop(timezone)
     void p.catch((e) => {
-      console.error('[your-wiki] unhandled loop error:', e)
+      brainLogger.error({ err: e }, '[your-wiki] unhandled loop error')
     })
   }
   tryStart()
@@ -432,7 +433,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       }
     }
   } catch (e) {
-    console.error('[your-wiki] supervisor loop error:', e)
+      brainLogger.error({ err: e }, '[your-wiki] supervisor loop error')
     supervisorOuterCrashStreak++
     const msg = e instanceof Error ? e.message : String(e)
     try {

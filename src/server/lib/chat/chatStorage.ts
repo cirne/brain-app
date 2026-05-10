@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import type { ChatMessage, ChatSessionDocV1 } from './chatTypes.js'
 import { chatDataDirResolved } from '@server/lib/platform/brainHome.js'
 
@@ -38,6 +38,13 @@ export function isChatSessionDocV1(x: unknown): x is ChatSessionDocV1 {
   )
 }
 
+function ensureChatMessageId(
+  msg: ChatMessage | (Omit<ChatMessage, 'id'> & { id?: string }),
+): ChatMessage {
+  const id = typeof msg.id === 'string' && msg.id.length > 0 ? msg.id : randomUUID()
+  return { ...msg, id }
+}
+
 export async function ensureChatDir(): Promise<string> {
   const dir = chatDataDir()
   await mkdir(dir, { recursive: true })
@@ -73,6 +80,7 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
   }
   if (!isChatSessionDocV1(data)) return null
   if (data.sessionId !== sessionId) return null
+  data.messages = data.messages.map((m) => ensureChatMessageId(m as ChatMessage))
   return data
 }
 
@@ -219,9 +227,9 @@ export async function appendTurn(params: {
     if (!isChatSessionDocV1(data)) throw new Error('Invalid chat session file')
     doc = data
     if (userMessage !== null) {
-      doc.messages.push({ role: 'user', content: userMessage })
+      doc.messages.push({ role: 'user', content: userMessage, id: randomUUID() })
     }
-    doc.messages.push(assistantMessage)
+    doc.messages.push(ensureChatMessageId(assistantMessage))
     doc.updatedAt = now
     const t = params.title
     if (typeof t === 'string' && t.trim() !== '') {
@@ -233,7 +241,12 @@ export async function appendTurn(params: {
     fileName = `${createdAtMs}-${sessionId}.json`
     const t = params.title
     const firstMessages: ChatMessage[] =
-      userMessage !== null ? [{ role: 'user', content: userMessage }, assistantMessage] : [assistantMessage]
+      userMessage !== null
+        ? [
+            { role: 'user', content: userMessage, id: randomUUID() },
+            ensureChatMessageId(assistantMessage),
+          ]
+        : [ensureChatMessageId(assistantMessage)]
     doc = {
       version: 1,
       sessionId,

@@ -1,6 +1,6 @@
 /**
  * Braintunnel OpenAI **project** Usage + Costs (admin API) for `npm run llm:usage`.
- * Always filters to {@link BRAIN_OPENAI_PROJECT_ID_DEFAULT}; no org-wide mode.
+ * Filters to {@link getBrainOpenAiProjectId} (`BRAIN_OPENAI_PROJECT_ID` or {@link BRAIN_OPENAI_PROJECT_ID_DEFAULT}); no org-wide mode.
  * @see https://platform.openai.com/docs/api-reference/usage/completions
  * @see https://platform.openai.com/docs/api-reference/usage/costs
  */
@@ -11,8 +11,23 @@ import { parseOpenAiJsonText, usageBucketRows } from './openaiOrgUsageParse.js'
 
 const API_BASE = 'https://api.openai.com/v1'
 
-/** Braintunnel OpenAI project — the only project `llm:usage` reports on. */
+/** Braintunnel OpenAI project — default when `BRAIN_OPENAI_PROJECT_ID` is unset; the only project `llm:usage` reports on. */
 export const BRAIN_OPENAI_PROJECT_ID_DEFAULT = 'proj_cuDNhdtS2h6Ek2pt4YSDKFHQ'
+
+/** Resolved OpenAI project id for Usage/Costs CLI (env override for forks/operators). */
+export function getBrainOpenAiProjectId(): string {
+  const raw = process.env.BRAIN_OPENAI_PROJECT_ID?.trim()
+  return raw || BRAIN_OPENAI_PROJECT_ID_DEFAULT
+}
+
+function brainOpenAiScopeLabel(): string {
+  const id = getBrainOpenAiProjectId()
+  const hint =
+    id === BRAIN_OPENAI_PROJECT_ID_DEFAULT
+      ? 'BRAIN_OPENAI_PROJECT_ID_DEFAULT in openaiOrgUsage.ts'
+      : 'BRAIN_OPENAI_PROJECT_ID'
+  return `Braintunnel only — OpenAI project ${id} (see ${hint})`
+}
 
 /** Completions: max daily buckets per request (OpenAI Usage API; bucket_width=1d). */
 const MAX_COMPLETION_DAYS = 31
@@ -641,13 +656,11 @@ export function parseLlmUsageArgv(argv: string[]): LlmUsageCliOptions {
   return out
 }
 
-const BRAIN_OPENAI_SCOPE_LABEL = `Braintunnel only — OpenAI project ${BRAIN_OPENAI_PROJECT_ID_DEFAULT} (see BRAIN_OPENAI_PROJECT_ID_DEFAULT in openaiOrgUsage.ts)`
-
 const HELP = `Usage: npm run llm:usage -- [options]
 
 OpenAI project usage (requires OPENAI_ADMIN_API_KEY in .env or env).
-**Always** reports the Braintunnel OpenAI project only (${BRAIN_OPENAI_PROJECT_ID_DEFAULT});
-there is no org-wide or other-project mode.
+**Always** reports a single OpenAI project (default ${BRAIN_OPENAI_PROJECT_ID_DEFAULT};
+override with BRAIN_OPENAI_PROJECT_ID); there is no org-wide or other-project mode.
 
 Options:
   --provider openai     Default: openai (only value supported)
@@ -662,6 +675,7 @@ Options:
 
 Env (repo .env / .env.local):
   OPENAI_ADMIN_API_KEY     Required. Org admin or usage access.
+  BRAIN_OPENAI_PROJECT_ID   Optional. OpenAI project id for Usage/Costs filters (default: built-in Braintunnel project).
 `
 
 function fmtUtc(sec: number): string {
@@ -819,7 +833,7 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
 
   const modelFilter = opt.models.map((m) => m.trim()).filter(Boolean)
   const userIds = opt.userIds.map((m) => m.trim()).filter(Boolean)
-  const projectIds = [BRAIN_OPENAI_PROJECT_ID_DEFAULT]
+  const projectIds = [getBrainOpenAiProjectId()]
   const fetchOpts = { models: modelFilter, projectIds, userIds }
 
   if (opt.facet === 'api-key') {
@@ -857,7 +871,7 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
             facet: 'api-key' as const,
             startTime: startSec,
             endTime: endSec,
-            projectId: BRAIN_OPENAI_PROJECT_ID_DEFAULT,
+            projectId: getBrainOpenAiProjectId(),
             scope: 'braintunnel_only' as const,
             modelFilter: modelFilter.length > 0 ? modelFilter : null,
             adminKeyListError: keyListFailed ?? null,
@@ -880,7 +894,7 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
       printTextByApiKey(
         startSec,
         endSec,
-        BRAIN_OPENAI_SCOPE_LABEL,
+        brainOpenAiScopeLabel(),
         modelFilterDesc,
         byKey,
         nameById,
@@ -912,7 +926,7 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
           facet: 'model' as const,
           startTime: startSec,
           endTime: endSec,
-          projectId: BRAIN_OPENAI_PROJECT_ID_DEFAULT,
+          projectId: getBrainOpenAiProjectId(),
           scope: 'braintunnel_only' as const,
           completionByModel: Object.fromEntries(compMap),
           costsByLineItem: costs,
@@ -929,6 +943,6 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
       ),
     )
   } else {
-    printText(startSec, endSec, BRAIN_OPENAI_SCOPE_LABEL, compMap, costs)
+    printText(startSec, endSec, brainOpenAiScopeLabel(), compMap, costs)
   }
 }

@@ -37,7 +37,17 @@
     inboxLoading = true
     try {
       const res = await fetch('/api/inbox', { credentials: 'include' }).catch(() => null)
-      inboxItems = res?.ok ? await res.json() : []
+      if (!res) {
+        inboxItems = []
+      } else {
+        let data: unknown
+        try {
+          data = await res.json()
+        } catch {
+          data = null
+        }
+        inboxItems = res.ok && Array.isArray(data) ? data : []
+      }
     } finally {
       inboxLoading = false
     }

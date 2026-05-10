@@ -3,10 +3,9 @@ import { Type } from '@mariozechner/pi-ai'
 import matter from 'gray-matter'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryRun.js'
 import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
-import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import { runRipmailRefreshInBackground } from '@server/lib/ripmail/runRipmailRefreshBackground.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '@server/lib/ripmail/ripmailSourceResolve.js'
@@ -216,11 +215,7 @@ export function createRipmailAgentTools(wikiDir: string) {
    * (large IMAP/calendar sync); awaiting it here hung chat/onboarding SSE until timeout.
    */
   function runRipmailRefreshAgent(sourceId?: string): { ok: true } {
-    const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
-    void Promise.resolve(runRipmailRefreshForBrain(extra)).catch((e) => {
-      brainLogger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (background) failed')
-    })
-    return { ok: true }
+    return runRipmailRefreshInBackground(sourceId, 'ripmail refresh (background) failed')
   }
 
   // Custom tools: unified ripmail index (mail + files) and source management

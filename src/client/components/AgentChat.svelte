@@ -6,8 +6,10 @@
   import {
     buildChatBody,
     contextPlaceholder,
+    ensureChatMessageIds,
     extractMentionedFiles,
     extractReferencedFiles,
+    newChatMessageId,
     sumAssistantUsageTotalTokens,
     type ChatMessage,
     type SkillMenuItem,
@@ -503,6 +505,7 @@
         const err = emptySession()
         err.messages = [
           {
+            id: newChatMessageId(),
             role: 'assistant',
             content: $t('chat.agentChat.loadFailedWithStatus', { status: res.status }),
           },
@@ -528,7 +531,7 @@
       if (sessionLoadLatest.isStale(token)) {
         return
       }
-      const list = Array.isArray(doc.messages) ? doc.messages : []
+      const list = ensureChatMessageIds(Array.isArray(doc.messages) ? doc.messages : [])
       const sid = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
       sessions = setSessionImmutable(sessions, sid, {
         messages: list,
@@ -548,7 +551,7 @@
       if (sessionLoadLatest.isStale(token) || isAbortError(e)) return
       const pk = createPendingSessionKey()
       sessions = setSessionImmutable(sessions, pk, {
-        messages: [{ role: 'assistant', content: $t('chat.agentChat.loadFailed') }],
+        messages: [{ id: newChatMessageId(), role: 'assistant', content: $t('chat.agentChat.loadFailed') }],
         streaming: false,
         abortController: null,
         sessionId: null,
@@ -610,8 +613,12 @@
     const hideUserBubble = initialBootstrapKickoff || interviewKickoffHidden
     const userBubbleContent = sendOpts?.userBubbleText ?? text
     const nextMessages = hideUserBubble
-      ? [...st.messages, { role: 'assistant' as const, content: '', parts: [] }]
-      : [...st.messages, { role: 'user' as const, content: userBubbleContent }, { role: 'assistant' as const, content: '', parts: [] }]
+      ? [...st.messages, { id: newChatMessageId(), role: 'assistant' as const, content: '', parts: [] }]
+      : [
+          ...st.messages,
+          { id: newChatMessageId(), role: 'user' as const, content: userBubbleContent },
+          { id: newChatMessageId(), role: 'assistant' as const, content: '', parts: [] },
+        ]
     const msgIdx = nextMessages.length - 1
 
     if (st.hearReplies === true) {
