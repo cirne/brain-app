@@ -6,7 +6,7 @@ This document describes how email sync works today, the optimizations that were 
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — ADR-003, ADR-016, ADR-017, ADR-020 cover sync design principles
 - [OPP-010](./opportunities/archive/OPP-010-sync-performance.md) — Performance opportunity tracking and optimization roadmap
-- **[brain-app: onboarding phased sync](../../docs/architecture/onboarding-state-machine.md)** — first-run **30d / 1y backfill**, status poll, `refreshRunning` vs `backfillRunning` (consumer of ripmail lanes below)
+- **[brain-app: onboarding](../../docs/architecture/onboarding-state-machine.md)** — first-run **~1y** bounded historical sync from indexing, status poll, `refreshRunning` vs `backfillRunning` (consumer of ripmail lanes below)
 
 ---
 

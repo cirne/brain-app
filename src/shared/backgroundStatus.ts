@@ -22,7 +22,7 @@ export type BackgroundStatusResponse = {
   mail: {
     indexedTotal: number
     ftsReady: number | null
-    /** Same semantics as ripmail status parser (denominator for progress when present). */
+    /** Same semantics as {@link ParsedRipmailStatus} / in-process status (denominator for progress when present). */
     messageAvailableForProgress: number | null
     configured: boolean
     dateRange: { from: string | null; to: string | null }
@@ -36,6 +36,8 @@ export type BackgroundStatusResponse = {
     lastSyncedAt: string | null
     syncLockAgeMs: number | null
     pendingBackfill: boolean
+    /** Gmail OAuth: ~1y historical slice not marked complete on disk (may still download while idle). */
+    deepHistoricalPending?: boolean
     staleMailSyncLock: boolean
     indexingHint?: string | null
     statusError?: string

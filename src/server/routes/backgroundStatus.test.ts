@@ -39,6 +39,7 @@ describe('GET /api/background-status', () => {
       ftsReady: 50,
       messageAvailableForProgress: 50,
       pendingBackfill: false,
+      deepHistoricalPending: false,
       staleMailSyncLock: false,
       indexingHint: null,
     })

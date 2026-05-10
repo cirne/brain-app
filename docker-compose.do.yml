@@ -19,7 +19,6 @@ services:
     environment:
       NODE_ENV: production
       BRAIN_DATA_ROOT: /brain-data
-      RIPMAIL_BIN: /usr/local/bin/ripmail
       PORT: "4000"
       PUBLIC_WEB_ORIGIN: https://staging.braintunnel.ai
     volumes:

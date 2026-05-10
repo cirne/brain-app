@@ -100,14 +100,6 @@ Prefer real revision identifiers from CI or `git`; NRQL queries do **not** repla
 
 Standard APM data types apply: **Transaction**, **TransactionError**, **Span** (if distributed tracing is enabled), **Log** (via **`recordLogEvent`** from app code and any other enabled agent log paths).
 
-### Ripmail sync diagnostics (Log API, Rust CLI)
-
-The **`ripmail`** crate can send **sync diagnostic lines** (same events as `{RIPMAIL_HOME}/logs/sync.log`) to **New Relic Logs** via the **[Log API](https://docs.newrelic.com/docs/logs/log-api/introduction-log-api/)** (`POST https://log-api.newrelic.com/log/v1`, header **`Api-Key`** = ingest license key). This path **does not use stdout/stderr** and does not depend on the host Infrastructure agent tailing Docker logs.
-
-**Enable when:** `NEW_RELIC_LICENSE_KEY` is non-empty **and** (`NODE_ENV=production` **or** `RIPMAIL_NR_DIAGNOSTICS=1`). Optional: `NEW_RELIC_APP_NAME`, `HOSTNAME`; Brain subprocesses inherit tenant **`BRAIN_TENANT_USER_ID`** / **`BRAIN_WORKSPACE_HANDLE`** from [`ripmailProcessEnv`](../../src/server/lib/platform/brainHome.ts).
-
-**NRQL examples:** `WHERE message LIKE '%ripmail%'` or facet attributes such as `service.name`, `source` (see ingested shape).
-
 ## Custom event types
 
 Custom events are recorded with the Node agent API `recordCustomEvent(eventType, attributes)`. Event type names are alphanumeric (e.g. `ToolCall`).
@@ -127,9 +119,7 @@ These support **trace-style** NRQL (`WHERE agentTurnId = '…'`) without OpenTel
 With distributed tracing enabled in [`newrelic.cjs`](../newrelic.cjs), the Node agent also records **`startSegment` spans**:
 
 - **Agent tools:** `ai.tool/<tool_name>` opened on `tool_execution_start` and closed on `tool_execution_end` (`beginToolCallSegment` / `endToolCallSegmentBridge` in [`newRelicHelper.ts`](../src/server/lib/observability/newRelicHelper.ts), wired from [`streamAgentSseHandlers.ts`](../src/server/lib/chat/streamAgentSseHandlers.ts) for chat SSE and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts) for wiki runs).
-- **Ripmail subprocesses:** `ripmail.cli/<label-or-subcommand>` for the lifetime of [`runRipmailArgv`](../src/server/lib/ripmail/ripmailRun.ts), via [`withRipmailCliObservation`](../src/server/lib/observability/newRelicHelper.ts).
-
-**Distributed tracing caveat:** Ripmail inherits W3C `TRACEPARENT` / `TRACESTATE` in its environment so downstream systems *could* continue the trace; the Rust binary does **not** report spans to New Relic by default, so in the NR UI these runs usually appear **only as in-process segments** under the Brain Node transaction (unless you add NR instrumentation inside ripmail).
+- **Mail CLI subprocesses (when used):** `ripmail.cli/<label-or-subcommand>` for the lifetime of [`runRipmailArgv`](../src/server/lib/ripmail/ripmailRun.ts), via [`withRipmailCliObservation`](../src/server/lib/observability/newRelicHelper.ts). These are **Node `startSegment` spans** on the current transaction, not separate APM applications.
 
 **Chat SSE caveat:** Synthetic post-turn UI (for example [`streamAgentSse.ts`](../src/server/lib/chat/streamAgentSse.ts) suggest-repair `tool_start` / `tool_end` without `tool_execution_*`) does not open `ai.tool/…` segments today.
 

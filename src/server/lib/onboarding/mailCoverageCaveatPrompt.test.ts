@@ -16,6 +16,7 @@ function baseMail(over: Partial<OnboardingMailStatusPayload> = {}): OnboardingMa
     ftsReady: 100,
     messageAvailableForProgress: 500,
     pendingBackfill: false,
+    deepHistoricalPending: false,
     staleMailSyncLock: false,
     indexingHint: null,
     ...over,
@@ -46,6 +47,17 @@ describe('buildMailCoverageCaveatForMainAssistant', () => {
     expect(s).toContain('2020-01-01')
     expect(s).toContain('2025-12-01')
     expect(s).toContain('do **not** imply full mailbox history')
+  })
+
+  it('mentions ongoing sync when deep historical gmail slice pending', () => {
+    const s = buildMailCoverageCaveatForMainAssistant(
+      baseMail({
+        indexedTotal: 50,
+        pendingBackfill: false,
+        deepHistoricalPending: true,
+      }),
+    )
+    expect(s).toContain('Background sync')
   })
 
   it('mentions ongoing sync when lanes are active', () => {

@@ -1,6 +1,7 @@
 import { formatExecError } from '@server/lib/platform/execError.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
+import type { RipmailHistoricalSince } from '@server/ripmail/types.js'
 
 export interface HubRipmailSpawnResult {
   ok: boolean
@@ -39,8 +40,10 @@ export async function spawnRipmailBackfillSource(
     return { ok: false, error: 'invalid backfill window' }
   }
   try {
-    // TS sync handles all sources; since-window is configured per-source in config.json
-    await ripmailRefresh(ripmailHomeForBrain(), { sourceId: id })
+    await ripmailRefresh(ripmailHomeForBrain(), {
+      sourceId: id,
+      historicalSince: spec as RipmailHistoricalSince,
+    })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: formatExecError(e) }

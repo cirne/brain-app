@@ -1,5 +1,10 @@
 /**
- * Pure parse of `ripmail status --json` stdout for onboarding / diagnostics.
+ * Parse JSON in the shape of **`ripmail status --json`** (Rust CLI contract).
+ *
+ * Brain **live polls** (`getOnboardingMailStatus`, Hub mail status) read SQLite via
+ * **`ripmailStatusParsed`** → **`statusParsed`** in `@server/ripmail/status.ts` — no subprocess.
+ * This module stays for **tests/fixtures**, log snapshots when the CLI runs, and helpers that
+ * build CLI-shaped payloads (e.g. Hub synthetic JSON from `statusParsed`).
  */
 
 export type ParsedRipmailStatus = {
@@ -18,8 +23,13 @@ export type ParsedRipmailStatus = {
   ftsReady: number | null
   staleLockInDb: boolean
   initialSyncHangSuspected: boolean
-  /** First-time mailbox: needs a refresh/backfill and nothing is actively syncing. */
+  /** First-time mailbox: needs a refresh/backfill and nothing is actively syncing (gate semantics may narrow in TS). */
   pendingRefresh: boolean
+  /**
+   * From **`statusParsed`**: Gmail OAuth wide historical not marked complete while idle.
+   * From **CLI-shaped JSON** (`parseRipmailStatusJson`): same as {@link pendingRefresh} for compat with Rust output.
+   */
+  deepHistoricalPending: boolean
   /**
    * Onboarding “downloaded / available” denominator: sum of `mailboxes[].messageCount` when non-zero, else
    * `sync.refresh.totalMessages`, else `sync.backfill.totalMessages`. Null when no usable total yet.
@@ -31,7 +41,7 @@ export type ParsedRipmailStatus = {
 const RIPMAIL_LOCK_AGE_ANOMALY_MS = 60 * 60 * 1000
 
 /**
- * Stable diagnostic codes for odd `ripmail status --json` combinations after {@link parseRipmailStatusJson}.
+ * Stable diagnostic codes for odd parsed-status combinations (fixtures or CLI-shaped JSON).
  * Used when polling mail status (Hub / onboarding); keep messages out of the user payload.
  */
 export function listRipmailStatusAnomalies(parsed: ParsedRipmailStatus): readonly string[] {
@@ -93,7 +103,7 @@ function sumMailboxMessageCounts(mailboxes: unknown): number {
   return n
 }
 
-/** Ripmail `status --json`: `search.indexedMessages` (canonical); legacy builds only had `ftsReady` (same value). */
+/** CLI-shaped JSON: `search.indexedMessages` (canonical); legacy builds only had `ftsReady` (same value). */
 function readSearchIndexedCount(search: Record<string, unknown> | undefined): number | null {
   if (!search || typeof search !== 'object') return null
   const fromIndexed = readNum(search.indexedMessages)
@@ -190,7 +200,7 @@ export function computeIndexingUserHint(
   return null
 }
 
-/** Parse stdout from `ripmail status --json`. Returns null if JSON is invalid or missing `sync`. */
+/** Parse JSON matching Rust **`ripmail status --json`**. Returns null if invalid or missing `sync`. */
 export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | null {
   try {
     const j = JSON.parse(stdout) as Record<string, unknown>
@@ -258,6 +268,7 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
       staleLockInDb: stale,
       initialSyncHangSuspected: hang,
       pendingRefresh,
+      deepHistoricalPending: pendingRefresh,
       messageAvailableForProgress,
     }
   } catch {
@@ -265,7 +276,7 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
   }
 }
 
-/** Compact snapshot for `ripmail status` subprocess close logs (Node logs only; not sent to clients). */
+/** Compact snapshot from CLI-shaped JSON (e.g. subprocess close logs in eval/debug; not sent to clients). */
 export function buildRipmailStatusLogSnapshot(
   stdout: string,
 ):
@@ -282,6 +293,7 @@ export function buildRipmailStatusLogSnapshot(
       hangSuspected: boolean
       lastSyncAt: string | null
       forProgress: number | null
+      deepHistoricalPending: boolean
     } {
   const p = parseRipmailStatusJson(stdout)
   if (!p) {
@@ -295,6 +307,7 @@ export function buildRipmailStatusLogSnapshot(
     lockAgeMs: p.syncLockAgeMs,
     indexed: p.indexedTotal ?? p.ftsReady ?? null,
     pendingBackfill: p.pendingRefresh,
+    deepHistoricalPending: p.deepHistoricalPending,
     staleLock: p.staleLockInDb,
     hangSuspected: p.initialSyncHangSuspected,
     lastSyncAt: p.lastSyncedAt,

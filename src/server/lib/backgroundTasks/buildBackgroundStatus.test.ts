@@ -15,6 +15,7 @@ const baseMail = (): OnboardingMailStatusPayload => ({
   ftsReady: 600,
   messageAvailableForProgress: 600,
   pendingBackfill: false,
+  deepHistoricalPending: false,
   staleMailSyncLock: false,
   indexingHint: null,
 })
@@ -35,7 +36,7 @@ describe('buildBackgroundStatusPayload', () => {
     vi.restoreAllMocks()
   })
 
-  it('infers 30d backfill phase during indexing', async () => {
+  it('infers ~1y onboarding historical lane during indexing when backfill runs', async () => {
     const payload = await buildBackgroundStatusPayload({
       mail: { ...baseMail(), backfillRunning: true },
       state: 'indexing',
@@ -55,7 +56,7 @@ describe('buildBackgroundStatusPayload', () => {
       },
       onboardingFlowActive: true,
     })
-    expect(payload.mail.backfillPhase).toBe('30d')
+    expect(payload.mail.backfillPhase).toBe('1y')
     expect(payload.onboarding.milestones.interviewReady).toBe(true)
   })
 

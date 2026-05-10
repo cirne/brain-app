@@ -24,7 +24,11 @@ export function buildMailCoverageCaveatForMainAssistant(
           : 'dates the index has not reported yet'
 
   const stillFetching =
-    mail.syncRunning || mail.refreshRunning || mail.backfillRunning || mail.pendingBackfill
+    mail.syncRunning ||
+    mail.refreshRunning ||
+    mail.backfillRunning ||
+    mail.pendingBackfill ||
+    mail.deepHistoricalPending
 
   return [
     '## Mail index coverage (transient)',

@@ -2,28 +2,25 @@
 
 ## Trust boundaries: ripmail vs direct SQLite access
 
-**Default pattern:** For **local-first** data that ripmail already indexes (mail, maildir-adjacent workflows, indexed **files on disk**, **calendar events** once configured in ripmail — see [`ripmail` ADR-029](../../ripmail/docs/ARCHITECTURE.md#adr-029-local-gateway--one-binary-multiple-corpora-mail-calendar-)), the **brain-app** server spawns **`ripmail`** with **`RIPMAIL_HOME`** set on the child env to **`$BRAIN_HOME/<layout ripmail>/`** ([`shared/brain-layout.json`](../../shared/brain-layout.json)) — derived from **`BRAIN_HOME`** only, not from the parent process **`RIPMAIL_HOME`** env var. One subprocess contract, one config + SQLite store under that home.
+**Default pattern:** For **local-first** data that ripmail already indexes (mail, maildir-adjacent workflows, indexed **files on disk**, **calendar events** once configured in ripmail — see [`ripmail` ADR-029](../../ripmail/docs/ARCHITECTURE.md#adr-029-local-gateway--one-binary-multiple-corpora-mail-calendar-)), the **brain-app** server uses the **TypeScript ripmail module** ([`@server/ripmail`](../../src/server/ripmail/index.ts), OPP-103) against each tenant’s SQLite + layout under **`$BRAIN_DATA_ROOT/<tenant>/<layout ripmail>/`** ([`shared/brain-layout.json`](../../shared/brain-layout.json)) — derived per request from **`BRAIN_HOME`** / tenant context, not from the parent process **`RIPMAIL_HOME`** env var (which Brain ignores in multi-tenant mode).
 
 **Exception — Apple Messages:** The server may open Apple’s **`~/Library/Messages/chat.db`** read-only via **`better-sqlite3`** (`list_recent_messages`, `get_message_thread`). That path exists because **`chat.db`** is a plain SQLite file on disk; there is **no** Node-accessible **EventKit-style** API for iMessage history **and** no need to ship a native helper solely to read SQL. Access is gated by **Full Disk Access** (or equivalent). This is a **deliberate** second permission surface, not the model for calendar, contacts, or other framework-backed Apple data.
 
-**Tradeoff:** Two trust surfaces (FDA + Node for Messages vs ripmail for mail/index/calendar direction) rather than one CLI boundary for every corpus. Convergence later (e.g. messaging index via a single native helper) is optional — see **[OPP-083](../opportunities/OPP-083-imessage-and-unified-messaging-index.md)** (iMessage + unified messaging index; distinct from **[brain-app OPP-045: Google Drive](../opportunities/OPP-045-google-drive.md)**). **Calendar/notes/contacts** work should **not** follow the **chat.db** pattern unless we explicitly choose raw SQL over framework APIs.
+**Tradeoff:** Two trust surfaces (FDA + Node for Messages vs ripmail store for mail/index/calendar direction) rather than one CLI boundary for every corpus. Convergence later (e.g. messaging index via a single native helper) is optional — see **[OPP-083](../opportunities/OPP-083-imessage-and-unified-messaging-index.md)** (iMessage + unified messaging index; distinct from **[brain-app OPP-045: Google Drive](../opportunities/OPP-045-google-drive.md)**). **Calendar/notes/contacts** work should **not** follow the **chat.db** pattern unless we explicitly choose raw SQL over framework APIs.
 
-## Ripmail subprocess
+## Ripmail (TypeScript module)
 
-Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` on the child env set to Braintunnel’s ripmail dir (`$BRAIN_HOME/<layout ripmail>/`). No in-process Rust linkage from Node.
+Mail index **status**, **search**, **read**, **inbox**, **refresh/backfill**, and related routes call **`@server/ripmail`** in-process on the tenant **`ripmail/`** directory. **`GET /api/onboarding/mail`** uses **`ripmailStatusParsed`** (SQLite — no `ripmail status` subprocess).
 
-- Binary: `RIPMAIL_BIN` (workspace debug binary wired in dev when present — see [`run-dev.mjs`](../../scripts/run-dev.mjs)); Tauri bundles release `ripmail` in `server-bundle/`.
-- Agent tools wrap `ripmail search`, `ripmail read`, `ripmail draft`, `ripmail inbox`, etc.
+**Optional Rust CLI:** **`RIPMAIL_BIN`** still selects a binary for **`execRipmailArgv`** / **`ripmail clean`**, eval/e2e comparisons, and any remaining subprocess-only helpers — not for normal onboarding or Hub polling.
 
 ## Unified search (`GET /api/search`)
 
-[`search.ts`](../../src/server/routes/search.ts) combines **wiki** hits (shell `grep` over `*.md` under the wiki dir) and **email** hits (`ripmail search --json`). Same endpoint powers the UI “search everything” behavior.
+[`search.ts`](../../src/server/routes/search.ts) combines **wiki** hits (shell `grep` over `*.md` under the wiki dir) and **email** hits (`ripmailSearch` from `@server/ripmail`). Same endpoint powers the UI “search everything” behavior.
 
 ## Raw file read (`GET /api/files/read`)
 
-Returns JSON from `ripmail read <path> --json` for absolute paths (e.g. PDF text extraction). Should stay aligned with agent `read_indexed_file` for filesystem targets — see [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md). Both use shared Node `exec` options (`maxBuffer` 20 MiB, timeout 120s) in [`ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts); Node’s default 1 MiB buffer would throw on large extractions.
-
-**Inbox message body** (`GET /api/inbox/:id`, plain `ripmail read`) uses the same limits.
+Returns JSON from **`ripmailReadIndexedFile`** (`@server/ripmail`) for allowed paths (e.g. PDF text extraction). Should stay aligned with agent `read_indexed_file` for filesystem targets — see [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md).
 
 ## Optional local messages (macOS)
 
@@ -31,7 +28,7 @@ When Apple’s **`chat.db`** is readable, the server exposes iMessage/SMS tools 
 
 ## Onboarding
 
-**Persisted onboarding states**, mail indexing phases (**30d → interview → 1y backfill**), and API overview: **[onboarding-state-machine.md](./onboarding-state-machine.md)**. [`onboarding.ts`](../../src/server/routes/onboarding.ts) coordinates mail setup, wiki staging, and polling — not a separate product stack, but part of the same Hono app.
+**Persisted onboarding states**, initial mail indexing (**~1y bounded historical slice from indexing**), and API overview: **[onboarding-state-machine.md](./onboarding-state-machine.md)**. [`onboarding.ts`](../../src/server/routes/onboarding.ts) coordinates mail setup, wiki staging, and polling — not a separate product stack, but part of the same Hono app.
 
 ---
 

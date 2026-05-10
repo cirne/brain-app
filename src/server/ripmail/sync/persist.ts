@@ -5,7 +5,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { RipmailDb } from '../db.js'
+import { seedSyncSummaryRows, type RipmailDb } from '../db.js'
 import type { ParsedMessage } from './parse.js'
 
 export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: string): void {
@@ -107,6 +107,27 @@ export function getSyncState(
   }
 }
 
+/** Record completion of the widest historical Gmail pull (~1y onboarding / Hub backfill). */
+export function markFirstBackfillCompleted(db: RipmailDb, sourceId: string): void {
+  db.prepare(
+    `
+    INSERT INTO source_sync_meta (source_id, first_backfill_completed_at)
+    VALUES (?, datetime('now'))
+    ON CONFLICT(source_id) DO UPDATE SET
+      first_backfill_completed_at = excluded.first_backfill_completed_at
+  `,
+  ).run(sourceId)
+}
+
+/** True when this Gmail OAuth source has not finished a successful ~1y historical sync yet. */
+export function gmailOAuthHistoricalBackfillPending(db: RipmailDb, sourceId: string): boolean {
+  const row = db
+    .prepare(`SELECT first_backfill_completed_at FROM source_sync_meta WHERE source_id = ?`)
+    .get(sourceId) as { first_backfill_completed_at: string } | undefined
+  if (!row) return true
+  return row.first_backfill_completed_at.trim() === ''
+}
+
 /** Update sources.last_synced_at after a successful sync. */
 export function updateSourceLastSynced(db: RipmailDb, sourceId: string): void {
   db.prepare(`UPDATE sources SET last_synced_at = datetime('now') WHERE id = ?`).run(sourceId)
@@ -115,4 +136,31 @@ export function updateSourceLastSynced(db: RipmailDb, sourceId: string): void {
     INSERT OR IGNORE INTO sources (id, kind, label, include_in_default)
     VALUES (?, 'imap', ?, 1)
   `).run(sourceId, sourceId)
+}
+
+/** TS refresh/backfill uses row id=1 (refresh) vs id=2 (historical pull), mirroring Rust lock lanes. */
+export function setSyncSummaryRunning(db: RipmailDb, lane: 'refresh' | 'backfill'): void {
+  seedSyncSummaryRows(db)
+  if (lane === 'refresh') {
+    db.prepare(
+      `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 2`,
+    ).run()
+    db.prepare(
+      `UPDATE sync_summary SET is_running = 1, sync_lock_started_at = datetime('now') WHERE id = 1`,
+    ).run()
+  } else {
+    db.prepare(
+      `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1`,
+    ).run()
+    db.prepare(
+      `UPDATE sync_summary SET is_running = 1, sync_lock_started_at = datetime('now') WHERE id = 2`,
+    ).run()
+  }
+}
+
+export function clearSyncSummaryRunning(db: RipmailDb): void {
+  seedSyncSummaryRows(db)
+  db.prepare(
+    `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id IN (1, 2)`,
+  ).run()
 }

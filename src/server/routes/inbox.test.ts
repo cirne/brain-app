@@ -114,6 +114,7 @@ describe('GET /api/inbox/mail-sync-status', () => {
       ftsReady: 7,
       messageAvailableForProgress: null,
       pendingBackfill: false,
+      deepHistoricalPending: false,
       staleMailSyncLock: false,
       indexingHint: null,
     })

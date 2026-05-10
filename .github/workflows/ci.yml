@@ -1,4 +1,4 @@
-# Parallel CI: Node app, ripmail crate, Docker image.
+# Parallel CI: Node app, Docker image.
 # Desktop (Tauri) build is manual-only.
 
 name: CI
@@ -52,26 +52,6 @@ jobs:
             " >> $GITHUB_STEP_SUMMARY
           fi
 
-  ripmail:
-    name: Ripmail crate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
-
-      - name: fmt, clippy, nextest
-        run: |
-          cargo fmt -p ripmail -- --check
-          cargo clippy -p ripmail -- -D warnings
-          cargo nextest run -p ripmail --profile ci
-
   docker:
     name: Docker image
     runs-on: ubuntu-latest
@@ -83,56 +63,8 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Build ripmail (Linux)
-        run: |
-          cargo build -p ripmail --release
-          mkdir -p .docker/linux-ripmail
-          cp target/release/ripmail .docker/linux-ripmail/ripmail
-
       - name: Build Docker image
         run: docker build -t brain-app:ci .
-
-  ripmail-release:
-    name: Ripmail binary release
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Build ripmail (Linux x86_64)
-        run: cargo build -p ripmail --release
-
-      - name: Package binary
-        run: |
-          mkdir -p dist
-          cp target/release/ripmail dist/ripmail-linux-x86_64
-          chmod +x dist/ripmail-linux-x86_64
-          sha256sum dist/ripmail-linux-x86_64 > dist/ripmail-linux-x86_64.sha256
-
-      - name: Update rolling release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ripmail-latest
-          name: Ripmail Latest (Linux x86_64)
-          body: |
-            Pre-built ripmail binary for Linux x86_64 (cloud agents).
-            Updated on each push to main.
-
-            ```sh
-            curl -fsSL https://github.com/${{ github.repository }}/releases/download/ripmail-latest/ripmail-linux-x86_64 -o ripmail
-            chmod +x ripmail
-            ```
-          files: |
-            dist/ripmail-linux-x86_64
-            dist/ripmail-linux-x86_64.sha256
-          prerelease: true
-          make_latest: false
 
   desktop:
     name: Desktop (Tauri crate)

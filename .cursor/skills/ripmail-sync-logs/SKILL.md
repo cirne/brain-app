@@ -48,7 +48,7 @@ The path with the **newest** timestamp is usually the one to **`tail -f`** for l
 
 - **Live activity:** `tail -f` the resolved path (batch fetches, lock phases, “Sync complete” / metrics lines).
 - **Ripmail behavior / log format:** implementation and comments in [`ripmail/src/sync/sync_log.rs`](../../../ripmail/src/sync/sync_log.rs), [`ripmail/src/sync/run.rs`](../../../ripmail/src/sync/run.rs) (e.g. progress before long IMAP waits).
-- **Onboarding:** server logs may print `ripmailHome` and `syncLog` when phase-2 backfill queues; see [`src/server/routes/onboarding.ts`](../../../src/server/routes/onboarding.ts).
+- **Onboarding:** initial ~**1y** historical sync is kicked from **`syncInboxRipmailOnboarding`** (`POST /api/inbox/sync` during indexing); see [`syncAll.ts`](../../../src/server/lib/platform/syncAll.ts) and [`onboarding-state-machine.md`](../../../docs/architecture/onboarding-state-machine.md).
 
 ## Related
 

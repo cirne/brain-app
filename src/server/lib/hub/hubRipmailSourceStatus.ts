@@ -16,7 +16,7 @@ export type HubSourceMailStatusOk = {
     needsBackfill: boolean
     lastUid: number | null
   } | null
-  /** Whole-index fields from the same `ripmail status --json` payload. */
+  /** Whole-index fields (same shape as Rust `status --json`; live data comes from `ripmailStatusParsed`). */
   index: {
     totalIndexed: number | null
     syncRunning: boolean
@@ -75,8 +75,8 @@ function readLastSyncAgoHuman(root: Record<string, unknown>): string | null {
 }
 
 /**
- * Extract Hub source inspect fields from `ripmail status --json` stdout.
- * Exported for unit tests.
+ * Extract Hub source inspect fields from CLI-shaped status JSON (tests/fixtures),
+ * or from {@link getHubSourceMailStatus} which synthesizes that shape from `ripmailStatusParsed`.
  */
 export function parseHubSourceMailStatusFromStdout(
   stdout: string,
@@ -147,7 +147,7 @@ export async function getHubSourceMailStatus(sourceId: string): Promise<HubSourc
   }
   try {
     const parsed = ripmailStatusParsed(home)
-    // Build a Rust-compatible stdout to reuse existing parsing logic
+    // Minimal CLI-shaped JSON so tests + parseHubSourceMailStatusFromStdout stay aligned with Rust output.
     const stdout = JSON.stringify({
       sync: {
         refresh: {

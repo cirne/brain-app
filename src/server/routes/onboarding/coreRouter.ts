@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { networkInterfaces } from 'node:os'
 import { unlink } from 'node:fs/promises'
-import { join } from 'node:path'
 import { getCookie } from 'hono/cookie'
 import {
   readOnboardingStateDoc,
@@ -14,14 +13,12 @@ import { hostGuidFilePath, stopTunnel, getActiveTunnelUrl } from '@server/lib/pl
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import {
   getOnboardingMailStatus,
-  ripmailHomePath,
 } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
 import { isOnboardingInitialMailSyncComplete } from '@shared/onboardingMailGate.js'
 import { notifyOnboardingInterviewDone } from '@server/lib/backgroundTasks/orchestrator.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { openRipmailDb } from '@server/ripmail/db.js'
-import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
 import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
@@ -43,7 +40,9 @@ onboardingCoreRouter.post('/clear-stale-lock', async (c) => {
   try {
     // TS module: reset sync running flag in DB
     const db = openRipmailDb(ripmailHomeForBrain())
-    db.prepare(`UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1`).run()
+    db.prepare(
+      `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id IN (1, 2)`,
+    ).run()
     brainLogger.info(`[onboarding/clear-stale-lock] cleared lock for tenant ${tid}`)
     return c.json({ ok: true })
   } catch (e) {
@@ -178,7 +177,7 @@ onboardingCoreRouter.patch('/state', async (c) => {
     }
     if (mail.backfillRunning) {
       brainLogger.info(
-        '[onboarding/state] indexing → onboarding-agent while backfill lane active — continuing (phase 2 queued behind ripmail chain)',
+        '[onboarding/state] indexing → onboarding-agent while onboarding historical (~1y) slice still running — interview proceeds; mail counts keep updating in background.',
       )
     }
   }
@@ -186,25 +185,6 @@ onboardingCoreRouter.patch('/state', async (c) => {
     const doc = await setOnboardingState(next)
     if (next === 'done' && cur.state !== 'done') {
       void notifyOnboardingInterviewDone()
-    }
-    const phase2Eligible = next === 'onboarding-agent' && cur.state !== 'onboarding-agent'
-    if (phase2Eligible) {
-      const rmHome = ripmailHomePath()
-      const syncLog = join(rmHome, 'logs', 'sync.log')
-      brainLogger.info(
-        {
-          ripmailHome: rmHome,
-          syncLog,
-        },
-        '[onboarding/state] Queue ~1y historical mail backfill (OPP-093 phase 2); ripmail serializes per home — does not interrupt phase‑1 backfill. Watch progress:',
-      )
-      void (async () => {
-        try {
-          await ripmailRefresh(ripmailHomeForBrain())
-        } catch (e) {
-          brainLogger.error({ err: e }, '[onboarding/state] background backfill 1y failed')
-        }
-      })()
     }
     return c.json({ ok: true, state: doc.state })
   } catch (e) {

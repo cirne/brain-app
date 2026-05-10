@@ -126,4 +126,42 @@ describe('HubActivityOverview.svelte', () => {
     expect(btn).toBeDisabled()
     expect(btn).toHaveAttribute('aria-busy', 'true')
   })
+
+  it('shows formatted indexed-mail date coverage beside the message count', () => {
+    render(HubActivityOverview, {
+      props: {
+        mailStatus: {
+          configured: true,
+          indexedTotal: 2791,
+          lastSyncedAt: '2026-05-10T15:00:00.000Z',
+          dateRange: { from: '2022-01-01', to: '2026-05-10' },
+          syncRunning: false,
+          refreshRunning: false,
+          backfillRunning: false,
+          syncLockAgeMs: null,
+          ftsReady: 2791,
+          messageAvailableForProgress: 2791,
+          pendingBackfill: false,
+          staleMailSyncLock: false,
+        },
+        mailLoading: false,
+        wikiTitle: 'Wiki idle',
+        wikiSubtitle: 'Ready',
+        wikiPhase: 'idle',
+        wikiIsActive: false,
+        wikiIsPaused: false,
+        wikiIsIdle: true,
+        showWikiControls: false,
+        syncBusy: false,
+        wikiUpdateBusy: false,
+        wikiActionBusy: false,
+        indexFeedSummary: '1 mailbox',
+        sourcesEmpty: false,
+        sourcesError: null,
+      },
+    })
+
+    expect(screen.getByText(/2[,.]?791/)).toBeInTheDocument()
+    expect(screen.getByText(/Jan 2022.*Present/i)).toBeInTheDocument()
+  })
 })

@@ -96,16 +96,13 @@ Sign in applies in dev and production (`npm run dev`): Google OAuth → session;
 Optional: run the same stack inside a native window (see [OPP-007 (archived)](docs/opportunities/archive/OPP-007-native-mac-app.md)).
 
 ```sh
-npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
-npm run ripmail:build          # cargo build -p ripmail --release
-npm run ripmail:test           # cargo test -p ripmail
 npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run desktop:build          # npm build + bundle server + Braintunnel.app (+ DMG on macOS)
 npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Braintunnel.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
 npm run desktop:clean-data     # delete packaged-app data: local `BRAIN_HOME` default + macOS wiki parent (`~/Documents/Brain` from bundle-defaults) when using default paths, or explicit `$BRAIN_HOME` / `$BRAIN_WIKI_ROOT` (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
 ```
 
-### Cargo / Rust (ripmail)
+### Cargo / Rust (desktop)
 
 Rust crates live under `[desktop/](desktop/)` (Tauri shell) and `[ripmail/](ripmail/)` with a root `[Cargo.toml](Cargo.toml)`. Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
 
@@ -113,15 +110,15 @@ Rust crates live under `[desktop/](desktop/)` (Tauri shell) and `[ripmail/](ripm
 
 ```sh
 cargo t                        # run all tests in parallel (alias for `cargo nextest run`)
-cargo t -p ripmail             # run ripmail tests in parallel
+cargo t -p brain               # run desktop (Tauri) crate tests in parallel
 cargo test                     # standard cargo test (runs integration test binaries serially)
 ```
 
-Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packaged app bundles a release-built `ripmail` binary inside `server-bundle/`; `desktop:bundle-server` builds it automatically. For local dev, `npm run ripmail:dev` builds the debug binary and `run-dev.mjs` sets `RIPMAIL_BIN` when it exists.
+Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. **`npm run dev`** may set **`RIPMAIL_BIN`** only when a workspace `target/*/ripmail` binary is still present (legacy); Docker/hosted images do not ship a ripmail ELF — mail runs **in-process** in Node.
 
-**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server passes a **computed** `RIPMAIL_HOME` into ripmail subprocesses. **`RIPMAIL_BIN`** selects which binary runs (`npm run dev` prefers the workspace Cargo artifact when built). Standalone `ripmail` may still default to **`~/.ripmail`**—do not confuse that with Brain’s tree.
+**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server uses a **computed** mail home per tenant. Optional **`RIPMAIL_BIN`** points at an external CLI when subprocess adapters are still used.
 
-`tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
+`tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
 
 **Embedded secrets (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted entries from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`, plus `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` for in-app Gmail OAuth in Braintunnel.app), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and sets environment variables on the Tauri process so the bundled Node child inherits them (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded secrets (users would need local configuration for those APIs and Gmail connect will show `oauth_not_configured` until credentials are embedded or otherwise supplied).
 

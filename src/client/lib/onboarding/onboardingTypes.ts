@@ -18,6 +18,8 @@ export type OnboardingMailStatus = {
   messageAvailableForProgress: number | null
   /** Ripmail still has mail to pull; sync is idle — good time to kick `refresh`. */
   pendingBackfill?: boolean
+  /** Gmail extended historical sync (~1y) may still add mail while lanes look idle. */
+  deepHistoricalPending?: boolean
   /** DB lock without a live process — avoid stacking refreshes. */
   staleMailSyncLock?: boolean
   /** Actionable hint from server (stale sync lock, hang suspected). */
@@ -38,6 +40,7 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
     ftsReady: null,
     messageAvailableForProgress: null,
     pendingBackfill: false,
+    deepHistoricalPending: false,
     staleMailSyncLock: false,
     indexingHint: null,
   }

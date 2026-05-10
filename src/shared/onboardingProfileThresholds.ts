@@ -9,7 +9,7 @@ export const WIKI_BUILDOUT_MIN_MESSAGES = 1000
 
 /**
  * Historical: server once rejected `indexing` → `onboarding-agent` while `backfillRunning`.
- * Interview now advances on indexed threshold only; phase‑1 backfill continues (phase‑2 chains in ripmail).
+ * Interview advances on indexed threshold (or small-inbox drain) while the initial ~1y historical slice runs in the background.
  * Kept for any external docs or stale clients referencing the string.
  */
 export const ONBOARDING_BACKFILL_STILL_RUNNING_CODE = 'onboarding_backfill_running' as const

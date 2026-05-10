@@ -23,13 +23,15 @@ export type OnboardingMailStatusPayload = {
   refreshRunning: boolean
   /** `sync.backfill` lane running; absent lane → always false from parse. */
   backfillRunning: boolean
-  /** From `ripmail status --json` `sync.lockAgeMs` — how long the current sync has held the lock. */
+  /** From in-process status (`sync_summary` locks); age of the active refresh/backfill lock when sync is running. */
   syncLockAgeMs: number | null
   ftsReady: number | null
   /** Denominator for indexed / total during onboarding (same as parsed mail status). */
   messageAvailableForProgress: number | null
   /** Mailbox still needs data and no sync is active — resume candidate (see backfill supervisor). */
   pendingBackfill: boolean
+  /** Gmail OAuth: ~1y historical slice not recorded complete; more mail may arrive while idle. */
+  deepHistoricalPending: boolean
   /** Stale lock row without a live process — do not stack refreshes until cleared. */
   staleMailSyncLock: boolean
   /** Actionable line for the indexing hero (stale lock, hang suspected); null when nothing urgent. */
@@ -66,7 +68,7 @@ function maybeWarnRipmailStatusAnomalies(parsed: ParsedRipmailStatus, execMs: nu
   lastRipmailAnomalyWarnAt = now
   brainLogger.warn(
     {
-      msg: 'ripmail status poll: unusual parsed state',
+      msg: 'ripmail status (in-process): unusual parsed state',
       anomalies,
       execMs,
       syncRunning: parsed.syncRunning,
@@ -109,6 +111,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     ftsReady: null,
     messageAvailableForProgress: null,
     pendingBackfill: false,
+    deepHistoricalPending: false,
     staleMailSyncLock: false,
     indexingHint: null,
   }
@@ -141,6 +144,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
       ftsReady: parsed.ftsReady,
       messageAvailableForProgress: parsed.messageAvailableForProgress,
       pendingBackfill: parsed.pendingRefresh,
+      deepHistoricalPending: parsed.deepHistoricalPending,
       staleMailSyncLock: parsed.staleLockInDb,
       indexingHint: computeIndexingActionHint(parsed),
     }

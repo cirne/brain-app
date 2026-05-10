@@ -135,7 +135,7 @@ export function ripmailStatus(ripmailHome: string) {
 /** ParsedRipmailStatus — compatible with parseRipmailStatusJson consumers. */
 export function ripmailStatusParsed(ripmailHome: string) {
   const db = openRipmailDb(ripmailHome)
-  return statusParsed(db)
+  return statusParsed(db, ripmailHome)
 }
 
 /** Run inbox scan (deterministic rules). */

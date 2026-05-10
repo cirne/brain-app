@@ -19,7 +19,7 @@ vi.mock('@server/lib/onboarding/onboardingState.js', async (importOriginal) => {
 
 import inboxRoute from './inbox.js'
 
-describe('POST /api/inbox/sync onboarding dispatch (OPP-093)', () => {
+describe('POST /api/inbox/sync onboarding dispatch', () => {
   let app: Hono
 
   beforeEach(() => {
@@ -81,7 +81,7 @@ describe('POST /api/inbox/sync onboarding dispatch (OPP-093)', () => {
     }
   })
 
-  it('uses syncInboxRipmail for confirming-handle (not the 30d onboarding slice)', async () => {
+  it('uses syncInboxRipmail for confirming-handle (not onboarding historical slice)', async () => {
     dispatchMocks.readOnboardingStateDoc.mockResolvedValue({
       state: 'confirming-handle',
       updatedAt: new Date().toISOString(),

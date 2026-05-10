@@ -31,7 +31,15 @@ function applySchema(db: RipmailDb): void {
   for (const stmt of SCHEMA_STATEMENTS) {
     db.exec(stmt)
   }
+  db.prepare(`INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (1, 0)`).run()
+  db.prepare(`INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (2, 0)`).run()
   db.pragma(`user_version = ${SCHEMA_VERSION}`)
+}
+
+/** Ensure refresh/backfill lock rows exist (matches Rust bootstrap). */
+export function seedSyncSummaryRows(db: RipmailDb): void {
+  db.prepare(`INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (1, 0)`).run()
+  db.prepare(`INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (2, 0)`).run()
 }
 
 function openFresh(dbPath: string): RipmailDb {
@@ -70,6 +78,8 @@ export function openRipmailDb(ripmailHome: string): RipmailDb {
       db.close()
       rmSync(dbPath)
       db = openFresh(dbPath)
+    } else {
+      seedSyncSummaryRows(db)
     }
   }
 

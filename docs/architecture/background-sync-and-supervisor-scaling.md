@@ -17,7 +17,7 @@ How **incremental mail index refresh** (`ripmail refresh`) and the **Your Wiki**
 
 | Trigger | Tenant / scope | Notes |
 |--------|----------------|--------|
-| `POST /api/inbox/sync` | Current session → `brainHome()` / ripmail home | Fire-and-forget from handler; see [`inbox.ts`](../../src/server/routes/inbox.ts). Onboarding slice may use **`backfill 30d`** instead of `refresh`. |
+| `POST /api/inbox/sync` | Current session → `brainHome()` / ripmail home | Fire-and-forget from handler; see [`inbox.ts`](../../src/server/routes/inbox.ts). Onboarding may run **`syncInboxRipmailOnboarding`** (`refresh` + **`historicalSince: '1y'`**) instead of a plain `refresh`. |
 | `POST /api/calendar/sync` | Same | Full `ripmail refresh` (mail + indexed calendar); [`calendar.ts`](../../src/server/routes/calendar.ts). |
 | `POST /api/calendar/refresh` | Same | Calendar sources only (`-S` per calendar id). |
 | Your Wiki supervisor — laps after the first | Tenant bound when the loop started | **`refreshMailAndWait`** before enrich; ~90s cap; [`yourWikiSupervisor.ts`](../../src/server/agent/yourWikiSupervisor.ts). Lap 1 skips refresh (build-out after onboarding). |

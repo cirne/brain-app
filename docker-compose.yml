@@ -1,17 +1,15 @@
 # Local / staging: Brain in Docker with durable BRAIN_DATA_ROOT in a Docker named volume (not a host path / external drive).
 # Usage: copy .env.example → .env, set API keys, then:
-#   npm run docker:up   (prebuilds Linux ripmail on host or via rust:bookworm, then compose --build)
+#   npm run docker:up
 #
-# Compose overrides BRAIN_DATA_ROOT (multi-tenant volume root), RIPMAIL_BIN, and PORT (4000 in-container); other vars come from .env.
+# Compose overrides BRAIN_DATA_ROOT (multi-tenant volume root) and PORT (4000 in-container); other vars come from .env.
 # OPP-051 Enron demo: pre-seed tenants (see docs/architecture/enron-demo-tenant.md); mint/`/demo` returns 503 until mail exists
 # (download + index) when `ripmail.db` is not present — no separate compose service.
 # Optional: `EVAL_ENRON_TAR` in `.env` avoids downloading the CMU tarball inside the container.
 # Enable demo login with `BRAIN_ENRON_DEMO_SECRET` (any non-empty value) in `.env`.
 # Host publish port: BRAIN_DOCKER_PORT (default 4000) → container 4000.
 #
-# Ripmail arch must match the container OS/arch. If seed logs show `ripmail not runnable`, run `file .docker/linux-ripmail/ripmail`:
-# x86_64 on Apple Silicon often needs `BRAIN_DOCKER_PLATFORM=linux/amd64` in `.env` (or rebuild ripmail for arm64).
-# Default Docker engine arch + default prebuild → leave `BRAIN_DOCKER_PLATFORM` unset.
+# Apple Silicon: optional `BRAIN_DOCKER_PLATFORM=linux/amd64` in `.env` when you need an amd64 engine image.
 
 services:
   brain:
@@ -27,7 +25,6 @@ services:
     environment:
       NODE_ENV: production
       BRAIN_DATA_ROOT: /brain-data
-      RIPMAIL_BIN: /usr/local/bin/ripmail
       PORT: "4000"
       NEW_RELIC_APP_NAME: Braintunnel Local Dev
       PUBLIC_WEB_ORIGIN: http://localhost:4000

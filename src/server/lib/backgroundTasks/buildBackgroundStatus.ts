@@ -9,12 +9,12 @@ import {
 } from '@shared/onboardingProfileThresholds.js'
 import { listRecentFailedOrchestratorTasks } from './orchestrator.js'
 
+/** Hub hint while TS Gmail historical lane (`sync_summary` id=2) is active — onboarding uses a single ~1y slice from indexing onward. */
 export function inferBackfillPhase(
-  state: OnboardingMachineState,
+  _state: OnboardingMachineState,
   backfillRunning: boolean,
 ): '30d' | '1y' | null {
   if (!backfillRunning) return null
-  if (state === 'indexing' || state === 'not-started') return '30d'
   return '1y'
 }
 
@@ -60,7 +60,12 @@ export async function buildBackgroundStatusPayload(input: {
       state === 'done' &&
       indexed >= WIKI_BUILDOUT_MIN_MESSAGES &&
       wikiBootstrapGatePassed,
-    fullySynced: state === 'done' && mail.configured && !mail.backfillRunning && !mail.syncRunning,
+    fullySynced:
+      state === 'done' &&
+      mail.configured &&
+      !mail.backfillRunning &&
+      !mail.syncRunning &&
+      !(mail.deepHistoricalPending ?? false),
   }
 
   const failures = await listRecentFailedOrchestratorTasks(8)
@@ -85,6 +90,7 @@ export async function buildBackgroundStatusPayload(input: {
       lastSyncedAt: mail.lastSyncedAt,
       syncLockAgeMs: mail.syncLockAgeMs,
       pendingBackfill: mail.pendingBackfill,
+      deepHistoricalPending: mail.deepHistoricalPending ?? false,
       staleMailSyncLock: mail.staleMailSyncLock,
       indexingHint: mail.indexingHint,
       statusError: mail.statusError,

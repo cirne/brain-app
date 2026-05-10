@@ -90,7 +90,7 @@ export async function syncInboxRipmail(_signal?: AbortSignal): Promise<SyncCompo
   }
 }
 
-/** First onboarding pass: bounded window backfill (~30 days) vs full `refresh` defaultSince (~1y). See OPP-093. */
+/** First onboarding pass: single ~1y Gmail historical slice (TS `refresh` + `historicalSince`). Interview can start once count gates pass while this run continues in the background. */
 export async function syncInboxRipmailOnboarding(_signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
@@ -98,8 +98,7 @@ export async function syncInboxRipmailOnboarding(_signal?: AbortSignal): Promise
     console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (onboarding sync):', e)
   }
   try {
-    // TS sync handles backfill window via config.json sync.defaultSince
-    await ripmailRefresh(ripmailHomeForBrain())
+    await ripmailRefresh(ripmailHomeForBrain(), { historicalSince: '1y' })
     await syncMailNotifyNotificationsFromRipmailDbSafe()
     return { ok: true }
   } catch (e) {

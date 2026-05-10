@@ -291,9 +291,14 @@ export interface ArchiveResult {
 // Refresh (sync)
 // ---------------------------------------------------------------------------
 
+/** Hub onboarding/backfill vocabulary — Gmail TS sync only; IMAP ignores this today. */
+export type RipmailHistoricalSince = '30d' | '90d' | '180d' | '1y' | '2y'
+
 export interface RefreshOptions {
   sourceId?: string
   foreground?: boolean
+  /** Gmail historical window for messages.list (paginated). Incremental history.list when unset. */
+  historicalSince?: RipmailHistoricalSince
 }
 
 export interface RefreshResult {

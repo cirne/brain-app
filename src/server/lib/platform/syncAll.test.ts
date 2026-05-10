@@ -38,10 +38,13 @@ describe('ripmailRefreshEnv', () => {
 })
 
 describe('syncInboxRipmailOnboarding', () => {
-  it('runs ripmail backfill 30d without --foreground', async () => {
+  it('runs Gmail historical onboarding slice (~1y)', async () => {
     const r = await syncInboxRipmailOnboarding(undefined)
     expect(r.ok).toBe(true)
-    expect(ripmailRefreshMock).toHaveBeenCalled()
+    expect(ripmailRefreshMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ historicalSince: '1y' }),
+    )
   })
 
   it('returns { ok: false, error } when backfill fails', async () => {

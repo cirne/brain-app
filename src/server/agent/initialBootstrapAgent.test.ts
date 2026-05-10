@@ -20,6 +20,7 @@ describe('initialBootstrapAgent', () => {
       refreshRunning: false,
       backfillRunning: true,
       pendingBackfill: true,
+      deepHistoricalPending: false,
       syncRunning: false,
       indexingHint: null,
       lastSyncedAt: null,
@@ -30,6 +31,7 @@ describe('initialBootstrapAgent', () => {
     expect(block).toContain('Mailbox configured: true')
     expect(block).toContain('Date span in index: 2025-01-01 → 2026-05-01')
     expect(block).toContain('backfill lane running: true')
-    expect(block).toContain('pendingBackfill: true')
+    expect(block).toContain('pendingBackfill (gate): true')
+    expect(block).toContain('deepHistoricalPending (extended Gmail slice): false')
   })
 })

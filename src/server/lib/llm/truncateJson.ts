@@ -78,7 +78,7 @@ export function truncateJsonResult(text: string, maxChars: number): string {
 }
 
 /**
- * Every agent tool that wraps ripmail (`execRipmailAsync` in `@server/lib/ripmail/ripmailRun`; indexed mail+calendar data).
+ * Every agent tool that reads indexed mail/calendar via `@server/ripmail` (legacy note: some paths historically used `execRipmailAsync`).
  * The Node SSE layer must not truncate these results — size and shape are ripmail's responsibility.
  *
  * Keep in sync with `src/server/agent/tools.ts` (any `defineTool` that shells out to ripmail).

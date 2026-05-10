@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a Linux image (default linux/amd64) with arch-matched ripmail, push to DigitalOcean Container Registry,
+# Build a Linux image (default linux/amd64), push to DigitalOcean Container Registry,
 # tag the current commit with a deploy-* identifier, push the tag, and record a New Relic staging deployment marker.
 #
 # Prerequisites:
@@ -12,7 +12,7 @@
 # Environment:
 #   DOCKER_IMAGE_TAG — image tag and git tag (default: UTC deploy-YYYYMMDD-HHMMSSutc)
 #   DOCKER_PUBLISH_LATEST — set to 0 to skip tagging/pushing :latest (default: also push :latest)
-#   DOCKER_PUBLISH_PLATFORM — image/ripmail arch (default: linux/amd64)
+#   DOCKER_PUBLISH_PLATFORM — image platform (default: linux/amd64)
 #   NEW_RELIC_API_KEY — user API key for `newrelic` CLI (not the Node license key); also read from repo `.env` via loadDotEnv (see scripts/dotenv-shell-exports.ts)
 #   NEW_RELIC_DEPLOY_USER — optional; defaults to git user.email or whoami (may be set in `.env`)
 #   SKIP_NEW_RELIC_DEPLOYMENT — set to 1 to skip recording the NR deployment marker (still builds/pushes/tags git)
@@ -90,8 +90,6 @@ fi
 ensure_git_deploy_ready
 
 PLATFORM="${DOCKER_PUBLISH_PLATFORM:-linux/amd64}"
-export DOCKER_PLATFORM="$PLATFORM"
-npm run docker:ripmail:build
 
 TAG_ARGS=(-t "$DOCKER_IMAGE:$TAG")
 if [[ "${DOCKER_PUBLISH_LATEST:-1}" != "0" ]]; then

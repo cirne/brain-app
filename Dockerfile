@@ -1,7 +1,4 @@
-# Brain (Hono + Svelte) + ripmail — Linux server image. See docs/opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md
-#
-# ripmail is **not** compiled in this file. Run `npm run docker:ripmail:build` first (host cargo on
-# Linux, or a one-off rust:bookworm container with cached Cargo volumes on macOS).
+# Brain (Hono + Svelte) — Linux server image. See docs/opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md
 #
 # Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo` or `BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs` (host) or
 # `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.
@@ -51,10 +48,6 @@ COPY eval/fixtures/enron-kean-manifest.json /app/seed-enron/eval/fixtures/enron-
 COPY eval/fixtures/enron-lay-manifest.json /app/seed-enron/eval/fixtures/enron-lay-manifest.json
 COPY eval/fixtures/enron-skilling-manifest.json /app/seed-enron/eval/fixtures/enron-skilling-manifest.json
 COPY eval/fixtures/enron-demo-registry.json /app/seed-enron/eval/fixtures/enron-demo-registry.json
-COPY .docker/linux-ripmail/ripmail /usr/local/bin/ripmail
-RUN chmod +x /usr/local/bin/ripmail
-ENV RIPMAIL_BIN=/usr/local/bin/ripmail
 EXPOSE 4000
-# Reap zombie ripmail children if Node misses a wait (belt-and-suspenders with in-process reaping).
 ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
 CMD ["node", "dist/server/index.js"]

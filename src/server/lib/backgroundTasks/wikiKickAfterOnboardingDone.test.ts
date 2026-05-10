@@ -20,7 +20,7 @@ vi.mock('@server/agent/wikiBootstrapRunner.js', () => ({
 }))
 
 function mail(overrides: Partial<OnboardingMailStatusPayload> = {}): OnboardingMailStatusPayload {
-  return {
+  const base: OnboardingMailStatusPayload = {
     configured: true,
     indexedTotal: 1000,
     lastSyncedAt: null,
@@ -32,9 +32,14 @@ function mail(overrides: Partial<OnboardingMailStatusPayload> = {}): OnboardingM
     ftsReady: 1000,
     messageAvailableForProgress: 1000,
     pendingBackfill: false,
+    deepHistoricalPending: false,
     staleMailSyncLock: false,
     indexingHint: null,
+  }
+  return {
+    ...base,
     ...overrides,
+    deepHistoricalPending: overrides.deepHistoricalPending ?? base.deepHistoricalPending,
   }
 }
 

@@ -2,6 +2,7 @@
   import { Mail, BookOpen, Cable, RefreshCw, Pause, Play, Loader2 } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
+  import { formatMailIndexCoverage } from '@client/lib/onboarding/formatMailCoverageRange.js'
   import type { YourWikiPhase } from '@shared/backgroundStatus.js'
   import { t } from '@client/lib/i18n/index.js'
 
@@ -142,11 +143,22 @@
               {$t('hub.hubActivityOverview.mail.statusUnavailable')}
             </p>
           {:else if mailStatus}
+            {@const mailCoverage = formatMailIndexCoverage(mailStatus.dateRange.from, mailStatus.dateRange.to, {
+              present: $t('hub.hubActivityOverview.mail.coveragePresent'),
+              since: (d) => $t('hub.hubActivityOverview.mail.coverageSince', { date: d }),
+              range: (start, end) =>
+                $t('hub.hubActivityOverview.mail.coverageRange', { start, end }),
+              newestAround: (d) =>
+                $t('hub.hubActivityOverview.mail.coverageNewestAround', { date: d }),
+            })}
             <p class="mt-0.5 m-0 text-[0.8125rem] leading-snug text-muted">
               <span class="tabular-nums font-semibold text-foreground"
-                >{mailStatus.indexedTotal != null ? mailStatus.indexedTotal : '—'}</span
+                >{mailStatus.indexedTotal != null ? mailStatus.indexedTotal.toLocaleString() : '—'}</span
               >
               {$t('hub.hubActivityOverview.mail.messagesIndexed')}
+              {#if mailCoverage}
+                <span class="text-foreground/90"> · {mailCoverage}</span>
+              {/if}
               {#if mailStatus.syncRunning}
                 <span class="font-semibold text-accent">
                   {$t('hub.hubActivityOverview.mail.syncing', {
@@ -163,6 +175,11 @@
                 <span>{$t('hub.hubActivityOverview.mail.noSyncTimeYet')}</span>
               {/if}
             </p>
+            {#if mailStatus.deepHistoricalPending}
+              <p class="mt-1 m-0 text-[0.75rem] leading-snug text-muted">
+                {$t('hub.hubActivityOverview.mail.moreHistorySyncing')}
+              </p>
+            {/if}
           {:else}
             <p class="mt-0.5 m-0 text-[0.8125rem] text-muted">{$t('common.status.loading')}</p>
           {/if}

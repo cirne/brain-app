@@ -32,7 +32,7 @@ hub.get('/sources', async (c) => {
   return c.json(payload)
 })
 
-/** One source: config (`ripmail sources list --json`) + index stats (`ripmail sources status --json`). */
+/** One source: config (TS `sourcesList`, CLI parity) + stats (`sourcesStatus`). */
 hub.get('/sources/detail', async (c) => {
   const id = c.req.query('id')?.trim() ?? ''
   if (!id) {

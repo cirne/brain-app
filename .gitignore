@@ -23,8 +23,6 @@ coverage/
 playwright-report/
 test-results/
 target/
-# Linux ripmail ELF staged for Docker COPY (npm run docker:ripmail:build)
-.docker/linux-ripmail/
 desktop/binaries/ripmail-*
 desktop/src-tauri/bin/cloudflared-*
 desktop/resources/server-bundle/

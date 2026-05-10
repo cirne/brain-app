@@ -17,7 +17,7 @@ export const RIPMAIL_QUERY_TIMEOUT_MS = 60_000
 /** First-time / large-mailbox IMAP sync — matches `RIPMAIL_TIMEOUT` we forward to the child. */
 export const RIPMAIL_REFRESH_TIMEOUT_MS = 2 * 60 * 60 * 1000
 export const RIPMAIL_BACKFILL_TIMEOUT_MS = RIPMAIL_REFRESH_TIMEOUT_MS
-/** `ripmail status --json` may block while sync holds the DB. */
+/** Timeout budget when spawning the Rust **`ripmail status`** CLI (eval/e2e / diagnostics — Brain polls SQLite via TS instead). */
 export const RIPMAIL_STATUS_TIMEOUT_MS = 120_000
 /** Outbound SMTP: normally sub-second; cap long hangs (TCP/TLS stuck) with a hard kill. */
 export const RIPMAIL_SEND_TIMEOUT_MS = 30_000

@@ -96,53 +96,6 @@ SELECT message FROM Log WHERE entityGuid = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4
 
 If a log query returns no rows, try `FACET entityGuid` on recent `Log` events or filter by `hostname` / container attributes visible in `SHOW ATTRIBUTES FROM Log`.
 
-### Ripmail sync diagnostics (Log API)
-
-The **`ripmail`** binary POSTs sync diagnostic lines to the **Log API** (same content as `{RIPMAIL_HOME}/logs/sync.log`). They are **not** forwarded by the Node agent, so they usually **do not** appear under **APM & Services → … → Logs** for the app; query the account **`Log`** dataset in **Logs / NRQL** instead.
-
-**Identify ripmail sync rows**
-
-| Attribute | Typical value | Notes |
-|-----------|----------------|--------|
-| **`source`** | `ripmail_sync` | Strong filter. |
-| **`service.name`** | `ripmail` | Matches OpenTelemetry-style service tag on payload. |
-| **`message`** | e.g. `[INFO] …`, `ripmail sync run start pid=…` | Run-start lines set **`ripmail.sync.event`** (e.g. `sync_run_start`). |
-
-**Staging vs local dev**
-
-Ripmail inherits **`NEW_RELIC_APP_NAME`** from the Brain process, which becomes **`newrelic.appName`** on the log. Use it to separate environments (same names as the APM apps in [Entities](#entities-discovered-via-cli)):
-
-```sql
--- Local Docker / dev (compose sets this app name)
-SELECT timestamp, message, tenantUserId, workspaceHandle, hostname
-FROM Log
-WHERE source = 'ripmail_sync'
-  AND newrelic.appName = 'Braintunnel Local Dev'
-SINCE 3 hours ago
-LIMIT 100
-```
-
-```sql
--- Hosted staging
-SELECT timestamp, message, tenantUserId, workspaceHandle, hostname
-FROM Log
-WHERE source = 'ripmail_sync'
-  AND newrelic.appName = 'Braintunnel Staging'
-SINCE 3 hours ago
-LIMIT 100
-```
-
-If `newrelic.appName` is missing in some deploy, fall back to **`FACET newrelic.appName`** on `WHERE source = 'ripmail_sync'` or use **`hostname`** (e.g. short Docker container id vs staging host) as a coarse signal—less reliable than app name.
-
-**CLI**
-
-```bash
-newrelic nrql query --accountId 3774651 \
-  --query "SELECT count(*) FROM Log WHERE source = 'ripmail_sync' AND newrelic.appName = 'Braintunnel Local Dev' SINCE 24 hours ago"
-```
-
-More detail: [**docs/newrelic.md** — Ripmail sync diagnostics (Log API, Rust CLI)](../../../docs/newrelic.md#ripmail-sync-diagnostics-log-api-rust-cli).
-
 ### Distributed tracing (if enabled)
 
 ```sql
@@ -158,7 +111,6 @@ SELECT count(*) FROM Span WHERE appName = 'Braintunnel Staging' SINCE 1 hour ago
 | Error rate | `percentage(count(*), WHERE error = true) FROM Transaction …` |
 | Recent failures | `TransactionError` with same `appName` |
 | Health / Apdex | `apdex(duration, t)` FROM Transaction (tune threshold `t` to product SLO) |
-| Ripmail sync / Log API diagnostics | `FROM Log WHERE source = 'ripmail_sync'`; scope env with `newrelic.appName = 'Braintunnel Local Dev'` or `'Braintunnel Staging'` |
 
 Default time window if unspecified: `SINCE 1 hour ago`. Expand for “today”, “week”, etc.
 

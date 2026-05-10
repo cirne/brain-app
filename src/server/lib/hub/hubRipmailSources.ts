@@ -11,7 +11,7 @@ import {
 } from '@server/ripmail/index.js'
 import type { SourceConfig } from '@server/ripmail/sync/config.js'
 
-/** One row from `ripmail sources list --json`, normalized for Brain Hub. */
+/** One row from in-process `sourcesList` (CLI parity: `ripmail sources list --json`). */
 export type HubRipmailSourceRow = {
   id: string
   kind: string
@@ -24,7 +24,7 @@ export type HubRipmailSourcesPayload = {
   error?: string
 }
 
-/** One source from `ripmail sources status --json` (per config row + SQLite aggregates). */
+/** Per-source index stats from in-process `sourcesStatus` (CLI parity: `ripmail sources status --json`). */
 export type HubRipmailSourceStatusRow = {
   documentIndexRows: number
   calendarEventRows: number

@@ -7,7 +7,7 @@ describe('logStartupDiagnostics', () => {
     async () => {
       await logStartupDiagnostics()
     },
-    // Ripmail `--version` + `status --json` can exceed the default 5s under load.
+    // Startup diagnostics may touch filesystem / env checks — keep generous timeout for CI load spikes.
     15_000,
   )
 })
