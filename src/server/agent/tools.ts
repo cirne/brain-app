@@ -1,4 +1,5 @@
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import type { AgentTool } from '@mariozechner/pi-agent-core'
 import { createWikiScopedPiTools, type WikiWriteCreatesPolicy } from './tools/wikiScopedFsTools.js'
 import { createWikiFileManagementTools } from './tools/wikiFileManagementTools.js'
 import { createRipmailAgentTools } from './tools/ripmailAgentTools.js'
@@ -66,9 +67,7 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
  * Pi-coding-agent provides file tools (read/edit/write/grep/find).
  * Custom tools handle ripmail, calendar, web APIs, onboarding-adjacent flows, etc.
  */
-// Pi agent accepts this heterogeneous tool list; narrowing to ToolDefinition[] breaks AgentTool assignability downstream.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
+export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): AgentTool<any, any>[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
   const unifiedWikiRoot = options?.unifiedWikiRoot ?? wikiDir
@@ -157,12 +156,18 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const only = options?.onlyToolNames
   if (only?.length) {
     const allow = new Set(only)
-    return tools.filter((t: { name?: string }) => t.name == null || allow.has(t.name))
+    return tools.filter((t: { name?: string }) => t.name == null || allow.has(t.name)) as AgentTool<
+      any,
+      any
+    >[]
   }
   const omit = options?.omitToolNames
   if (omit?.length) {
     const drop = new Set(omit)
-    return tools.filter((t: { name?: string }) => t.name == null || !drop.has(t.name))
+    return tools.filter((t: { name?: string }) => t.name == null || !drop.has(t.name)) as AgentTool<
+      any,
+      any
+    >[]
   }
-  return tools
+  return tools as AgentTool<any, any>[]
 }

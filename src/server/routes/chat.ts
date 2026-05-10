@@ -72,10 +72,21 @@ chat.get('/sessions/:sessionId', async (c) => {
 // Body: { message, sessionId?, context?, initialBootstrapKickoff?, hearReplies? }
 // Response: SSE stream of agent events
 chat.post('/', async (c) => {
-  const body = await c.req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
   const initialBootstrapKickoff = body.initialBootstrapKickoff === true
   const hearReplies = body.hearReplies === true
-  const { sessionId = crypto.randomUUID(), context, timezone } = body
+  const rawSessionId = body.sessionId
+  const sessionId =
+    typeof rawSessionId === 'string' && rawSessionId.trim().length > 0
+      ? rawSessionId.trim()
+      : crypto.randomUUID()
+  const rawContext = body.context
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   const rawMessage = body.message
 
   let onboardingState = 'not-started'
@@ -166,12 +177,18 @@ chat.post('/', async (c) => {
   //   { files: string[] } — legacy file-grounded chat (wiki panel); paths must stay under wiki root
   let fileContext: string | undefined
   let validatedContextFiles: string[] | undefined
-  if (typeof context === 'string') {
-    fileContext = context
-  } else if (context?.files?.length) {
+  if (typeof rawContext === 'string') {
+    fileContext = rawContext
+  } else if (
+    rawContext &&
+    typeof rawContext === 'object' &&
+    !Array.isArray(rawContext) &&
+    Array.isArray((rawContext as { files?: unknown }).files) &&
+    (rawContext as { files: unknown[] }).files.length > 0
+  ) {
     const wikiRoot = wikiDir()
     const safeRelPaths: string[] = []
-    for (const filePath of context.files) {
+    for (const filePath of (rawContext as { files: unknown[] }).files) {
       if (typeof filePath !== 'string') {
         return c.json({ error: 'context.files entries must be strings' }, 400)
       }
@@ -199,7 +216,7 @@ chat.post('/', async (c) => {
     if (parts.length) fileContext = parts.join('\n\n')
   }
 
-  const selectionForSkill = typeof context === 'string' ? context : ''
+  const selectionForSkill = typeof rawContext === 'string' ? rawContext : ''
   const openFileForSkill = validatedContextFiles?.length ? validatedContextFiles[0] : undefined
 
   const slash = parseLeadingSlashCommand(promptMessage)
@@ -256,16 +273,16 @@ chat.post('/', async (c) => {
     return runWithSkillRequestContextAsync(
       { selection: selectionForSkill, openFile: openFileForSkill },
       async () =>
-        await streamAgentSseResponse(c, agent, rawMessage ?? promptMessage, {
+        await streamAgentSseResponse(c, agent, (typeof rawMessage === 'string' ? rawMessage : promptMessage), {
           wikiDirForDiffs: wikiDir(),
           announceSessionId: sessionId,
           agentKind: 'chat_skill',
           promptMessages: skillPromptMessages,
-          userMessageForPersistence: rawMessage as string,
+          userMessageForPersistence: typeof rawMessage === 'string' ? rawMessage : promptMessage,
           onTurnComplete: persist,
           onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
           initialSessionTitle,
-          timezone: typeof timezone === 'string' ? timezone : undefined,
+          timezone,
         }),
     )
   }
@@ -274,7 +291,7 @@ chat.post('/', async (c) => {
     const mail = await getOnboardingMailStatus()
     const mailFacts = formatMailIndexFactsForBootstrap(mail)
     const agent = await getOrCreateInitialBootstrapSession(sessionId, {
-      timezone: typeof timezone === 'string' ? timezone : undefined,
+      timezone,
       mailFactsBlock: mailFacts,
     })
     const mainPromptMessages = hearReplies
@@ -293,7 +310,7 @@ chat.post('/', async (c) => {
           omitUserMessageFromPersistence: initialBootstrapKickoff,
           onTurnComplete: persist,
           onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
-          timezone: typeof timezone === 'string' ? timezone : undefined,
+          timezone,
         }),
     )
   }
@@ -314,10 +331,10 @@ chat.post('/', async (c) => {
         announceSessionId: sessionId,
         agentKind: 'chat',
         promptMessages: mainPromptMessages,
-        userMessageForPersistence: rawMessage as string,
+        userMessageForPersistence: typeof rawMessage === 'string' ? rawMessage : promptMessage,
         onTurnComplete: persist,
         onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
-        timezone: typeof timezone === 'string' ? timezone : undefined,
+        timezone,
       }),
   )
 })

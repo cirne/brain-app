@@ -61,7 +61,7 @@
       <section class="ob-seed-progress-section" aria-labelledby="ob-seed-progress-heading">
         <h2 id="ob-seed-progress-heading" class="ob-prof-section-title">Progress</h2>
         <ul class="ob-seed-progress" role="list">
-          {#each seedingProgress.events as event}
+          {#each seedingProgress.events as event (event.key)}
             {#if event.type === 'text'}
               <li class="ob-prof-chat-msg ob-seed-text-msg" role="article">
                 <div class="ob-prof-msg-label">Assistant</div>

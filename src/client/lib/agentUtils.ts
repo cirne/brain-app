@@ -14,7 +14,7 @@ export type LlmUsageSnapshot = {
 export type ToolCall = {
   id: string
   name: string
-  args: any
+  args: Record<string, unknown>
   result?: string
   /** Structured tool payload from SSE (e.g. ripmail inbox JSON) when text is truncated or redundant. */
   details?: unknown
@@ -27,11 +27,24 @@ export type ToolPart = { type: 'tool'; toolCall: ToolCall }
 export type MessagePart = TextPart | ToolPart
 
 export type ChatMessage = {
+  /** Stable row id for `{#each}` keys and persistence (see server `chatTypes`). Assigned when missing. */
+  id?: string
   role: 'user' | 'assistant'
   content: string
   parts?: MessagePart[]
   thinking?: string
   usage?: LlmUsageSnapshot
+}
+
+export function newChatMessageId(): string {
+  return crypto.randomUUID()
+}
+
+/** Assigns missing ids (e.g. legacy session JSON) without rewriting existing stable ids. */
+export function ensureChatMessageIds(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) =>
+    typeof m.id === 'string' && m.id.length > 0 ? m : { ...m, id: newChatMessageId() },
+  )
 }
 
 /**

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { AssistantTurnState, ChatMessage, MessagePart, ToolCall } from './chatTypes.js'
 
 /** Mutable state for one assistant reply (mirrors AgentChat / agentStream SSE handling). */
@@ -80,6 +81,7 @@ export function applyStreamError(state: AssistantTurnState, message: string): vo
 
 export function toAssistantMessage(state: AssistantTurnState): ChatMessage {
   return {
+    id: randomUUID(),
     role: 'assistant',
     content: '',
     ...(state.parts.length ? { parts: state.parts.map(clonePart) } : {}),

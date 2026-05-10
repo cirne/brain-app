@@ -21,6 +21,8 @@ export type ToolPart = { type: 'tool'; toolCall: ToolCall }
 export type MessagePart = TextPart | ToolPart
 
 export type ChatMessage = {
+  /** Stable row id for list reconciliation (client + persisted transcript). Missing on legacy rows; hydrate assigns one. */
+  id?: string
   role: 'user' | 'assistant'
   content: string
   parts?: MessagePart[]

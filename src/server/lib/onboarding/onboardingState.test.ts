@@ -94,7 +94,7 @@ describe('onboardingState', () => {
     await appendTurn({
       sessionId: 'cc0e8400-e29b-41d4-a716-446655440088',
       userMessage: 'x',
-      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'y' }] },
+      assistantMessage: { id: 'asst-y', role: 'assistant', content: '', parts: [{ type: 'text', content: 'y' }] },
     })
     expect((await listSessions()).length).toBe(1)
     await writeFile(join(wikiDirPath(), 'me.md'), '# me', 'utf-8')

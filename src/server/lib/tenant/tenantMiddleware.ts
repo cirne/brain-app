@@ -8,17 +8,7 @@ import { readHandleMeta } from './handleMeta.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
 import { lookupTenantBySession } from './tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
-import { isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
-
-/** Allow these without a mapped session (handler uses explicit tenant or synthetic response). */
-function allowNoTenantContextMt(path: string, method: string): boolean {
-  if (path.startsWith('/api/oauth/google')) return true
-  if (path === '/api/vault/status' && (method === 'GET' || method === 'POST')) return true
-  if (path === '/api/vault/logout' && method === 'POST') return true
-  if (path === '/api/onboarding/status' && method === 'GET') return true
-  if (isEnronDemoPublicApiPath(path, method)) return true
-  return false
-}
+import { isTenantBootstrapPublicPath } from '@server/lib/auth/publicRoutePolicy.js'
 
 /**
  * Establishes per-request tenant home directory (AsyncLocalStorage).
@@ -59,7 +49,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, () => next())
   }
 
-  if (allowNoTenantContextMt(path, method)) {
+  if (isTenantBootstrapPublicPath(path, method)) {
     return next()
   }
 

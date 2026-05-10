@@ -12,6 +12,7 @@ import { execRipmailAsync, execRipmailArgv, RIPMAIL_SEND_TIMEOUT_MS } from '@ser
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 const inbox = new Hono()
 
@@ -48,8 +49,8 @@ inbox.get('/', async (c) => {
     const rows = flattenInboxFromRipmailData(data)
     return c.json(rows ?? [])
   } catch (err) {
-    console.error('ripmail inbox error:', err)
-    return c.json([], 200)
+    brainLogger.error({ err }, 'ripmail inbox error')
+    return c.json({ ok: false as const, error: 'ripmail_unavailable' }, 503)
   }
 })
 
@@ -61,7 +62,7 @@ inbox.post('/sync', async (c) => {
   const syncFn = isOnboardingSlice ? syncInboxRipmailOnboarding : syncInboxRipmail
   void syncFn(undefined).then((result) => {
     if (!result.ok) {
-      console.error('[inbox/sync] ripmail sync failed:', result.error ?? 'inbox sync failed')
+      brainLogger.error({ err: result.error ?? 'inbox sync failed' }, '[inbox/sync] ripmail sync failed')
     }
   })
   return c.json({ ok: true })

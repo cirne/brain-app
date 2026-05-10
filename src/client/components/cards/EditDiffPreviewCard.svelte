@@ -29,7 +29,7 @@
   <div
     class="edit-diff-lines m-0 max-h-[220px] overflow-auto border-t border-border pt-2 font-mono text-[11px] leading-[1.45] text-muted"
   >
-    {#each changedLines as line}
+    {#each changedLines as line, li (`${li}:${line}`)}
       <div
         class={cn(
           'edit-diff-line whitespace-pre-wrap break-words border-l-2 border-transparent pl-1',

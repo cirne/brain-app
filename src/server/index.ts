@@ -13,6 +13,12 @@ import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { runStartupChecks } from '@server/lib/platform/runStartupChecks.js'
 import { startTunnel, getActiveTunnelUrl, getHostGuid } from '@server/lib/platform/tunnelManager.js'
+import {
+  BRAIN_TUNNEL_COOKIE_NAME,
+  buildBrainTunnelGuidCookie,
+  decideNamedTunnelGuidAccess,
+  parseBrainTunnelCookie,
+} from '@server/lib/platform/tunnelAuth.js'
 import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { BRAIN_DEFAULT_HTTP_PORT } from '@server/lib/platform/brainHttpPort.js'
 import {
@@ -39,39 +45,31 @@ const isDev = isDevRuntime()
 
 // Global middleware to enforce Host GUID protection for tunnel traffic
 app.use('*', async (c, next) => {
-  const tunnelUrl = getActiveTunnelUrl()
-  if (!tunnelUrl) return next()
-
-  const host = c.req.header('host')
-  if (host && host.includes('brain.chatdnd.io')) {
-    const guid = getHostGuid()
-    const providedGuid = c.req.query('g')
-
-    const cookieGuid = getCookie(c, 'brain_g')
-
-    if (providedGuid === guid) {
-      c.header(
-        'Set-Cookie',
-        `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`,
-        { append: true },
-      )
-
-      if (c.req.header('accept')?.includes('text/html') && !c.req.path.startsWith('/api/')) {
-        const url = new URL(c.req.url)
-        url.searchParams.delete('g')
-        return c.redirect(url.toString(), 302)
-      }
+  const guid = getHostGuid()
+  const d = decideNamedTunnelGuidAccess({
+    tunnelActive: Boolean(getActiveTunnelUrl()),
+    hostHeader: c.req.header('host'),
+    pathname: c.req.path,
+    requestUrl: c.req.url,
+    acceptHeader: c.req.header('accept'),
+    queryParamG: c.req.query('g') ?? null,
+    cookieBrainG: getCookie(c, BRAIN_TUNNEL_COOKIE_NAME),
+    expectedGuid: guid,
+  })
+  switch (d.action) {
+    case 'passthrough':
+    case 'allow':
+      return next()
+    case 'allow_set_cookie': {
+      c.header('Set-Cookie', buildBrainTunnelGuidCookie(guid), { append: true })
+      if (d.redirectLocation) return c.redirect(d.redirectLocation, 302)
       return next()
     }
-
-    if (cookieGuid === guid) {
+    case 'deny':
+      return c.text('Unauthorized: Invalid or missing Magic GUID', 401)
+    default:
       return next()
-    }
-
-    return c.text('Unauthorized: Invalid or missing Magic GUID', 401)
   }
-
-  return next()
 })
 
 /**
@@ -138,45 +136,50 @@ async function start() {
       const honoHandler = getRequestListener(app.fetch)
       const server = createServer((req, res) => {
         const tunnelUrl = getActiveTunnelUrl()
-        const host = req.headers['host']
-        const needsNamedTunnelGuid = host && host.includes('brain.chatdnd.io')
+        const hostRaw = req.headers['host']
+        const hostStr = typeof hostRaw === 'string' ? hostRaw : Array.isArray(hostRaw) ? hostRaw[0] : undefined
 
-        if (tunnelUrl && needsNamedTunnelGuid) {
-          const url = new URL(req.url ?? '/', `http://${host}`)
-          const providedGuid = url.searchParams.get('g')
-          const guid = getHostGuid()
-
-          const cookies = req.headers['cookie'] ?? ''
-          const cookieMatch = cookies.match(/brain_g=([^;]+)/)
-          const cookieGuid = cookieMatch ? cookieMatch[1] : null
-
-          if (providedGuid === guid) {
-            res.setHeader(
-              'Set-Cookie',
-              `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`,
-            )
-
-            const accept = req.headers['accept'] ?? ''
-            if (accept.includes('text/html') && !req.url?.startsWith('/api/')) {
-              url.searchParams.delete('g')
-              res.writeHead(302, { Location: url.toString() })
-              res.end()
-              return
-            }
-          } else if (cookieGuid !== guid) {
-            res.writeHead(401, { 'Content-Type': 'text/plain' })
-            res.end('Unauthorized: Invalid or missing Magic GUID')
-            return
-          }
+        let pathname: string
+        let tunnelRequestUrl: string
+        let queryParamG: string | null
+        try {
+          const u = new URL(req.url ?? '/', `http://${hostStr ?? 'localhost'}`)
+          pathname = u.pathname
+          tunnelRequestUrl = u.toString()
+          queryParamG = u.searchParams.get('g')
+        } catch {
+          pathname = ''
+          tunnelRequestUrl = req.url ?? '/'
+          queryParamG = null
         }
 
-        const pathname = (() => {
-          try {
-            return new URL(req.url ?? '/', `http://${host ?? 'localhost'}`).pathname
-          } catch {
-            return ''
+        const guid = getHostGuid()
+        const tunnelDecision = decideNamedTunnelGuidAccess({
+          tunnelActive: Boolean(tunnelUrl),
+          hostHeader: hostStr,
+          pathname,
+          requestUrl: tunnelRequestUrl,
+          acceptHeader: typeof req.headers['accept'] === 'string' ? req.headers['accept'] : undefined,
+          queryParamG,
+          cookieBrainG: parseBrainTunnelCookie(
+            typeof req.headers['cookie'] === 'string' ? req.headers['cookie'] : undefined,
+          ),
+          expectedGuid: guid,
+        })
+
+        if (tunnelDecision.action === 'allow_set_cookie') {
+          res.setHeader('Set-Cookie', buildBrainTunnelGuidCookie(guid))
+          if (tunnelDecision.redirectLocation) {
+            res.writeHead(302, { Location: tunnelDecision.redirectLocation })
+            res.end()
+            return
           }
-        })()
+        } else if (tunnelDecision.action === 'deny') {
+          res.writeHead(401, { 'Content-Type': 'text/plain' })
+          res.end('Unauthorized: Invalid or missing Magic GUID')
+          return
+        }
+
         const devResetPath =
           pathname === '/reset' ||
           pathname === '/hard-reset' ||

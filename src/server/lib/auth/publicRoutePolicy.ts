@@ -6,7 +6,7 @@
  * so handlers can enforce their own credentials **after** tenant resolution; they must stay listed
  * there (not only here) so unauthenticated requests fail consistently with other API routes.
  */
-import { ENRON_DEMO_SEED_STATUS_PATH } from '@server/lib/auth/enronDemo.js'
+import { ENRON_DEMO_SEED_STATUS_PATH, isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
 
 export function isOnboardingStatusPublicPath(path: string, method: string): boolean {
   return method === 'GET' && path === '/api/onboarding/status'
@@ -16,6 +16,18 @@ export function isOnboardingStatusPublicPath(path: string, method: string): bool
 export function isVaultPublicRoute(path: string, method: string): boolean {
   if (path === '/api/vault/status' && (method === 'GET' || method === 'POST')) return true
   if (path === '/api/vault/logout' && method === 'POST') return true
+  return false
+}
+
+/**
+ * Paths allowed without tenant ALS resolution — must stay aligned with {@link vaultGateMiddleware}
+ * bootstrap allowances (OAuth, vault status, onboarding ping, Enron demo).
+ */
+export function isTenantBootstrapPublicPath(path: string, method: string): boolean {
+  if (path.startsWith('/api/oauth/google')) return true
+  if (isVaultPublicRoute(path, method)) return true
+  if (isOnboardingStatusPublicPath(path, method)) return true
+  if (isEnronDemoPublicApiPath(path, method)) return true
   return false
 }
 

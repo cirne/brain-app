@@ -18,6 +18,7 @@ import {
   createFindTool,
 } from '@mariozechner/pi-coding-agent'
 import { appendWikiEditRecord, coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { sanitizeWikiFilesystemToolError } from '@server/lib/wiki/wikiToolFsErrors.js'
 import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgentWritePolicy.js'
 import { formatWikiKebabNormalizedFromNote, resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
@@ -171,7 +172,9 @@ export function createWikiScopedPiTools(wikiRoot: string, options?: WikiScopedPi
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(agentPath, e)
       }
-      await appendWikiEditRecord(wikiRoot, 'edit', agentPath).catch(() => {})
+      await appendWikiEditRecord(wikiRoot, 'edit', agentPath).catch((err: unknown) => {
+        brainLogger.warn({ err }, 'wiki edit record failed')
+      })
       return result
     },
   }
@@ -213,7 +216,9 @@ export function createWikiScopedPiTools(wikiRoot: string, options?: WikiScopedPi
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(path, e)
       }
-      await appendWikiEditRecord(wikiRoot, 'write', path).catch(() => {})
+      await appendWikiEditRecord(wikiRoot, 'write', path).catch((err: unknown) => {
+        brainLogger.warn({ err }, 'wiki edit record failed')
+      })
 
       if (!normFrom) return result
 

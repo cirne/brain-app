@@ -1,21 +1,18 @@
 import { Agent } from '@mariozechner/pi-agent-core'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { Model } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import {
   buildCreateAgentToolsOptions,
-  ONBOARDING_BASE_OMIT,
   ONBOARDING_FINALIZE_ONLY,
   WIKI_CLEANUP_OMIT,
   type OnboardingAgentToolVariant,
 } from './agentToolSets.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
-
-/** @deprecated Use {@link ONBOARDING_BASE_OMIT} from `agentToolSets.js`. */
-export const ONBOARDING_OMIT_TOOL_NAMES = ONBOARDING_BASE_OMIT
 
 /**
  * Single place for onboarding **session IANA timezone**: system prompts and `createAgentTools` calendar enrichment.
@@ -45,6 +42,30 @@ export function buildDateContext(timezone: string): string {
     .find(p => p.type === 'timeZoneName')?.value ?? ''
   const utcOffset = gmtOffset.replace('GMT', 'UTC')
   return `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). When resolving dates or times for tools, always use this current date and the ${tz} timezone as the reference point.`
+}
+
+export function requireStandardBrainLlm(): Model<any> {
+  const { provider, modelId } = getStandardBrainLlm()
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    throw new Error(
+      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
+    )
+  }
+  return model
+}
+
+export function formatOnboardingPromptClock(timezone: string): { todayYmd: string; localTime: string; tz: string } {
+  const tz = timezone || 'UTC'
+  const now = new Date()
+  const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)
+  const localTime = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(now)
+  return { todayYmd, localTime, tz }
 }
 
 export type CreateOnboardingAgentOptions = {
@@ -90,13 +111,7 @@ export function createOnboardingAgent(
       ? { calendarAllowedOps: ['list_calendars', 'configure_source'] as const }
       : {}),
   })
-  const { provider, modelId } = getStandardBrainLlm()
-  const model = resolveModel(provider, modelId)
-  if (!model) {
-    throw new Error(
-      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
-    )
-  }
+  const model = requireStandardBrainLlm()
 
   const initialMessages = options?.initialMessages
   return new Agent({
@@ -122,13 +137,7 @@ export function createFinalizeAgent(systemPrompt: string, wikiRoot: string): Age
     includeLocalMessageTools: false,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
-  const { provider, modelId } = getStandardBrainLlm()
-  const model = resolveModel(provider, modelId)
-  if (!model) {
-    throw new Error(
-      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
-    )
-  }
+  const model = requireStandardBrainLlm()
 
   return new Agent({
     initialState: {
@@ -147,13 +156,7 @@ export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agen
     extraOmit: WIKI_CLEANUP_OMIT,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
-  const { provider, modelId } = getStandardBrainLlm()
-  const model = resolveModel(provider, modelId)
-  if (!model) {
-    throw new Error(
-      `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
-    )
-  }
+  const model = requireStandardBrainLlm()
 
   return new Agent({
     initialState: {

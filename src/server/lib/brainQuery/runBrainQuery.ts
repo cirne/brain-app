@@ -1,4 +1,4 @@
-import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import type { Agent, AgentEvent, AgentMessage, AgentTool } from '@mariozechner/pi-agent-core'
 import { Agent as AgentCtor } from '@mariozechner/pi-agent-core'
 import type { KnownProvider } from '@mariozechner/pi-ai'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
@@ -191,7 +191,7 @@ export function createBrainQueryResearchAgent(timezone: string, privacyPolicy: s
     calendarAllowedOps: ['events', 'list_calendars'],
     unifiedWikiRoot: wikiToolsDir(),
   })
-  const tools = [...researchTools, createRejectQuestionTool()]
+  const tools = [...researchTools, createRejectQuestionTool()] as AgentTool<any, any>[]
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
   const model = resolveModel(provider, modelId)

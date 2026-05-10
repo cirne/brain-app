@@ -179,10 +179,20 @@
   async function load() {
     try {
       const res = await fetch('/api/inbox', { credentials: 'include' })
-      if (res.ok) {
-        emails = await res.json()
+      let data: unknown
+      try {
+        data = await res.json()
+      } catch {
+        data = null
+      }
+      if (res.ok && Array.isArray(data)) {
+        emails = data
         error = null
+      } else if (res.status === 503 && data && typeof data === 'object' && 'error' in data) {
+        emails = []
+        error = 'Mail temporarily unavailable'
       } else {
+        emails = []
         error = 'Failed to load inbox'
       }
     } catch {

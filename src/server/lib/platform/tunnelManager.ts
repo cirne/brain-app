@@ -1,11 +1,17 @@
 import { Tunnel } from 'cloudflared'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { onboardingDataDir } from '@server/lib/onboarding/onboardingState.js'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { globalDir } from '@server/lib/tenant/dataRoot.js'
 
 let tunnelInstance: Tunnel | null = null
 let activeTunnelUrl: string | null = null
+
+/** Host used for named-tunnel public URLs and GUID gate checks (`BRAIN_TUNNEL_GATE_HOST`). */
+export function tunnelGateHostname(): string {
+  const raw = process.env.BRAIN_TUNNEL_GATE_HOST?.trim()
+  return raw && raw.length > 0 ? raw : 'brain.chatdnd.io'
+}
 
 /** Strip query string for logs — never log the magic `g` param (host GUID). */
 function tunnelUrlForLog(url: string): string {
@@ -19,11 +25,19 @@ function tunnelUrlForLog(url: string): string {
 }
 
 /**
+ * Persistent named-tunnel magic GUID — **machine/install scoped**, not per-tenant.
+ * Lives under `BRAIN_DATA_ROOT/.global/` so {@link getHostGuid} works before tenant ALS is set
+ * (tunnel gate middleware runs ahead of {@link tenantMiddleware}).
+ */
+export function hostGuidFilePath(): string {
+  return join(globalDir(), 'host-guid.txt')
+}
+
+/**
  * Returns a persistent GUID for this specific host/client.
- * Stored in the onboarding data directory.
  */
 export function getHostGuid(): string {
-  const guidPath = join(onboardingDataDir(), 'host-guid.txt')
+  const guidPath = hostGuidFilePath()
   try {
     if (existsSync(guidPath)) {
       return readFileSync(guidPath, 'utf-8').trim()
@@ -31,9 +45,10 @@ export function getHostGuid(): string {
   } catch {
     /* ignore */
   }
-  
+
   const newGuid = randomUUID()
   try {
+    mkdirSync(globalDir(), { recursive: true })
     writeFileSync(guidPath, newGuid, 'utf-8')
   } catch {
     /* ignore */
@@ -113,7 +128,7 @@ export async function startTunnel(port: number): Promise<string | null> {
       
       // Magic URL with a persistent GUID for this host
       const guid = getHostGuid()
-      activeTunnelUrl = `https://brain.chatdnd.io/?g=${guid}`
+      activeTunnelUrl = `https://${tunnelGateHostname()}/?g=${guid}`
       process.env.BRAIN_TUNNEL_URL = activeTunnelUrl
       
       // Named tunnels usually take a moment to connect

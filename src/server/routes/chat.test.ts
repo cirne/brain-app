@@ -262,7 +262,7 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       await appendTurn({
         sessionId,
         userMessage: 'hi',
-        assistantMessage: { role: 'assistant', content: '' },
+        assistantMessage: { id: 'asst-chat-del', role: 'assistant', content: '' },
       })
       expect(await loadSession(sessionId)).toBeTruthy()
 
@@ -294,7 +294,7 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       await appendTurn({
         sessionId,
         userMessage: 'hello world',
-        assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'ok' }] },
+        assistantMessage: { id: 'asst-chat-ok', role: 'assistant', content: '', parts: [{ type: 'text', content: 'ok' }] },
         title: 'My chat',
       })
 
@@ -318,13 +318,13 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       await appendTurn({
         sessionId: older,
         userMessage: 'first',
-        assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'a' }] },
+        assistantMessage: { id: 'asst-chat-a', role: 'assistant', content: '', parts: [{ type: 'text', content: 'a' }] },
       })
       await new Promise((r) => setTimeout(r, 5))
       await appendTurn({
         sessionId: newer,
         userMessage: 'second',
-        assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'b' }] },
+        assistantMessage: { id: 'asst-chat-b', role: 'assistant', content: '', parts: [{ type: 'text', content: 'b' }] },
       })
 
       const { default: chatRoute } = await import('./chat.js')
@@ -355,7 +355,7 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       await appendTurn({
         sessionId,
         userMessage: 'q',
-        assistantMessage: { role: 'assistant', content: '' },
+        assistantMessage: { id: 'asst-chat-doc', role: 'assistant', content: '' },
       })
 
       const { default: chatRoute } = await import('./chat.js')

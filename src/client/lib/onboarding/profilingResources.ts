@@ -331,9 +331,9 @@ function formatSeedingActiveLine(tc: ToolCall): SeedingProgressLine | null {
   return getToolDefinitionCore(tc.name).seedingProgressLine?.('active', tc) ?? null
 }
 
-export type SeedingProgressEvent = 
-  | { type: 'row'; done: boolean; line: SeedingProgressLine }
-  | { type: 'text'; content: string }
+export type SeedingProgressEvent =
+  | { type: 'row'; done: boolean; line: SeedingProgressLine; key: string }
+  | { type: 'text'; content: string; key: string }
 
 /**
  * Ordered seeding steps: one UI row per meaningful tool (parallel writes each keep their own row),
@@ -350,13 +350,17 @@ export function buildSeedingProgressUi(
     if (msg.role !== 'assistant') continue
     for (const part of msg.parts ?? []) {
       if (part.type === 'text' && part.content?.trim()) {
-        events.push({ type: 'text', content: part.content })
+        events.push({
+          type: 'text',
+          content: part.content,
+          key: `text-${msg.id}-${events.length}`,
+        })
       } else if (part.type === 'tool') {
         const tc = part.toolCall
         if (tc.name === 'set_chat_title') continue
         const line = tc.done ? formatSeedingCompletedLine(tc) : formatSeedingActiveLine(tc)
         if (line) {
-          events.push({ type: 'row', done: !!tc.done, line })
+          events.push({ type: 'row', done: !!tc.done, line, key: `row-${msg.id}-${tc.id}` })
         }
       }
     }

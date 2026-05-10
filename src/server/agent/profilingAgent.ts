@@ -6,7 +6,8 @@ import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
-import { createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { createOnboardingAgent, formatOnboardingPromptClock, resolveOnboardingSessionTimezone } from './agentFactory.js'
 
 const MAX_WHOAMI_PROMPT_CHARS = 8000
 
@@ -91,9 +92,7 @@ export function buildProfilingSystemPrompt(
   whoamiSubject: WhoamiProfileSubject | null = parseWhoamiProfileSubject(ripmailWhoami),
   userPeoplePage: UserPeoplePageRef | null = null,
 ): string {
-  const tz = timezone || 'UTC'
-  const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
-  const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date())
+  const { todayYmd, localTime, tz } = formatOnboardingPromptClock(timezone)
   const name = whoamiSubject?.displayName ?? 'the account holder'
   const email = whoamiSubject?.primaryEmail ?? '(see whoami below)'
   const userPageNote = userPeoplePage
@@ -129,11 +128,11 @@ export async function getOrCreateProfilingAgent(sessionId: string, options: { ti
   let userPeoplePage: UserPeoplePageRef | null = null
   if (whoamiSubject) {
     userPeoplePage = await ensureUserPeoplePageSkeleton(staging, whoamiSubject)
-    console.log(
+    brainLogger.info(
       `[brain-app] onboarding profiling: whoami subject=${whoamiSubject.displayName} <${whoamiSubject.primaryEmail}> userPeoplePage=${userPeoplePage.relativePath}`,
     )
   } else {
-    console.log('[brain-app] onboarding profiling: whoami (unparsed JSON — subject rules use raw block only)')
+    brainLogger.info('[brain-app] onboarding profiling: whoami (unparsed JSON — subject rules use raw block only)')
   }
   const agent = createOnboardingAgent(buildProfilingSystemPrompt(tz, whoami, whoamiSubject, userPeoplePage), wikiDir(), {
     variant: 'profiling',

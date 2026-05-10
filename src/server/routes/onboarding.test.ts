@@ -56,6 +56,7 @@ vi.mock('../agent/yourWikiSupervisor.js', async (importOriginal) => {
 import * as ripmailHeavySpawn from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import onboardingRoute from './onboarding.js'
 import * as onboardingMailStatus from '@server/lib/onboarding/onboardingMailStatus.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
@@ -673,7 +674,7 @@ describe('onboarding routes', () => {
       ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockImplementation(() =>
         Promise.reject(new Error('backfill failed')),
       )
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(brainLogger, 'error').mockImplementation(() => {})
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
         indexedTotal: 500,
@@ -701,8 +702,12 @@ describe('onboarding routes', () => {
       await vi.waitFor(() => {
         expect(errSpy).toHaveBeenCalled()
       })
-      const logged = errSpy.mock.calls.some(
-        (c) => typeof c[0] === 'string' && c[0].includes('[onboarding/state] background backfill 1y failed'),
+      const logged = errSpy.mock.calls.some((c) =>
+        c.some(
+          (arg) =>
+            typeof arg === 'string' &&
+            arg.includes('[onboarding/state] background backfill 1y failed'),
+        ),
       )
       expect(logged).toBe(true)
       errSpy.mockRestore()

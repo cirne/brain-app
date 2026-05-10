@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   amountValueToNumber,
+  BRAIN_OPENAI_PROJECT_ID_DEFAULT,
+  getBrainOpenAiProjectId,
   parseLlmUsageArgv,
   parseRelativeWindow,
   parseSince,
@@ -74,5 +76,20 @@ describe('openaiOrgUsage', () => {
     expect(parseLlmUsageArgv(['n', 'x', '--facet', 'api-key']).facet).toBe('api-key')
     expect(parseLlmUsageArgv(['n', 'x', '--facet', 'key']).facet).toBe('api-key')
     expect(parseLlmUsageArgv(['n', 'x', '--facet', 'model']).facet).toBe('model')
+  })
+
+  it('getBrainOpenAiProjectId falls back to default when env unset', () => {
+    const prev = process.env.BRAIN_OPENAI_PROJECT_ID
+    delete process.env.BRAIN_OPENAI_PROJECT_ID
+    expect(getBrainOpenAiProjectId()).toBe(BRAIN_OPENAI_PROJECT_ID_DEFAULT)
+    if (prev !== undefined) process.env.BRAIN_OPENAI_PROJECT_ID = prev
+  })
+
+  it('getBrainOpenAiProjectId trims BRAIN_OPENAI_PROJECT_ID when set', () => {
+    const prev = process.env.BRAIN_OPENAI_PROJECT_ID
+    process.env.BRAIN_OPENAI_PROJECT_ID = '  proj_other  '
+    expect(getBrainOpenAiProjectId()).toBe('proj_other')
+    if (prev === undefined) delete process.env.BRAIN_OPENAI_PROJECT_ID
+    else process.env.BRAIN_OPENAI_PROJECT_ID = prev
   })
 })

@@ -9,8 +9,8 @@ import type { ChatMessage } from './chatTypes.js'
 describe('persistedChatMessagesToAgentMessages', () => {
   it('maps user and plain assistant to user/assistant AgentMessages with text', () => {
     const messages: ChatMessage[] = [
-      { role: 'user', content: 'Hello' },
-      { role: 'assistant', content: 'Hi there.' },
+      { id: 'u-hi', role: 'user', content: 'Hello' },
+      { id: 'a-hi', role: 'assistant', content: 'Hi there.' },
     ]
     const out = persistedChatMessagesToAgentMessages(messages)
     expect(out).toHaveLength(2)
@@ -23,6 +23,7 @@ describe('persistedChatMessagesToAgentMessages', () => {
   it('merges assistant text parts and tool parts into one assistant text block', () => {
     const messages: ChatMessage[] = [
       {
+        id: 'a-trip',
         role: 'assistant',
         content: '',
         parts: [
@@ -55,6 +56,7 @@ describe('persistedChatMessagesToAgentMessages', () => {
     const long = 'x'.repeat(5000)
     const messages: ChatMessage[] = [
       {
+        id: 'a-grep-long',
         role: 'assistant',
         content: '',
         parts: [
@@ -82,7 +84,7 @@ describe('persistedChatMessagesToAgentMessages', () => {
   it('keeps only the last maxMessages rows when the transcript is long', () => {
     const messages: ChatMessage[] = []
     for (let i = 0; i < 201; i++) {
-      messages.push({ role: 'user', content: `turn-${i}` })
+      messages.push({ id: `u-${i}`, role: 'user', content: `turn-${i}` })
     }
     const out = persistedChatMessagesToAgentMessages(messages, { maxMessages: 200 })
     expect(out).toHaveLength(200)
@@ -93,7 +95,7 @@ describe('persistedChatMessagesToAgentMessages', () => {
   it('default cap matches HYDRATION_MAX_CHAT_MESSAGES', () => {
     const over = new Array(HYDRATION_MAX_CHAT_MESSAGES + 1)
       .fill(null)
-      .map((_, i) => ({ role: 'user' as const, content: `m${i}` }))
+      .map((_, i) => ({ id: `u-cap-${i}`, role: 'user' as const, content: `m${i}` }))
     const out = persistedChatMessagesToAgentMessages(over)
     expect(out).toHaveLength(HYDRATION_MAX_CHAT_MESSAGES)
   })
