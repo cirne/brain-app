@@ -8,6 +8,7 @@
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
   import { yourWikiNarrativeLine } from '@client/lib/yourWikiNarrative.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     onOpenWiki: (_path: string) => void
@@ -65,7 +66,7 @@
   const isPaused = $derived(phase === 'paused')
 
   const statusNarrative = $derived(
-    doc ? yourWikiNarrativeLine(phase, doc.detail) : 'Loading…',
+    doc ? yourWikiNarrativeLine(phase, doc.detail) : $t('common.status.loading'),
   )
 
   const panelScrollTarget = $derived(activityScrollContainer ?? detailScrollRoot)
@@ -156,8 +157,7 @@
 >
   {#if !hideSectionLead}
     <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-snug text-muted">
-      Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up
-      links and structure. Pause anytime; when you resume, the next background pass starts fresh.
+      {$t('wiki.yourWikiDetail.sectionLead')}
     </p>
   {/if}
 
@@ -177,16 +177,16 @@
             isIdle && 'idle bg-surface-3 text-muted',
           )}
         >
-          {phase === 'starting' ? 'Starting' :
-           phase === 'enriching' ? 'Enriching' :
-           phase === 'cleaning' ? 'Cleaning up' :
-           phase === 'paused' ? 'Paused' :
-           phase === 'error' ? 'Error' :
-           'Idle'}
+          {phase === 'starting' ? $t('nav.yourWiki.phase.starting') :
+           phase === 'enriching' ? $t('nav.yourWiki.phase.enriching') :
+           phase === 'cleaning' ? $t('nav.yourWiki.phase.cleaning') :
+           phase === 'paused' ? $t('nav.yourWiki.phase.paused') :
+           phase === 'error' ? $t('nav.yourWiki.phase.error') :
+           $t('nav.yourWiki.phase.idle')}
         </span>
         {#if doc.pageCount > 0}
           <span class="page-count text-[0.8125rem] text-muted [font-variant-numeric:tabular-nums]"
-            >{doc.pageCount} pages</span
+            >{$t('nav.yourWiki.pageCount', { count: doc.pageCount })}</span
           >
         {/if}
       </div>
@@ -198,10 +198,10 @@
               class="{actionBtnBase} {actionBtnSecondary}"
               disabled={actionBusy}
               onclick={pause}
-              title="Pause background wiki updates"
+              title={$t('wiki.yourWikiDetail.actions.pauseTitle')}
             >
               <Pause size={14} aria-hidden="true" />
-              Pause
+              {$t('common.actions.pause')}
             </button>
           {:else if isPaused || phase === 'error'}
             <button
@@ -209,10 +209,10 @@
               class="{actionBtnBase} {actionBtnPrimary}"
               disabled={actionBusy}
               onclick={resume}
-              title="Resume background wiki updates (starts the next pass)"
+              title={$t('wiki.yourWikiDetail.actions.resumeTitle')}
             >
               <Play size={14} aria-hidden="true" />
-              Resume
+              {$t('common.actions.resume')}
             </button>
           {/if}
           {#if isIdle && !isPaused}
@@ -221,10 +221,10 @@
               class="{actionBtnBase} {actionBtnGhost}"
               disabled={actionBusy}
               onclick={runBackgroundUpdate}
-              title="Run a background wiki refresh now"
+              title={$t('wiki.yourWikiDetail.actions.updateNowTitle')}
             >
               <RefreshCw size={14} aria-hidden="true" />
-              Update wiki now
+              {$t('wiki.yourWikiDetail.actions.updateNow')}
             </button>
           {/if}
         </div>
@@ -235,7 +235,7 @@
       {statusNarrative}
     </p>
   {:else}
-    <p class="phase-description m-0 max-w-[40rem] text-sm leading-snug text-muted">Loading…</p>
+    <p class="phase-description m-0 max-w-[40rem] text-sm leading-snug text-muted">{$t('common.status.loading')}</p>
   {/if}
 
   <div class="activity-section flex flex-col gap-2">
@@ -243,7 +243,7 @@
       class="activity-label flex items-center gap-1.5 border-b border-border pb-2 text-xs font-bold uppercase tracking-[0.07em] text-muted"
     >
       <Sparkles size={14} aria-hidden="true" />
-      Steps
+      {$t('wiki.yourWikiDetail.steps')}
     </div>
     <BackgroundAgentPanel
       embedInHubDetail

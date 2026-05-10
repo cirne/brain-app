@@ -1,5 +1,6 @@
 <script lang="ts">
   import WikiFileName from '@components/WikiFileName.svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     dirty = [],
@@ -29,7 +30,7 @@
   {#if showSectionLabels}
     <div
       class="wfl-section unsaved-label border-b border-border px-3 pb-[3px] pt-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
-    >Unsaved</div>
+    >{$t('wiki.fileList.unsaved')}</div>
   {/if}
   {#each dirty as path (path)}
     <button
@@ -46,7 +47,7 @@
   {#if showSectionLabels && dirty.length > 0}
     <div
       class="wfl-section border-b border-border px-3 pb-[3px] pt-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
-    >Recent</div>
+    >{$t('wiki.fileList.recent')}</div>
   {/if}
   {#each recent as file (file.path)}
     <button

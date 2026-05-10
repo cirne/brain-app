@@ -5,6 +5,7 @@
    */
   import { BookOpen, LayoutGrid } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     /** Page count from Your Wiki doc or `/api/wiki` list length. */
@@ -41,8 +42,10 @@
   )}
   role="img"
   aria-label={count != null
-    ? `${count} page${count === 1 ? '' : 's'} in wiki${showPulse ? ', background activity' : ''}`
-    : 'Wiki page count loading'}
+    ? showPulse
+      ? $t('wiki.pageCountIndicator.aria.countWithActivity', { count })
+      : $t('wiki.pageCountIndicator.aria.count', { count })
+    : $t('wiki.pageCountIndicator.aria.loading')}
 >
   {#if showPulse}
     <div

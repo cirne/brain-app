@@ -2,6 +2,7 @@
   import { BookOpen, User } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { getDirIcon, SpecialFileIcon } from '@client/lib/dirIcons.js'
+  import { t } from '@client/lib/i18n/index.js'
   import { isWikiRootIndexPath } from '@client/lib/wikiPathDisplay.js'
   import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
 
@@ -37,11 +38,11 @@
   )}
 >
   {#if isUserProfileMe}
-    <span class="wfn-lead-icon text-accent opacity-85" title="Profile (me.md)">
+    <span class="wfn-lead-icon text-accent opacity-85" title={$t('wiki.fileName.profileTitle')}>
       <User size={12} />
     </span>
   {:else if isWikiRootIndexPath(path)}
-    <span class="wfn-lead-icon text-accent opacity-85" title="My Wiki">
+    <span class="wfn-lead-icon text-accent opacity-85" title={$t('nav.wiki.root')}>
       <BookOpen size={12} />
     </span>
   {:else if isSpecial}

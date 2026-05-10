@@ -3,6 +3,7 @@
   import { renderMarkdownBody } from '@client/lib/markdown.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import type { SurfaceContext } from '@client/router.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     id,
@@ -58,7 +59,7 @@
     onContextChange?.({
       type: 'indexed-file',
       id: fileId,
-      title: '(loading)',
+      title: $t('wiki.indexedFileViewer.loadingTitle'),
       sourceKind: '',
       ...(source?.trim() ? { source: source.trim() } : {}),
     })
@@ -104,7 +105,7 @@
   class="indexed-file-view box-border flex h-full min-h-0 min-w-0 flex-col overflow-auto px-4 py-3"
 >
   {#if loading}
-    <p class="muted text-[0.9rem] text-muted">Loading…</p>
+    <p class="muted text-[0.9rem] text-muted">{$t('common.status.loading')}</p>
   {:else if err}
     <p class="err text-[0.9rem] text-[var(--error,#c44)]">{err}</p>
   {:else if useSpreadsheetViewer}

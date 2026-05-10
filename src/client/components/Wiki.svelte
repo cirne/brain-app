@@ -22,6 +22,7 @@
   import { parseUnifiedWikiBrowsePath, type WikiFileRow } from '@client/lib/wikiDirListModel.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type WikiFile = WikiFileRow
 
@@ -382,9 +383,9 @@
         use:upgradeWikiLinks={content}
       >
         {#if loading}
-          <p class="status text-sm text-muted">Loading...</p>
+          <p class="status text-sm text-muted">{$t('wiki.viewer.loading')}</p>
         {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}
-          <p class="stream-label m-0 mb-3 text-xs font-semibold text-accent" role="status">Agent is writing…</p>
+          <p class="stream-label m-0 mb-3 text-xs font-semibold text-accent" role="status">{$t('wiki.viewer.agentWriting')}</p>
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <div class="markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
         {:else}
@@ -399,7 +400,7 @@
               >
                 <Loader2 size={12} strokeWidth={2.5} />
               </span>
-              Editing…
+              {$t('wiki.viewer.editing')}
             </p>
           {/if}
           {#if content}
@@ -418,9 +419,9 @@
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html content}
           {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
-            <p class="status text-sm text-muted">Loading current page…</p>
+            <p class="status text-sm text-muted">{$t('wiki.viewer.loadingCurrentPage')}</p>
           {:else}
-            <p class="status text-sm text-muted">No page selected</p>
+            <p class="status text-sm text-muted">{$t('wiki.viewer.noPageSelected')}</p>
           {/if}
         {/if}
       </article>
