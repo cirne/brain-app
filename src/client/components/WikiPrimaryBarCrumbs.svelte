@@ -5,6 +5,7 @@
     wikiPrimaryCrumbMenuIcon,
     type WikiPrimaryCrumb,
   } from '@client/lib/wikiPrimaryBarCrumbs.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   /** Navigate to wiki directory; omit path for vault root. */
   type OpenWikiDir = (_path?: string) => void
@@ -46,7 +47,7 @@
 
 <div
   class="wiki-primary-crumbs flex min-w-0 flex-1 items-center text-[13px] font-medium text-muted"
-  aria-label="Wiki location"
+  aria-label={$t('wiki.primaryBarCrumbs.locationAria')}
 >
   <CollapsibleBreadcrumb items={breadcrumbItems} />
 </div>

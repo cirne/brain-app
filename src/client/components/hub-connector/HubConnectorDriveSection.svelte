@@ -11,6 +11,7 @@
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { HubSourceDetailFileSource } from '@client/lib/hub/hubRipmailSource.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type DriveFolderSuggestion = {
     id: string
@@ -30,7 +31,7 @@
 
   /** Plain-language skips when the model returns globs but no summary. */
   const DRIVE_SKIP_FALLBACK_SUMMARY =
-    'Applying also adds skips for temporary files, Office lock files, unfinished downloads, backups, archives, and common audio and video.'
+    $t('hub.hubConnectorDriveSection.suggestions.fallbackSkipSummary')
 
   // ---------- draft state ----------
 
@@ -88,7 +89,7 @@
         body: JSON.stringify({ id: sourceId, fileSource: payload }),
       })
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!res.ok || !j.ok) throw new Error(j.error || 'Save failed')
+      if (!res.ok || !j.ok) throw new Error(j.error || $t('hub.hubConnectorDriveSection.errors.saveFailed'))
       onSaved()
       return true
     } catch (e) {
@@ -107,7 +108,7 @@
     })
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
     if (!res.ok || !j.ok) {
-      saveErr = j.error || 'Could not update Shared with me'
+      saveErr = j.error || $t('hub.hubConnectorDriveSection.errors.updateSharedWithMe')
       sharedWithMe = !v
     } else {
       onSaved()
@@ -154,7 +155,7 @@
       if (parentId) u.searchParams.set('parentId', parentId)
       const res = await fetch(u.toString())
       const j = (await res.json()) as { ok?: boolean; folders?: typeof browserFolders; error?: string }
-      if (!res.ok || !j.ok) throw new Error(j.error || 'Could not list folders')
+      if (!res.ok || !j.ok) throw new Error(j.error || $t('hub.hubConnectorDriveSection.errors.listFolders'))
       browserFolders = Array.isArray(j.folders) ? j.folders : []
     } catch (e) {
       browserErr = e instanceof Error ? e.message : String(e)
@@ -209,7 +210,7 @@
         ignoreSummary?: string
         error?: string
       }
-      if (!res.ok || !j.ok) throw new Error(j.error || 'Suggestions failed')
+      if (!res.ok || !j.ok) throw new Error(j.error || $t('hub.hubConnectorDriveSection.errors.suggestionsFailed'))
       suggestions = Array.isArray(j.suggestions) ? j.suggestions : []
       suggestionGlobs = Array.isArray(j.ignoreGlobs) ? j.ignoreGlobs : []
       suggestionSummary = typeof j.ignoreSummary === 'string' ? j.ignoreSummary : ''
@@ -277,6 +278,21 @@
 
   const suggestionGlobsPending = $derived(suggestionGlobs.filter((g) => !ignoreGlobs.includes(g)))
   const canApplySuggestions = $derived(selectedCount > 0 || suggestionGlobsPending.length > 0)
+  const applySuggestionsLabel = $derived.by(() => {
+    if (saveBusy) return $t('hub.hubConnectorDriveSection.suggestions.apply.saving')
+    if (selectedCount > 0 && suggestionGlobsPending.length > 0) {
+      return $t('hub.hubConnectorDriveSection.suggestions.apply.foldersAndSkips', {
+        count: selectedCount,
+      })
+    }
+    if (selectedCount > 0) {
+      return $t('hub.hubConnectorDriveSection.suggestions.apply.foldersOnly', { count: selectedCount })
+    }
+    if (suggestionGlobsPending.length > 0) {
+      return $t('hub.hubConnectorDriveSection.suggestions.apply.fileSkips')
+    }
+    return $t('common.actions.apply')
+  })
 
   const driveSuggestHumanSkipsLine = $derived.by(() => {
     const trimmed = suggestionSummary.trim()
@@ -308,7 +324,7 @@
   class="drive-section mt-1 flex flex-col gap-[0.6rem]"
   aria-labelledby="drive-folders-heading"
 >
-  <h2 id="drive-folders-heading" class={driveHeading}>Folders</h2>
+  <h2 id="drive-folders-heading" class={driveHeading}>{$t('hub.hubConnectorDriveSection.heading')}</h2>
 
   {#if saveErr}
     <p class={driveErr} role="alert">{saveErr}</p>
@@ -317,7 +333,7 @@
   <!-- Empty state -->
   {#if roots.length === 0 && !suggestOpen && !browserOpen}
     <p class="drive-empty-hint m-0 text-[0.8125rem] leading-[1.45] text-muted">
-      Choose which Drive folders Braintunnel indexes. Braintunnel requires at least one folder.
+      {$t('hub.hubConnectorDriveSection.emptyHint')}
     </p>
     <div class="drive-empty-ctas flex flex-wrap gap-2">
       <button
@@ -328,10 +344,10 @@
       >
         {#if suggestBusy}
           <RefreshCw size={15} aria-hidden="true" class="drive-spin" />
-          Analyzing your Drive…
+          {$t('hub.hubConnectorDriveSection.actions.analyzingDrive')}
         {:else}
           <Sparkles size={15} aria-hidden="true" />
-          Suggest folders with AI
+          {$t('hub.hubConnectorDriveSection.actions.suggestFoldersWithAi')}
         {/if}
       </button>
       <button
@@ -340,7 +356,7 @@
         onclick={openBrowser}
       >
         <Folder size={15} aria-hidden="true" />
-        Browse folders
+        {$t('hub.hubConnectorDriveSection.actions.browseFolders')}
       </button>
     </div>
     {#if suggestErr}
@@ -362,19 +378,21 @@
             >{root.name}</span>
             <label
               class="drive-subfolder-toggle flex shrink-0 cursor-pointer items-center gap-[0.3rem]"
-              title="Include subfolders"
+              title={$t('hub.hubConnectorDriveSection.folderCard.includeSubfoldersTitle')}
             >
               <input
                 type="checkbox"
                 checked={root.recursive}
                 onchange={(e) => setRecursive(i, (e.currentTarget as HTMLInputElement).checked)}
               />
-              <span class="drive-subfolder-label whitespace-nowrap text-xs text-muted">Subfolders</span>
+              <span class="drive-subfolder-label whitespace-nowrap text-xs text-muted">
+                {$t('hub.hubConnectorDriveSection.folderCard.subfolders')}
+              </span>
             </label>
             <button
               type="button"
               class={cn(hubIconBtn, 'drive-remove-btn shrink-0 hover:text-danger')}
-              aria-label="Remove {root.name}"
+              aria-label={$t('hub.hubConnectorDriveSection.folderCard.removeAria', { name: root.name })}
               disabled={saveBusy}
               onclick={() => removeRoot(i)}
             >
@@ -394,7 +412,7 @@
           onclick={openBrowser}
         >
           <FolderOpen size={14} aria-hidden="true" />
-          Add folder
+          {$t('hub.hubConnectorDriveSection.actions.addFolder')}
         </button>
         <button
           type="button"
@@ -404,10 +422,10 @@
         >
           {#if suggestBusy}
             <RefreshCw size={14} aria-hidden="true" class="drive-spin" />
-            Analyzing…
+            {$t('hub.hubConnectorDriveSection.actions.analyzing')}
           {:else}
             <Sparkles size={14} aria-hidden="true" />
-            Suggest
+            {$t('hub.hubConnectorDriveSection.actions.suggest')}
           {/if}
         </button>
       </div>
@@ -424,11 +442,13 @@
     >
       <div class="drive-suggest-header flex items-center gap-[0.4rem] text-accent">
         <Sparkles size={14} aria-hidden="true" />
-        <span class="drive-suggest-title flex-1 text-[0.8125rem] font-semibold">Suggested folders</span>
+        <span class="drive-suggest-title flex-1 text-[0.8125rem] font-semibold">
+          {$t('hub.hubConnectorDriveSection.suggestions.title')}
+        </span>
         <button
           type="button"
           class={cn(hubIconBtn, 'drive-suggest-close')}
-          aria-label="Dismiss suggestions"
+          aria-label={$t('hub.hubConnectorDriveSection.suggestions.dismissAria')}
           onclick={() => (suggestOpen = false)}
         >
           <X size={14} />
@@ -436,7 +456,7 @@
       </div>
       {#if suggestions.length === 0}
         <p class="drive-suggest-empty m-0 text-[0.8125rem] text-muted">
-          No folders found in your Drive to suggest.
+          {$t('hub.hubConnectorDriveSection.suggestions.empty')}
         </p>
       {:else}
         <ul
@@ -465,8 +485,10 @@
                   {checked}
                   disabled={alreadyAdded}
                   aria-label={alreadyAdded
-                    ? `${s.name}, already in your folders`
-                    : `${checked ? 'Deselect' : 'Select'} ${s.name}`}
+                    ? $t('hub.hubConnectorDriveSection.suggestions.itemAlreadyAddedAria', { name: s.name })
+                    : checked
+                      ? $t('hub.hubConnectorDriveSection.suggestions.deselectAria', { name: s.name })
+                      : $t('hub.hubConnectorDriveSection.suggestions.selectAria', { name: s.name })}
                   onchange={() => toggleSuggestion(s.id)}
                 />
                 <span
@@ -512,12 +534,14 @@
               <summary
                 class="drive-suggest-details-summary cursor-pointer select-none px-[0.1rem] font-medium text-foreground"
               >
-                Technical patterns (optional)
+                {$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsOptional')}
               </summary>
               <p
                 class="drive-suggest-details-note mt-[0.35rem] text-[0.76rem] leading-[1.38] text-muted"
               >
-                These are merged into <strong>Ignore patterns</strong> under Advanced when you apply.
+                {$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsNote.beforeStrong')}
+                <strong>{$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsNote.strong')}</strong>
+                {$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsNote.afterStrong')}
               </p>
               <pre
                 class="drive-suggest-patterns mt-[0.45rem] max-h-36 overflow-auto whitespace-pre-wrap break-all border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-[0.45rem] py-[0.35rem] font-mono text-[0.7rem] leading-[1.35]"
@@ -525,7 +549,7 @@
             </details>
           {:else}
             <p class="drive-suggest-hint-muted m-0 text-[0.8rem] italic leading-[1.42] text-muted">
-              Suggested file skips are already in your ignore list.
+              {$t('hub.hubConnectorDriveSection.suggestions.skipsAlreadyPresent')}
             </p>
           {/if}
         {/if}
@@ -538,23 +562,15 @@
           >
             {#if saveBusy}
               <RefreshCw size={14} aria-hidden="true" class="drive-spin" />
-              Applying…
-            {:else if selectedCount > 0 && suggestionGlobsPending.length > 0}
-              Apply · {selectedCount} folder{selectedCount !== 1 ? 's' : ''} and file skips
-            {:else if selectedCount > 0}
-              Apply {selectedCount} folder{selectedCount !== 1 ? 's' : ''}
-            {:else if suggestionGlobsPending.length > 0}
-              Apply file skips
-            {:else}
-              Apply
             {/if}
+            {applySuggestionsLabel}
           </button>
           <button
             type="button"
             class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
             onclick={() => (suggestOpen = false)}
           >
-            Dismiss
+            {$t('common.actions.dismiss')}
           </button>
         </div>
       {/if}
@@ -575,7 +591,7 @@
             class="drive-bc-seg drive-bc-root cursor-pointer border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-muted hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
             onclick={() => { browserStack = []; void loadBrowser(undefined) }}
           >
-            My Drive
+            {$t('hub.hubConnectorDriveSection.browser.root')}
           </button>
           {#each browserStack as seg, i (seg.id + i)}
             <ChevronRight size={13} class="drive-bc-sep" aria-hidden="true" />
@@ -593,7 +609,7 @@
         <button
           type="button"
           class={cn(hubIconBtn, 'drive-browser-close shrink-0')}
-          aria-label="Close folder browser"
+          aria-label={$t('hub.hubConnectorDriveSection.browser.closeAria')}
           onclick={() => (browserOpen = false)}
         >
           <X size={14} />
@@ -601,11 +617,13 @@
       </div>
 
       {#if browserLoading}
-        <p class="drive-browser-note m-0 text-[0.8125rem] text-muted">Loading…</p>
+        <p class="drive-browser-note m-0 text-[0.8125rem] text-muted">{$t('common.status.loading')}</p>
       {:else if browserErr}
         <p class={driveErr} role="alert">{browserErr}</p>
       {:else if browserFolders.length === 0}
-        <p class="drive-browser-note m-0 text-[0.8125rem] text-muted">No subfolders here.</p>
+        <p class="drive-browser-note m-0 text-[0.8125rem] text-muted">
+          {$t('hub.hubConnectorDriveSection.browser.noSubfolders')}
+        </p>
       {:else}
         <ul class="drive-browser-list m-0 list-none p-0">
           {#each browserFolders as f (f.id)}
@@ -635,7 +653,9 @@
                 disabled={alreadyAdded || saveBusy}
                 onclick={() => addFolder(f)}
               >
-                {alreadyAdded ? 'Added' : 'Add'}
+                {alreadyAdded
+                  ? $t('hub.hubConnectorDriveSection.browser.added')
+                  : $t('hub.hubConnectorDriveSection.browser.add')}
               </button>
             </li>
           {/each}
@@ -652,7 +672,7 @@
           )}
           onclick={browserUp}
         >
-          ← Up
+          {$t('hub.hubConnectorDriveSection.browser.up')}
         </button>
       {/if}
     </div>
@@ -674,14 +694,16 @@
         {:else}
           <ChevronRight size={13} aria-hidden="true" />
         {/if}
-        Advanced
+        {$t('hub.hubConnectorDriveSection.advanced.title')}
       </button>
 
       {#if advancedOpen}
         <div class="drive-advanced-body mt-[0.6rem] flex flex-col gap-[0.6rem]">
           <!-- Shared with me toggle -->
           <div class="drive-adv-row flex items-center justify-between gap-2">
-            <span class="drive-adv-label text-[0.8rem] font-medium text-muted">Shared with me</span>
+            <span class="drive-adv-label text-[0.8rem] font-medium text-muted">
+              {$t('hub.hubConnectorDriveSection.advanced.sharedWithMe')}
+            </span>
             <button
               type="button"
               class={cn(
@@ -692,7 +714,7 @@
               )}
               role="switch"
               aria-checked={sharedWithMe}
-              aria-label="Shared with me"
+              aria-label={$t('hub.hubConnectorDriveSection.advanced.sharedWithMe')}
               onclick={() => void toggleSharedWithMe()}
             >
               <span
@@ -707,21 +729,21 @@
           <!-- Ignore patterns -->
           <label class="drive-adv-field flex flex-col gap-1">
             <span class="drive-adv-label text-[0.8rem] font-medium text-muted">
-              Ignore patterns (one per line)
+              {$t('hub.hubConnectorDriveSection.advanced.ignorePatterns')}
             </span>
             <textarea
               class="hub-source-textarea drive-adv-textarea resize-y border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-[0.8rem] text-foreground"
               rows={3}
               value={ignoreText}
               oninput={onIgnoreTextInput}
-              placeholder="*.tmp&#10;~$*&#10;.DS_Store"
+              placeholder={$t('hub.hubConnectorDriveSection.advanced.ignorePatternsPlaceholder')}
             ></textarea>
           </label>
 
           <!-- Max file size -->
           <label class="drive-adv-field flex flex-col gap-1">
             <span class="drive-adv-label text-[0.8rem] font-medium text-muted">
-              Max file size (MB)
+              {$t('hub.hubConnectorDriveSection.advanced.maxFileSizeMb')}
             </span>
             <input
               type="number"
@@ -741,7 +763,7 @@
                 disabled={saveBusy}
                 onclick={() => void saveAdvanced()}
               >
-                {saveBusy ? 'Saving…' : 'Save'}
+                {saveBusy ? $t('common.status.saving') : $t('common.actions.save')}
               </button>
             </div>
           {/if}

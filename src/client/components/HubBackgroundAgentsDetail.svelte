@@ -5,6 +5,7 @@
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'
   import { backgroundAgentsFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     /** When set (e.g. from URL), that run is listed first. */
@@ -60,11 +61,11 @@
       })
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
       if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not start wiki expansion')
+        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubBackgroundAgentsDetail.errors.startFailed'))
       }
       await fetchAgents()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not start wiki expansion')
+      alert(e instanceof Error ? e.message : $t('hub.hubBackgroundAgentsDetail.errors.startFailed'))
     } finally {
       expansionLoading = null
     }
@@ -109,11 +110,13 @@
 
 <div class="hub-bg-agents-detail flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-5 pb-6 pt-4">
   <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-snug text-muted">
-    Wiki expansion fills and updates your vault using your profile, indexed mail, optional Messages (when
-    available), and public web research when that improves accuracy. Use a full pass for a broad overview or a continue
-    pass to deepen or fix gaps after mail syncs.
+    {$t('hub.hubBackgroundAgentsDetail.lead')}
   </p>
-  <div class="expansion-actions flex flex-wrap items-center gap-2" role="group" aria-label="Wiki expansion">
+  <div
+    class="expansion-actions flex flex-wrap items-center gap-2"
+    role="group"
+    aria-label={$t('hub.hubBackgroundAgentsDetail.expansionAriaLabel')}
+  >
     <button
       type="button"
       class={cn(hubBtn, hubBtnPrimary)}
@@ -121,7 +124,9 @@
       onclick={() => void startWikiExpansion('full')}
     >
       <Sparkles size={16} aria-hidden="true" />
-      {expansionLoading === 'full' ? 'Starting…' : 'Full expansion'}
+      {expansionLoading === 'full'
+        ? $t('hub.hubBackgroundAgentsDetail.actions.starting')
+        : $t('hub.hubBackgroundAgentsDetail.actions.fullExpansion')}
     </button>
     <button
       type="button"
@@ -129,13 +134,14 @@
       disabled={expansionBlocked || expansionLoading !== null}
       onclick={() => void startWikiExpansion('continue')}
     >
-      {expansionLoading === 'continue' ? 'Starting…' : 'Continue pass'}
+      {expansionLoading === 'continue'
+        ? $t('hub.hubBackgroundAgentsDetail.actions.starting')
+        : $t('hub.hubBackgroundAgentsDetail.actions.continuePass')}
     </button>
   </div>
   {#if expansionBlocked}
     <p class="expansion-hint m-0 max-w-[40rem] text-[0.8125rem] leading-tight text-muted" role="status">
-      A run is already in progress — you can follow it in the activity log below. When it finishes, you can start
-      another pass.
+      {$t('hub.hubBackgroundAgentsDetail.runInProgressHint')}
     </p>
   {/if}
   <div class="agents-list flex flex-col">
@@ -145,10 +151,14 @@
           <div class="agent-summary flex items-center justify-between">
             <div class="agent-info flex items-center gap-3">
               <span class={statusPillClass(agent.status)}>{agent.status}</span>
-              <span class="agent-label text-base font-semibold">{agent.label || 'Wiki Expansion'}</span>
+              <span class="agent-label text-base font-semibold">
+                {agent.label || $t('hub.hubBackgroundAgentsDetail.defaultAgentLabel')}
+              </span>
             </div>
             {#if agent.pageCount > 0}
-              <span class="page-count text-sm tabular-nums text-muted">{agent.pageCount} pages</span>
+              <span class="page-count text-sm tabular-nums text-muted">
+                {$t('hub.hubBackgroundAgentsDetail.pageCount', { count: agent.pageCount })}
+              </span>
             {/if}
           </div>
           {#if ['running', 'queued', 'paused'].includes(agent.status)}
@@ -169,9 +179,9 @@
     {:else}
       <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">
         {#if agents.some((a) => a.status === 'completed')}
-          No wiki expansion run in progress. Start a full or continue pass above when you want another pass.
+          {$t('hub.hubBackgroundAgentsDetail.empty.noneInProgress')}
         {:else}
-          No wiki expansion runs yet. Start a full pass above after onboarding or when you want a fresh overview.
+          {$t('hub.hubBackgroundAgentsDetail.empty.noneYet')}
         {/if}
       </p>
     {/if}

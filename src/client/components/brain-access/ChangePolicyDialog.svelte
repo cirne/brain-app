@@ -1,5 +1,6 @@
 <script lang="ts">
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
   import type { BrainAccessCustomPolicy } from '@client/lib/brainAccessCustomPolicies.js'
 
@@ -56,19 +57,19 @@
 
 <ConfirmDialog
   {open}
-  title="Move to another policy"
+  title={$t('access.changePolicyDialog.title')}
   titleId="brain-change-policy-title"
-  confirmLabel={busy ? 'Applying…' : 'Apply'}
-  cancelLabel="Cancel"
+  confirmLabel={busy ? $t('access.changePolicyDialog.actions.applying') : $t('common.actions.apply')}
+  cancelLabel={$t('common.actions.cancel')}
   panelClass="max-w-[24rem]"
   onDismiss={() => {
     if (!busy) onDismiss()
   }}
   onConfirm={() => void confirm()}
 >
-  <p class="text-[0.8125rem] text-muted">Pick which privacy preset this collaborator should use.</p>
+  <p class="text-[0.8125rem] text-muted">{$t('access.changePolicyDialog.description')}</p>
   {#if targets.length === 0}
-    <p class="text-[0.8125rem] text-danger">No other policies available.</p>
+    <p class="text-[0.8125rem] text-danger">{$t('access.changePolicyDialog.empty')}</p>
   {:else}
     <div class="mt-2 flex flex-col gap-2">
       {#each targets as t (t.policyId)}

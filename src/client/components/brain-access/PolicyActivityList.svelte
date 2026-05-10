@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BrainAccessLogRow } from '@client/lib/brainAccessPolicyGrouping.js'
   import { parseBrainQueryFilterNotes } from '@client/lib/brainQueryFilterNotes.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     entries: BrainAccessLogRow[]
@@ -23,34 +24,34 @@
     const d = new Date(ms)
     if (isNaN(d.getTime())) return String(ms)
     const diffSec = Math.floor((Date.now() - ms) / 1000)
-    if (diffSec < 60) return 'Just now'
+    if (diffSec < 60) return $t('access.policyActivityList.relative.justNow')
     const diffMin = Math.floor(diffSec / 60)
-    if (diffMin < 60) return `${diffMin}m ago`
+    if (diffMin < 60) return $t('access.policyActivityList.relative.minutesAgo', { count: diffMin })
     const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return `${diffH}h ago`
+    if (diffH < 24) return $t('access.policyActivityList.relative.hoursAgo', { count: diffH })
     const diffD = Math.floor(diffH / 24)
-    if (diffD < 7) return `${diffD}d ago`
+    if (diffD < 7) return $t('access.policyActivityList.relative.daysAgo', { count: diffD })
     return d.toLocaleDateString()
   }
 
   function formatDuration(ms: number | null): string | null {
     if (ms == null || !Number.isFinite(ms) || ms < 0) return null
-    if (ms < 1000) return `${Math.round(ms)}ms`
-    return `${(ms / 1000).toFixed(1)}s`
+    if (ms < 1000) return $t('access.policyActivityList.duration.milliseconds', { count: Math.round(ms) })
+    return $t('access.policyActivityList.duration.seconds', { value: (ms / 1000).toFixed(1) })
   }
 
   function statusLabel(status: string): string {
     switch (status) {
       case 'ok':
-        return 'OK'
+        return $t('access.policyActivityList.status.ok')
       case 'filter_blocked':
-        return 'Filtered'
+        return $t('access.policyActivityList.status.filtered')
       case 'early_rejected':
-        return 'Declined'
+        return $t('access.policyActivityList.status.declined')
       case 'denied_no_grant':
-        return 'Denied'
+        return $t('access.policyActivityList.status.denied')
       case 'error':
-        return 'Error'
+        return $t('access.policyActivityList.status.error')
       default:
         return status
     }
@@ -81,7 +82,7 @@
     const fin = normalizedAnswer(e.finalAnswer)
     if (fin.length > 0) return fin
     if (e.status === 'denied_no_grant') {
-      return 'No answer — access was not granted for this attempt.'
+      return $t('access.policyActivityList.returnedSummary.deniedNoGrant')
     }
     if (e.status === 'error') {
       return null
@@ -94,7 +95,7 @@
 </script>
 
 {#if visible.length === 0}
-  <p class="m-0 text-[0.8125rem] text-muted">No activity for this policy yet.</p>
+  <p class="m-0 text-[0.8125rem] text-muted">{$t('access.policyActivityList.empty')}</p>
 {:else}
   <ul class="m-0 flex list-none flex-col gap-0 p-0">
     {#each visible as e (e.id)}
@@ -125,7 +126,7 @@
         <div class="mt-2 flex flex-col gap-2">
           <div>
             <div class="mb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-              Question
+              {$t('access.policyActivityList.labels.question')}
             </div>
             <div
               class="rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-surface-3/80 px-2.5 py-2 whitespace-pre-wrap text-foreground"
@@ -136,7 +137,7 @@
 
           <div>
             <div class="mb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-              Returned to collaborator
+              {$t('access.policyActivityList.labels.returnedToCollaborator')}
             </div>
             {#if returnedSummary(e) != null}
               <div
@@ -148,9 +149,8 @@
               <div
                 class="rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-surface-3/80 px-2.5 py-2 whitespace-pre-wrap text-foreground"
               >
-                <span class="text-muted">No answer returned.</span>
-                {' '}
-                <span class="text-destructive">{parsedNotes.plainText}</span>
+                <span class="text-muted">{$t('access.policyActivityList.labels.noAnswerReturned')}</span>
+                <span class="text-destructive"> {parsedNotes.plainText}</span>
               </div>
             {:else}
               <div class="text-muted">—</div>
@@ -162,7 +162,9 @@
               <summary
                 class="cursor-pointer list-none px-2.5 py-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted marker:content-none [&::-webkit-details-marker]:hidden"
               >
-                <span class="underline-offset-2 group-open:underline">Assistant reply before sharing</span>
+                <span class="underline-offset-2 group-open:underline">
+                  {$t('access.policyActivityList.labels.assistantReplyBeforeSharing')}
+                </span>
               </summary>
               <div
                 class="border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] px-2.5 pb-2 whitespace-pre-wrap text-foreground"
@@ -175,7 +177,7 @@
           {#if parsedNotes.redactions.length > 0 || (parsedNotes.plainText && e.status !== 'error')}
             <div>
               <div class="mb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-                What changed
+                {$t('access.policyActivityList.labels.whatChanged')}
               </div>
               {#if parsedNotes.redactions.length > 0}
                 <ul class="m-0 flex flex-wrap gap-1.5 p-0">
@@ -203,7 +205,7 @@
       class="mt-2 border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-accent underline-offset-2 hover:underline"
       onclick={() => onViewAll()}
     >
-      View all activity ({entries.length}) →
+      {$t('access.policyActivityList.actions.viewAllActivity', { count: entries.length })}
     </button>
   {/if}
 {/if}

@@ -4,6 +4,7 @@
   import { fileViewerKindForPath } from '@client/lib/fileViewerKind.js'
   import type { SurfaceContext } from '@client/router.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     initialPath,
@@ -50,7 +51,9 @@
       if (fileLoadLatest.isStale(token)) return
       const j = (await res.json().catch(() => ({}))) as { error?: string; bodyText?: string; path?: string }
       if (!res.ok) {
-        err = typeof j.error === 'string' ? j.error : `HTTP ${res.status}`
+        err = typeof j.error === 'string'
+          ? j.error
+          : $t('inbox.fileViewer.errors.httpStatus', { status: res.status })
         return
       }
       bodyText = typeof j.bodyText === 'string' ? j.bodyText : ''
@@ -75,7 +78,7 @@
   )}
 >
   {#if loading}
-    <p class="muted text-[0.9rem] text-muted">Loading…</p>
+    <p class="muted text-[0.9rem] text-muted">{$t('common.status.loading')}</p>
   {:else if err}
     <p class="err text-[0.9rem] text-[var(--error,#c44)]">{err}</p>
   {:else if useSpreadsheetViewer}

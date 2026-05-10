@@ -3,6 +3,7 @@
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { fetchWorkspaceHandleSuggestions } from '@client/lib/workspaceHandleSuggest.js'
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
+  import { t } from '@client/lib/i18n/index.js'
   import {
     loadBrainAccessCustomPolicies,
     removeBrainAccessCustomPolicy,
@@ -162,12 +163,12 @@
         fetch('/api/brain-query/log?role=owner&limit=80'),
       ])
       if (!gRes.ok) {
-        loadError = (await gRes.text()) || 'Failed to load grants.'
+        loadError = (await gRes.text()) || $t('access.policyDetailPage.errors.failedToLoadGrants')
         return
       }
       const parsed = parseGrantsFull(await gRes.json())
       if (!parsed) {
-        loadError = 'Invalid grants response.'
+        loadError = $t('access.policyDetailPage.errors.invalidGrantsResponse')
         return
       }
       grantedByMe = parsed.grantedByMe
@@ -222,7 +223,7 @@
   async function addUser(entry: WorkspaceHandleEntry): Promise<void> {
     const text = canonical.trim()
     if (!text) {
-      loadError = 'Missing policy text.'
+      loadError = $t('access.policyDetailPage.errors.missingPolicyText')
       return
     }
     addBusy = true
@@ -235,7 +236,7 @@
       })
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
-        loadError = j.message ?? j.error ?? `Couldn’t add @${entry.handle}.`
+        loadError = j.message ?? j.error ?? $t('access.policyDetailPage.errors.couldNotAddHandle', { handle: entry.handle })
         return
       }
       await reload()
@@ -252,7 +253,7 @@
     try {
       const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) {
-        loadError = `Remove failed (${res.status})`
+        loadError = $t('access.policyDetailPage.errors.removeFailed', { status: res.status })
         return
       }
       await reload()
@@ -280,7 +281,7 @@
             body: JSON.stringify({ privacyPolicy: trimmed }),
           })
           if (!res.ok) {
-            loadError = `Save failed (${res.status})`
+            loadError = $t('access.policyDetailPage.errors.saveFailed', { status: res.status })
             return
           }
         }
@@ -305,7 +306,7 @@
     try {
       if (card?.kind === 'custom' && props.policyId.startsWith('custom:')) {
         if (!updateBrainAccessCustomPolicy(props.policyId, trimmed)) {
-          loadError = 'Could not update saved policy.'
+          loadError = $t('access.policyDetailPage.errors.couldNotUpdateSavedPolicy')
           return
         }
       } else if (card?.kind === 'builtin') {
@@ -316,7 +317,7 @@
           saveBuiltinPolicyDraft(props.policyId, trimmed)
         }
       } else {
-        loadError = 'Cannot save this policy without collaborators.'
+        loadError = $t('access.policyDetailPage.errors.cannotSaveWithoutCollaborators')
         return
       }
 
@@ -345,7 +346,7 @@
         body: JSON.stringify({ privacyPolicy: newText }),
       })
       if (!res.ok) {
-        loadError = `Update failed (${res.status})`
+        loadError = $t('access.policyDetailPage.errors.updateFailed', { status: res.status })
         return
       }
       await reload()
@@ -370,7 +371,7 @@
     ),
   )
 
-  const heading = $derived(card?.label ?? 'Policy')
+  const heading = $derived(card?.label ?? $t('access.policyDetailPage.fallbackPolicyLabel'))
   const hint = $derived(card?.hint)
 
   const isCustomPolicyId = $derived(props.policyId.startsWith('custom:'))
@@ -414,7 +415,7 @@
       {/if}
 
       {#if !card && grantsInPolicy.length === 0 && !busy}
-    <p class="m-0 text-[0.875rem] text-muted">This policy wasn’t found.</p>
+    <p class="m-0 text-[0.875rem] text-muted">{$t('access.policyDetailPage.policyNotFound')}</p>
   {:else}
     <header
       class={[
@@ -435,7 +436,7 @@
     <section class="flex flex-col gap-2" aria-labelledby="policy-text-heading">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 id="policy-text-heading" class="m-0 text-[0.8125rem] font-bold uppercase tracking-wide text-muted">
-          Policy text
+          {$t('access.policyDetailPage.policyTextHeading')}
         </h2>
         {#if !editingPolicyText}
           <div class="flex flex-wrap items-center gap-2">
@@ -443,9 +444,9 @@
               type="button"
               class="rounded-md border border-transparent bg-accent px-2 py-1 text-[0.75rem] font-semibold text-white hover:brightness-105"
               onclick={() => props.onSettingsNavigate({ type: 'brain-access-preview', policyId: props.policyId })}
-              aria-label="Test this policy"
+              aria-label={$t('access.policyDetailPage.ariaTestThisPolicy')}
             >
-              Test this policy
+              {$t('access.policyDetailPage.actions.testThisPolicy')}
             </button>
             <button
               type="button"
@@ -456,20 +457,20 @@
                 editingPolicyText = true
               }}
             >
-              Edit
+              {$t('access.policyDetailPage.actions.edit')}
             </button>
             {#if isCustomPolicyId}
               <button
                 type="button"
                 class="rounded-md border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg))] px-2 py-1 text-[0.75rem] font-semibold text-danger hover:bg-[color-mix(in_srgb,var(--danger)_18%,var(--bg))] disabled:opacity-50"
                 disabled={busy || !canDeleteCustomPreset}
-                title={grantsInPolicy.length > 0 ? 'Remove all collaborators first' : undefined}
+                title={grantsInPolicy.length > 0 ? $t('access.policyDetailPage.tooltips.removeCollaboratorsFirst') : undefined}
                 aria-label={grantsInPolicy.length > 0
-                  ? 'Delete policy (remove all collaborators first)'
-                  : 'Delete policy'}
+                  ? $t('access.policyDetailPage.ariaDeletePolicyRemoveCollaboratorsFirst')
+                  : $t('access.policyDetailPage.ariaDeletePolicy')}
                 onclick={requestDeleteCustomPreset}
               >
-                Delete policy
+                {$t('access.policyDetailPage.actions.deletePolicy')}
               </button>
             {/if}
           </div>
@@ -483,7 +484,7 @@
                 if (!busy) editingPolicyText = false
               }}
             >
-              Cancel
+              {$t('common.actions.cancel')}
             </button>
             <button
               type="button"
@@ -491,7 +492,7 @@
               disabled={busy || draftPolicyText.trim().length === 0}
               onclick={() => void saveAllPolicyText(draftPolicyText.trim())}
             >
-              {busy ? 'Saving…' : 'Save policy'}
+              {busy ? $t('common.status.saving') : $t('access.policyDetailPage.actions.savePolicy')}
             </button>
           </div>
         {/if}
@@ -500,17 +501,19 @@
         <div
           class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-foreground"
         >
-          {canonical || '—'}
+          {canonical || $t('access.policyDetailPage.emptyPolicyText')}
         </div>
       {:else}
         <div
           class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed text-foreground"
         >
           <p class="m-0 text-[0.8125rem] text-muted">
-            This text is guidance for your assistant when someone queries your brain under this policy.
+            {$t('access.policyDetailPage.editGuidance')}
           </p>
           <label class="mt-2 flex flex-col gap-1">
-            <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">Privacy guidance</span>
+            <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
+              {$t('access.policyDetailPage.privacyGuidanceLabel')}
+            </span>
             <textarea
               id="policy-text-draft"
               class="min-h-[12rem] w-full rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-2 text-[0.8125rem] leading-snug text-foreground"
@@ -526,7 +529,7 @@
     <section class="flex flex-col gap-3" aria-labelledby="policy-users-heading">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 id="policy-users-heading" class="m-0 text-[0.9375rem] font-bold">
-          Collaborators ({grantsInPolicy.length})
+          {$t('access.policyDetailPage.collaboratorsHeading', { count: grantsInPolicy.length })}
         </h2>
         <AddUserDropdown
           excludeHandles={excludeHandles}
@@ -557,7 +560,9 @@
     </section>
 
     <section id="policy-activity-block" class="flex flex-col gap-2" aria-labelledby="policy-activity-heading">
-      <h2 id="policy-activity-heading" class="m-0 text-[0.9375rem] font-bold">Recent activity</h2>
+      <h2 id="policy-activity-heading" class="m-0 text-[0.9375rem] font-bold">
+        {$t('access.policyDetailPage.recentActivityHeading')}
+      </h2>
       <PolicyActivityList
         entries={policyLog}
         limit={40}
@@ -572,7 +577,7 @@
     disabled={busy}
     onclick={() => void reload()}
   >
-    Refresh
+    {$t('common.actions.refresh')}
   </button>
     </div>
   </div>
@@ -591,17 +596,17 @@
 
 <ConfirmDialog
   open={pendingDeletePreset !== null}
-  title="Delete policy?"
+  title={$t('access.policyDetailPage.deletePolicyDialog.title')}
   titleId="brain-access-policy-delete-title"
-  confirmLabel="Delete"
-  cancelLabel="Cancel"
+  confirmLabel={$t('access.policyDetailPage.deletePolicyDialog.confirmLabel')}
+  cancelLabel={$t('common.actions.cancel')}
   confirmVariant="danger"
   onDismiss={cancelDeleteCustomPreset}
   onConfirm={confirmDeleteCustomPreset}
 >
   {#snippet children()}
     {#if pendingDeletePreset}
-      <p>This will permanently remove "{pendingDeletePreset.label}" from your saved policies.</p>
+      <p>{$t('access.policyDetailPage.deletePolicyDialog.body', { label: pendingDeletePreset.label })}</p>
     {/if}
   {/snippet}
 </ConfirmDialog>

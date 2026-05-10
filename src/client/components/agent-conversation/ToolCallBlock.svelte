@@ -5,6 +5,7 @@
   import { getToolIcon } from '@client/lib/toolIcons.js'
   import { matchContentPreview, type ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import { getToolUiPolicy, type ToolCall } from '@client/lib/agentUtils.js'
+  import { t } from '@client/lib/i18n/index.js'
   import ContentPreviewCards from './ContentPreviewCards.svelte'
   import { formatToolArgs } from '@client/lib/agent-conversation/formatToolArgs.js'
   import WikiFileName from '@components/WikiFileName.svelte'
@@ -72,10 +73,12 @@
   const pendingFromArgs = $derived(toolSummaryPartsFromArgs(toolCall.name, toolCall.args))
 
   const compactAriaLabel = $derived.by(() => {
-    const prefix = `Open ${displayName}`
+    const prefix = $t('chat.toolCall.openName', { name: displayName })
     if (!summaryParts) return prefix
     if (summaryParts.mode === 'single_path') return `${prefix}: ${summaryParts.path}`
-    if (summaryParts.mode === 'move') return `${prefix}: ${summaryParts.from} to ${summaryParts.to}`
+    if (summaryParts.mode === 'move') {
+      return `${prefix}: ${summaryParts.from} ${$t('chat.toolCall.to')} ${summaryParts.to}`
+    }
     return `${prefix}: ${summaryParts.text}`
   })
 
@@ -196,7 +199,7 @@
       {@render toolGlyph(false)}
       {#if pendingFromArgs?.mode === 'move'}
         <div class="tool-pending-move tool-pending-label flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-[0.35em] [animation:tool-pending-pulse_1.2s_ease-in-out_infinite]">
-          <span class="tool-pending-verb shrink-0 font-mono">Moving</span>
+          <span class="tool-pending-verb shrink-0 font-mono">{$t('chat.toolCall.moving')}</span>
           <span class="tool-summary-move tool-summary-move--pending inline-flex min-w-0 flex-1 flex-wrap items-baseline gap-1 text-[11px] text-muted">
             <WikiFileName path={pendingFromArgs.from} />
             <span class="tool-summary-arrow shrink-0 text-[10px] opacity-55" aria-hidden="true">→</span>
@@ -207,7 +210,7 @@
         <button
           class="tool-pending-file tool-pending-label tool-write-link inline-flex min-w-0 flex-wrap items-baseline gap-[0.35em] text-[11px] text-muted [animation:tool-pending-pulse_1.2s_ease-in-out_infinite]"
           onclick={() => onOpenWiki?.(wikiLinkPath)}
-          title="Open {wikiLinkPath}"
+          title={$t('chat.toolCall.openPath', { path: wikiLinkPath })}
         >
           <span class="tool-pending-verb shrink-0 font-mono">{pendingVerb}</span>
           <WikiFileName path={wikiLinkPath} />

@@ -13,7 +13,8 @@
       "@client/*": ["src/client/*"],
       "@components/*": ["src/client/components/*"],
       "@shared/*": ["src/shared/*"]
-    }
+    },
+    "resolveJsonModule": true
   },
   "include": ["src/client/**/*", "src/shared/**/*.ts"]
 }

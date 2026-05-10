@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ensureBrainTtsAutoplayInUserGesture } from '@client/lib/brainTtsAudio.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     hearReplies = false,
@@ -21,7 +22,7 @@
   <label
     class="hear-replies-control flex w-full max-w-[17.5rem] cursor-pointer select-none flex-row items-center justify-between gap-3 py-0.5"
   >
-    <span class="hear-replies-title min-w-0 flex-1 text-start font-medium text-foreground">Audio Conversation</span>
+    <span class="hear-replies-title min-w-0 flex-1 text-start font-medium text-foreground">{$t('chat.agentChat.audioConversation')}</span>
     <span class="hear-replies-switch relative inline-flex shrink-0 [-webkit-tap-highlight-color:transparent]">
       <input
         type="checkbox"

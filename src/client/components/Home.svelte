@@ -3,6 +3,7 @@
   import DayEvents from '@components/DayEvents.svelte'
   import WikiFileList from '@components/WikiFileList.svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
   import { formatDate } from '@client/lib/formatDate.js'
 
@@ -75,22 +76,22 @@
 
     <!-- Today's calendar -->
     <section class={cardCls}>
-      <h2 class={sectionTitleCls}>Today</h2>
+      <h2 class={sectionTitleCls}>{$t('common.home.sections.today')}</h2>
       <DayEvents date={today} />
     </section>
 
     <!-- Inbox summary -->
     <section class={cardCls}>
       <h2 class={sectionTitleCls}>
-        Inbox
+        {$t('common.home.sections.inbox')}
         {#if unreadCount > 0}
-          <span class="badge bg-accent px-[7px] py-px text-[10px] font-semibold normal-case tracking-normal text-white">{unreadCount} unread</span>
+          <span class="badge bg-accent px-[7px] py-px text-[10px] font-semibold normal-case tracking-normal text-white">{$t('common.home.inboxUnread', { count: unreadCount })}</span>
         {/if}
       </h2>
       {#if inboxLoading}
-        <div class={mutedCls}>Loading…</div>
+        <div class={mutedCls}>{$t('common.status.loading')}</div>
       {:else if inboxItems.length === 0}
-        <div class={mutedCls}>No messages</div>
+        <div class={mutedCls}>{$t('common.home.empty.noMessages')}</div>
       {:else}
         <ul class="item-list m-0 flex list-none flex-col gap-0.5 p-0">
           {#each inboxItems.slice(0, 5) as msg (msg.id)}
@@ -118,9 +119,9 @@
 
     <!-- Recent doc changes -->
     <section class={cn(cardCls, 'card--files px-0 pb-0 pt-3.5 overflow-hidden')}>
-      <h2 class={cn(sectionTitleCls, 'px-4 pb-2.5')}>Docs</h2>
+      <h2 class={cn(sectionTitleCls, 'px-4 pb-2.5')}>{$t('common.home.sections.docs')}</h2>
       {#if dirty.length === 0 && recent.length === 0}
-        <div class={cn(mutedCls, 'px-4 pb-3.5')}>No recent changes</div>
+        <div class={cn(mutedCls, 'px-4 pb-3.5')}>{$t('common.home.empty.noRecentChanges')}</div>
       {:else}
         <WikiFileList {dirty} {recent} onOpen={onOpenWiki} showSectionLabels={dirty.length > 0} />
       {/if}

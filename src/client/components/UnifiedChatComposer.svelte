@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
+  import { t } from '@client/lib/i18n/index.js'
   import AgentInput from '@components/AgentInput.svelte'
   import ChatVoicePanel from '@components/ChatVoicePanel.svelte'
 
@@ -11,7 +12,7 @@
     voiceEligible = false,
     /** When this key changes, reset to text mode (e.g. switching chats). Stable across pending→server session migration via SessionState.composerResetKey. */
     sessionResetKey = '',
-    placeholder = 'What do you need to know or get done?',
+    placeholder = $t('chat.input.placeholder'),
     streaming = false,
     queuedMessages = [] as string[],
     wikiFiles = [] as string[],

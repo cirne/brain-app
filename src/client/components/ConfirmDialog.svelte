@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     open: boolean
@@ -23,8 +24,8 @@
     open,
     title,
     titleId = 'confirm-dialog-title',
-    confirmLabel = 'Confirm',
-    cancelLabel = 'Cancel',
+    confirmLabel,
+    cancelLabel,
     confirmVariant = 'default',
     onDismiss,
     onConfirm,
@@ -74,6 +75,8 @@
   const btnDanger =
     'rounded-md border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] px-3 py-[0.4rem] text-xs font-medium leading-tight text-danger transition-colors hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))] [font:inherit]'
   const btnBase = 'cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
+  const resolvedConfirmLabel = $derived(confirmLabel ?? $t('common.actions.confirm'))
+  const resolvedCancelLabel = $derived(cancelLabel ?? $t('common.actions.cancel'))
 </script>
 
 {#if open}
@@ -114,14 +117,14 @@
           {@render actions()}
         {:else}
           <button type="button" class={cn(btnBase, btnNeutral)} onclick={onDismiss}>
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             type="button"
             class={cn(btnBase, confirmVariant === 'danger' ? btnDanger : btnNeutral)}
             onclick={() => onConfirm()}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         {/if}
       </div>

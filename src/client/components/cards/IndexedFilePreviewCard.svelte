@@ -1,5 +1,6 @@
 <script lang="ts">
   import { FileText } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import '../../styles/agent-conversation/toolWriteLink.css'
 
   let {
@@ -20,7 +21,7 @@
     type="button"
     class="tool-write-link indexed-file-open group block w-full max-w-full text-left text-[11px] text-muted mb-1.5"
     onclick={onOpen}
-    aria-label="Open file: {title}"
+    aria-label={$t('cards.indexedFilePreviewCard.ariaOpenFile', { title })}
   >
     <span class="indexed-file-title-row inline-flex max-w-full flex-wrap items-center gap-1.5">
       <FileText size={14} strokeWidth={2} aria-hidden="true" />

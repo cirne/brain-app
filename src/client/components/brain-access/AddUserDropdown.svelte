@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronDown } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import {
     fetchWorkspaceHandleSuggestions,
     looksLikeEmail,
@@ -122,7 +123,7 @@
     disabled={disabled || busy}
     onclick={toggle}
   >
-    Add
+    {$t('access.addUserDropdown.actions.add')}
     <ChevronDown size={14} class="opacity-70" aria-hidden="true" />
   </button>
 
@@ -130,14 +131,14 @@
     <div
       class="absolute right-0 top-full z-20 mt-1 min-w-[min(100vw-2rem,20rem)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
       role="listbox"
-      aria-label="Workspace directory search"
+      aria-label={$t('access.addUserDropdown.aria.workspaceDirectorySearch')}
     >
       <div class="border-b border-border px-2 py-2">
         <input
           bind:this={searchInputEl}
           type="text"
           class="w-full rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-2 px-2 py-1.5 text-[0.8125rem] text-foreground"
-          placeholder="Search @handle or name…"
+          placeholder={$t('access.addUserDropdown.searchPlaceholder')}
           value={query}
           oninput={onSearchInput}
           onkeydown={onSearchKeydown}
@@ -146,10 +147,12 @@
       </div>
       <div id="add-user-dropdown-options" class="max-h-[min(40vh,16rem)] overflow-y-auto">
         {#if loading && suggestions.length === 0}
-          <div class="px-3 py-2 text-xs text-muted">Searching…</div>
+          <div class="px-3 py-2 text-xs text-muted">{$t('access.addUserDropdown.searching')}</div>
         {:else if suggestions.length === 0}
           <div class="px-3 py-2 text-xs text-muted">
-            {normalizeHandleInput(query).length === 0 ? 'Type to search workspace handles.' : 'No matches.'}
+            {normalizeHandleInput(query).length === 0
+              ? $t('access.addUserDropdown.empty.typeToSearch')
+              : $t('access.addUserDropdown.empty.noMatches')}
           </div>
         {:else}
           {#each suggestions as s, i (s.userId)}
@@ -171,12 +174,12 @@
                 {#if s.displayName?.trim()}
                   {s.displayName.trim()}
                   {#if s.primaryEmail}
-                    {' '}·{' '}{s.primaryEmail}
+                    · {s.primaryEmail}
                   {/if}
                 {:else if s.primaryEmail}
                   {s.primaryEmail}
                 {:else}
-                  No email on file
+                  {$t('access.addUserDropdown.noEmail')}
                 {/if}
               </span>
             </button>

@@ -10,6 +10,7 @@
     X,
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import AnchoredActionMenu from '@components/shell/AnchoredActionMenu.svelte'
 
   type Props = {
@@ -109,14 +110,14 @@
           <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
           <span
             class="nav-brand-title overflow-hidden truncate whitespace-nowrap text-[15px] font-semibold tracking-[0.02em] max-md:text-lg"
-          >Braintunnel</span>
+          >{$t('common.brand.name')}</span>
         </div>
         <button
           type="button"
           class="nav-sidebar-close flex h-9 w-9 shrink-0 items-center justify-center text-muted transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:h-10 max-md:w-10 [&_svg]:max-md:h-5 [&_svg]:max-md:w-5"
           onclick={onToggleSidebar}
-          title="Close sidebar"
-          aria-label="Close sidebar"
+          title={$t('nav.sidebar.close')}
+          aria-label={$t('nav.sidebar.close')}
         >
           <X size={18} strokeWidth={2} aria-hidden="true" />
         </button>
@@ -125,14 +126,14 @@
           class="menu-btn flex h-full min-h-tab min-w-0 items-center justify-start gap-2 py-0 pl-0.5 pr-1 text-muted transition-colors duration-150 hover:text-foreground [&_svg]:shrink-0 [&_svg]:max-md:h-5 [&_svg]:max-md:w-5"
           type="button"
           onclick={onToggleSidebar}
-          title="Open sidebar"
-          aria-label="Open sidebar"
+          title={$t('nav.sidebar.open')}
+          aria-label={$t('nav.sidebar.open')}
         >
           <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
           {#if !mobileCompactNav}
             <span
               class="nav-brand-title min-w-0 overflow-hidden truncate whitespace-nowrap text-[15px] font-semibold tracking-[0.02em] max-md:text-lg"
-            >Braintunnel</span>
+            >{$t('common.brand.name')}</span>
           {/if}
         </button>
       {/if}
@@ -150,20 +151,20 @@
         type="button"
         class="mobile-nav-title min-w-0 flex-1 truncate border-none bg-transparent p-0 text-left text-[15px] font-semibold tracking-[0.02em] text-foreground cursor-pointer"
         onclick={showChatHistoryButton ? onToggleSidebar : undefined}
-        aria-label={showChatHistoryButton ? `${mobileCenterTitle} - Open sidebar` : mobileCenterTitle}
+        aria-label={showChatHistoryButton ? `${mobileCenterTitle} - ${$t('nav.sidebar.open')}` : mobileCenterTitle}
       >{mobileCenterTitle}</button>
     {:else if showCenterBrand}
-      <span class="brand-name text-[15px] font-semibold tracking-[0.02em] text-foreground max-md:text-lg">Braintunnel</span>
+      <span class="brand-name text-[15px] font-semibold tracking-[0.02em] text-foreground max-md:text-lg">{$t('common.brand.name')}</span>
     {/if}
   </div>
-  <div class="nav-actions flex shrink-0 items-stretch gap-0.5 pl-2" aria-label="Top actions">
+  <div class="nav-actions flex shrink-0 items-stretch gap-0.5 pl-2" aria-label={$t('nav.topActions')}>
     {#if !mobileCompactNav}
       <div class="search-wrap flex shrink-0 items-center">
         <button
           class={cn(iconBtn, '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]')}
           onclick={onOpenSearch}
-          title="Search (⌘K)"
-          aria-label="Search"
+          title={$t('nav.search.openWithShortcut')}
+          aria-label={$t('nav.search.open')}
         >
           <Search size={15} strokeWidth={2} aria-hidden="true" />
         </button>
@@ -178,11 +179,11 @@
               !isMobile && cn('wiki-home-btn--labeled', iconBtnLabeled),
             )}
             onclick={onWikiHome}
-            title="Wiki home (⌘⇧H)"
-            aria-label={isMobile ? 'Wiki home' : undefined}
+            title={$t('nav.wiki.homeWithShortcut')}
+            aria-label={isMobile ? $t('nav.wiki.home') : undefined}
           >
             <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
-            {#if !isMobile}<span class={navActionLabel}>Wiki</span>{/if}
+            {#if !isMobile}<span class={navActionLabel}>{$t('nav.wiki.label')}</span>{/if}
           </button>
         </div>
       {/if}
@@ -199,11 +200,11 @@
             )}
             disabled={isEmptyChat}
             onclick={onNewChat}
-            title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
-            aria-label={isEmptyChat ? 'New conversation (already empty)' : isMobile ? 'New conversation' : undefined}
+            title={isEmptyChat ? $t('nav.chat.alreadyInNewChat') : $t('nav.chat.newWithShortcut')}
+            aria-label={isEmptyChat ? $t('nav.chat.newConversationAlreadyEmpty') : isMobile ? $t('nav.chat.newConversation') : undefined}
           >
             <MessageSquarePlus size={15} strokeWidth={2.25} aria-hidden="true" />
-            {#if !isMobile}<span class={navActionLabel}>Chat</span>{/if}
+            {#if !isMobile}<span class={navActionLabel}>{$t('nav.chat.label')}</span>{/if}
           </button>
         </div>
       {/if}
@@ -218,11 +219,11 @@
               shareInviteBadge && 'settings-nav-btn--badge relative pr-3.5',
             )}
             onclick={handleSettingsClick}
-            title="Settings"
-            aria-label={isMobile ? 'Settings' : undefined}
+            title={$t('nav.settings.title')}
+            aria-label={isMobile ? $t('nav.settings.label') : undefined}
           >
             <Settings size={15} strokeWidth={2} aria-hidden="true" />
-            {#if !isMobile}<span class={navActionLabel}>Settings</span>{/if}
+            {#if !isMobile}<span class={navActionLabel}>{$t('nav.settings.label')}</span>{/if}
           </button>
         </div>
       {/if}
@@ -239,8 +240,8 @@
             )}
             disabled={isEmptyChat}
             onclick={onNewChat}
-            title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
-            aria-label={isEmptyChat ? 'New conversation (already empty)' : 'New conversation'}
+            title={isEmptyChat ? $t('nav.chat.alreadyInNewChat') : $t('nav.chat.newWithShortcut')}
+            aria-label={isEmptyChat ? $t('nav.chat.newConversationAlreadyEmpty') : $t('nav.chat.newConversation')}
           >
             <MessageSquarePlus size={15} strokeWidth={2.25} aria-hidden="true" />
           </button>
@@ -255,8 +256,8 @@
             onclick={() => {
               overflowOpen = !overflowOpen
             }}
-            title="More actions"
-            aria-label="More actions"
+            title={$t('nav.menu.moreActions')}
+            aria-label={$t('nav.menu.moreActions')}
             aria-expanded={overflowOpen}
             aria-haspopup="menu"
           >
@@ -280,7 +281,7 @@
             shareInviteBadge && 'nav-hosted-handle--badge relative pr-3.5',
           )}
           onclick={handleSettingsClick}
-          title="Workspace settings"
+          title={$t('nav.settings.workspace')}
         >
           @{hostedHandlePill}
         </button>
@@ -289,7 +290,7 @@
         <button
           class="sync-error-badge absolute right-1 top-1 flex h-3.5 w-3.5 cursor-pointer items-center justify-center bg-[#e74c3c] text-[9px] font-bold leading-none text-white hover:bg-[#c0392b]"
           onclick={onToggleSyncErrors}
-          title="Show sync errors"
+          title={$t('nav.sync.showErrors')}
         >!</button>
         {#if showSyncErrors}
           <div
@@ -297,7 +298,7 @@
           >
             <div
               class="sync-error-title border-b border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#e74c3c]"
-            >Sync errors</div>
+            >{$t('nav.sync.errorsTitle')}</div>
             {#each syncErrors as err, i (i)}
               <div
                 class="sync-error-item whitespace-pre-wrap break-words px-3 py-1.5 font-mono text-xs text-foreground"
@@ -314,7 +315,7 @@
   <AnchoredActionMenu
     open={overflowOpen}
     anchorEl={overflowTriggerEl}
-    menuLabel="More actions"
+    menuLabel={$t('nav.menu.moreActions')}
     onDismiss={() => {
       overflowOpen = false
     }}

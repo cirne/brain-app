@@ -2,6 +2,7 @@
   import { cn } from '@client/lib/cn.js'
   import CsvSpreadsheetTable from '@components/CsvSpreadsheetTable.svelte'
   import { parseSpreadsheetFromText, spreadsheetDelimiterForPath } from '@client/lib/csvSpreadsheet.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     text,
@@ -33,7 +34,7 @@
     const p = parsed
     if (p.mode === 'single') return p.grid
     const s = p.sheets[selectedSheet]
-    return s?.grid ?? { error: 'Invalid sheet' }
+    return s?.grid ?? { error: $t('inbox.csvSpreadsheetView.errors.invalidSheet') }
   })
 </script>
 
@@ -45,7 +46,7 @@
         class="fallback m-0 whitespace-pre-wrap [word-break:break-word] text-[0.85rem] leading-normal [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
       >{text}</pre>
     {:else if activeGrid.headers.length === 0}
-      <p class="muted text-[0.9rem] text-muted">Empty file</p>
+      <p class="muted text-[0.9rem] text-muted">{$t('inbox.csvSpreadsheetView.emptyFile')}</p>
     {:else}
       <CsvSpreadsheetTable headers={activeGrid.headers} rows={activeGrid.rows} />
     {/if}
@@ -58,7 +59,7 @@
       <div
         class="sheet-tabs inline-flex min-h-[26px] w-max max-w-none flex-row flex-nowrap items-stretch gap-0"
         role="tablist"
-        aria-label="Workbook sheets"
+        aria-label={$t('inbox.csvSpreadsheetView.workbookSheetsAriaLabel')}
       >
         {#each parsed.sheets as sh, i (sh.name + i)}
           <button
@@ -71,7 +72,7 @@
             aria-selected={selectedSheet === i}
             onclick={() => { selectedSheet = i }}
           >
-            {sh.name || `Sheet ${i + 1}`}
+            {sh.name || $t('inbox.csvSpreadsheetView.sheetFallback', { index: i + 1 })}
           </button>
         {/each}
       </div>

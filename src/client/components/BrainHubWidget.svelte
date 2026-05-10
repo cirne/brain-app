@@ -6,6 +6,7 @@
   import { subscribe } from '@client/lib/app/appEvents.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     onOpen: () => void
@@ -21,10 +22,10 @@
   const isPaused = $derived(phase === 'paused')
 
   const activeLabel = $derived.by((): string => {
-    if (phase === 'starting') return 'Starting wiki…'
-    if (phase === 'enriching') return 'Enriching…'
-    if (phase === 'cleaning') return 'Cleaning up…'
-    if (phase === 'paused') return 'Paused'
+    if (phase === 'starting') return $t('hub.brainHubWidget.phases.starting')
+    if (phase === 'enriching') return $t('hub.brainHubWidget.phases.enriching')
+    if (phase === 'cleaning') return $t('hub.brainHubWidget.phases.cleaning')
+    if (phase === 'paused') return $t('hub.brainHubWidget.phases.paused')
     return ''
   })
 
@@ -64,7 +65,9 @@
     showActive && 'active text-accent',
   )}
   onclick={onOpen}
-  title={showActive ? `${activeLabel} (Click for Braintunnel Hub)` : 'Braintunnel Hub'}
+  title={showActive
+    ? $t('hub.brainHubWidget.titleActive', { activeLabel })
+    : $t('hub.brainHubWidget.title')}
 >
   <WikiPageCountIndicator
     count={displayCount}

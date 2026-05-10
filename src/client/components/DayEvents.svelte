@@ -3,6 +3,7 @@
   import { cn } from '@client/lib/cn.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   export interface CalendarEvent {
     id: string
@@ -77,7 +78,7 @@
   }
 
   function formatTimeRange(e: CalendarEvent): string {
-    if (e.allDay) return 'All day'
+    if (e.allDay) return $t('hub.dayEvents.allDay')
     return `${formatTime(e.start)} – ${formatTime(e.end)}`
   }
 
@@ -158,7 +159,9 @@
             selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
           )}
           style={eventCssVars(eventColor, 15)}
-          aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
+          aria-label={onEventOpen
+            ? $t('hub.dayEvents.aria.openInCalendar', { title: e.title })
+            : $t('hub.dayEvents.aria.viewDetails', { title: e.title })}
           title={e.location ?? ''}
           onclick={() => handleEventClick(e)}
         >
@@ -192,7 +195,9 @@
             selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
           )}
           style={eventCssVars(eventColor, 10)}
-          aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
+          aria-label={onEventOpen
+            ? $t('hub.dayEvents.aria.openInCalendar', { title: e.title })
+            : $t('hub.dayEvents.aria.viewDetails', { title: e.title })}
           title={[formatTimeRange(e), e.location, e.description].filter(Boolean).join(' · ')}
           onclick={() => handleEventClick(e)}
         >

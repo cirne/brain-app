@@ -3,6 +3,7 @@
   import { cn } from '@client/lib/cn.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { YourWikiPhase } from '@shared/backgroundStatus.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     mailStatus: OnboardingMailStatus | null
@@ -91,11 +92,11 @@
     const diffHour = Math.floor(diffMin / 60)
     const diffDay = Math.floor(diffHour / 24)
 
-    if (diffSec < 60) return 'just now'
-    if (diffMin < 60) return `${diffMin}m ago`
-    if (diffHour < 24) return `${diffHour}h ago`
-    if (diffDay === 1) return 'yesterday'
-    if (diffDay < 7) return `${diffDay}d ago`
+    if (diffSec < 60) return $t('hub.hubActivityOverview.relativeTime.justNow')
+    if (diffMin < 60) return $t('hub.hubActivityOverview.relativeTime.minutesAgo', { count: diffMin })
+    if (diffHour < 24) return $t('hub.hubActivityOverview.relativeTime.hoursAgo', { count: diffHour })
+    if (diffDay === 1) return $t('hub.hubActivityOverview.relativeTime.yesterday')
+    if (diffDay < 7) return $t('hub.hubActivityOverview.relativeTime.daysAgo', { count: diffDay })
     return d.toLocaleDateString()
   }
 </script>
@@ -108,7 +109,7 @@
     id="hub-overview-heading"
     class="m-0 border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] pb-3 text-[0.9375rem] font-bold tracking-[0.02em] text-foreground"
   >
-    What’s running
+    {$t('hub.hubActivityOverview.heading')}
   </h2>
 
   <div class="mt-4 flex flex-col gap-0">
@@ -122,40 +123,48 @@
             size={18}
             class="spin-icon mt-0.5 shrink-0 text-accent"
             aria-hidden="true"
-            title="Mail index is updating"
+            title={$t('hub.hubActivityOverview.mail.updatingTitle')}
           />
         {:else}
           <Mail size={18} class={rowIconClass} aria-hidden="true" />
         {/if}
         <div class="min-w-0 flex-1">
-          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Mail index</p>
+          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">
+            {$t('hub.hubActivityOverview.mail.title')}
+          </p>
           {#if mailLoading && !mailStatus}
             <p class="mt-0.5 m-0 flex items-center gap-1.5 text-[0.8125rem] text-muted">
               <Loader2 size={14} class="shrink-0 animate-spin" aria-hidden="true" />
-              Loading…
+              {$t('common.status.loading')}
             </p>
           {:else if mailStatus?.statusError}
             <p class="mt-0.5 m-0 text-[0.8125rem] text-[var(--text-3)]" title={mailStatus.statusError}>
-              Status unavailable
+              {$t('hub.hubActivityOverview.mail.statusUnavailable')}
             </p>
           {:else if mailStatus}
             <p class="mt-0.5 m-0 text-[0.8125rem] leading-snug text-muted">
               <span class="tabular-nums font-semibold text-foreground"
                 >{mailStatus.indexedTotal != null ? mailStatus.indexedTotal : '—'}</span
               >
-              messages indexed
+              {$t('hub.hubActivityOverview.mail.messagesIndexed')}
               {#if mailStatus.syncRunning}
                 <span class="font-semibold text-accent">
-                  · Syncing{formatSyncLockAge(mailStatus.syncLockAgeMs)}…</span
+                  {$t('hub.hubActivityOverview.mail.syncing', {
+                    lockAge: formatSyncLockAge(mailStatus.syncLockAgeMs),
+                  })}</span
                 >
               {:else if mailStatus.lastSyncedAt}
-                <span> · Last synced {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
+                <span>
+                  {$t('hub.hubActivityOverview.mail.lastSynced', {
+                    value: formatRelativeDate(mailStatus.lastSyncedAt),
+                  })}
+                </span>
               {:else if mailStatus.configured}
-                <span> · No sync time yet</span>
+                <span>{$t('hub.hubActivityOverview.mail.noSyncTimeYet')}</span>
               {/if}
             </p>
           {:else}
-            <p class="mt-0.5 m-0 text-[0.8125rem] text-muted">Loading…</p>
+            <p class="mt-0.5 m-0 text-[0.8125rem] text-muted">{$t('common.status.loading')}</p>
           {/if}
         </div>
       </div>
@@ -169,7 +178,7 @@
             onclick={() => void onSyncNow()}
           >
             <RefreshCw size={14} class={cn(syncBusy && 'animate-spin')} aria-hidden="true" />
-            Sync mail now
+            {$t('hub.hubActivityOverview.mail.syncNow')}
           </button>
         </div>
       {/if}
@@ -185,13 +194,15 @@
             size={18}
             class="spin-icon mt-0.5 shrink-0 text-accent"
             aria-hidden="true"
-            title="Wiki background updates running"
+            title={$t('hub.hubActivityOverview.wiki.updatingTitle')}
           />
         {:else}
           <BookOpen size={18} class={rowIconClass} aria-hidden="true" />
         {/if}
         <div class="min-w-0 flex-1">
-          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Your wiki</p>
+          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">
+            {$t('hub.hubActivityOverview.wiki.title')}
+          </p>
           <p class="mt-0.5 m-0 text-[0.9375rem] font-medium leading-snug text-foreground">{wikiTitle}</p>
           <p class="mt-0.5 m-0 line-clamp-2 text-[0.8125rem] leading-snug text-muted">{wikiSubtitle}</p>
         </div>
@@ -200,7 +211,7 @@
         <div
           class="flex shrink-0 flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-stretch [&>button]:max-sm:flex-1"
           role="group"
-          aria-label="Wiki background updates"
+          aria-label={$t('hub.hubActivityOverview.wiki.controlsAriaLabel')}
         >
           {#if wikiIsActive || (wikiIsIdle && !wikiIsPaused)}
             <button
@@ -208,10 +219,10 @@
               class="{wikiBtnBase} {wikiBtnSecondary}"
               disabled={wikiActionBusy}
               onclick={() => void onPause?.()}
-              title="Pause background wiki updates"
+              title={$t('hub.hubActivityOverview.wiki.pauseTitle')}
             >
               <Pause size={14} aria-hidden="true" />
-              Pause
+              {$t('common.actions.pause')}
             </button>
           {:else if wikiIsPaused || _wikiPhase === 'error'}
             <button
@@ -219,10 +230,10 @@
               class="{wikiBtnBase} {wikiBtnPrimary}"
               disabled={wikiActionBusy}
               onclick={() => void onResume?.()}
-              title="Resume background wiki updates"
+              title={$t('hub.hubActivityOverview.wiki.resumeTitle')}
             >
               <Play size={14} aria-hidden="true" />
-              Resume
+              {$t('common.actions.resume')}
             </button>
           {/if}
           {#if wikiIsIdle && !wikiIsPaused && onWikiUpdateNow}
@@ -231,10 +242,10 @@
               class="{wikiBtnBase} {wikiBtnGhost}"
               disabled={wikiActionBusy || wikiUpdateBusy}
               onclick={() => void onWikiUpdateNow()}
-              title="Run a background wiki refresh now"
+              title={$t('hub.hubActivityOverview.wiki.updateNowTitle')}
             >
               <RefreshCw size={14} class={cn(wikiUpdateBusy && 'animate-spin')} aria-hidden="true" />
-              Update wiki now
+              {$t('hub.hubActivityOverview.wiki.updateNow')}
             </button>
           {/if}
         </div>
@@ -246,14 +257,16 @@
       <div class="flex min-w-0 flex-1 gap-3">
         <Cable size={18} class={rowIconClass} aria-hidden="true" />
         <div class="min-w-0 flex-1">
-          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Connected sources</p>
+          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">
+            {$t('hub.hubActivityOverview.sources.title')}
+          </p>
           {#if sourcesError}
             <p class="mt-0.5 m-0 cursor-help text-[0.8125rem] text-[var(--text-3)]" title={sourcesError}>
-              Could not load summary.
+              {$t('hub.hubActivityOverview.sources.couldNotLoadSummary')}
             </p>
           {:else if sourcesEmpty}
             <p class="mt-0.5 m-0 text-[0.8125rem] text-muted">
-              None yet — add mail or calendars so search and your wiki have material to work with.
+              {$t('hub.hubActivityOverview.sources.noneYet')}
             </p>
           {:else}
             <p class="mt-0.5 m-0 text-[0.8125rem] leading-snug text-muted">{indexFeedSummary}</p>
@@ -264,7 +277,7 @@
               class="hub-overview-settings mt-2 inline-flex cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-semibold text-accent underline decoration-[color-mix(in_srgb,var(--accent)_45%,transparent)] underline-offset-[0.12em] hover:decoration-[var(--accent)]"
               onclick={() => onOpenSettings()}
             >
-              Manage in Settings
+              {$t('hub.hubActivityOverview.sources.manageInSettings')}
             </button>
           {/if}
         </div>

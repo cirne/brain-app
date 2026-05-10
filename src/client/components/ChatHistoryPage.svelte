@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
+  import { t } from '@client/lib/i18n/index.js'
   import { Loader2, MessageSquare, Search, Trash2 } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
@@ -74,7 +75,7 @@
       if (mySeq !== refreshSeq) return
       if (!res) {
         if (!background) {
-          error = 'Could not load chats'
+          error = $t('chat.history.loadFailed')
           sessions = []
         }
         return
@@ -92,7 +93,7 @@
     } catch (e) {
       if (mySeq !== refreshSeq) return
       if (!background) {
-        error = e instanceof Error ? e.message : 'Failed to load'
+        error = e instanceof Error ? e.message : $t('chat.history.loadFailedGeneric')
         sessions = []
       }
     } finally {
@@ -107,7 +108,7 @@
   function requestDelete(e: MouseEvent, s: ChatSessionListItem) {
     e.stopPropagation()
     e.preventDefault()
-    const label = s.title?.trim() || s.preview?.trim() || 'New chat'
+    const label = s.title?.trim() || s.preview?.trim() || $t('chat.history.newChatFallbackTitle')
     pendingDelete = { sessionId: s.sessionId, label: labelForDeleteChatDialog(label) }
   }
 
@@ -145,14 +146,14 @@
 
 <div class="chp flex h-full min-h-0 flex-col bg-surface-2">
   <div class="chp-search shrink-0 px-3 pt-2.5 pb-2 border-b border-border">
-    <label class="chp-search-label block mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted" for="chp-search-input">Search chats</label>
+    <label class="chp-search-label block mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted" for="chp-search-input">{$t('chat.historyPage.searchChatsLabel')}</label>
     <div class="chp-search-inner flex items-center gap-2 px-2.5 py-2 border border-border bg-surface-3">
       <Search class="chp-search-icon" size={16} strokeWidth={2} aria-hidden="true" />
       <input
         id="chp-search-input"
         type="search"
         class="chp-input flex-1 min-w-0 border-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted placeholder:opacity-70"
-        placeholder="Filter"
+        placeholder={$t('chat.historyPage.filterPlaceholder')}
         bind:value={searchQuery}
         autocomplete="off"
         spellcheck="false"
@@ -162,13 +163,13 @@
 
   <div class="chp-list flex-1 min-h-0 overflow-y-auto px-2 pt-1.5 pb-3">
     {#if loading}
-      <div class="chp-muted px-2 py-3 text-[13px] text-muted">Loading…</div>
+      <div class="chp-muted px-2 py-3 text-[13px] text-muted">{$t('common.status.loading')}</div>
     {:else if error}
       <div class="chp-error chp-muted px-2 py-3 text-[13px] text-danger">{error}</div>
     {:else if sessions.length === 0}
-      <div class="chp-muted px-2 py-3 text-[13px] text-muted">No chats yet.</div>
+      <div class="chp-muted px-2 py-3 text-[13px] text-muted">{$t('chat.history.emptyChats')}</div>
     {:else if filtered.length === 0}
-      <div class="chp-muted px-2 py-3 text-[13px] text-muted">No chats match your search.</div>
+      <div class="chp-muted px-2 py-3 text-[13px] text-muted">{$t('chat.historyPage.noSearchMatches')}</div>
     {:else}
       {#each filtered as s (s.sessionId)}
         {@const agentWorking = chatRowShowsAgentWorking(
@@ -205,7 +206,7 @@
           </span>
           <div class="chp-row-main flex-1 min-w-0">
             <div class="chp-row-title text-[13px] leading-snug font-medium overflow-hidden text-ellipsis [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]">
-              {s.title?.trim() || s.preview?.trim() || 'New chat'}
+              {s.title?.trim() || s.preview?.trim() || $t('chat.history.newChatFallbackTitle')}
             </div>
             {#if s.preview?.trim() && s.title?.trim() && s.preview.trim() !== s.title.trim()}
               <div class="chp-row-preview mt-[3px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted">{s.preview}</div>
@@ -215,8 +216,8 @@
           <button
             type="button"
             class="chp-row-delete shrink-0 p-1 text-muted opacity-0 transition-[opacity,color,background] [@media(hover:none)]:opacity-100 group-hover/chprow:opacity-100 hover:!text-danger hover:!bg-[rgba(224,92,92,0.12)]"
-            title="Delete chat"
-            aria-label="Delete chat"
+            title={$t('chat.agentChat.deleteChatAria')}
+            aria-label={$t('chat.agentChat.deleteChatAria')}
             onclick={(e) => requestDelete(e, s)}
           >
             <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
@@ -228,17 +229,17 @@
 
   <ConfirmDialog
     open={pendingDelete !== null}
-    title="Delete chat?"
+    title={$t('chat.agentChat.deleteDialogTitle')}
     titleId="chp-delete-title"
-    confirmLabel="Delete"
-    cancelLabel="Cancel"
+    confirmLabel={$t('chat.agentChat.deleteConfirmLabel')}
+    cancelLabel={$t('common.actions.cancel')}
     confirmVariant="danger"
     onDismiss={cancelDelete}
     onConfirm={() => void confirmDelete()}
   >
     {#snippet children()}
       {#if pendingDelete}
-        <p>This will permanently remove "{pendingDelete.label}".</p>
+        <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
       {/if}
     {/snippet}
   </ConfirmDialog>

@@ -3,6 +3,7 @@
   import { Archive, Inbox } from 'lucide-svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { formatDate } from '@client/lib/formatDate.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { InboxListItemPreview } from '@client/lib/cards/contentCards.js'
 
   let {
@@ -59,14 +60,16 @@
 <div class="inbox-tool-preview mt-1 min-w-0 max-w-full">
   <div class="inbox-tool-head mb-2 flex flex-wrap items-center gap-2 text-muted">
     <Inbox size={14} strokeWidth={2} aria-hidden="true" />
-    <span class="inbox-tool-title text-xs font-semibold uppercase tracking-wide">Inbox</span>
+    <span class="inbox-tool-title text-xs font-semibold uppercase tracking-wide">{$t('cards.inboxListPreviewCard.title')}</span>
     {#if totalCount > 0}
-      <span class="inbox-tool-meta ml-auto text-[11px] opacity-85">{totalCount} {totalCount === 1 ? 'message' : 'messages'}</span>
+      <span class="inbox-tool-meta ml-auto text-[11px] opacity-85">
+        {$t('cards.inboxListPreviewCard.messageCount', { count: totalCount })}
+      </span>
     {/if}
   </div>
 
   {#if visible.length === 0}
-    <p class="inbox-tool-empty mb-1.5 text-xs text-muted">No messages in preview.</p>
+    <p class="inbox-tool-empty mb-1.5 text-xs text-muted">{$t('cards.inboxListPreviewCard.empty')}</p>
   {:else}
     <ul class="inbox-tool-rows m-0 flex list-none flex-col gap-0 p-0">
       {#each displayRows as row (row.id)}
@@ -77,10 +80,12 @@
             type="button"
             class="row-open group flex flex-1 min-w-0 cursor-pointer flex-col items-stretch gap-[2px] border-none bg-transparent px-2.5 py-2 text-left font-[inherit] text-[inherit]"
             onclick={() => onOpenEmail?.(row.id, row.subject, row.from)}
-            aria-label="Open: {row.subject}"
+            aria-label={$t('cards.inboxListPreviewCard.ariaOpen', { subject: row.subject })}
           >
             <span class="row-line1 flex min-w-0 items-baseline justify-between gap-2">
-              <span class="row-from min-w-0 truncate text-xs font-semibold">{row.from || '(unknown)'}</span>
+              <span class="row-from min-w-0 truncate text-xs font-semibold">
+                {row.from || $t('cards.inboxListPreviewCard.unknownSender')}
+              </span>
               {#if row.date}
                 <span class="row-date shrink-0 text-[10px] text-muted">{formatDate(row.date)}</span>
               {/if}
@@ -98,8 +103,8 @@
             type="button"
             class="row-archive flex w-9 shrink-0 cursor-pointer items-center justify-center border-0 border-l border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-transparent p-0 text-muted hover:not-disabled:text-accent disabled:cursor-wait disabled:opacity-60"
             disabled={archivingId === row.id}
-            title="Archive"
-            aria-label="Archive message"
+            title={$t('common.actions.archive')}
+            aria-label={$t('cards.inboxListPreviewCard.ariaArchiveMessage')}
             onclick={() => void archive(row.id)}
           >
             {#if archivingId === row.id}
@@ -118,7 +123,7 @@
       type="button"
       class="inbox-tool-full mt-2 cursor-pointer border-none bg-transparent p-0 text-left text-xs font-semibold text-accent hover:underline"
       onclick={() => onOpenFullInbox()}
-    >Show full inbox</button>
+    >{$t('cards.inboxListPreviewCard.showFullInbox')}</button>
   {/if}
 </div>
 

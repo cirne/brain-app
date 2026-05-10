@@ -1,20 +1,13 @@
 <script lang="ts">
   import AgentChat from '@components/AgentChat.svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   /**
    * Leading `/files` invokes the public `skills/files/SKILL.md` turn (see POST /api/chat slash handling)
    * so the model gets file-tool / filesystem context without the user typing `/files`.
    */
-  const ADD_FOLDERS_KICKOFF =
-    '/files Look through my Desktop and Documents folders for folders that would be good additions to my search index. ' +
-    'Weed out poor fits (e.g. huge image-only archives, games, temp dirs). ' +
-    'Recommend at most 5 candidates. Present them as a numbered list (1–5) so I can reply by number (e.g. “add 1, 3, and 4”). ' +
-    'For each item, say what would be indexed: unless I should exclude certain file types or subdirectories, assume the whole tree under that folder path, including all subdirectories. ' +
-    'If only part of a folder should be indexed (specific subdirs, or skip certain extensions), say that explicitly. ' +
-    'When done, ask which numbers to add and wait for my confirmation before changing any indexing settings.'
-
-  const PLACEHOLDER =
-    'Reply to confirm which folders to add, adjust the list, or say no…'
+  const addFoldersKickoff = $derived($t('hub.hubAddFoldersPanel.kickoffMessage'))
+  const placeholder = $derived($t('hub.hubAddFoldersPanel.placeholder'))
 
   type Props = {
     /** Same as slide-over close (X / mobile back): used when the agent completes `finish_conversation`. */
@@ -49,9 +42,9 @@
     context={{ type: 'chat' }}
     chatEndpoint="/api/chat"
     storageKey="brain-hub-add-folders"
-    headerFallbackTitle="Add folders to index"
-    inputPlaceholder={PLACEHOLDER}
-    autoSendMessage={ADD_FOLDERS_KICKOFF}
+    headerFallbackTitle={$t('hub.hubAddFoldersPanel.headerFallbackTitle')}
+    inputPlaceholder={placeholder}
+    autoSendMessage={addFoldersKickoff}
     suppressAgentDetailAutoOpen={true}
     hidePaneContextChip={true}
     onAgentFinishConversation={onClosePanel}

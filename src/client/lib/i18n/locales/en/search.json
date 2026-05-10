@@ -1,0 +1,14 @@
+{
+  "placeholder": {
+    "global": "Search your docs and emails..."
+  },
+  "overlay": {
+    "title": "Search",
+    "close": "Close search",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "hint": "Search your docs and emails",
+    "wikiHome": "Wiki home",
+    "noResults": "No results for \"{{query}}\""
+  }
+}

@@ -3,6 +3,7 @@
    * Onboarding profile build: activity + referenced paths/mail; streamed `me.md` at bottom as assistant message.
    */
   import { Mail, User } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import type {
     AgentConversationViewProps,
     ConversationScrollApi,
@@ -94,7 +95,10 @@
     {:else if streaming}
       <div class="ob-prof-activity" role="status" aria-live="polite">
         <span class="ob-prof-pulse" aria-hidden="true"></span>
-        <StreamingAgentMarkdown class="ob-prof-activity-md" content="Working…" />
+        <StreamingAgentMarkdown
+          class="ob-prof-activity-md"
+          content={$t('onboarding.common.working')}
+        />
       </div>
     {/if}
 
@@ -109,7 +113,7 @@
     {#each profilingTranscriptEvents as event, i (event.type === 'email' ? event.toolId : `txt-${i}`)}
       {#if event.type === 'text'}
         <div class="ob-prof-chat-msg" role="article">
-          <div class="ob-prof-msg-label">Assistant</div>
+          <div class="ob-prof-msg-label">{$t('chat.messageRow.assistant')}</div>
           <StreamingAgentMarkdown class="ob-prof-msg-body" content={event.content} />
         </div>
       {:else}
@@ -125,7 +129,10 @@
             </span>
             <span class="ob-prof-mail-body">
               <span class="ob-prof-mail-subject">
-                {event.row.subject.trim() || (event.done ? '(No subject)' : 'Reading message…')}
+                {event.row.subject.trim() ||
+                  (event.done
+                    ? $t('onboarding.mailPreview.noSubject')
+                    : $t('onboarding.mailPreview.readingMessage'))}
               </span>
               {#if event.row.from.trim()}
                 <span class="ob-prof-mail-meta">{event.row.from}</span>
@@ -141,7 +148,9 @@
 
     {#if peopleBlock.people.length > 0 || peopleBlock.peopleOverflow > 0}
       <section class="ob-prof-section" aria-labelledby="ob-prof-people-heading">
-        <h2 id="ob-prof-people-heading" class="ob-prof-section-title">People</h2>
+        <h2 id="ob-prof-people-heading" class="ob-prof-section-title">
+          {$t('onboarding.profilingView.peopleHeading')}
+        </h2>
         <ul class="ob-prof-people-list">
           {#each peopleBlock.people as row (row.id)}
             <li class="ob-prof-person-row">
@@ -158,14 +167,18 @@
           {/each}
         </ul>
         {#if peopleBlock.peopleOverflow > 0}
-          <p class="ob-prof-overflow">+{peopleBlock.peopleOverflow} more</p>
+          <p class="ob-prof-overflow">
+            +{$t('onboarding.common.moreCount', { count: peopleBlock.peopleOverflow })}
+          </p>
         {/if}
       </section>
     {/if}
 
     {#if resources.wikiPaths.length > 0}
       <section class="ob-prof-section" aria-labelledby="ob-prof-wiki-heading">
-        <h2 id="ob-prof-wiki-heading" class="ob-prof-section-title">Notes</h2>
+        <h2 id="ob-prof-wiki-heading" class="ob-prof-section-title">
+          {$t('onboarding.profilingView.notesHeading')}
+        </h2>
         <ul class="ob-prof-chips">
           {#each resources.wikiPaths as path (path)}
             <li>
@@ -176,16 +189,24 @@
           {/each}
         </ul>
         {#if resources.wikiOverflow > 0}
-          <p class="ob-prof-overflow">+{resources.wikiOverflow} more</p>
+          <p class="ob-prof-overflow">
+            +{$t('onboarding.common.moreCount', { count: resources.wikiOverflow })}
+          </p>
         {/if}
       </section>
     {/if}
 
     {#if profileDraftPreview.trim().length > 0}
-      <div class="ob-prof-chat-msg" role="article" aria-label="Assistant message, me.md">
-        <div class="ob-prof-msg-label">Assistant</div>
+      <div
+        class="ob-prof-chat-msg"
+        role="article"
+        aria-label={$t('onboarding.profilingView.assistantMessageMeMdAria')}
+      >
+        <div class="ob-prof-msg-label">{$t('chat.messageRow.assistant')}</div>
         {#if profileDraftStreaming}
-          <p class="ob-prof-msg-stream-hint" role="status">Writing me.md…</p>
+          <p class="ob-prof-msg-stream-hint" role="status">
+            {$t('onboarding.profilingView.writingMeMd')}
+          </p>
         {/if}
         <StreamingAgentMarkdown
           class="ob-prof-msg-body"
@@ -196,7 +217,7 @@
     {/if}
 
     {#if !streaming && messages.length === 0}
-      <p class="ob-prof-placeholder">Starting…</p>
+      <p class="ob-prof-placeholder">{$t('onboarding.common.starting')}</p>
     {/if}
   {/snippet}
 </OnboardingActivityTranscriptShell>

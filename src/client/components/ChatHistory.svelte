@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
+  import { t } from '@client/lib/i18n/index.js'
   import { BookOpen, Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
@@ -69,7 +70,7 @@
     const items: NavRowItem[] = sessions.map((s) => ({
       id: `chat:${s.sessionId}`,
       type: 'chat' as const,
-      title: s.title?.trim() || s.preview?.trim() || 'New chat',
+      title: s.title?.trim() || s.preview?.trim() || $t('chat.history.newChatFallbackTitle'),
       timestamp: s.updatedAt,
       sessionId: s.sessionId,
     }))
@@ -116,7 +117,7 @@
 
       if (!raw) {
         if (!background) {
-          error = 'Could not load chats'
+          error = $t('chat.history.loadFailed')
           sessions = []
           hasMoreChats = false
         }
@@ -130,7 +131,7 @@
     } catch (e) {
       if (mySeq !== refreshSeq) return
       if (!background) {
-        error = e instanceof Error ? e.message : 'Failed to load'
+        error = e instanceof Error ? e.message : $t('chat.history.loadFailedGeneric')
         sessions = []
         hasMoreChats = false
       }
@@ -244,8 +245,8 @@
     <button
       type="button"
       class="ch-row-delete shrink-0 p-[3px] text-muted opacity-0 transition-[opacity,color,background] [@media(hover:none)]:opacity-100 group-hover/chrow:opacity-45 hover:!opacity-100 hover:!text-danger hover:!bg-[rgba(224,92,92,0.12)]"
-      title={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
-      aria-label={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+      title={item.type === 'chat' ? $t('chat.agentChat.deleteChatAria') : $t('chat.history.removeFromHistoryAria')}
+      aria-label={item.type === 'chat' ? $t('chat.agentChat.deleteChatAria') : $t('chat.history.removeFromHistoryAria')}
       onclick={(e) => requestDelete(e, item)}
     >
       <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
@@ -256,7 +257,7 @@
 <div class="chat-history box-border flex h-full min-h-0 flex-col bg-surface-2 pt-2.5">
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto pb-3.5 max-md:pb-3">
     {#if loading}
-      <div class="ch-muted px-0.5 py-2.5 text-xs text-muted max-md:text-sm">Loading…</div>
+      <div class="ch-muted px-0.5 py-2.5 text-xs text-muted max-md:text-sm">{$t('common.status.loading')}</div>
     {:else if error}
       <div class="ch-error px-0.5 py-2.5 text-[11px] text-danger max-md:text-xs">{error}</div>
     {:else}
@@ -268,7 +269,7 @@
           class="ch-group-label m-0 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
           id="ch-heading-chats"
         >
-          Chats
+          {$t('chat.history.chatsHeading')}
         </h2>
         <button
           type="button"
@@ -276,10 +277,10 @@
           onclick={() => onNewChat()}
         >
           <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-          <span>New chat</span>
+          <span>{$t('chat.history.newChat')}</span>
         </button>
         {#if chatItems.length === 0}
-          <div class={cn(chatHistoryRailEmptyMutedClass, 'ch-muted--section')}>No chats yet.</div>
+          <div class={cn(chatHistoryRailEmptyMutedClass, 'ch-muted--section')}>{$t('chat.history.emptyChats')}</div>
         {:else}
           <div class={chatHistoryRowListClass}>
             {#each chatItems as item (item.id)}
@@ -288,7 +289,7 @@
           </div>
           {#if hasMoreChats && onOpenAllChats}
             <button type="button" class={cn(chatHistoryRailViewAllBtn, 'ch-view-all')} onclick={() => onOpenAllChats()}>
-              View all chats…
+              {$t('chat.history.viewAllChats')}
             </button>
           {/if}
         {/if}
@@ -302,7 +303,7 @@
           class="ch-group-label m-0 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
           id="ch-heading-recents"
         >
-          Recents
+          {$t('chat.history.recentsHeading')}
         </h2>
         {#if onWikiHome}
           <button
@@ -311,12 +312,12 @@
             onclick={() => onWikiHome()}
           >
             <BookOpen size={14} strokeWidth={2.5} aria-hidden="true" />
-            <span>Wiki home</span>
+            <span>{$t('nav.wiki.home')}</span>
           </button>
         {/if}
         {#if recentItems.length === 0}
           <div class={cn(chatHistoryRailEmptyMutedClass, 'ch-muted--section')}>
-            No recent documents or email.
+            {$t('chat.history.emptyRecents')}
           </div>
         {:else}
           <div class={chatHistoryRowListClass}>
@@ -331,17 +332,17 @@
 
   <ConfirmDialog
     open={pendingDelete !== null}
-    title="Delete chat?"
+    title={$t('chat.agentChat.deleteDialogTitle')}
     titleId="ch-delete-title"
-    confirmLabel="Delete"
-    cancelLabel="Cancel"
+    confirmLabel={$t('chat.agentChat.deleteConfirmLabel')}
+    cancelLabel={$t('common.actions.cancel')}
     confirmVariant="danger"
     onDismiss={cancelDelete}
     onConfirm={() => void confirmDelete()}
   >
     {#snippet children()}
       {#if pendingDelete}
-        <p>This will permanently remove "{pendingDelete.label}".</p>
+        <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
       {/if}
     {/snippet}
   </ConfirmDialog>

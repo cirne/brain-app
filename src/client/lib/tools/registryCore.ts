@@ -3,6 +3,8 @@
  * without loading `lucide-svelte`. Icons: {@link registryIcons.TOOL_ICONS} or {@link getToolDefinition}.
  */
 import type { ToolCall } from '../agentUtils.js'
+import { get } from 'svelte/store'
+import { t } from '@client/lib/i18n/index.js'
 import { matchContentPreview } from './matchPreview.js'
 import { buildSeedingLine } from './seedProgress.js'
 import type { OnboardingVariant, ToolChatPolicy, ToolDefinition } from './types.js'
@@ -39,42 +41,42 @@ function mergeDefinition(partial: ToolRegistryPatch): ToolDefinition {
 }
 
 /** Present-tense labels for the chat / activity tool summary line (not snake_case). */
-const TOOL_DISPLAY_LABELS: Record<string, string> = {
-  read: 'Read file',
-  edit: 'Edit file',
-  write: 'Write file',
-  grep: 'Search in wiki',
-  find: 'Find wiki files (glob)',
-  move_file: 'Move file',
-  delete_file: 'Delete file',
-  search_index: 'Search index',
-  read_mail_message: 'Read mail',
-  read_indexed_file: 'Read file',
-  read_attachment: 'Read attachment',
-  manage_sources: 'Manage sources',
-  refresh_sources: 'Sync sources',
-  list_inbox: 'Inbox',
-  inbox_rules: 'Inbox rules',
-  archive_emails: 'Archive mail',
-  draft_email: 'Draft email',
-  edit_draft: 'Edit draft',
-  send_draft: 'Send mail',
-  find_person: 'Find contact',
-  calendar: 'Calendar',
-  web_search: 'Web search',
-  fetch_page: 'Fetch page',
-  get_youtube_transcript: 'YouTube transcript',
-  youtube_search: 'YouTube search',
-  finish_conversation: 'Finish chat',
-  set_chat_title: 'Chat title',
-  speak: 'Read aloud',
-  open: 'Open',
-  remember_preference: 'Remember preference',
-  load_skill: 'Load skill',
-  list_recent_messages: 'Recent messages',
-  get_message_thread: 'Conversation',
-  suggest_reply_options: 'Quick Replies',
-  reject_question: 'Decline question',
+const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }> = {
+  read: { key: 'read', defaultValue: 'Read file' },
+  edit: { key: 'edit', defaultValue: 'Edit file' },
+  write: { key: 'write', defaultValue: 'Write file' },
+  grep: { key: 'grep', defaultValue: 'Search in wiki' },
+  find: { key: 'find', defaultValue: 'Find wiki files (glob)' },
+  move_file: { key: 'moveFile', defaultValue: 'Move file' },
+  delete_file: { key: 'deleteFile', defaultValue: 'Delete file' },
+  search_index: { key: 'searchIndex', defaultValue: 'Search index' },
+  read_mail_message: { key: 'readMailMessage', defaultValue: 'Read mail' },
+  read_indexed_file: { key: 'readIndexedFile', defaultValue: 'Read file' },
+  read_attachment: { key: 'readAttachment', defaultValue: 'Read attachment' },
+  manage_sources: { key: 'manageSources', defaultValue: 'Manage sources' },
+  refresh_sources: { key: 'refreshSources', defaultValue: 'Sync sources' },
+  list_inbox: { key: 'listInbox', defaultValue: 'Inbox' },
+  inbox_rules: { key: 'inboxRules', defaultValue: 'Inbox rules' },
+  archive_emails: { key: 'archiveEmails', defaultValue: 'Archive mail' },
+  draft_email: { key: 'draftEmail', defaultValue: 'Draft email' },
+  edit_draft: { key: 'editDraft', defaultValue: 'Edit draft' },
+  send_draft: { key: 'sendDraft', defaultValue: 'Send mail' },
+  find_person: { key: 'findPerson', defaultValue: 'Find contact' },
+  calendar: { key: 'calendar', defaultValue: 'Calendar' },
+  web_search: { key: 'webSearch', defaultValue: 'Web search' },
+  fetch_page: { key: 'fetchPage', defaultValue: 'Fetch page' },
+  get_youtube_transcript: { key: 'youtubeTranscript', defaultValue: 'YouTube transcript' },
+  youtube_search: { key: 'youtubeSearch', defaultValue: 'YouTube search' },
+  finish_conversation: { key: 'finishConversation', defaultValue: 'Finish chat' },
+  set_chat_title: { key: 'setChatTitle', defaultValue: 'Chat title' },
+  speak: { key: 'speak', defaultValue: 'Read aloud' },
+  open: { key: 'open', defaultValue: 'Open' },
+  remember_preference: { key: 'rememberPreference', defaultValue: 'Remember preference' },
+  load_skill: { key: 'loadSkill', defaultValue: 'Load skill' },
+  list_recent_messages: { key: 'listRecentMessages', defaultValue: 'Recent messages' },
+  get_message_thread: { key: 'getMessageThread', defaultValue: 'Conversation' },
+  suggest_reply_options: { key: 'suggestReplyOptions', defaultValue: 'Quick Replies' },
+  reject_question: { key: 'rejectQuestion', defaultValue: 'Decline question' },
 }
 
 function humanizeToolName(name: string): string {
@@ -158,7 +160,11 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
 export function getToolDefinitionCore(name: string): ToolDefinition {
   const partial = TOOL_REGISTRY[name]
   const def = partial ? mergeDefinition(partial) : DEFAULT_DEFINITION
-  const label = def.chat.label ?? TOOL_DISPLAY_LABELS[name] ?? humanizeToolName(name)
+  const label =
+    def.chat.label ??
+    (TOOL_DISPLAY_LABELS[name]
+      ? get(t)(`chat.toolLabels.${TOOL_DISPLAY_LABELS[name].key}`, TOOL_DISPLAY_LABELS[name].defaultValue)
+      : humanizeToolName(name))
   return {
     ...def,
     chat: { ...def.chat, label },

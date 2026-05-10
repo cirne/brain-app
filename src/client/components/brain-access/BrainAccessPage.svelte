@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ShieldCheck } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import {
     loadBrainAccessCustomPolicies,
@@ -130,12 +131,12 @@
         fetch('/api/brain-query/log?role=owner&limit=80'),
       ])
       if (!gRes.ok) {
-        loadError = (await gRes.text()) || 'Failed to load brain query grants.'
+        loadError = (await gRes.text()) || $t('access.brainAccessPage.errors.failedToLoadGrants')
         return
       }
       const parsed = parseGrants(await gRes.json())
       if (!parsed) {
-        loadError = 'Invalid grants response.'
+        loadError = $t('access.brainAccessPage.errors.invalidGrantsResponse')
         return
       }
       grantedByMe = parsed.grantedByMe
@@ -174,7 +175,7 @@
       })
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
-        loadError = j.message ?? j.error ?? `Couldn’t add @${entry.handle}.`
+        loadError = j.message ?? j.error ?? $t('access.brainAccessPage.errors.couldNotAddHandle', { handle: entry.handle })
         return
       }
       await reload()
@@ -191,7 +192,7 @@
     try {
       const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) {
-        loadError = `Remove failed (${res.status})`
+        loadError = $t('access.brainAccessPage.errors.removeFailed', { status: res.status })
         return
       }
       await reload()
@@ -212,7 +213,7 @@
         body: JSON.stringify({ privacyPolicy }),
       })
       if (!res.ok) {
-        loadError = `Update failed (${res.status})`
+        loadError = $t('access.brainAccessPage.errors.updateFailed', { status: res.status })
         return
       }
       await reload()
@@ -233,15 +234,15 @@
 </script>
 
 <div class="brain-access-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
-  <h1 class="sr-only">Brain to Brain access</h1>
-  <SettingsSubpageHeader pageTitle="Brain to Brain access" onNavigateToSettingsRoot={onBackToSettingsMain} />
+  <h1 class="sr-only">{$t('access.brainAccessPage.title')}</h1>
+  <SettingsSubpageHeader pageTitle={$t('access.brainAccessPage.title')} onNavigateToSettingsRoot={onBackToSettingsMain} />
 
   <div class="brain-access-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
     <div class="brain-access-inner mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 pb-6 pt-2 max-md:px-4 max-md:pb-4">
       <div class="flex items-start gap-2">
         <ShieldCheck size={16} class="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
         <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
-          Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.
+          {$t('access.brainAccessPage.lead')}
         </p>
       </div>
 
@@ -251,10 +252,10 @@
 
       <section aria-labelledby="brain-access-policies-heading" class="flex flex-col gap-4">
     <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
-      Policies &amp; collaborators
+      {$t('access.brainAccessPage.policiesHeading')}
     </h2>
     {#if busy && grantedByMe.length === 0 && grantedToMe.length === 0}
-      <p class="m-0 text-[0.875rem] text-muted">Loading…</p>
+      <p class="m-0 text-[0.875rem] text-muted">{$t('common.status.loading')}</p>
     {:else}
       {#each policyCards as model (model.policyId)}
         <PolicyCard
@@ -279,7 +280,7 @@
         createCustomOpen = true
       }}
     >
-      + Create custom policy
+      {$t('access.brainAccessPage.createCustomPolicy')}
     </button>
   </section>
 
@@ -297,14 +298,14 @@
           disabled={busy}
           onclick={() => void reload()}
         >
-          Refresh
+          {$t('common.actions.refresh')}
         </button>
         <button
           type="button"
           class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
           onclick={() => onBackToSettingsMain()}
         >
-          ← Back to Settings
+          {$t('access.brainAccessPage.backToSettings')}
         </button>
       </div>
     </div>

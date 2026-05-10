@@ -42,6 +42,7 @@
   import { buildInitialYourWikiDocFromWikiSlice } from '@client/lib/hub/yourWikiDocFromBackground.js'
   import { wikiOverviewSubtitle, wikiOverviewTitle } from '@client/lib/hub/wikiOverviewCopy.js'
   import type { HubRipmailSourceRow } from '@client/lib/hub/hubRipmailSource.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -192,7 +193,10 @@
     const err = url.searchParams.get('addAccountError')
     if (!ok && !err) return
     if (ok) {
-      addAccountBanner = { kind: 'ok', message: `Added ${ok}. Braintunnel is syncing this mailbox now.` }
+      addAccountBanner = {
+        kind: 'ok',
+        message: $t('settings.brainSettingsPage.addAccountBanner.added', { mailbox: ok }),
+      }
     } else if (err) {
       addAccountBanner = { kind: 'err', message: err }
     }
@@ -290,9 +294,11 @@
 >
   <header class="settings-header flex flex-col gap-3 border-b border-border pb-4">
     <div class="settings-title-block">
-      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">Settings</h1>
+      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">
+        {$t('settings.brainSettingsPage.title')}
+      </h1>
       <p class="settings-subtitle m-0 mt-2 max-w-[36rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Your workspace, connections, and preferences.
+        {$t('settings.brainSettingsPage.subtitle')}
       </p>
       {#if hostedWorkspaceHandle}
         <p
@@ -316,7 +322,7 @@
       <button
         type="button"
         class="settings-banner-dismiss absolute right-2 top-[0.35rem] cursor-pointer border-none bg-transparent px-[0.4rem] py-[0.15rem] text-xl leading-none text-muted hover:text-foreground"
-        aria-label="Dismiss"
+        aria-label={$t('settings.brainSettingsPage.dismiss')}
         onclick={() => (addAccountBanner = null)}
       >×</button>
     </div>
@@ -347,7 +353,7 @@
 
   <div class="settings-grid grid grid-cols-1 gap-14">
     <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-drill-heading">
-      <SettingsSectionH2 label="Workspace" id="settings-drill-heading" />
+      <SettingsSectionH2 label={$t('settings.brainSettingsPage.sections.workspace')} id="settings-drill-heading" />
       <div class="links-list flex flex-col">
         <button
           type="button"
@@ -357,8 +363,8 @@
           <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
             <Link2 size={16} aria-hidden="true" />
             <HubSourceRowBody
-              title="Connections"
-              subtitle="Mailboxes, calendars, and folders wired into Braintunnel"
+              title={$t('settings.brainSettingsPage.workspace.connections.title')}
+              subtitle={$t('settings.brainSettingsPage.workspace.connections.subtitle')}
             />
           </div>
           <ChevronRight size={16} aria-hidden="true" />
@@ -372,8 +378,8 @@
           <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
             <BookOpen size={16} aria-hidden="true" />
             <HubSourceRowBody
-              title="Wiki activity"
-              subtitle="Background jobs, recent edits, and wiki log"
+              title={$t('settings.brainSettingsPage.workspace.wikiActivity.title')}
+              subtitle={$t('settings.brainSettingsPage.workspace.wikiActivity.subtitle')}
             />
           </div>
           <ChevronRight size={16} aria-hidden="true" />
@@ -388,8 +394,8 @@
             <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
               <Brain size={16} aria-hidden="true" />
               <HubSourceRowBody
-                title="Brain to Brain access"
-                subtitle="Policies, collaborators, and inbound activity"
+                title={$t('settings.brainSettingsPage.workspace.brainAccess.title')}
+                subtitle={$t('settings.brainSettingsPage.workspace.brainAccess.subtitle')}
               />
             </div>
             <ChevronRight size={16} aria-hidden="true" />
@@ -403,7 +409,7 @@
       aria-labelledby="settings-account-heading"
       aria-busy={accountBusy}
     >
-      <SettingsSectionH2 label="Account" id="settings-account-heading">
+      <SettingsSectionH2 label={$t('settings.brainSettingsPage.sections.account')} id="settings-account-heading">
         {#snippet icon()}
           <User size={18} aria-hidden="true" />
         {/snippet}
@@ -416,7 +422,7 @@
         >
           <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
             <User size={16} />
-            <span>Your profile</span>
+            <span>{$t('settings.brainSettingsPage.account.profile')}</span>
           </div>
           <ChevronRight size={16} />
         </button>
@@ -425,7 +431,7 @@
           <button type="button" class={linkItemBase} onclick={onLogout} disabled={accountBusy}>
             <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
               <LogOut size={16} />
-              <span>Sign out</span>
+              <span>{$t('settings.brainSettingsPage.account.signOut')}</span>
             </div>
             <ChevronRight size={16} />
           </button>
@@ -440,10 +446,12 @@
                 class="settings-delete-wrap flex shrink-0 text-danger [&_svg]:stroke-current"
                 aria-hidden="true"
               ><Trash2 size={16} /></span>
-              <span>Delete all my data</span>
+              <span>{$t('settings.brainSettingsPage.account.deleteAllData')}</span>
             </div>
             <div class="link-status flex flex-col items-end gap-px">
-              <span class="status-sub text-xs text-muted">Removes wiki, index, chats</span>
+              <span class="status-sub text-xs text-muted">
+                {$t('settings.brainSettingsPage.account.deleteAllDataHint')}
+              </span>
             </div>
             <ChevronRight size={16} />
           </button>
@@ -452,7 +460,7 @@
     </section>
 
     <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-chat-prefs-heading">
-      <SettingsSectionH2 label="Chat" id="settings-chat-prefs-heading">
+      <SettingsSectionH2 label={$t('settings.brainSettingsPage.sections.chat')} id="settings-chat-prefs-heading">
         {#snippet icon()}
           <MessageSquare size={18} aria-hidden="true" />
         {/snippet}
@@ -461,7 +469,7 @@
         class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted"
         id="settings-chat-tool-display-desc"
       >
-        How assistant tool use appears in your message history.
+        {$t('settings.brainSettingsPage.chat.description')}
       </p>
       <div
         class="settings-chat-pref-section flex flex-col gap-[0.6rem]"
@@ -478,9 +486,11 @@
             onchange={() => onChatToolDisplayPrefChange('compact')}
           />
           <span class="settings-chat-pref-text flex flex-col gap-[0.15rem]">
-            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">Compact</span>
+            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">
+              {$t('settings.brainSettingsPage.chat.compact.title')}
+            </span>
             <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted"
-            >One-line summary per tool in the transcript.</span>
+            >{$t('settings.brainSettingsPage.chat.compact.subtitle')}</span>
           </span>
         </label>
         <label class="settings-chat-pref-row flex cursor-pointer items-start gap-[0.6rem] py-[0.45rem]">
@@ -493,9 +503,11 @@
             onchange={() => onChatToolDisplayPrefChange('detailed')}
           />
           <span class="settings-chat-pref-text flex flex-col gap-[0.15rem]">
-            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">Detailed</span>
+            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">
+              {$t('settings.brainSettingsPage.chat.detailed.title')}
+            </span>
             <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted">
-              Expandable arguments, results, and previews inline for each tool.
+              {$t('settings.brainSettingsPage.chat.detailed.subtitle')}
             </span>
           </span>
         </label>
@@ -506,10 +518,10 @@
 
 <ConfirmDialog
   open={deleteAllConfirmOpen}
-  title="Delete all your data?"
+  title={$t('settings.brainSettingsPage.deleteConfirm.title')}
   titleId="settings-delete-all-title"
-  confirmLabel="Delete everything"
-  cancelLabel="Cancel"
+  confirmLabel={$t('settings.brainSettingsPage.deleteConfirm.confirmLabel')}
+  cancelLabel={$t('common.actions.cancel')}
   confirmVariant="danger"
   onDismiss={() => {
     deleteAllConfirmOpen = false
@@ -517,11 +529,9 @@
   onConfirm={() => void executeDeleteAllData()}
 >
   <p>
-    This permanently removes your wiki, chats, and profile from Braintunnel, plus the search library Braintunnel built
-    from your mail and other sources. You can't undo it.
+    {$t('settings.brainSettingsPage.deleteConfirm.bodyLine1')}
   </p>
   <p>
-    Your email accounts stay as they are: Braintunnel doesn't change or delete messages at your provider, and you can
-    keep using mail the same way you do today.
+    {$t('settings.brainSettingsPage.deleteConfirm.bodyLine2')}
   </p>
 </ConfirmDialog>

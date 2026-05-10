@@ -14,23 +14,30 @@ Ensure you have environment variables before setup. If they are not present, exi
 
 ## Setup (30 seconds)
 
-Cursor Cloud images may not have `nvm` installed even though the main developer guide uses `nvm use`. In cloud agents, prefer `fnm` and verify the active Node matches `.nvmrc` before running `npm`, `npx`, or `node`.
+This repo now defines a cloud-agent environment at [`.cursor/environment.json`](./.cursor/environment.json). On agent boot, Cursor runs:
 
 ```sh
-# Install Node 24 (matches .nvmrc) and dependencies
-curl -fsSL https://fnm.vercel.app/install | bash
-source ~/.bashrc  # or restart shell
-fnm install "$(cat .nvmrc)"
-fnm use "$(cat .nvmrc)"
-node --version
-npm install
+bash ./scripts/cloud-agent/setup-node.sh && npm install
 ```
 
-If `node` / `npm` still point at the wrong version in a non-interactive shell, initialize `fnm` in that shell before running commands:
+That setup script:
+
+- installs `fnm` if missing
+- installs and selects the Node version pinned in [`.nvmrc`](./.nvmrc) (Node 24)
+- configures shell startup so future terminals pick up the same Node version
+
+After startup, verify once:
 
 ```sh
-eval "$(fnm env --use-on-cd --shell bash)"
-fnm use "$(cat .nvmrc)"
+node --version
+npm --version
+```
+
+If you are on an older cloud environment that does not yet apply `.cursor/environment.json`, run this once manually:
+
+```sh
+bash ./scripts/cloud-agent/setup-node.sh
+npm install
 ```
 
 ## Optional: Download ripmail binary

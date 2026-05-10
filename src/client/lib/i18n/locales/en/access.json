@@ -1,0 +1,226 @@
+{
+  "brainAccessPage": {
+    "title": "Brain to Brain access",
+    "lead": "Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.",
+    "policiesHeading": "Policies & collaborators",
+    "createCustomPolicy": "+ Create custom policy",
+    "backToSettings": "← Back to Settings",
+    "errors": {
+      "failedToLoadGrants": "Failed to load brain query grants.",
+      "invalidGrantsResponse": "Invalid grants response.",
+      "couldNotAddHandle": "Couldn't add @{{handle}}.",
+      "removeFailed": "Remove failed ({{status}})",
+      "updateFailed": "Update failed ({{status}})"
+    }
+  },
+  "policyCard": {
+    "ariaOpenPolicy": "Open policy: {{label}}",
+    "collaboratorsCount_one": "{{count}} collaborator",
+    "collaboratorsCount_other": "{{count}} collaborators",
+    "recentInboundQueries_one": "{{count}} recent inbound query",
+    "recentInboundQueries_other": "{{count}} recent inbound queries"
+  },
+  "policyDetailPage": {
+    "fallbackPolicyLabel": "Policy",
+    "policyNotFound": "This policy wasn't found.",
+    "policyTextHeading": "Policy text",
+    "ariaTestThisPolicy": "Test this policy",
+    "ariaDeletePolicyRemoveCollaboratorsFirst": "Delete policy (remove all collaborators first)",
+    "ariaDeletePolicy": "Delete policy",
+    "emptyPolicyText": "—",
+    "editGuidance": "This text is guidance for your assistant when someone queries your brain under this policy.",
+    "privacyGuidanceLabel": "Privacy guidance",
+    "collaboratorsHeading": "Collaborators ({{count}})",
+    "recentActivityHeading": "Recent activity",
+    "actions": {
+      "testThisPolicy": "Test this policy",
+      "edit": "Edit",
+      "deletePolicy": "Delete policy",
+      "savePolicy": "Save policy"
+    },
+    "tooltips": {
+      "removeCollaboratorsFirst": "Remove all collaborators first"
+    },
+    "errors": {
+      "failedToLoadGrants": "Failed to load grants.",
+      "invalidGrantsResponse": "Invalid grants response.",
+      "missingPolicyText": "Missing policy text.",
+      "couldNotAddHandle": "Couldn't add @{{handle}}.",
+      "removeFailed": "Remove failed ({{status}})",
+      "saveFailed": "Save failed ({{status}})",
+      "couldNotUpdateSavedPolicy": "Could not update saved policy.",
+      "cannotSaveWithoutCollaborators": "Cannot save this policy without collaborators.",
+      "updateFailed": "Update failed ({{status}})"
+    },
+    "deletePolicyDialog": {
+      "title": "Delete policy?",
+      "confirmLabel": "Delete",
+      "body": "This will permanently remove \"{{label}}\" from your saved policies."
+    }
+  },
+  "outboundGrantsList": {
+    "heading": "Brains you can ask",
+    "description": "These are workspaces that granted you cross-brain access. Removing someone from your collaborators also removes the reverse link when both sides were connected.",
+    "empty": "No access yet.",
+    "removeAria": "Remove access to @{{handle}}"
+  },
+  "customPolicyCreator": {
+    "title": "Create custom policy",
+    "actions": {
+      "savePolicy": "Save policy"
+    },
+    "fields": {
+      "policyName": {
+        "label": "Policy name",
+        "placeholder": "e.g. Executive team"
+      },
+      "startFromTemplate": "Start from template",
+      "colorAccent": "Color accent",
+      "privacyGuidance": "Privacy guidance"
+    },
+    "templateOptions": {
+      "blank": "Blank"
+    },
+    "colorOptions": {
+      "amber": "Amber",
+      "orange": "Orange",
+      "pink": "Pink",
+      "teal": "Teal",
+      "indigo": "Indigo"
+    }
+  },
+  "policyActivityList": {
+    "relative": {
+      "justNow": "Just now",
+      "minutesAgo_one": "{{count}}m ago",
+      "minutesAgo_other": "{{count}}m ago",
+      "hoursAgo_one": "{{count}}h ago",
+      "hoursAgo_other": "{{count}}h ago",
+      "daysAgo_one": "{{count}}d ago",
+      "daysAgo_other": "{{count}}d ago"
+    },
+    "duration": {
+      "milliseconds": "{{count}}ms",
+      "seconds": "{{value}}s"
+    },
+    "status": {
+      "ok": "OK",
+      "filtered": "Filtered",
+      "declined": "Declined",
+      "denied": "Denied",
+      "error": "Error"
+    },
+    "returnedSummary": {
+      "deniedNoGrant": "No answer — access was not granted for this attempt."
+    },
+    "empty": "No activity for this policy yet.",
+    "labels": {
+      "question": "Question",
+      "returnedToCollaborator": "Returned to collaborator",
+      "noAnswerReturned": "No answer returned.",
+      "assistantReplyBeforeSharing": "Assistant reply before sharing",
+      "whatChanged": "What changed"
+    },
+    "actions": {
+      "viewAllActivity": "View all activity ({{count}}) →"
+    }
+  },
+  "userDetailRow": {
+    "noEmail": "No email on file",
+    "lastQuery": {
+      "none": "—",
+      "justNow": "Just now",
+      "minutesAgo_one": "{{count}}m ago",
+      "minutesAgo_other": "{{count}}m ago",
+      "hoursAgo_one": "{{count}}h ago",
+      "hoursAgo_other": "{{count}}h ago",
+      "daysAgo_one": "{{count}}d ago",
+      "daysAgo_other": "{{count}}d ago"
+    },
+    "querySummary_one": "{{count}} query · Last: {{last}}",
+    "querySummary_other": "{{count}} queries · Last: {{last}}",
+    "actions": {
+      "viewActivity": "View activity →",
+      "changePolicy": "Change policy…",
+      "removeAccessAria": "Remove access for @{{handle}}",
+      "removing": "Removing…",
+      "remove": "Remove"
+    }
+  },
+  "userBubble": {
+    "actions": {
+      "viewUserDetails": "View user details",
+      "viewAllLogs": "View all logs",
+      "changePolicy": "Change policy…",
+      "removing": "Removing…",
+      "removeAccess": "Remove access"
+    }
+  },
+  "changePolicyDialog": {
+    "title": "Move to another policy",
+    "description": "Pick which privacy preset this collaborator should use.",
+    "empty": "No other policies available.",
+    "actions": {
+      "applying": "Applying…"
+    }
+  },
+  "brainQueryPolicyBaselineNote": {
+    "ariaLabel": "Categories Braintunnel always blocks on brain queries",
+    "description": "Braintunnel always prevents the categories below from being shared in brain queries, in addition to your policy. You do not need to repeat them in your own text.",
+    "showBaselineList": "Show baseline list"
+  },
+  "brainAccessBreadcrumbs": {
+    "ariaLabel": "Brain access",
+    "fallbackPolicyLabel": "Policy",
+    "testPolicy": "Test policy"
+  },
+  "addUserDropdown": {
+    "aria": {
+      "workspaceDirectorySearch": "Workspace directory search"
+    },
+    "actions": {
+      "add": "Add"
+    },
+    "searchPlaceholder": "Search @handle or name…",
+    "searching": "Searching…",
+    "empty": {
+      "typeToSearch": "Type to search workspace handles.",
+      "noMatches": "No matches."
+    },
+    "noEmail": "No email on file"
+  },
+  "answerPreviewPage": {
+    "errors": {
+      "failedToLoadGrants": "Failed to load grants.",
+      "invalidGrantsResponse": "Invalid grants response.",
+      "savePolicyBeforePreviewing": "Save your policy text before previewing.",
+      "previewRunStatus": "Preview couldn't run. Try again. ({{status}})",
+      "previewRun": "Preview couldn't run. Try again.",
+      "previewRunMessage": "Preview couldn't run. Try again. ({{message}})"
+    },
+    "placeholder": {
+      "withTranscript": "Ask another question to compare responses",
+      "default": "Ask something a collaborator might ask about your vault or mail."
+    },
+    "header": {
+      "title": "Test policy responses",
+      "lead": "Run a sample question to see your assistant's full research (private), the answer collaborators would get, and what was trimmed or withheld.",
+      "previewsNotSaved": "Previews aren’t saved to inbound activity."
+    },
+    "crossBrainPreviewAria": "Cross-brain preview",
+    "emptyPrompt": "Ask a question below to see how this policy filters replies—you'll get the private research pass, the collaborator-facing answer, and a short note on what changed.",
+    "labels": {
+      "question": "Question",
+      "privateResearch": "Private research",
+      "privateResearchDescription": "Internal work with privileged access—not visible to others",
+      "collaboratorSees": "Collaborator sees",
+      "declined": "Declined",
+      "noAnswerShared": "No answer shared.",
+      "onlyYouWhatChanged": "Only you — What changed",
+      "applyingPolicy": "Applying policy…"
+    },
+    "status": {
+      "preparingPreview": "Preparing your preview…"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { User } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   const PREVIEW_ROWS = 3
 
@@ -21,7 +22,7 @@
     title={queryLine}
   >{queryLine}</div>
   {#if rows.length === 0}
-    <p class="find-person-empty m-0 text-xs text-muted">No contacts in result.</p>
+    <p class="find-person-empty m-0 text-xs text-muted">{$t('cards.findPersonHitsPreviewCard.empty')}</p>
   {:else}
     <ul class="find-person-list m-0 flex list-none flex-col gap-[3px] p-0" role="list">
       {#each rows as p, i (`${p.name}-${p.email ?? i}`)}
@@ -43,7 +44,7 @@
       {/each}
     </ul>
     {#if more > 0}
-      <p class="find-person-more mt-1 text-[10px] text-muted">+{more} more</p>
+      <p class="find-person-more mt-1 text-[10px] text-muted">{$t('cards.findPersonHitsPreviewCard.more', { count: more })}</p>
     {/if}
   {/if}
 </div>

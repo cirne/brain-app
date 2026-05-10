@@ -16,6 +16,7 @@
   import { buildInitialYourWikiDocFromWikiSlice } from '@client/lib/hub/yourWikiDocFromBackground.js'
   import { fetchWikiRecentEditsList } from '@client/lib/wiki/wikiRecentEditsFetch.js'
   import { formatRelativeDate } from '@client/lib/hub/hubRipmailSource.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -106,18 +107,23 @@
 </script>
 
 <div class="settings-wiki-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
-  <SettingsSubpageHeader pageTitle="Wiki activity" onNavigateToSettingsRoot={onNavigateToSettingsRoot} />
+  <SettingsSubpageHeader
+    pageTitle={$t('settings.settingsWikiPage.title')}
+    onNavigateToSettingsRoot={onNavigateToSettingsRoot}
+  />
 
   <div class="settings-wiki-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
     <div class="mx-auto flex w-full max-w-[900px] flex-col gap-5 px-8 py-8 pb-10 max-md:px-4 max-md:py-6">
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
         <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-          Peek at pages the background job touched recently—or open the full log to see each step.
+          {$t('settings.settingsWikiPage.lead')}
         </p>
         <span
           class="wiki-header-metrics flex shrink-0 items-baseline gap-2"
           aria-live="polite"
-          aria-label={wikiPageCount != null ? `${wikiPageCount} pages` : 'Page count loading'}
+          aria-label={wikiPageCount != null
+            ? $t('settings.settingsWikiPage.pageCountAria', { count: wikiPageCount })
+            : $t('settings.settingsWikiPage.pageCountLoading')}
         >
           <span
             class="wiki-header-count text-[1.25rem] font-bold tracking-[-0.01em] tabular-nums text-foreground"
@@ -126,7 +132,7 @@
           <span
             class="wiki-header-count-label text-xs font-semibold uppercase tracking-[0.05em] text-muted"
             aria-hidden="true"
-          >pages</span>
+          >{$t('settings.settingsWikiPage.pagesLabel')}</span>
         </span>
       </div>
 
@@ -137,7 +143,10 @@
           onclick={() => onSettingsNavigate({ type: 'your-wiki' })}
         >
           <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-            <HubSourceRowBody title="Open wiki background log" subtitle="Tool steps, timing, and errors">
+            <HubSourceRowBody
+              title={$t('settings.settingsWikiPage.openLogTitle')}
+              subtitle={$t('settings.settingsWikiPage.openLogSubtitle')}
+            >
               {#snippet icon()}
                 {#if wikiIsActive}
                   <RefreshCw size={16} class={cn('spin-icon shrink-0 text-accent')} aria-hidden="true" />
@@ -151,7 +160,7 @@
             <div class="link-status flex flex-col items-end gap-px">
               <span
                 class="status-pill paused bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] px-2 py-px text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-foreground"
-              >Paused</span>
+              >{$t('settings.settingsWikiPage.paused')}</span>
             </div>
           {/if}
           <ChevronRight size={16} aria-hidden="true" />
@@ -160,11 +169,11 @@
         {#if wikiRecentReady && wikiRecentEdits.length > 0}
           <div
             class="wiki-recent-block mt-[0.35rem] flex flex-col border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-3"
-            aria-label="Recent wiki edits"
+            aria-label={$t('settings.settingsWikiPage.recentEditsAriaLabel')}
           >
             <p
               class="wiki-recent-label mb-[0.35rem] mt-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
-            >Recent edits</p>
+            >{$t('settings.settingsWikiPage.recentEditsLabel')}</p>
             {#each wikiRecentEdits as f (f.path)}
               <button
                 type="button"
@@ -194,12 +203,12 @@
         {:else if wikiRecentReady}
           <p
             class="empty-msg wiki-recent-empty mt-2 border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] px-0 pb-0 pt-[0.65rem] text-[0.8125rem] text-muted"
-          >No recent edits recorded yet.</p>
+          >{$t('settings.settingsWikiPage.noRecentEdits')}</p>
         {/if}
       </div>
 
       {#if backgroundStatusLoading && !wikiDoc}
-        <p class="m-0 text-[0.8125rem] text-muted">Loading wiki status…</p>
+        <p class="m-0 text-[0.8125rem] text-muted">{$t('settings.settingsWikiPage.loadingStatus')}</p>
       {/if}
     </div>
   </div>

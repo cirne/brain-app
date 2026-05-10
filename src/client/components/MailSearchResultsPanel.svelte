@@ -3,6 +3,7 @@
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCards.js'
   import { searchHitPrimarySubtitle, searchHitSnippetLine } from '@client/lib/cards/searchHitRowMeta.js'
   import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     queryLine,
@@ -23,7 +24,7 @@
   const countLabel = $derived.by(() => {
     if (!items) return ''
     const n = typeof totalMatched === 'number' ? totalMatched : items.length
-    return `${n} result${n === 1 ? '' : 's'}`
+    return $t('inbox.mailSearchResultsPanel.count.results', { count: n })
   })
 
   function openRow(row: MailSearchHitPreview) {
@@ -35,10 +36,12 @@
   }
 
   function ariaOpenLabel(row: MailSearchHitPreview): string {
-    const sub = row.subject || '(No subject)'
+    const sub = row.subject || $t('inbox.mailSearchResultsPanel.noSubject')
     const idx = searchHitIsIndexedFile(row, searchSource)
     const meta = searchHitPrimarySubtitle(row, { isIndexed: idx, searchSource }).trim()
-    const kind = idx ? 'Open indexed file' : 'Open email'
+    const kind = idx
+      ? $t('inbox.mailSearchResultsPanel.aria.openIndexedFile')
+      : $t('inbox.mailSearchResultsPanel.aria.openEmail')
     return meta ? `${kind} ${sub}, ${meta}` : `${kind} ${sub}`
   }
 
@@ -64,9 +67,9 @@
   </div>
 
   {#if items === null}
-    <p class="mail-search-empty m-0 shrink-0 px-3.5 text-xs leading-snug text-muted">Search results are no longer available. Run the search again to refresh this view.</p>
+    <p class="mail-search-empty m-0 shrink-0 px-3.5 text-xs leading-snug text-muted">{$t('inbox.mailSearchResultsPanel.empty.resultsExpired')}</p>
   {:else if items.length === 0}
-    <p class="mail-search-empty m-0 shrink-0 px-3.5 text-xs leading-snug text-muted">No matching emails or indexed files.</p>
+    <p class="mail-search-empty m-0 shrink-0 px-3.5 text-xs leading-snug text-muted">{$t('inbox.mailSearchResultsPanel.empty.noMatches')}</p>
   {:else}
     <ul
       class="mail-search-list m-0 flex min-h-0 min-w-0 flex-1 list-none flex-col overflow-x-hidden overflow-y-auto p-0"
@@ -90,7 +93,7 @@
               </span>
               <span
                 class="mail-search-subject min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis text-[13px] font-semibold leading-tight"
-              >{row.subject || '(No subject)'}</span>
+              >{row.subject || $t('inbox.mailSearchResultsPanel.noSubject')}</span>
             </span>
             {#if primaryLine(row)}
               <span

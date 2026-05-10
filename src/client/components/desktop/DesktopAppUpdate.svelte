@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import type { Update } from '@tauri-apps/plugin-updater'
 
   let pending = $state<Update | null>(null)
@@ -44,7 +45,7 @@
     aria-live="polite"
   >
     <span class="min-w-40 flex-1 [flex:1_1_10rem]">
-      Braintunnel {pending.version} is available{err ? ` — ${err}` : ''}
+      {$t('common.desktopAppUpdate.available', { version: pending.version })}{err ? ` — ${err}` : ''}
     </span>
     <button
       type="button"
@@ -52,7 +53,7 @@
       disabled={busy}
       onclick={installAndRelaunch}
     >
-      {busy ? 'Installing…' : 'Restart to update'}
+      {busy ? $t('common.desktopAppUpdate.actions.installing') : $t('common.desktopAppUpdate.actions.restartToUpdate')}
     </button>
   </div>
 {/if}

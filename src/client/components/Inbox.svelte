@@ -10,6 +10,7 @@
   import { emailBodyToIframeSrcdoc } from '@client/lib/mailBodyDisplay.js'
   import { locationShowsEmailThread } from '@client/lib/inboxEmailLocation.js'
   import { getInboxThreadHeaderCell } from '@client/lib/inboxSlideHeaderContext.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Email = {
     id: string
@@ -193,10 +194,10 @@
         error = 'Mail temporarily unavailable'
       } else {
         emails = []
-        error = 'Failed to load inbox'
+        error = $t('inbox.inboxPanel.errors.loadFailed')
       }
     } catch {
-      error = 'Could not connect to inbox'
+      error = $t('inbox.inboxPanel.errors.connectFailed')
       emails = []
     } finally {
       inboxListLoading = false
@@ -209,7 +210,7 @@
       await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
       await load()
     } catch {
-      error = 'Sync failed'
+      error = $t('inbox.inboxPanel.errors.syncFailed')
     }
     syncing = false
   }
@@ -253,7 +254,7 @@
   }
 
   function parseEmailHeaders(headerText: string): { subject: string; from: string } {
-    let subject = '(no subject)'
+    let subject = $t('inbox.inboxPanel.thread.noSubject')
     let from = ''
     for (const line of headerText.split('\n')) {
       const sub = line.match(/^Subject:\s*(.*)$/i)
@@ -293,7 +294,12 @@
     } else {
       navInboxEmail({ type: 'email', id })
     }
-    onContextChange?.({ type: 'email', threadId: id, subject: '(loading)', from: '' })
+    onContextChange?.({
+      type: 'email',
+      threadId: id,
+      subject: $t('inbox.inboxPanel.thread.loadingSubject'),
+      from: '',
+    })
     threadLoading = true
     try {
       const res = await fetchInboxMessageForOpen(id, signal)
@@ -306,7 +312,9 @@
         const body = blank === -1 ? text : text.slice(blank + 2)
         threadContent =
           blank === -1 ? { headers: '', body: text } : { headers, body: body }
-        const meta = headers ? parseEmailHeaders(headers) : { subject: '(no subject)', from: '' }
+        const meta = headers
+          ? parseEmailHeaders(headers)
+          : { subject: $t('inbox.inboxPanel.thread.noSubject'), from: '' }
         orphanThreadMeta = meta
         onContextChange?.({
           type: 'email',
@@ -326,13 +334,13 @@
         threadContent = null
         threadLoadError =
           res.status === 404
-            ? 'Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.'
-            : `Could not load message (${res.status}).`
+            ? $t('inbox.inboxPanel.thread.errors.notFound')
+            : $t('inbox.inboxPanel.thread.errors.loadWithStatus', { status: res.status })
       }
     } catch (e) {
       if (threadOpenLatest.isStale(token) || isAbortError(e)) return
       threadContent = null
-      threadLoadError = 'Could not load message.'
+      threadLoadError = $t('inbox.inboxPanel.thread.errors.loadGeneric')
     } finally {
       if (!threadOpenLatest.isStale(token)) threadLoading = false
     }
@@ -370,13 +378,13 @@
         threadContent = null
         threadLoadError =
           res.status === 404
-            ? 'Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.'
-            : `Could not load message (${res.status}).`
+            ? $t('inbox.inboxPanel.thread.errors.notFound')
+            : $t('inbox.inboxPanel.thread.errors.loadWithStatus', { status: res.status })
       }
     } catch (e) {
       if (threadOpenLatest.isStale(token) || isAbortError(e)) return
       threadContent = null
-      threadLoadError = 'Could not load message.'
+      threadLoadError = $t('inbox.inboxPanel.thread.errors.loadGeneric')
     } finally {
       if (!threadOpenLatest.isStale(token)) threadLoading = false
     }
@@ -447,7 +455,7 @@
       })
       const data = await res.json()
       if (!res.ok || data.error) {
-        composeError = data.error ?? 'Failed to create draft'
+        composeError = data.error ?? $t('inbox.inboxPanel.compose.errors.createDraftFailed')
       } else {
         composeMode = null
         const id = typeof data.id === 'string' ? data.id.trim() : ''
@@ -545,7 +553,7 @@
     <header
       class="inbox-header flex shrink-0 items-center justify-between border-b border-border bg-surface-2 px-4 py-3"
     >
-      <span class="title text-sm font-semibold">Inbox</span>
+      <span class="title text-sm font-semibold">{$t('inbox.inboxPanel.title')}</span>
       <div class="header-actions flex items-center gap-2">
         {#if error}
           <span class="error-badge text-[11px] text-danger">{error}</span>
@@ -556,10 +564,10 @@
             type="button"
             onclick={summarizeInbox}
             disabled={!!error || inboxListLoading}
-            title="New chat: summarize all inbox items"
+            title={$t('inbox.inboxPanel.actions.summarizeTitle')}
           >
             <Sparkles size={14} aria-hidden="true" />
-            Summarize
+            {$t('inbox.inboxPanel.actions.summarize')}
           </button>
         {/if}
         <button
@@ -567,7 +575,9 @@
           onclick={sync}
           disabled={syncing}
         >
-          {syncing ? 'Syncing...' : 'Refresh'}
+          {syncing
+            ? $t('inbox.inboxPanel.actions.syncing')
+            : $t('common.actions.refresh')}
         </button>
       </div>
     </header>
@@ -582,19 +592,21 @@
           <div
             class="compose-label text-xs font-semibold uppercase tracking-[0.05em] text-muted"
           >
-            {composeMode === 'reply' ? 'Reply' : 'Forward'}
+            {composeMode === 'reply'
+              ? $t('common.actions.reply')
+              : $t('common.actions.forward')}
           </div>
 
           {#if composeMode === 'forward'}
             <div class="compose-field flex flex-col gap-1">
               <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label class="field-label text-xs text-muted">To</label>
+              <label class="field-label text-xs text-muted">{$t('inbox.emailDraftEditor.fields.to')}</label>
               <div class="to-wrap relative">
                 <input
                   class="to-input w-full border border-border bg-surface-3 px-2.5 py-2 text-[13px] text-foreground focus:border-accent focus:outline-none"
                   type="text"
                   bind:value={composeTo}
-                  placeholder="recipient@example.com"
+                  placeholder={$t('inbox.inboxPanel.compose.forwardRecipientPlaceholder')}
                   autocomplete="off"
                 />
                 {#if filteredContacts.length > 0}
@@ -627,8 +639,8 @@
             class="compose-textarea min-h-[100px] flex-1 resize-y border border-border bg-surface-3 p-2.5 text-[13px] leading-normal text-foreground [font-family:inherit] focus:border-accent focus:outline-none"
             bind:value={composeInstruction}
             placeholder={composeMode === 'reply'
-              ? 'Brief instructions for the reply...'
-              : 'Brief instructions for the forward...'}
+              ? $t('inbox.inboxPanel.compose.replyInstructionPlaceholder')
+              : $t('inbox.inboxPanel.compose.forwardInstructionPlaceholder')}
             onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) createDraft() }}
           ></textarea>
 
@@ -637,13 +649,15 @@
           {/if}
 
           <div class="compose-footer flex justify-end gap-2">
-            <button class="cancel-btn rounded-md px-3 py-1.5 text-[13px] text-muted hover:text-foreground" onclick={cancelCompose}>Cancel</button>
+            <button class="cancel-btn rounded-md px-3 py-1.5 text-[13px] text-muted hover:text-foreground" onclick={cancelCompose}>{$t('common.actions.cancel')}</button>
             <button
               class="draft-btn border border-accent-dim px-3.5 py-1.5 text-[13px] text-accent disabled:cursor-default disabled:opacity-50"
               onclick={createDraft}
               disabled={composing || !composeInstruction.trim() || (composeMode === 'forward' && !composeTo.trim())}
             >
-              {composing ? 'Drafting...' : 'Draft'}
+              {composing
+                ? $t('inbox.inboxPanel.compose.drafting')
+                : $t('inbox.inboxPanel.compose.draft')}
             </button>
           </div>
         </div>
@@ -651,13 +665,13 @@
       {:else}
         <div class="thread-body flex-[0_0_auto] overflow-visible">
           {#if threadLoading}
-            <p class="loading text-sm text-muted">Loading...</p>
+            <p class="loading text-sm text-muted">{$t('inbox.inboxPanel.thread.loading')}</p>
           {:else if threadLoadError}
             <p class="thread-error m-0 text-sm leading-snug text-danger" role="alert">{threadLoadError}</p>
           {:else if threadContent}
             <div
               class="thread-meta mb-4 flex flex-col gap-1 bg-surface-2 px-4 py-3"
-              aria-label="Message headers"
+              aria-label={$t('inbox.inboxPanel.thread.headersAriaLabel')}
             >
               {#each emailHeadersForDisplay(threadContent.headers) as row (row.key)}
                 <div
@@ -686,7 +700,9 @@
                         aria-expanded={Boolean(headerExpanded[row.key])}
                         onclick={() => toggleHeaderRow(row.key)}
                       >
-                        {headerExpanded[row.key] ? 'Show less' : 'Show more'}
+                        {headerExpanded[row.key]
+                          ? $t('inbox.inboxPanel.thread.showLess')
+                          : $t('inbox.inboxPanel.thread.showMore')}
                       </button>
                     {/if}
                   </div>
@@ -696,14 +712,14 @@
             {#key selectedThread}
               <iframe
                 class="thread-body-iframe block min-h-[80px] w-full overflow-hidden border-none bg-surface [color-scheme:light_dark]"
-                title="Email message body"
+                title={$t('inbox.inboxPanel.thread.iframeTitle')}
                 sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 srcdoc={threadIframeSrcdoc}
                 use:iframeAutoHeight
               ></iframe>
             {/key}
           {:else}
-            <p class="loading text-sm text-muted">Failed to load message.</p>
+            <p class="loading text-sm text-muted">{$t('inbox.inboxPanel.thread.failedToLoad')}</p>
           {/if}
         </div>
       {/if}
@@ -713,7 +729,7 @@
     <ul class="email-list flex-1 list-none overflow-y-auto">
       {#if inboxListLoading}
         <li class="list-loading px-8 py-12 text-center">
-          <p class="loading m-0 text-sm text-muted">Loading…</p>
+          <p class="loading m-0 text-sm text-muted">{$t('common.status.loading')}</p>
         </li>
       {:else}
         {#each emails as email (email.id)}
@@ -735,21 +751,21 @@
               <button
                 class="action-icon-btn px-2 py-3 text-muted hover:text-foreground max-md:px-1.5 max-md:py-2.5"
                 onclick={() => startCompose('reply', email)}
-                title="Reply"
+                title={$t('common.actions.reply')}
               >
                 <Reply size={14} />
               </button>
               <button
                 class="action-icon-btn px-2 py-3 text-muted hover:text-foreground max-md:px-1.5 max-md:py-2.5"
                 onclick={() => startCompose('forward', email)}
-                title="Forward"
+                title={$t('common.actions.forward')}
               >
                 <Forward size={14} />
               </button>
               <button
                 class="archive-btn pb-3 pl-2 pr-4 pt-3 text-muted hover:text-foreground"
                 onclick={() => archive(email.id)}
-                title="Archive"
+                title={$t('common.actions.archive')}
               >
                 <Archive size={16} />
               </button>
@@ -760,16 +776,16 @@
             class="empty flex flex-col items-center gap-4 px-8 py-12 text-center text-sm text-muted"
           >
             {#if error}
-              Inbox unavailable — ripmail may not be configured.
+              {$t('inbox.inboxPanel.empty.unavailable')}
             {:else}
-              <span class="empty-label text-muted">No messages</span>
+              <span class="empty-label text-muted">{$t('inbox.inboxPanel.empty.noMessages')}</span>
               {#if onOpenSearch}
                 <button
                   class="search-cta flex items-center gap-[7px] border border-accent-dim px-5 py-2.5 text-sm text-accent active:opacity-70"
                   onclick={onOpenSearch}
                 >
                   <Search size={14} strokeWidth={2} aria-hidden="true" />
-                  Search emails
+                  {$t('inbox.inboxPanel.actions.searchEmails')}
                 </button>
               {/if}
             {/if}

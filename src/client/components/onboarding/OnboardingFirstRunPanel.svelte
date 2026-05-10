@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import {
     fetchOnboardingMailStatus,
     fetchOnboardingPreferences,
@@ -67,17 +68,23 @@
     const d = mailIndexedCount
     if (d < 1) return ''
     if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED) {
-      return `${d.toLocaleString()} messages indexed`
+      return $t('onboarding.firstRun.indexing.progress.messagesIndexed', { count: d })
     }
-    return `${d.toLocaleString()} / ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()}`
+    return $t('onboarding.firstRun.indexing.progress.fraction', {
+      indexed: d.toLocaleString(),
+      target: ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString(),
+    })
   })
   const indexingProgressAriaText = $derived.by(() => {
     const d = mailIndexedCount
-    if (d < 1) return 'Preparing to download messages'
+    if (d < 1) return $t('onboarding.firstRun.indexing.aria.preparing')
     if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED) {
-      return `${d.toLocaleString()} messages indexed — ready to continue when this screen advances`
+      return $t('onboarding.firstRun.indexing.aria.readyToContinue', { count: d })
     }
-    return `${d.toLocaleString()} of ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()} messages toward continuing`
+    return $t('onboarding.firstRun.indexing.aria.towardContinuing', {
+      indexed: d.toLocaleString(),
+      target: ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString(),
+    })
   })
   /**
    * Small-inbox path: even when indexed count is below the auto-proceed threshold, advance
@@ -98,7 +105,7 @@
       !!mail.indexingHint
     )
       return null
-    return 'Initial mail sync continues in the background — it won’t block moving forward.'
+    return $t('onboarding.firstRun.indexing.backfillContinues')
   })
   async function loadMailOnly() {
     const next = await fetchOnboardingMailStatus()
@@ -145,12 +152,12 @@
 
   const indexingLeadParagraph = $derived.by(() => {
     if (mailProviderPref === 'google') {
-      return 'We’re downloading your Gmail into Braintunnel so we can build your profile. Hang tight.'
+      return $t('onboarding.firstRun.indexing.lead.google')
     }
     if (mailProviderPref === 'apple' && appleLocalIntegrationsAvailable) {
-      return 'We’re copying your messages from Apple Mail into Braintunnel so we can build your profile. Hang tight.'
+      return $t('onboarding.firstRun.indexing.lead.apple')
     }
-    return 'We’re connecting Braintunnel to your email so we can build your profile. Hang tight.'
+    return $t('onboarding.firstRun.indexing.lead.generic')
   })
 
   const showIndexingHero = $derived(
@@ -258,7 +265,9 @@
         setTimeout(() => {
           reject(
             new Error(
-              `Could not save onboarding progress (${Math.round(ONBOARDING_PATCH_CHAIN_TIMEOUT_MS / 1000)}s timeout). Check the app is responding, then try again.`,
+              $t('onboarding.firstRun.errors.saveProgressTimeout', {
+                seconds: Math.round(ONBOARDING_PATCH_CHAIN_TIMEOUT_MS / 1000),
+              }),
             ),
           )
         }, ONBOARDING_PATCH_CHAIN_TIMEOUT_MS)
@@ -277,7 +286,9 @@
         indexingAdvanceError =
           typeof j.message === 'string'
             ? j.message
-            : `Could not resume mail sync${j.error ? ` (${j.error})` : ''}.`
+            : $t('onboarding.firstRun.errors.couldNotResumeMailSync', {
+                detail: j.error ? ` (${j.error})` : '',
+              })
         return
       }
       await load()
@@ -387,7 +398,7 @@
               clearGoogleOauthTauriPoll()
               googleOauthBrowserWait = false
               setupError =
-                'Sign-in is taking a long time. Use "Open again" or finish sign-in in your browser, then return here.'
+                $t('onboarding.firstRun.errors.googleSignInTakingLong')
               return
             }
             let j: { done: boolean; error: string | null }
@@ -459,8 +470,9 @@
       class="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-muted"
       role="status"
     >
-      Guided setup continues in <strong class="text-foreground">Chat</strong>. Mail may keep indexing in the
-      background — the assistant will describe what’s indexed so far.
+      {$t('onboarding.firstRun.guidedSetup.continuesPrefix')}
+      <strong class="text-foreground">{$t('onboarding.firstRun.guidedSetup.chatLabel')}</strong>
+      {$t('onboarding.firstRun.guidedSetup.continuesSuffix')}
     </div>
   {:else if state === 'confirming-handle'}
     <OnboardingHandleStep
@@ -474,35 +486,47 @@
     <div class="onboarding-main onboarding-main-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
       {#if state === 'not-started' && !mailHydrated}
         <OnboardingHeroShell>
-          <span class="ob-kicker">Braintunnel</span>
-          <p class="ob-lead text-[var(--muted)]" role="status" aria-live="polite">Loading setup…</p>
+          <span class="ob-kicker">{$t('onboarding.firstRun.kicker')}</span>
+          <p class="ob-lead text-[var(--muted)]" role="status" aria-live="polite">
+            {$t('onboarding.firstRun.loadingSetup')}
+          </p>
         </OnboardingHeroShell>
       {:else if state === 'not-started' && !mail.configured}
         <OnboardingHeroShell>
-          <span class="ob-kicker">Braintunnel</span>
+          <span class="ob-kicker">{$t('onboarding.firstRun.kicker')}</span>
           {#if multiTenant}
-            <h1 class="ob-headline">Your assistant</h1>
+            <h1 class="ob-headline">{$t('onboarding.firstRun.intro.multiTenant.title')}</h1>
             <p class="ob-lead">
-              Braintunnel is your assistant for chat, email, and your notes—personalized to you.
+              {$t('onboarding.firstRun.intro.multiTenant.leadPrefix')}
               {#if appleLocalIntegrationsAvailable}
-                Connect <strong>Apple</strong> or <strong>Google</strong> to connect mail and calendar—then add
-                folders later to enrich.
+                {$t('onboarding.firstRun.intro.multiTenant.appleAvailable.beforeStrong')}
+                <strong>{$t('onboarding.firstRun.providers.apple')}</strong>
+                {$t('onboarding.firstRun.intro.multiTenant.appleAvailable.middleStrong')}
+                <strong>{$t('onboarding.firstRun.providers.google')}</strong>
+                {$t('onboarding.firstRun.intro.multiTenant.appleAvailable.afterStrong')}
               {:else}
-                Connect <strong>Google</strong> to connect mail and calendar—then add folders later to enrich.
+                {$t('onboarding.firstRun.intro.multiTenant.googleOnly.beforeStrong')}
+                <strong>{$t('onboarding.firstRun.providers.google')}</strong>
+                {$t('onboarding.firstRun.intro.multiTenant.googleOnly.afterStrong')}
               {/if}
             </p>
           {:else if appleLocalIntegrationsAvailable}
-            <h1 class="ob-headline">Your assistant, on your Mac</h1>
+            <h1 class="ob-headline">{$t('onboarding.firstRun.intro.desktop.title')}</h1>
             <p class="ob-lead">
-              Braintunnel is your local assistant for chat, email, and your notes—personalized to you.
-              <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect
-              <strong>Apple</strong> or <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
+              {$t('onboarding.firstRun.intro.desktop.lead.beforeStrong')}
+              <strong>{$t('onboarding.firstRun.intro.desktop.lead.strong')}</strong>
+              {$t('onboarding.firstRun.intro.desktop.lead.afterStrongPrefix')}
+              <strong>{$t('onboarding.firstRun.providers.apple')}</strong>
+              {$t('onboarding.firstRun.intro.desktop.lead.middleStrong')}
+              <strong>{$t('onboarding.firstRun.providers.google')}</strong>
+              {$t('onboarding.firstRun.intro.desktop.lead.afterStrongSuffix')}
             </p>
           {:else}
-            <h1 class="ob-headline">Your assistant</h1>
+            <h1 class="ob-headline">{$t('onboarding.firstRun.intro.googleOnly.title')}</h1>
             <p class="ob-lead">
-              Braintunnel is your assistant for chat, email, and your notes—personalized to you. Connect
-              <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
+              {$t('onboarding.firstRun.intro.googleOnly.lead.beforeStrong')}
+              <strong>{$t('onboarding.firstRun.providers.google')}</strong>
+              {$t('onboarding.firstRun.intro.googleOnly.lead.afterStrong')}
             </p>
           {/if}
 
@@ -524,9 +548,10 @@
                   disabled={busy}
                 >
                   {#if busy}
-                    <span class="ob-spinner ob-spinner--provider" aria-hidden="true"></span> Setting up…
+                    <span class="ob-spinner ob-spinner--provider" aria-hidden="true"></span>
+                    {$t('onboarding.firstRun.settingUp')}
                   {:else}
-                    Apple
+                    {$t('onboarding.firstRun.providers.apple')}
                   {/if}
                 </button>
               {/if}
@@ -536,38 +561,41 @@
                 onclick={() => void startGoogleMail()}
                 disabled={busy}
               >
-                {googleOauthBrowserWait ? 'Open again' : 'Google'}
+                {googleOauthBrowserWait
+                  ? $t('onboarding.firstRun.openAgain')
+                  : $t('onboarding.firstRun.providers.google')}
               </button>
             </div>
             {#if googleOauthBrowserWait}
               <p class="ob-fine-print" role="status" aria-live="polite">
-                A browser window should open for Google sign-in (passkeys and 2FA work there). When you are done, return
-                to Braintunnel; we will continue automatically. If the tab did not open, use <strong>Open again</strong>.
+                {$t('onboarding.firstRun.googleOauthWait.copyPrefix')}
+                <strong>{$t('onboarding.firstRun.openAgain')}</strong>.
                 {#if !multiTenant}
-                  If Safari warns about <code>127.0.0.1</code>, that is your local Braintunnel server over HTTPS.
+                  {$t('onboarding.firstRun.googleOauthWait.localSafariWarningPrefix')}
+                  <code>127.0.0.1</code>
+                  {$t('onboarding.firstRun.googleOauthWait.localSafariWarningSuffix')}
                 {/if}
               </p>
             {/if}
             <p class="ob-fine-print">
               {#if !multiTenant && appleLocalIntegrationsAvailable}
-                On Apple, Braintunnel indexes Mail from your library and registers your Mac calendars (same source as
-                Calendar.app) for sync. Full Disk Access lets Braintunnel read Mail, Messages, and paths you choose.
+                {$t('onboarding.firstRun.providerNotes.appleDesktop')}
               {/if}
               {#if isTauriRuntime()}
-                The Braintunnel app opens Google in your default browser for sign-in (mail + calendar read).
+                {$t('onboarding.firstRun.providerNotes.googleTauri')}
               {:else}
-                Google sign-in uses this browser (mail + calendar read).
+                {$t('onboarding.firstRun.providerNotes.googleBrowser')}
               {/if}
               {#if !multiTenant && appleLocalIntegrationsAvailable}
-                macOS may prompt for permissions during setup.
+                {$t('onboarding.firstRun.providerNotes.applePermissions')}
               {/if}
             </p>
           </div>
         </OnboardingHeroShell>
       {:else if state === 'not-started' && mail.configured && setupError}
         <OnboardingHeroShell>
-          <span class="ob-kicker">Braintunnel</span>
-          <h1 class="ob-headline">Couldn’t start indexing</h1>
+          <span class="ob-kicker">{$t('onboarding.firstRun.kicker')}</span>
+          <h1 class="ob-headline">{$t('onboarding.firstRun.couldNotStartIndexingTitle')}</h1>
           <p class="ob-error">{setupError}</p>
           <div class="ob-cta-group">
             <button
@@ -577,9 +605,10 @@
               disabled={busy}
             >
               {#if busy}
-                <span class="ob-spinner" aria-hidden="true"></span> Working…
+                <span class="ob-spinner" aria-hidden="true"></span>
+                {$t('onboarding.common.working')}
               {:else}
-                Try again
+                {$t('onboarding.common.tryAgain')}
                 <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
               {/if}
             </button>
@@ -593,8 +622,8 @@
               <span class="ob-indexing-orbit ob-indexing-orbit-delayed"></span>
               <span class="ob-indexing-core"></span>
             </div>
-            <span class="ob-kicker">Braintunnel</span>
-            <h1 class="ob-headline">Getting to Know You.</h1>
+            <span class="ob-kicker">{$t('onboarding.firstRun.kicker')}</span>
+            <h1 class="ob-headline">{$t('onboarding.firstRun.indexing.title')}</h1>
             <p class="ob-lead ob-indexing-lead">
               {indexingLeadParagraph}
             </p>
@@ -629,8 +658,14 @@
               </div>
             {/if}
             {#if showStaleLockResumeButton}
-              <div class="ob-indexing-stale-recover" role="region" aria-label="Mail sync stopped">
-                <p class="ob-indexing-calm">A previous mail sync stopped unexpectedly.</p>
+              <div
+                class="ob-indexing-stale-recover"
+                role="region"
+                aria-label={$t('onboarding.firstRun.indexing.staleLock.ariaLabel')}
+              >
+                <p class="ob-indexing-calm">
+                  {$t('onboarding.firstRun.indexing.staleLock.stoppedUnexpectedly')}
+                </p>
                 <button
                   type="button"
                   class="ob-btn-primary ob-indexing-stale-btn"
@@ -639,9 +674,9 @@
                 >
                   {#if busy}
                     <span class="ob-spinner" aria-hidden="true"></span>
-                    Resuming…
+                    {$t('onboarding.firstRun.indexing.staleLock.resuming')}
                   {:else}
-                    Resume mail sync
+                    {$t('onboarding.firstRun.indexing.staleLock.resumeButton')}
                   {/if}
                 </button>
               </div>
@@ -662,9 +697,9 @@
                   >
                     {#if busy}
                       <span class="ob-spinner" aria-hidden="true"></span>
-                      Working…
+                      {$t('onboarding.common.working')}
                     {:else}
-                      Try again
+                      {$t('onboarding.common.tryAgain')}
                     {/if}
                   </button>
                 {/if}

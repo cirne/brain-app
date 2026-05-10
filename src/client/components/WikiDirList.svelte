@@ -11,6 +11,7 @@
   } from '@client/lib/wikiDirListModel.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { getWikiSlideHeaderCell } from '@client/lib/wikiSlideHeaderContext.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     dirPath: dirPathProp,
@@ -78,7 +79,7 @@
 
   $effect(() => {
     const d = dirPath
-    const label = d ? (d.split('/').pop() ?? d) : 'Wiki'
+    const label = d ? (d.split('/').pop() ?? d) : $t('nav.wiki.label')
     untrack(() => onContextChange?.({ type: 'wiki-dir', path: d, title: label }))
   })
 
@@ -93,15 +94,17 @@
     class="wiki-dir-inner mx-auto box-border w-full max-w-chat min-h-0 flex-1 overflow-y-auto px-[clamp(1rem,4%,2.5rem)] py-6"
   >
     {#if loading}
-      <p class="status m-0 text-sm text-muted">Loading…</p>
+      <p class="status m-0 text-sm text-muted">{$t('common.status.loading')}</p>
     {:else if loadError}
-      <p class="status status-err m-0 text-sm text-[var(--text-3,var(--text-2))]">Could not load wiki file list.</p>
+      <p class="status status-err m-0 text-sm text-[var(--text-3,var(--text-2))]">{$t('wiki.dirList.loadError')}</p>
     {:else if entries.length === 0}
-      <p class="status m-0 text-sm text-muted">No pages in this folder.</p>
+      <p class="status m-0 text-sm text-muted">{$t('wiki.dirList.emptyFolder')}</p>
     {:else}
       <ul
         class="wiki-dir-list m-0 flex list-none flex-col gap-0 p-0"
-        aria-label={dirPath ? `Pages in ${dirPath}` : 'Wiki pages'}
+        aria-label={dirPath
+          ? $t('wiki.dirList.pagesInPathAria', { path: dirPath })
+          : $t('wiki.dirList.wikiPagesAria')}
       >
         {#each entries as entry (`${entry.kind}:${entry.path}`)}
           <li>

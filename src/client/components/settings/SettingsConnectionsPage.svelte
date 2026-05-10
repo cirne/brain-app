@@ -7,6 +7,7 @@
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import SettingsSubpageHeader from '@components/settings/SettingsSubpageHeader.svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import {
     sourceKindLabel,
     type HubRipmailSourceRow,
@@ -94,13 +95,15 @@
 </script>
 
 <div class="settings-connections-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
-  <SettingsSubpageHeader pageTitle="Connections" onNavigateToSettingsRoot={onNavigateToSettingsRoot} />
+  <SettingsSubpageHeader
+    pageTitle={$t('settings.settingsConnectionsPage.title')}
+    onNavigateToSettingsRoot={onNavigateToSettingsRoot}
+  />
 
   <div class="settings-connections-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
     <div class="mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 py-8 pb-10 max-md:px-4 max-md:py-6">
       <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Mailboxes, calendars, and folders wired into Braintunnel. Open a row to change indexing, default send, or remove a
-        connection.
+        {$t('settings.settingsConnectionsPage.lead')}
       </p>
       <div class="links-list flex flex-col">
         {#if hubSourcesError}
@@ -108,14 +111,14 @@
             class="empty-msg settings-sources-err m-0 cursor-help py-4 text-[0.9375rem] text-muted"
             title={hubSourcesError}
           >
-            Could not load sources.
+            {$t('settings.settingsConnectionsPage.errors.loadSources')}
           </p>
         {:else if orderedHubSources.length === 0}
           <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">
             {#if multiTenant}
-              No sources yet. Connect mail or add calendars below.
+              {$t('settings.settingsConnectionsPage.empty.multiTenant')}
             {:else}
-              No sources yet. Connect mail or add calendars.
+              {$t('settings.settingsConnectionsPage.empty.singleTenant')}
             {/if}
           </p>
         {:else}
@@ -151,17 +154,17 @@
                 {#if isDefaultSend}
                   <span
                     class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
-                    title="Default mailbox for sending"
+                    title={$t('settings.settingsConnectionsPage.badges.defaultSendTitle')}
                   >
-                    Default send
+                    {$t('settings.settingsConnectionsPage.badges.defaultSendLabel')}
                   </span>
                 {/if}
                 {#if isHidden}
                   <span
                     class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
-                    title="Excluded from default searches"
+                    title={$t('settings.settingsConnectionsPage.badges.hiddenFromSearchTitle')}
                   >
-                    Hidden from search
+                    {$t('settings.settingsConnectionsPage.badges.hiddenFromSearchLabel')}
                   </span>
                 {/if}
               </div>
@@ -172,8 +175,8 @@
         <button type="button" class={cn(linkItemBase, 'hub-source-row')} onclick={startAddAnotherGmail}>
           <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
             <HubSourceRowBody
-              title="Add another Gmail account"
-              subtitle="Search and send from a second mailbox in the same workspace"
+              title={$t('settings.settingsConnectionsPage.addAnotherGmail.title')}
+              subtitle={$t('settings.settingsConnectionsPage.addAnotherGmail.subtitle')}
             >
               {#snippet icon()}
                 <Plus size={16} />

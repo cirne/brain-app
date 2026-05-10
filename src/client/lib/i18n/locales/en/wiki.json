@@ -1,0 +1,70 @@
+{
+  "overview": {
+    "titleDefault": "Your Wiki",
+    "titleBuildingFirstPages": "Building your first pages",
+    "titleExpanding": "Expanding your wiki",
+    "titleTidying": "Tidying links and pages",
+    "titlePaused": "Wiki updates paused",
+    "titleError": "Something went wrong",
+    "titleBreak": "Taking a short break",
+    "titleUpToDate": "Wiki is up to date",
+    "subtitleLoadingStatus": "Loading status…",
+    "subtitlePreparing": "Getting everything ready…",
+    "subtitlePreparingSources": "Preparing sources…",
+    "subtitleLookingForPages": "Looking for pages to improve",
+    "subtitleCleaning": "Cleaning up links and orphaned pages",
+    "subtitlePaused": "Tap Resume when you want background updates again",
+    "subtitleOpenDetails": "Open details for more",
+    "subtitleNextPassSoon": "Next pass soon",
+    "subtitlePagesCount": "{{count}} pages in your wiki",
+    "subtitleReady": "Ready when you are"
+  },
+  "labels": {
+    "lastPrefix": "Last:"
+  },
+  "viewer": {
+    "loading": "Loading...",
+    "agentWriting": "Agent is writing…",
+    "editing": "Editing…",
+    "loadingCurrentPage": "Loading current page…",
+    "noPageSelected": "No page selected"
+  },
+  "dirList": {
+    "loadError": "Could not load wiki file list.",
+    "emptyFolder": "No pages in this folder.",
+    "pagesInPathAria": "Pages in {{path}}",
+    "wikiPagesAria": "Wiki pages"
+  },
+  "fileList": {
+    "unsaved": "Unsaved",
+    "recent": "Recent"
+  },
+  "fileName": {
+    "profileTitle": "Profile (me.md)"
+  },
+  "primaryBarCrumbs": {
+    "locationAria": "Wiki location"
+  },
+  "pageCountIndicator": {
+    "aria": {
+      "count_one": "{{count}} page in wiki",
+      "count_other": "{{count}} pages in wiki",
+      "countWithActivity_one": "{{count}} page in wiki, background activity",
+      "countWithActivity_other": "{{count}} pages in wiki, background activity",
+      "loading": "Wiki page count loading"
+    }
+  },
+  "yourWikiDetail": {
+    "sectionLead": "Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up links and structure. Pause anytime; when you resume, the next background pass starts fresh.",
+    "steps": "Steps",
+    "actions": {
+      "pauseTitle": "Pause background wiki updates",
+      "resumeTitle": "Resume background wiki updates (starts the next pass)",
+      "updateNowTitle": "Run a background wiki refresh now",
+      "updateNow": "Update wiki now"
+    }
+  },
+  "indexedFileViewer": {
+    "loadingTitle": "(loading)"
+  }
+}

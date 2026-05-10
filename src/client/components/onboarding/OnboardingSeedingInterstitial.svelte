@@ -7,6 +7,7 @@
    */
   import { onMount } from 'svelte'
   import { ArrowRight } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
@@ -68,18 +69,18 @@
   /** Compact one-liner for the mobile status strip. */
   const mobileStatus = $derived.by((): string => {
     const d = wikiDoc
-    if (!d) return 'Starting…'
+    if (!d) return $t('onboarding.seedingInterstitial.mobileStatus.starting')
     if (d.detail?.trim()) return d.detail.trim()
-    const t = d.timeline
-    if (t && t.length > 0) {
-      const last = [...t].sort((a, b) => b.at.localeCompare(a.at))[0]
+    const timeline = d.timeline
+    if (timeline && timeline.length > 0) {
+      const last = [...timeline].sort((a, b) => b.at.localeCompare(a.at))[0]
       return last.toolName.replace(/_/g, ' ')
     }
     const phase = d.phase
-    if (phase === 'starting') return 'Starting…'
-    if (phase === 'enriching') return 'Enriching pages…'
-    if (phase === 'cleaning') return 'Cleaning up…'
-    return 'Working…'
+    if (phase === 'starting') return $t('onboarding.seedingInterstitial.mobileStatus.starting')
+    if (phase === 'enriching') return $t('onboarding.seedingInterstitial.mobileStatus.enriching')
+    if (phase === 'cleaning') return $t('onboarding.seedingInterstitial.mobileStatus.cleaning')
+    return $t('onboarding.common.working')
   })
 </script>
 
@@ -92,23 +93,33 @@
     class="seed-content flex min-h-0 flex-1 flex-col gap-6 max-[899px]:justify-between min-[900px]:flex-none min-[900px]:basis-[min(22rem,36%)] min-[900px]:max-w-[26rem]"
   >
     <div class="seed-text flex flex-col">
-      <span class="ob-kicker">Braintunnel</span>
-      <h1 id="seed-title" class="ob-headline">We're building your wiki</h1>
+      <span class="ob-kicker">{$t('onboarding.seedingInterstitial.kicker')}</span>
+      <h1 id="seed-title" class="ob-headline">{$t('onboarding.seedingInterstitial.title')}</h1>
       <p class="ob-lead">
-        Your wiki is linked pages in
-        <strong>{multiTenant ? 'your vault' : 'your vault on this Mac'}</strong>. They give
-        Braintunnel lasting context—people, projects, and what you've already written—so you don't
-        start from zero every chat.
+        {$t('onboarding.seedingInterstitial.lead.beforeVault')}
+        <strong>
+          {multiTenant
+            ? $t('onboarding.seedingInterstitial.lead.vaultHosted')
+            : $t('onboarding.seedingInterstitial.lead.vaultDesktop')}
+        </strong>. {$t('onboarding.seedingInterstitial.lead.afterVault')}
       </p>
       <ul
         class="seed-tips mt-5 ml-[1.1rem] flex list-disc flex-col gap-1.5 text-[0.9rem] leading-[1.55] text-foreground/80 [&>li]:pl-[0.2rem]"
       >
-        <li>Ask for <strong>a new page</strong> for a person, project, or idea.</li>
         <li>
-          Say <strong>"Research this and add it to the wiki,"</strong> then edit the page if you
-          like.
+          {$t('onboarding.seedingInterstitial.tips.askForPrefix')}
+          <strong>{$t('onboarding.seedingInterstitial.tips.askForStrong')}</strong>
+          {$t('onboarding.seedingInterstitial.tips.askForSuffix')}
         </li>
-        <li><strong>Short notes are fine</strong>—linking pages matters more than length.</li>
+        <li>
+          {$t('onboarding.seedingInterstitial.tips.researchPrefix')}
+          <strong>{$t('onboarding.seedingInterstitial.tips.researchStrong')}</strong>
+          {$t('onboarding.seedingInterstitial.tips.researchSuffix')}
+        </li>
+        <li>
+          <strong>{$t('onboarding.seedingInterstitial.tips.shortNotesStrong')}</strong>
+          {$t('onboarding.seedingInterstitial.tips.shortNotesSuffix')}
+        </li>
       </ul>
     </div>
 
@@ -122,9 +133,9 @@
         aria-live="polite"
       >
         {#if !canContinue}
-          A few more seconds to let the first pages land…
+          {$t('onboarding.seedingInterstitial.dwell.waiting')}
         {:else}
-          You can continue whenever you're ready.
+          {$t('onboarding.seedingInterstitial.dwell.ready')}
         {/if}
       </p>
       <button
@@ -135,9 +146,9 @@
       >
         {#if continueBusy}
           <span class="ob-spinner" aria-hidden="true"></span>
-          Working…
+          {$t('onboarding.common.working')}
         {:else}
-          Continue to Braintunnel
+          {$t('onboarding.seedingInterstitial.continueButton')}
           <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
         {/if}
       </button>
@@ -148,12 +159,12 @@
   <div
     class="seed-hub hidden min-[900px]:flex min-[900px]:basis-0 min-[900px]:flex-1 min-[900px]:flex-col min-[900px]:self-stretch min-[900px]:min-w-0 min-[900px]:min-h-0 min-[900px]:overflow-auto min-[900px]:border min-[900px]:border-border min-[900px]:bg-surface-2"
     bind:this={seedPanelEl}
-    aria-label="Your Wiki"
+    aria-label={$t('onboarding.seedingInterstitial.yourWikiLabel')}
   >
     <p
       class="seed-hub-label m-0 shrink-0 border-b border-border px-4 pt-[0.6rem] pb-[0.4rem] text-[0.6875rem] font-bold tracking-[0.07em] text-muted uppercase"
     >
-      Your Wiki
+      {$t('onboarding.seedingInterstitial.yourWikiLabel')}
     </p>
     <YourWikiDetail
       hideSectionLead
@@ -183,7 +194,7 @@
       <span
         class="seed-bar-count shrink-0 text-xs text-muted whitespace-nowrap [font-variant-numeric:tabular-nums]"
       >
-        {wikiDoc.pageCount} pages
+        {$t('nav.yourWiki.pageCount', { count: wikiDoc.pageCount })}
       </span>
     {/if}
   </div>

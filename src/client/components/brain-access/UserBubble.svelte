@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronDown } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
 
   type Props = {
@@ -78,10 +79,14 @@
       role="menu"
       class="absolute left-0 top-full z-30 mt-1 min-w-[12rem] rounded-md border border-border bg-surface py-1 shadow-lg"
     >
-      <button type="button" role="menuitem" class="menu-item" onclick={goDetail}>View user details</button>
-      <button type="button" role="menuitem" class="menu-item" onclick={viewLogs}>View all logs</button>
+      <button type="button" role="menuitem" class="menu-item" onclick={goDetail}>
+        {$t('access.userBubble.actions.viewUserDetails')}
+      </button>
+      <button type="button" role="menuitem" class="menu-item" onclick={viewLogs}>
+        {$t('access.userBubble.actions.viewAllLogs')}
+      </button>
       <button type="button" role="menuitem" class="menu-item" onclick={() => { closeMenu(); onChangePolicy() }}>
-        Change policy…
+        {$t('access.userBubble.actions.changePolicy')}
       </button>
       <hr class="my-1 border-border" />
       <button
@@ -94,7 +99,7 @@
           void onRemove()
         }}
       >
-        {removeBusy ? 'Removing…' : 'Remove access'}
+        {removeBusy ? $t('access.userBubble.actions.removing') : $t('access.userBubble.actions.removeAccess')}
       </button>
     </div>
   {/if}

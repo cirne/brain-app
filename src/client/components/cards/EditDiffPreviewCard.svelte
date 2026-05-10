@@ -2,6 +2,7 @@
   import WikiFileName from '@components/WikiFileName.svelte'
   import { unifiedDiffChangedLinesOnly } from '@client/lib/cards/editDiffDisplay.js'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import '../../styles/agent-conversation/toolWriteLink.css'
 
   let {
@@ -22,7 +23,7 @@
     type="button"
     class="tool-write-link edit-diff-open mb-1.5 flex w-full min-w-0 max-w-full flex-wrap items-baseline gap-[0.35em] text-left text-[11px] text-muted"
     onclick={onOpen}
-    aria-label="Open wiki: {path}"
+    aria-label={$t('cards.editDiffPreviewCard.ariaOpenWiki', { path })}
   >
     <WikiFileName {path} />
   </button>

@@ -4,6 +4,7 @@
     CalendarPickerCalendar,
     CalendarPickerLoadResult,
   } from '@client/lib/calendar/calendarPickerTypes.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     sourceId: string
@@ -20,7 +21,7 @@
       | { ok: true; allCalendars: CalendarPickerCalendar[]; configuredIds: string[] }
       | { ok: false; error: string }
     if (!j.ok) {
-      throw new Error((j as { ok: false; error: string }).error ?? 'Could not load calendars')
+      throw new Error((j as { ok: false; error: string }).error ?? $t('hub.hubConnectorCalendarSection.errors.loadCalendars'))
     }
     const d = j as {
       ok: true
@@ -41,7 +42,7 @@
     })
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
     if (!res.ok || !j.ok) {
-      throw new Error(typeof j.error === 'string' ? j.error : 'Could not save')
+      throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorCalendarSection.errors.saveCalendars'))
     }
   }
 </script>
@@ -54,7 +55,7 @@
     id="hub-cal-heading"
     class="hub-source-status-heading m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
   >
-    Calendars
+    {$t('hub.hubConnectorCalendarSection.heading')}
   </h2>
 
   <CalendarPicker

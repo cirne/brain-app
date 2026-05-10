@@ -2,6 +2,7 @@
   import { ArrowRight, Sparkles } from 'lucide-svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { QuickReplyChoice } from '@client/lib/tools/suggestReplyChoices.js'
 
   let {
@@ -29,7 +30,7 @@
   <div
     class="composer-context-bar relative min-h-0 shrink-0 bg-[color-mix(in_srgb,var(--bg-2,#111)_30%,transparent)] px-3 pt-0 pb-2 pointer-events-auto max-md:pb-2.5"
     role="toolbar"
-    aria-label="Referenced pages and suggested replies"
+    aria-label={$t('chat.composerContextBar.toolbarAria')}
     data-testid="composer-context-bar"
   >
     {#if files.length > 0}
@@ -37,7 +38,7 @@
         <div
           class="composer-context-bar__refs flex max-w-full flex-nowrap items-center gap-x-2 gap-y-1.5 overflow-x-auto [scrollbar-width:none] [-webkit-overflow-scrolling:touch] max-md:gap-x-2.5 max-md:gap-y-2"
           role="group"
-          aria-label="Referenced pages"
+          aria-label={$t('chat.composerContextBar.referencedPagesAria')}
         >
           {#each files as path (path)}
             <button
@@ -59,7 +60,7 @@
           files.length > 0 && 'mt-1.5',
         )}
         role="group"
-        aria-label="Suggested replies"
+        aria-label={$t('chat.composerContextBar.suggestedRepliesAria')}
       >
         {#each choices as c, idx (c.id ?? `${idx}-${c.label}`)}
           <button

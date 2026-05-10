@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronRight } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     variant: 'list' | 'policy' | 'preview'
@@ -15,37 +16,45 @@
 
   let {
     variant,
-    policyLabel = 'Policy',
+    policyLabel = '',
     onGoToList,
     onGoToPolicy,
     onGoToSettings,
   }: Props = $props()
 
+  const resolvedPolicyLabel = $derived(policyLabel || $t('access.brainAccessBreadcrumbs.fallbackPolicyLabel'))
+
   const crumbClass =
     'border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-accent [font:inherit] hover:underline'
 </script>
 
-<nav aria-label="Brain access" class="min-w-0">
+<nav aria-label={$t('access.brainAccessBreadcrumbs.ariaLabel')} class="min-w-0">
   <ol class="m-0 flex min-w-0 list-none flex-wrap items-center gap-x-1 gap-y-1 p-0 text-[0.8125rem]">
     {#if onGoToSettings}
       <li class="min-w-0 shrink">
-        <button type="button" class={crumbClass} onclick={() => onGoToSettings()}>Settings</button>
+        <button type="button" class={crumbClass} onclick={() => onGoToSettings()}>
+          {$t('settings.settingsSubpageHeader.settingsCrumb')}
+        </button>
       </li>
       <li class="flex shrink-0 items-center text-muted" aria-hidden="true">
         <ChevronRight size={14} />
       </li>
     {/if}
     {#if variant === 'list'}
-      <li class="truncate font-semibold text-foreground" aria-current="page">Brain to Brain access</li>
+      <li class="truncate font-semibold text-foreground" aria-current="page">
+        {$t('access.brainAccessPage.title')}
+      </li>
     {:else}
       <li class="min-w-0 shrink">
-        <button type="button" class={crumbClass} onclick={() => onGoToList?.()}>Brain to Brain access</button>
+        <button type="button" class={crumbClass} onclick={() => onGoToList?.()}>
+          {$t('access.brainAccessPage.title')}
+        </button>
       </li>
       <li class="flex shrink-0 items-center text-muted" aria-hidden="true">
         <ChevronRight size={14} />
       </li>
       {#if variant === 'policy'}
-        <li class="min-w-0 truncate font-semibold text-foreground" aria-current="page">{policyLabel}</li>
+        <li class="min-w-0 truncate font-semibold text-foreground" aria-current="page">{resolvedPolicyLabel}</li>
       {:else}
         <li class="min-w-0 shrink">
           <button
@@ -54,13 +63,15 @@
             onclick={() => onGoToPolicy?.()}
             disabled={!onGoToPolicy}
           >
-            {policyLabel}
+            {resolvedPolicyLabel}
           </button>
         </li>
         <li class="flex shrink-0 items-center text-muted" aria-hidden="true">
           <ChevronRight size={14} />
         </li>
-        <li class="truncate font-semibold text-foreground" aria-current="page">Test policy</li>
+        <li class="truncate font-semibold text-foreground" aria-current="page">
+          {$t('access.brainAccessBreadcrumbs.testPolicy')}
+        </li>
       {/if}
     {/if}
   </ol>
