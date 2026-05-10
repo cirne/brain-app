@@ -66,7 +66,7 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
  * Pi-coding-agent provides file tools (read/edit/write/grep/find).
  * Custom tools handle ripmail, calendar, web APIs, onboarding-adjacent flows, etc.
  */
-export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): AgentTool<any, any>[] {
+export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): AgentTool[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
   const unifiedWikiRoot = options?.unifiedWikiRoot ?? wikiDir
@@ -157,18 +157,12 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const only = options?.onlyToolNames
   if (only?.length) {
     const allow = new Set(only)
-    return tools.filter((t: { name?: string }) => t.name == null || allow.has(t.name)) as AgentTool<
-      any,
-      any
-    >[]
+    return tools.filter((t: { name?: string }) => t.name == null || allow.has(t.name)) as AgentTool[]
   }
   const omit = options?.omitToolNames
   if (omit?.length) {
     const drop = new Set(omit)
-    return tools.filter((t: { name?: string }) => t.name == null || !drop.has(t.name)) as AgentTool<
-      any,
-      any
-    >[]
+    return tools.filter((t: { name?: string }) => t.name == null || !drop.has(t.name)) as AgentTool[]
   }
-  return tools as AgentTool<any, any>[]
+  return tools as AgentTool[]
 }

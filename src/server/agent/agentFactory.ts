@@ -1,6 +1,6 @@
 import { Agent } from '@mariozechner/pi-agent-core'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
-import type { Model } from '@mariozechner/pi-ai'
+import type { Api, Model } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
@@ -44,7 +44,7 @@ export function buildDateContext(timezone: string): string {
   return `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). When resolving dates or times for tools, always use this current date and the ${tz} timezone as the reference point.`
 }
 
-export function requireStandardBrainLlm(): Model<any> {
+export function requireStandardBrainLlm(): Model<Api> {
   const { provider, modelId } = getStandardBrainLlm()
   const model = resolveModel(provider, modelId)
   if (!model) {
