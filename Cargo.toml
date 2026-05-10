@@ -1,5 +1,3 @@
 [workspace]
-members = ["desktop", "ripmail"]
-# Root `cargo build` / `cargo test` only touch ripmail unless you pass `-p desktop` or `--workspace`.
-default-members = ["ripmail"]
+members = ["desktop"]
 resolver = "2"

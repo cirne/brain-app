@@ -2,7 +2,7 @@
 
 Hono + Svelte + pi-agent-core web app: Chat (agentic), Wiki browser, and Inbox (ripmail). **Product name:** **Braintunnel** (macOS bundle: `Braintunnel.app`). The repository and many env vars remain `brain-app` / `BRAIN_*` for historical reasons.
 
-> **Cloud agents:** For fast setup without Rust/ripmail, see **[CLOUD-AGENTS.md](./CLOUD-AGENTS.md)**.
+> **Cloud agents:** For fast setup without Rust/desktop tooling, see **[CLOUD-AGENTS.md](./CLOUD-AGENTS.md)**.
 
 ## Development rules
 
@@ -17,8 +17,8 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
 - **Component tests**: Svelte UI uses Vitest (jsdom) + `@testing-library/svelte`; helpers and conventions are in [docs/component-testing.md](docs/component-testing.md).
 - **CRITICAL: TDD**: write the test case first, then the code, then make sure the test passes. especially when fixing bugs.
-- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo t` for the Rust workspace.
-- **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p brain` or `cargo test -p ripmail` after Rust changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes (confirms `ripmail` release binary is produced and copied). Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
+- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests; run `cargo fmt -p brain`, `cargo clippy -p brain`, and `cargo t -p brain` when you change `desktop/`.
+- **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p brain` after Rust/desktop changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes. Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
 - **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
 - **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
 - **No React, no Next.js**: Svelte 5 for all UI.
@@ -40,7 +40,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/VISION.md](docs/VISION.md) — product vision and personalization narrative (not positioning/moats)
 - [docs/karpathy-llm-wiki-post.md](docs/karpathy-llm-wiki-post.md) — Karpathy *LLM Wiki* (wiki half of the product idea; [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f))
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
-- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); **onboarding states + mail phases:** [docs/architecture/onboarding-state-machine.md](docs/architecture/onboarding-state-machine.md); ripmail crate: `[ripmail/docs/ARCHITECTURE.md](ripmail/docs/ARCHITECTURE.md)`
+- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); **onboarding states + mail phases:** [docs/architecture/onboarding-state-machine.md](docs/architecture/onboarding-state-machine.md); archived Rust ripmail snapshot: [docs/architecture/ripmail-rust-snapshot.md](docs/architecture/ripmail-rust-snapshot.md)
 - [docs/digitalocean.md](docs/digitalocean.md) — DigitalOcean CLI (`doctl`): teams, API tokens, named contexts, BrainTunnel helper script
 - [docs/newrelic.md](docs/newrelic.md) — New Relic account, entity GUIDs, Node agent wiring, custom events (`ToolCall`); NRQL recipes in `.cursor/skills/newrelic/`
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
@@ -104,19 +104,19 @@ npm run desktop:clean-data     # delete packaged-app data: local `BRAIN_HOME` de
 
 ### Cargo / Rust (desktop)
 
-Rust crates live under `[desktop/](desktop/)` (Tauri shell) and `[ripmail/](ripmail/)` with a root `[Cargo.toml](Cargo.toml)`. Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
+Rust crate: **`desktop/`** (Tauri shell), wired from root **[Cargo.toml](Cargo.toml)**. Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
 
 **Parallel Tests:** `cargo test` is shadowed by the built-in command and cannot be aliased to `nextest`. Use `**cargo t`** or `**cargo test-parallel**` to run tests in parallel across all files using `cargo-nextest`.
 
 ```sh
-cargo t                        # run all tests in parallel (alias for `cargo nextest run`)
+cargo t                        # run all workspace tests in parallel (desktop-only)
 cargo t -p brain               # run desktop (Tauri) crate tests in parallel
 cargo test                     # standard cargo test (runs integration test binaries serially)
 ```
 
-Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. **`npm run dev`** may set **`RIPMAIL_BIN`** only when a workspace `target/*/ripmail` binary is still present (legacy); Docker/hosted images do not ship a ripmail ELF — mail runs **in-process** in Node.
+Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS for desktop builds.
 
-**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server uses a **computed** mail home per tenant. Optional **`RIPMAIL_BIN`** points at an external CLI when subprocess adapters are still used.
+**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server uses a **computed** mail home per tenant. Mail indexing and sync run **in-process** in **`src/server/ripmail/`**. Optional **`RIPMAIL_BIN`** is only for legacy subprocess helpers used in some tests (`src/server/lib/ripmail/ripmailRun.ts`).
 
 `tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
 

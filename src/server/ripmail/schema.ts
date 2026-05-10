@@ -1,9 +1,9 @@
 /**
- * SQLite schema — mirrors ripmail/src/db/schema.rs SCHEMA_VERSION 29.
+ * SQLite schema — SCHEMA_VERSION 29 (historically aligned with the Rust ripmail crate; see git tag
+ * `ripmail-rust-before-typescript-port` for reference sources).
  *
- * The schema version must be kept in sync with the Rust crate. On open, if the
- * stored version differs the DB is wiped and recreated from maildir (same as
- * the Rust rebuild path — no migrations).
+ * On open, if the stored version differs the DB is wiped and recreated from maildir (same as the
+ * Rust rebuild path — no migrations).
  */
 
 export const SCHEMA_VERSION = 29

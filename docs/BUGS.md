@@ -4,7 +4,7 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-**Unified index:** The table below mixes **brain-app / desktop** regressions **and** **ripmail** CLI/index defects. Canonical specs live here under **`bugs/`**. Historical **`ripmail/docs/bugs/`** stubs redirect when an old **`BUG-*` number differs** ([`ripmail/docs/BUGS.md`](../ripmail/docs/BUGS.md)).
+**Unified index:** The table below mixes **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
 User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039](bugs/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md)**.
 

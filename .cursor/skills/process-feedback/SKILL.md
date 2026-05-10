@@ -44,7 +44,7 @@ Use this when the operator wants a **pass over the full queue** with **deduplica
 
 1. **Registry** — Load [`registry.md`](../../../docs/feedback-processed/registry.md); treat listed ids as **already handled** (do not re-triage the same id unless the user is updating prior decisions).
 2. **`issues:list` + `issues:fetch`** — For every id **not** in the registry, fetch full content.
-3. **Backlog search** — For each item, grep/skim `docs/BUGS.md`, `docs/OPPORTUNITIES.md`, `docs/bugs/`, `docs/opportunities/`, and `ripmail/docs/` when the report is **mail/CLI** (see [backlog skill](../backlog/SKILL.md) for ownership). Determine **duplicate** vs **new**.
+3. **Backlog search** — For each item, grep/skim `docs/BUGS.md`, `docs/OPPORTUNITIES.md`, `docs/bugs/`, `docs/opportunities/` (see [backlog skill](../backlog/SKILL.md) for ownership). For mail-only regressions, skim [`src/server/ripmail/`](../../../src/server/ripmail/) and [architecture/integrations.md](../../../docs/architecture/integrations.md). Determine **duplicate** vs **new**.
 4. **Deduplicate / merge**
    - If an existing **BUG/OPP** matches: **edit that file**; add or extend **Related feedback** / **Additional reports** with feedback **#id**, **date**, and new detail. Update the **index** one-liner in `BUGS.md` / `OPPORTUNITIES.md` if the story changed.
    - If the *symptom* is similar but the **mechanism** differs (e.g. **search** vs **`inbox` ignore**), **do not merge** into one root-cause doc—cross-link the bugs and state the distinction (see **BUG-019** vs **BUG-022** pattern).
@@ -58,7 +58,7 @@ Use this when the operator wants a **pass over the full queue** with **deduplica
 
 1. **Registry** — Note ids in `registry.md` **to skip**; for remaining ids from `issues:list`, continue.
 2. **Fetch** each unprocessed `id` with `issues:fetch -- <id>`. Read Summary, Repro, and front matter.
-3. **Search the backlog** — Skim **`docs/BUGS.md`** and **`docs/OPPORTUNITIES.md`**, grep `docs/bugs/`, `docs/opportunities/` (and `ripmail/docs/` if CLI-only — see [backlog skill](../backlog/SKILL.md) ownership).
+3. **Search the backlog** — Skim **`docs/BUGS.md`** and **`docs/OPPORTUNITIES.md`**, grep `docs/bugs/`, `docs/opportunities/` (see [backlog skill](../backlog/SKILL.md) ownership).
 4. **Branch**
    - **Existing BUG/OPP** matches the same problem: edit that file; add **User feedback** / **Additional reports** with the feedback **id**, date, and any new useful detail. Optionally tweak the index one-liner.
    - **No match** — new **`docs/bugs/BUG-NNN-slug.md`** or **`docs/opportunities/OPP-NNN-slug.md`** + index row. Include a **Related feedback** line: issue **#N** and date (no server paths, no embed key).
@@ -75,7 +75,7 @@ Use this when the operator wants a **pass over the full queue** with **deduplica
 ## Id choice and ownership
 
 - Next **`BUG-NNN` / `OPP-NNN`**: [backlog skill](../backlog/SKILL.md) (smallest unused in tree).
-- Ripmail-only reports → `ripmail/docs/bugs` or `…/opportunities` and **also** add a row to `docs/feedback-processed/registry.md` (same in-app id).
+- Mail-layer reports → [`src/server/ripmail/`](../../../src/server/ripmail/) + **`docs/bugs/`** / **`docs/opportunities/`** as appropriate; **also** add a row to `docs/feedback-processed/registry.md` (same in-app id).
 
 ## What not to commit in docs
 

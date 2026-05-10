@@ -28,7 +28,7 @@ Braintunnel demo handles (stored slugs; leading `@` is accepted in UI and normal
 
 | Command | What it exercises |
 |---------|-------------------|
-| `npm run test:e2e:enron` | Deterministic **ripmail** CLI against **`./data/usr_enrondemo00000000001`** (skips if seed not run). Config: [`vitest.enron-e2e.config.ts`](../vitest.enron-e2e.config.ts). |
+| `npm run test:e2e:enron` | TypeScript maildir → SQLite rebuild + deterministic checks on **`./data/usr_enrondemo00000000001`** (skips if seed not run). Config: [`vitest.enron-e2e.config.ts`](../vitest.enron-e2e.config.ts). |
 | `npm run test:e2e:playwright` | **Demo tenants** in **`./data`** with **`npm run dev`** (**:3000**). Pre-seed with `npm run brain:seed-enron-demo`. See [`tests/e2e/README.md`](../tests/e2e/README.md). |
 
 ## `npm run eval:run`

@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Scope:** brain-app agent tools (`src/server/agent/tools.ts`, system prompt in `src/server/agent/index.ts`)  
-**See also:** [ARCHITECTURE.md](../ARCHITECTURE.md) (overview), [ripmail/docs/ARCHITECTURE.md](../../ripmail/docs/ARCHITECTURE.md) (ripmail crate)
+**See also:** [ARCHITECTURE.md](../ARCHITECTURE.md) (overview), [`src/server/ripmail/`](../../src/server/ripmail/index.ts) (implementation), [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) (archived Rust crate docs)
 
 ---
 

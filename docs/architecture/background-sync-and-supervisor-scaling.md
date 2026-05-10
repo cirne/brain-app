@@ -91,7 +91,7 @@ Related: in-memory **agent session Map** limits for multi-instance chat — **[a
 | **[runtime-and-routes.md](./runtime-and-routes.md)** | Server listen, route map, auth; **background sync** section defers here (no global `runFullSync` timer) |
 | **[onboarding-state-machine.md](./onboarding-state-machine.md)** | Phased mail, **`GET /api/onboarding/mail`** poll, refresh vs backfill |
 | **[data-and-sync.md](./data-and-sync.md)** | `$BRAIN_HOME`, ripmail layout, **`runFullSync`** semantics |
-| [`ripmail/docs/SYNC.md`](../../ripmail/docs/SYNC.md) | **`ripmail refresh`** vs **`backfill`** lanes, IMAP behavior |
+| [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) | Rust-era **`refresh`** vs **`backfill`** lanes (`ripmail/docs/SYNC.md` on tag) |
 | **[multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md)** | Cells, locks, one-tenant-per-container direction |
 | **[deployment-models.md](./deployment-models.md)** | Desktop vs cloud |
 | [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md) | Product framing for unified background status |

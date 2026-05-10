@@ -126,18 +126,6 @@ function loadManifest(repoRoot: string): Manifest {
   return JSON.parse(raw) as Manifest
 }
 
-function resolveRipmailBinForSeed(repoRoot: string): string {
-  const env = process.env.RIPMAIL_BIN?.trim()
-  if (env) return env
-  for (const p of [
-    join(repoRoot, 'target/release/ripmail'),
-    join(repoRoot, 'target/debug/ripmail'),
-  ]) {
-    if (existsSync(p)) return p
-  }
-  return 'ripmail'
-}
-
 async function sha256File(path: string): Promise<string> {
   const hash = createHash('sha256')
   const rs = createReadStream(path)
@@ -208,7 +196,6 @@ function runSeedScript(
     return Promise.reject(new Error(`Seed script missing: ${script}`))
   }
 
-  const ripmailBin = resolveRipmailBinForSeed(repoRoot)
   const env = {
     ...process.env,
     BRAIN_DATA_ROOT: dataRoot,
@@ -216,7 +203,6 @@ function runSeedScript(
     BRAIN_ENRON_DEMO_TENANT_ID: tenantId,
     BRAIN_ENRON_DEMO_USER: demoUserKey,
     EVAL_ENRON_TAR: tarPath,
-    RIPMAIL_BIN: ripmailBin,
   }
 
   const args = [script, ...(force ? (['--force'] as const) : [])]

@@ -1,7 +1,12 @@
 # OPP-103: Port ripmail to TypeScript
 
 **Status:** Open  
-**See also:** [OPP-104](OPP-104-unified-tenant-sqlite.md) (unified tenant SQLite — follow-on that merges mail + app state into one DB) · [ripmail ARCHITECTURE.md](../../ripmail/docs/ARCHITECTURE.md) · [brain-layout.json](../../shared/brain-layout.json) / [`brainLayout.ts`](../../src/server/lib/brainLayout.ts)
+
+**Builds on:** **[archived OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — chat + **`notifications`** already ship in **`var/brain-tenant.sqlite`**; ripmail’s index remains a **second** SQLite under **`ripmail/`**. **[OPP-104](OPP-104-unified-tenant-sqlite.md)** tracks merging mail + app state into one tenant DB alongside this TypeScript runtime.
+
+**Last Rust ripmail on `main` (archaeology):** annotated tag **`ripmail-rust-before-typescript-port`** — how to fetch and check out — [**architecture/ripmail-rust-snapshot.md**](../architecture/ripmail-rust-snapshot.md) · indexed as **[archived OPP-105](archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)**.
+
+**See also:** [chat-history-sqlite.md](../architecture/chat-history-sqlite.md) · [per-tenant-storage-defense.md](../architecture/per-tenant-storage-defense.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [brain-layout.json](../../shared/brain-layout.json) / [`brainLayout.ts`](../../src/server/lib/brainLayout.ts) · [ripmail-rust-snapshot.md](../architecture/ripmail-rust-snapshot.md)
 
 ---
 
@@ -77,13 +82,13 @@ Because the TS module runs in-process, **there is no CLI to port**. Arguments be
 
 ### Rust code retention
 
-Keep the `ripmail/` Rust crate in-tree as **read-only reference** during the port. Remove after the TypeScript implementation reaches full parity and has been validated. No new Rust development.
+The **`ripmail/`** Rust crate is **removed from `main`** after the TypeScript port validated. Recover the last Rust tree from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](../architecture/ripmail-rust-snapshot.md)).
 
 ---
 
 ## Acceptance strategy: Enron corpus + Rust reference + latency
 
-Primary validation uses the **eval / demo Enron pipeline** (same layout as production: tenant under `BRAIN_DATA_ROOT`, ripmail under `ripmail/`). See [`eval/README.md`](../../eval/README.md), `npm run brain:seed-enron-demo`, and existing Enron E2E coverage (e.g. [`src/server/evals/e2e/enronRipmail.test.ts`](../../src/server/evals/e2e/enronRipmail.test.ts)).
+Primary validation uses the **eval / demo Enron pipeline** (same layout as production: tenant under `BRAIN_DATA_ROOT`, ripmail under `<tenant>/ripmail/`). See [`eval/README.md`](../../eval/README.md), `npm run brain:seed-enron-demo`, and Enron E2E coverage (e.g. [`src/server/evals/e2e/enronRipmailTs.test.ts`](../../src/server/evals/e2e/enronRipmailTs.test.ts)).
 
 ### Test form: TS function call vs Rust CLI
 

@@ -41,7 +41,11 @@ const common = {
 
 await esbuild.build({
   ...common,
-  entryPoints: [join(root, 'src/server/index.ts'), join(root, 'src/server/sync-cli.ts')],
+  entryPoints: [
+    join(root, 'src/server/index.ts'),
+    join(root, 'src/server/sync-cli.ts'),
+    join(root, 'src/server/ripmail/rebuildFromMaildirCli.ts'),
+  ],
   outdir,
 })
 

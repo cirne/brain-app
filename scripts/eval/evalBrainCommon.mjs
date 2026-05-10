@@ -1,9 +1,9 @@
 /**
- * Shared ripmail fixture helpers (sha256, rebuild-index env) used by eval ingest scripts.
+ * Shared ripmail fixture helpers (sha256, TypeScript rebuild-index) used by eval ingest scripts.
  */
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 /**
@@ -59,16 +59,39 @@ export function writeRipmailEvalFixture(ripHome, m) {
   writeFileSync(join(ripHome, mbId, '.env'), dotEnv, 'utf8')
 }
 
+function resolveTsxCli(repoRoot) {
+  const p = join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs')
+  return existsSync(p) ? p : null
+}
+
 /**
- * @param {string} ripmailBin
- * @param {{ ripHome: string, brain: string }} paths
+ * Run TS maildir → SQLite rebuild (replaces `ripmail rebuild-index`).
+ * @param {{ ripHome: string, brain: string, maildirRoot: string }} paths
  */
-export function runRebuildIndex(ripmailBin, { ripHome, brain }) {
+export function runRebuildIndex({ ripHome, brain, maildirRoot }) {
+  const repoRoot = resolve(process.env.BRAIN_SEED_REPO_ROOT?.trim() || process.cwd())
+  const compiled = join(repoRoot, 'dist', 'server', 'ripmail', 'rebuildFromMaildirCli.js')
+  const tsconfig = join(repoRoot, 'tsconfig.server.json')
+  const tsEntry = join(repoRoot, 'src', 'server', 'ripmail', 'rebuildFromMaildirCli.ts')
   const homeAbs = resolve(ripHome)
   const brainAbs = resolve(brain)
-  const r = spawnSync(ripmailBin, ['rebuild-index'], {
+  const mdAbs = resolve(maildirRoot)
+
+  let execArgv
+  if (existsSync(compiled)) {
+    execArgv = [compiled, homeAbs, mdAbs]
+  } else {
+    const tsxCli = resolveTsxCli(repoRoot)
+    if (!tsxCli) {
+      console.error('[eval] tsx CLI not found under node_modules; run npm ci from repo root.')
+      process.exit(1)
+    }
+    execArgv = [tsxCli, '--tsconfig', tsconfig, tsEntry, homeAbs, mdAbs]
+  }
+
+  const r = spawnSync(process.execPath, execArgv, {
     env: { ...process.env, RIPMAIL_HOME: homeAbs, BRAIN_HOME: brainAbs },
-    cwd: homeAbs,
+    cwd: repoRoot,
     stdio: 'inherit',
   })
   if (r.status !== 0) {

@@ -1,4 +1,4 @@
-# Enron-focused E2E: Vitest + ripmail CLI (skipped without corpus) and Playwright against ./data + port 3000 (same layout as npm run dev).
+# Enron-focused E2E: Vitest + TypeScript maildir rebuild (skipped without corpus) and Playwright against ./data + port 3000.
 
 name: E2E Enron
 
@@ -16,22 +16,21 @@ on:
       - 'eval/fixtures/enron-demo-registry.json'
       - 'eval/fixtures/enron-*-manifest.json'
       - 'scripts/brain/seed-enron-demo-tenant.mjs'
+      - 'scripts/eval/evalBrainCommon.mjs'
+      - 'scripts/eval/enronKeanIngest.mjs'
+      - 'scripts/build-server-bundle.mjs'
+      - 'src/server/ripmail/rebuildFromMaildir*.ts'
       - '.github/workflows/e2e-enron.yml'
 
 env:
   BRAIN_ENRON_DEMO_CI_SECRET: ci-enron-playwright-demo-secret-32b
 
 jobs:
-  enron-ripmail-vitest:
-    name: Enron ripmail (Kean tenant under ./data) Vitest
+  enron-mail-vitest:
+    name: Enron mail index (Kean tenant under ./data) Vitest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Build ripmail (release)
-        run: cargo build -p ripmail --release
 
       - uses: actions/setup-node@v4
         with:
@@ -40,10 +39,11 @@ jobs:
 
       - run: npm ci
 
+      - name: npm run build
+        run: npm run build
+
       - name: npm run test:e2e:enron
         run: npm run test:e2e:enron
-        env:
-          RIPMAIL_BIN: ${{ github.workspace }}/target/release/ripmail
 
   playwright-enron-demo:
     name: Playwright (Enron demo tenant)
@@ -52,16 +52,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - run: cargo build -p ripmail --release
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: npm
 
       - run: npm ci
+
+      - name: npm run build
+        run: npm run build
 
       - uses: actions/cache@v4
         with:
@@ -72,7 +71,6 @@ jobs:
         run: npm run brain:seed-enron-demo
         env:
           BRAIN_DATA_ROOT: ${{ github.workspace }}/data
-          RIPMAIL_BIN: ${{ github.workspace }}/target/release/ripmail
 
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
@@ -82,7 +80,6 @@ jobs:
           set -eu
           export BRAIN_DATA_ROOT="${GITHUB_WORKSPACE}/data"
           export BRAIN_ENRON_DEMO_SECRET="${BRAIN_ENRON_DEMO_CI_SECRET}"
-          export RIPMAIL_BIN="${GITHUB_WORKSPACE}/target/release/ripmail"
           export PORT=3000
           export NODE_ENV=development
           nohup npx tsx --tsconfig tsconfig.server.json src/server/index.ts > "${GITHUB_WORKSPACE}/brain-e2e.log" 2>&1 &

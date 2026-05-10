@@ -40,9 +40,9 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     )
   }
   brainLogger.info('ripmail: TypeScript in-process module (OPP-103); no subprocess binary required for agent tools')
-  if (process.env.RIPMAIL_BIN?.trim()) {
-    brainLogger.info(`RIPMAIL_BIN=${process.env.RIPMAIL_BIN} (set; optional Rust CLI for clean/evals/subprocess helpers — mail routes use TS ripmail)`)
-  }
+  brainLogger.info(
+    'RIPMAIL_BIN is set — used only by legacy subprocess helpers / tests; unset in production unless you know why',
+  )
 
   brainLogger.info('Local messages / iMessage tools: disabled in hosted multi-tenant mode.')
 

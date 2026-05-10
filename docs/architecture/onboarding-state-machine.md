@@ -11,8 +11,8 @@
 **Related (engineering docs):**
 
 - `$BRAIN_HOME` layout and **`onboarding.json`** on disk → [data-and-sync.md](./data-and-sync.md)  
-- Ripmail **home layout** and **`RIPMAIL_HOME`** passed into subprocess-only helpers → [integrations.md](./integrations.md)  
-- **Refresh vs backfill** locks and behavior in ripmail → [ripmail SYNC.md](../../ripmail/docs/SYNC.md) (`sync_summary` lanes; concurrent refresh + backfill)  
+- Ripmail **home layout** (tenant `ripmail/`) → [integrations.md](./integrations.md)  
+- **Refresh vs backfill** locks and behavior (Rust-era detail) → [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) (`ripmail/docs/SYNC.md` on the tagged revision; `sync_summary` lanes)  
 - SPA routes (**`/welcome`**, `/onboarding`), `/api/oauth/google/*`, vault bootstrap → [runtime-and-routes.md](./runtime-and-routes.md)  
 - Gmail OAuth redirects, Tauri browser flow → [google-oauth.md](../google-oauth.md)  
 - Hosted tenancy and handle confirmation → [multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md)  

@@ -32,7 +32,7 @@ jobs:
       - name: Lint, typecheck, test
         run: npm run ci
 
-      - name: Enron ripmail E2E Vitest (skips without data-eval corpus)
+      - name: Enron mail corpus Vitest E2E (skips without seeded ./data corpus)
         run: npm run test:e2e:enron
 
       - name: Coverage summary

@@ -26,7 +26,6 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensureEnronTarballPath } from '../eval/ensureEnronTarball.mjs'
 import { ingestEnronMailboxToBrainRoot, loadEnronMailboxManifest } from '../eval/enronKeanIngest.mjs'
-import { ripmailVersionLine, resolveRipmailBin } from '../eval/ripmailBin.mjs'
 
 const wantForce = process.argv.includes('--force')
 const wantAll = process.argv.includes('--all')
@@ -80,12 +79,7 @@ function resolveSingleUser(registry) {
   process.exit(1)
 }
 
-const ripmailBin = process.env.RIPMAIL_BIN?.trim() || resolveRipmailBin(repoRoot)
-const v = ripmailVersionLine(ripmailBin)
-if (v.startsWith('unknown')) {
-  console.error('[seed-enron-demo] ripmail not runnable:', ripmailBin)
-  process.exit(1)
-}
+
 
 /**
  * @param {{ key: string, tenantUserId: string, workspaceHandle: string, manifestFile: string }} entry
@@ -129,7 +123,6 @@ async function seedOneTenant(entry) {
     manifest,
     tarPath,
     brainRoot: tenantHome,
-    ripmailBin,
     extractParent,
     force: true,
   })

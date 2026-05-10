@@ -15,7 +15,7 @@ npm run brain:seed-enron-demo
 ## Prerequisites
 
 1. **Repo `.env`** — non-empty `BRAIN_ENRON_DEMO_SECRET` (matches what the server sees after [`loadDotEnv`](../src/server/lib/platform/loadDotEnv.ts)). Playwright merges `.env` in `playwright.config.ts`; no shell export required.
-2. **Ripmail** — on `PATH` or `RIPMAIL_BIN`; same binary as dev.
+2. **Build** — `npm run build` so `dist/server/ripmail/rebuildFromMaildirCli.js` exists for seed/eval (tsx fallback in dev).
 
 ## Run
 

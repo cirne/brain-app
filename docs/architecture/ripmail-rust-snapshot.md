@@ -34,7 +34,7 @@ git fetch origin tag ripmail-rust-before-typescript-port
 git switch -c recover-rust-ripmail ripmail-rust-before-typescript-port
 ```
 
-At that snapshot, Rust sources and decisions are under **`ripmail/`** (see [`ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md) on that revision). The brain-app server still spawns **`ripmail`** as a subprocess; desktop release flow still builds **`cargo build -p ripmail --release`** into `server-bundle/` — that wiring is described in [AGENTS.md](../../AGENTS.md) for that revision.
+At that snapshot, Rust sources and decisions live under **`ripmail/`** (e.g. `ripmail/docs/ARCHITECTURE.md` in that checkout). The server spawned the **`ripmail`** CLI and desktop builds compiled **`cargo build -p ripmail --release`**. On current `main`, mail runs in **`src/server/ripmail/`**; see [AGENTS.md](../../AGENTS.md).
 
 ---
 

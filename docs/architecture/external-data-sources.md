@@ -63,7 +63,7 @@ Existing ripmail model: bodies and metadata in SQLite; **`ripmail read`** serves
 
 Duplicating **full file text** in SQLite for every indexed path mirrors the corpus and balloons the DB.
 
-**Decision:** **contentless FTS5** (`content=''`) — persist the **token index**, not the full original text. Store a **short excerpt** (~500 chars) for result snippets. Details: [ripmail ADR-030](../../ripmail/docs/ARCHITECTURE.md#adr-030-file-source-indexing--contentless-fts5-no-local-content-copy), [OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md).
+**Decision:** **contentless FTS5** (`content=''`) — persist the **token index**, not the full original text. Store a **short excerpt** (~500 chars) for result snippets. Details: ADR-030 on Rust ripmail snapshot tag ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)), [OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md).
 
 **Read path:** **`ripmail read`** for files resolves to **on-disk path** (local) or **re-download via provider API** with a **short-TTL cache** under `RIPMAIL_HOME/<source-id>/cache/` (cloud). Sync still **fetches bytes long enough to tokenize** during refresh; the durable store is not “full text × every file.”
 

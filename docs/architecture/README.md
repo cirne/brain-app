@@ -29,7 +29,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) | Eval harness (`./data` Kean tenant), Enron fixtures, ripmail `.eml` rules — **living doc** |
 | [enron-demo-tenant.md](./enron-demo-tenant.md) | **OPP-051 Phase 0:** hosted Enron fixture tenants, Bearer mint, CLI pre-seed + optional operator reseed, Docker/staging/automation |
 | [local-mlx-llm.md](./local-mlx-llm.md) | **Apple Silicon:** run Qwen (etc.) via `mlx-lm` OpenAI-compatible server; `BRAIN_LLM=mlx-local/mlx-community/...`, `MLX_LOCAL_*` env |
-| [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
+| [integrations.md](./integrations.md) | Ripmail (TS module), `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (mail index vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |
 | [chat-history-sqlite.md](./chat-history-sqlite.md) | Chat + notifications in **`var/brain-tenant.sqlite`** (sessions/messages + `notifications`); optional FTS follow-on |
 | [preferences-store.md](./preferences-store.md) | Preferences consolidation: scattered JSON files + localStorage → SQLite table + typed client module |
@@ -44,6 +44,6 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [external-data-sources.md](./external-data-sources.md) | Unified corpus: local FTS query layer, `sources[]` kinds (mail, localDir, cloud files, SaaS docs), sync vs query split, contentless file indexing, MCP as optional sync aid — **Google Drive:** [OPP-045](../opportunities/OPP-045-google-drive.md) |
 | [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [STRATEGY.md](../STRATEGY.md); product spec → [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) |
 
-**Ripmail — Rust era (recoverable):** [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md). **Ripmail crate ADRs** (on branches that still ship `ripmail/`): [`../../ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).
+**Ripmail — Rust era (recoverable):** [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md). Crate-era ADRs and `ripmail/docs/*` exist only on that tagged revision (not on current `main`).
 
 *Recorded considerations* are decisions or research notes that are **not** feature opportunities—they document why we chose a path or deferred an alternative, for future readers.

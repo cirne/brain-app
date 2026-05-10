@@ -44,7 +44,6 @@ export function* walkMailFiles(dir) {
  * @param {string} manifest.accountEmail
  * @param {string} tarPath
  * @param {string} brainRoot Brain home (multi-tenant tenant dir under BRAIN_DATA_ROOT, or explicit BRAIN_HOME)
- * @param {string} ripmailBin
  * @param {string} extractParent Directory under which `tar -xzf … pathInsideArchive` is extracted (e.g. …/expand)
  * @param {boolean} force
  * @returns {{ fileCount: number }}
@@ -53,7 +52,6 @@ export function ingestEnronMailboxToBrainRoot({
   manifest,
   tarPath,
   brainRoot,
-  ripmailBin,
   extractParent,
   force,
 }) {
@@ -126,7 +124,8 @@ export function ingestEnronMailboxToBrainRoot({
     }
   }
 
-  runRebuildIndex(ripmailBin, { ripHome, brain: brainRoot })
+  const maildirRoot = join(ripHome, manifest.mailboxId, 'maildir')
+  runRebuildIndex({ ripHome, brain: brainRoot, maildirRoot })
   return { fileCount: all.length }
 }
 

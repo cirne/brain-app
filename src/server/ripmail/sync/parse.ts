@@ -31,6 +31,12 @@ export interface ParsedMessage {
     storedPath: string
     content?: Buffer
   }>
+  /** True when In-Reply-To / References headers imply a reply (mirrors Rust ParsedMessage). */
+  isReply: boolean
+  /** Distinct recipient count for To+Cc addresses (Rust count_distinct_recipients). */
+  recipientCount: number
+  /** Rust rebuild uses computed_list_like; TS defaults false unless we add full parity later. */
+  listLike: boolean
 }
 
 /** Parse a raw EML buffer into a structured message. */
@@ -73,11 +79,26 @@ export async function parseEml(
     ? (parsed.messageId.startsWith('<') ? parsed.messageId.slice(1, -1) : parsed.messageId)
     : `${opts.uid}-${opts.sourceId}`
 
-  // Thread ID: use In-Reply-To header if present, else use message ID as root
+  const refHdr = parsed.references
+  const hasRefs =
+    typeof refHdr === 'string'
+      ? refHdr.trim().length > 0
+      : Array.isArray(refHdr)
+        ? refHdr.length > 0
+        : !!refHdr
+
+  const isReply = !!(parsed.inReplyTo || hasRefs)
+
+  // Thread ID: use In-Reply-To header if present, else use message ID as root (IMAP sync path).
   const inReplyTo = parsed.inReplyTo
   const threadId = inReplyTo
     ? (inReplyTo.startsWith('<') ? inReplyTo.slice(1, -1) : inReplyTo)
     : messageId
+
+  const recipientSet = new Set(
+    [...toAddresses, ...ccAddresses].map((a) => a.toLowerCase()).filter(Boolean),
+  )
+  const recipientCount = recipientSet.size
 
   const bodyText = parsed.text ?? ''
   const bodyHtml = parsed.html || undefined
@@ -114,5 +135,8 @@ export async function parseEml(
     rawPath,
     sourceId: opts.sourceId,
     attachments,
+    isReply,
+    recipientCount,
+    listLike: false,
   }
 }

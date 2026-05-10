@@ -14,7 +14,7 @@
 - **Powerful but simple:** numbered presets for typical users; libraries of reusable pieces for advanced users—**not** an unconstrained dependency graph of policies.
 - **Defense in depth:** combine **machine-enforced** rules (tools, paths, mail predicates) with **soft instructions** (LLM-facing fragments). Neither layer replaces the other.
 - **Honest security UX:** soft rules are **instructions**, not cryptographic guarantees; copy and Hub surfaces should say so (see [Hub brain-access admin (shipped — OPP-099 closure)](#hub-brain-access-admin-shipped--opp-099-closure)).
-- **Reuse Ripmail semantics** where mail is constrained: same **search-shaped** predicates / evaluator as inbox rules and `ripmail search` (see [Ripmail INBOX-CUSTOMIZATION](../../ripmail/skills/ripmail/references/INBOX-CUSTOMIZATION.md), `[SearchOptions](../../ripmail/src/search/types.rs)`, `[OPP-038` archived](../ripmail/docs/opportunities/archive/OPP-038-inbox-rules-as-search-language.md)).
+- **Reuse Ripmail semantics** where mail is constrained: same **search-shaped** predicates / evaluator as inbox rules and mail search — see [`src/server/ripmail/`](../../src/server/ripmail/index.ts) (rules + FTS). Rust-era references live on the snapshot tag ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)).
 
 ---
 

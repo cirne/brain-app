@@ -6,7 +6,7 @@
 
 **Tags:** `ripmail` · `calendar` · `google` · `performance`
 
-**Related:** [`ripmail/src/calendar/google.rs`](../../ripmail/src/calendar/google.rs) (`sync_google_calendars`, **`delete_source_events`** + full-window **`events.list`**); [`ripmail/src/calendar/sync.rs`](../../ripmail/src/calendar/sync.rs); calendar DB **`sync_token`** helpers (`db::set_sync_token`, `clear_sync_token`); agent calendar surface **[OPP-070](OPP-070-full-calendar-read-write-agent-surface.md)**; archived **[OPP-069](archive/OPP-069-calendar-token-efficiency.md)** (tool/token shape — orthogonal to **refresh wall time**).
+**Related:** [`src/server/ripmail/calendar.ts`](../../src/server/ripmail/calendar.ts) (Google Calendar indexing surface); calendar **`sync_token`** in SQLite; Rust-era reference ([ripmail-rust-snapshot.md](../architecture/ripmail-rust-snapshot.md)); agent calendar surface **[OPP-070](OPP-070-full-calendar-read-write-agent-surface.md)**; archived **[OPP-069](archive/OPP-069-calendar-token-efficiency.md)** (tool/token shape — orthogonal to **refresh wall time**).
 
 ---
 

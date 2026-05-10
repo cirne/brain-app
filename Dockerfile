@@ -42,7 +42,6 @@ COPY --from=node-builder /app/dist ./dist
 # OPP-051: optional Enron demo seed CLI (no corpus in image — run with BRAIN_DATA_ROOT + EVAL_ENRON_TAR).
 COPY scripts/eval/enronKeanIngest.mjs /app/seed-enron/scripts/eval/enronKeanIngest.mjs
 COPY scripts/eval/evalBrainCommon.mjs /app/seed-enron/scripts/eval/evalBrainCommon.mjs
-COPY scripts/eval/ripmailBin.mjs /app/seed-enron/scripts/eval/ripmailBin.mjs
 COPY scripts/brain/seed-enron-demo-tenant.mjs /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs
 COPY eval/fixtures/enron-kean-manifest.json /app/seed-enron/eval/fixtures/enron-kean-manifest.json
 COPY eval/fixtures/enron-lay-manifest.json /app/seed-enron/eval/fixtures/enron-lay-manifest.json

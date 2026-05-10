@@ -32,7 +32,7 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
 }
 
 /**
- * Run **`refresh`** for the current brain home: in-process TS sync only.
+ * Run **`refresh`** in-process for the current brain home — always awaited (no detached spawn).
  */
 /** `ripmail sources list --json` kinds that map to calendar sync only (no IMAP mail). */
 const CALENDAR_SOURCE_KINDS = new Set([
@@ -117,8 +117,9 @@ export async function runFullSync(inboxSignal?: AbortSignal): Promise<FullSyncRe
 }
 
 /**
- * Run **`refresh`** and **wait** for it to complete. Lap timeouts use **`timeoutMs`** (in-process TS
- * path does not hard-abort sync today; callers still pass the cap from the supervisor contract).
+ * Run **`refresh`** and **wait** for it to complete. Callers pass **`timeoutMs`** (e.g. wiki lap —
+ * ~90s); the TS in-process sync path does not hard-cancel on that deadline today, but the
+ * **`RipmailTimeoutError`** branch preserves the supervisor contract where subprocess timeouts did.
  */
 export async function refreshMailAndWait(
   _timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,

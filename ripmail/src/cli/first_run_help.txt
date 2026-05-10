@@ -1,3 +1,0 @@
-No config yet ({}). Add your first mailbox:
-  ripmail wizard        # Interactive setup for humans
-  ripmail setup         # Setup/config for agents

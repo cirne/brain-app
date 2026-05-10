@@ -35,7 +35,7 @@ After shipping: confirm the live consent UI lists Drive alongside Gmail and Cale
 
 ## Scope (aligned with architecture doc)
 
-1. **Ripmail** — `googleDrive` source kind under [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md); credentials under `RIPMAIL_HOME/<source-id>/`; `**refresh`** pulls metadata + bytes for tokenization into **contentless** FTS ([ADR-030](../../ripmail/docs/ARCHITECTURE.md#adr-030-file-source-indexing--contentless-fts5-no-local-content-copy)); search JSON includes `sourceId` / `sourceKind`.
+1. **Ripmail index (`@server/ripmail`)** — `googleDrive` source kind under [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md); credentials under tenant `ripmail/<source-id>/`; **`refresh`** pulls metadata + bytes for tokenization into **contentless** FTS (ADR-030 on [Rust snapshot](../architecture/ripmail-rust-snapshot.md)); search JSON includes `sourceId` / `sourceKind`.
 2. **brain-app** — connect flow and token storage consistent with Gmail work ([OPP-019](OPP-019-gmail-first-class-brain.md)); **request Drive read scope(s) in the OAuth authorize URL** (today missing — see § OAuth above); verification/consent implications ([OPP-043](OPP-043-google-oauth-app-verification-milestones.md)).
 3. **Agent tools** — `**search_index`**, `**list_files`**, `**read_doc**`, `**manage_sources**`, `**refresh_sources**` parameterized by source—not standalone `google_drive_*` tools ([architecture doc § Unified agent tools](../architecture/external-data-sources.md#unified-agent-tools-source-parameter-not-per-vendor)).
 
@@ -45,7 +45,7 @@ After shipping: confirm the live consent UI lists Drive alongside Gmail and Cale
 
 ## Spike notes (`google-drive` branch)
 
-Prior work (~`59072ac`) validated direction (`kind=googleDrive`, unified sources, OAuth wiring). Issues were **implementation**, not architecture—see` [BUG-061](../../ripmail/docs/bugs/BUG-061-google-drive-sync-hang-search-empty.md)`. Wrong tool names (`google_drive_list`/`google_drive_search`) conflict with the unified tool policy above.
+Prior work (~`59072ac`) validated direction (`kind=googleDrive`, unified sources, OAuth wiring). Issues were **implementation**, not architecture—cross-check Drive regression notes on the Rust snapshot tag if needed ([ripmail-rust-snapshot.md](../architecture/ripmail-rust-snapshot.md)). Wrong tool names (`google_drive_list`/`google_drive_search`) conflict with the unified tool policy above.
 
 ---
 

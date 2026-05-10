@@ -107,13 +107,13 @@ On-disk layout, integrations, evaluations, and the Rust inbox implementation.
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki          | [architecture/data-and-sync.md](architecture/data-and-sync.md)                                                                    |
 | **First-run onboarding** (persisted states, phased mail sync, `/api/onboarding`) | [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)                                            |
-| Ripmail subprocess, unified search, files API, optional iMessage              | [architecture/integrations.md](architecture/integrations.md)                                                                      |
+| Mail (`@server/ripmail`), unified search, files API, optional iMessage              | [architecture/integrations.md](architecture/integrations.md)                                                                      |
 | Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`) | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
 | External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
 | Eval home, Enron fixture mail, search index rebuild                           | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
 | Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)               | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
 | **Rust ripmail — recoverable snapshot** (git tag before TS port; see [OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)) | [architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)                                                     |
-| Ripmail crate (Rust internals; on `main` until **[OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)** cutover)           | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                   |
+| Mail index + sync (**TypeScript**, OPP-103)                                                                                                          | [`src/server/ripmail/`](../src/server/ripmail/index.ts) · [architecture/integrations.md](architecture/integrations.md)              |
 
 
 ---

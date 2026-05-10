@@ -2,7 +2,7 @@
 
 ## Trust boundaries: ripmail vs direct SQLite access
 
-**Default pattern:** For **local-first** data that ripmail already indexes (mail, maildir-adjacent workflows, indexed **files on disk**, **calendar events** once configured in ripmail — see [`ripmail` ADR-029](../../ripmail/docs/ARCHITECTURE.md#adr-029-local-gateway--one-binary-multiple-corpora-mail-calendar-)), the **brain-app** server uses the **TypeScript ripmail module** ([`@server/ripmail`](../../src/server/ripmail/index.ts), OPP-103) against each tenant’s SQLite + layout under **`$BRAIN_DATA_ROOT/<tenant>/<layout ripmail>/`** ([`shared/brain-layout.json`](../../shared/brain-layout.json)) — derived per request from **`BRAIN_HOME`** / tenant context, not from the parent process **`RIPMAIL_HOME`** env var (which Brain ignores in multi-tenant mode).
+**Default pattern:** For **local-first** data that the ripmail index already covers (mail, maildir-adjacent workflows, indexed **files on disk**, **calendar events** once configured — ADR-029 framing lives on the **Rust snapshot** tag; see [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)), the **brain-app** server uses the **TypeScript ripmail module** ([`@server/ripmail`](../../src/server/ripmail/index.ts), OPP-103) against each tenant’s SQLite + layout under **`$BRAIN_DATA_ROOT/<tenant>/<layout ripmail>/`** ([`shared/brain-layout.json`](../../shared/brain-layout.json)) — derived per request from **`BRAIN_HOME`** / tenant context, not from the parent process **`RIPMAIL_HOME`** env var (which Brain ignores in multi-tenant mode).
 
 **Exception — Apple Messages:** The server may open Apple’s **`~/Library/Messages/chat.db`** read-only via **`better-sqlite3`** (`list_recent_messages`, `get_message_thread`). That path exists because **`chat.db`** is a plain SQLite file on disk; there is **no** Node-accessible **EventKit-style** API for iMessage history **and** no need to ship a native helper solely to read SQL. Access is gated by **Full Disk Access** (or equivalent). This is a **deliberate** second permission surface, not the model for calendar, contacts, or other framework-backed Apple data.
 
@@ -12,7 +12,7 @@
 
 Mail index **status**, **search**, **read**, **inbox**, **refresh/backfill**, and related routes call **`@server/ripmail`** in-process on the tenant **`ripmail/`** directory. **`GET /api/onboarding/mail`** uses **`ripmailStatusParsed`** (SQLite — no `ripmail status` subprocess).
 
-**Optional Rust CLI:** **`RIPMAIL_BIN`** still selects a binary for **`execRipmailArgv`** / **`ripmail clean`**, eval/e2e comparisons, and any remaining subprocess-only helpers — not for normal onboarding or Hub polling.
+**Optional `RIPMAIL_BIN`:** only for **`execRipmailArgv`** / subprocess-backed tests and legacy **`ripmail clean`**-style helpers — not used for normal onboarding, Hub polling, or agent mail tools.
 
 ## Unified search (`GET /api/search`)
 

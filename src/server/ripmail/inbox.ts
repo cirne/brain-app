@@ -16,7 +16,7 @@ import type { RipmailDb } from './db.js'
 import type { InboxItem, InboxResult, UserRule, RulesFile } from './types.js'
 
 const DEFAULT_CANDIDATE_CAP = 80
-const DEFAULT_RULES_FILE = new URL('../../../ripmail/src/rules/default_rules.v3.json', import.meta.url)
+const DEFAULT_RULES_FILE = new URL('./rules/default_rules.v3.json', import.meta.url)
 
 // ---------------------------------------------------------------------------
 // Rules loading
