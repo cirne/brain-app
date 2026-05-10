@@ -1,10 +1,10 @@
 # Idea: Brain-query delegation (LLM-to-LLM fast path)
 
-**Status:** Active — **Phase 0 (hosted)** shipped; **Hub / Brain access admin (Spike 1)** closed (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Next:** policy depth ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)), including **policy-by-reference** for grants (**[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** — server policy rows + `policy_id` on grants; addresses [BUG-048](../bugs/BUG-048-brain-access-policy-bucket-mismatch-text-snapshots.md)).
+**Status:** Active — **Phase 0 (hosted)** shipped; **Hub / Brain access admin (Spike 1)** closed (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Next:** policy depth ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)), including **policy-by-reference** for grants (**[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** — server policy rows + `policy_id` on grants; addresses [BUG-048](../bugs/BUG-048-brain-access-policy-bucket-mismatch-text-snapshots.md)). **Notification persistence (tenant SQLite):** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** supports [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md) / async approval; **brain-query enqueue** to that store is follow-on work.
 
 **Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (inc. [Hub closure §](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)) · **Tool:** `ask_brain`
 
-**Related:** [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol — **superseded** by this B2B direction). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** is the **current** bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
+**Related:** **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** — **notification + inbox + brief** infrastructure and **async approval** of drafted outbound brain-query replies; treated as a **required product capability** before brain-to-brain is **secure and usable** for typical users (see [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)). **Durable tenant store for notifications (and chat migration):** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — prerequisite plumbing for that idea’s **persistence** layer. [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol — **superseded** by this B2B direction). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** is the **current** bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
 
 ---
 
@@ -19,7 +19,7 @@
 
 - **Spike 1 shipped (2026-05).** Usable **Brain access** in Hub (grants, policy drill-down, templates + custom policies, activity views) and **@** people vs wiki in chat — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure). Historical epic: **[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**.
 
-**Not done yet (unchanged from earlier roadmap):** cross-instance routing, notifications, human-approval mode, layered policy/presets ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)) — see [Experiment path](#experiment-path-fast-start) below.
+**Not done yet (unchanged from earlier roadmap):** cross-instance routing, **unified notifications / inbox** (including **async human approval** of outbound answers), layered policy/presets ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)) — see [Experiment path](#experiment-path-fast-start) below. **Usability + trust:** notification and approval UX is specified in **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** and cross-referenced from [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) as a **prerequisite** for confidence in brain-to-brain beyond auto-send-after-filter. **Persistence for notification items + chat:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant app SQLite); future brain-query “pending approval” flows should use that store.
 
 ---
 
@@ -37,7 +37,7 @@ Your brain delegates a natural-language research task to Donna's brain. Donna's 
 
 - Data never moves — only a synthesized, filtered answer crosses the boundary
 - Donna's research pass uses **owner-context** mail/wiki/calendar tooling—not limited to pre-shared wiki files alone—**subject to evolving grant policy** ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md); Phase 0: read-only allowlist + textarea instructions)
-- The privacy filter is the trust mechanism, not a human approval step (approval modes may coexist later)
+- The privacy filter is the **Phase 0** trust mechanism for auto-send; **human approval before send** (draft review, edit, release or decline) **requires** the **notification / inbox / brief** layer in [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)—see [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
 - Far faster and higher-bandwidth than email; far more powerful than file sharing
 
 ---
@@ -99,13 +99,18 @@ If the product thesis shifts to **“just make B2B work well and securely,”** 
 **Does Donna see the query?**
 
 - A query log in Hub: who asked, what they asked, what was returned — visible to Donna after the fact
-- Initially no notification (async, fire-and-forget); notifications come later
+- **Real-time / async surfacing** of inbound queries and **draft answers pending release** belongs in the **unified notification and brief** model — **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** — not only email and `notify` mail; **durable rows** land in the tenant app SQLite described in **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**
 
 **Human approval as an option:**
 
 - Some users may want to approve every outbound answer before it's sent — especially early
 - Others may trust the filter and prefer fully automatic
-- This is a Hub setting per connection: "auto-respond" vs "require my approval"
+- Hub (or equivalent) setting per connection: **auto-respond after filter** vs **require my approval before send**
+- **Product rationale:** With approval, the **response is already drafted** (research + filter already ran); Donna **reviews, optionally edits, and sends**—or **declines**—without composing mail from scratch. That workflow **depends** on the anticipatory brief / inbox infrastructure so Donna is **not** forced to discover pending work only via Hub logs — backed by **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** notification storage
+
+**Trust ladder:** Same conceptual progression as coding-agent tool policies (e.g. always review → remember allow for this connection → full auto-send); exact UX TBD—see [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)
+
+**Implementation note:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** establishes the per-tenant DB and **basic** notification rows; wiring **brain-query** enqueue/approval to those rows is a natural follow-on after OPP-102 lands.
 
 ---
 
@@ -133,7 +138,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 4. **Query log** — owner / asker roles; draft vs final delineation in UI for owner.
 5. **`ask_brain`** tool on the initiating side; NL “ask @handle …” still depends on the main model choosing the tool.
 
-**Product polish (ongoing):** mobile layout, notifications, cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) — track **[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** (policy records + grant `policy_id`).
+**Product polish (ongoing):** mobile layout, **notification/inbox/brief** ([IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md); durable items + chat in **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) — track **[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** (policy records + grant `policy_id`).
 
 **Phase 1 — cross-instance:**
 
@@ -156,7 +161,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 4. **Multi-hop.** "Ask Donna, and if she mentions the contractor, pull in what Sarah knows about them." Powerful but opens recursive delegation and potential data-exfiltration amplification. Likely blocked by default; opt-in later.
 5. **Fan-out queries.** "Who in my network knows about X?" requires querying multiple connected brains simultaneously. Rate limiting, result aggregation, and cost (LLM calls per query × N brains) need thought.
 6. **Abuse prevention.** A connected peer could craft adversarial queries to probe what data Donna has ("do you have any emails mentioning project Y with a dollar amount over $1M?"). The privacy filter is a defense, but a structured capability-limited query API (instead of open NL) is stronger. Tradeoff: NL is the whole point.
-7. **Relationship to human approval path.** Does "human approval required" and "LLM filter auto-respond" need to coexist as settings, or should early versions force human approval until trust is established?
+7. **Relationship to human approval path.** Does "human approval required" and "LLM filter auto-respond" need to coexist as settings, or should early versions force human approval until trust is established? **Shipping both** implies a **unified notification/inbox**—[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)—so pending drafts are discoverable and releasable without email; **persistence** for those items is **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant app SQLite).
 
 ---
 
@@ -164,6 +169,8 @@ Because both users are on the same hosted instance (same server), routing is tri
 
 The broader P2P wiki collaboration vision was in **[IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md)** (identity, protocol, public-brain tier, write access). That roadmap is **superseded** for net-new product work; brain-query + policy carries collaboration forward.
 
-This idea is a **fast path to M2**: skip the bilateral handshake infrastructure and the human approval UI for a first experiment, substitute LLM-instructed privacy filtering, and run it on the hosted instance where routing is already solved. The security model is weaker but the experiment value is high, and the lessons will inform the full protocol design.
+This idea is a **fast path to M2**: skip the bilateral handshake infrastructure and the **full** human approval UI for a first experiment, substitute LLM-instructed privacy filtering, and run it on the hosted instance where routing is already solved. The security model is weaker but the experiment value is high, and the lessons will inform the full protocol design.
 
-If the Phase 0 experiment works and trust can be established through the filter model, it may also inform whether human approval is necessary at all for narrow well-defined query types.
+**Longer-term trust:** Relying on filter-only auto-send alone is **not** sufficient for many users and orgs. **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** describes the **notification + inbox + async approval** path that makes brain-to-brain **secure-feeling and usable** (draft-in-hand review vs writing email from scratch); **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** is the first **engineering** step (per-tenant DB + notification rows + chat migration).
+
+If the Phase 0 experiment works and trust can be established through the filter model for **some** connection types, that can justify **auto-send** presets—while **approval-first** remains available for high-stakes grants, backed by the same infrastructure.

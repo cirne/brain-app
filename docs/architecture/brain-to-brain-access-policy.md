@@ -4,7 +4,7 @@
 
 **Near-term:** **Spike 1 (Hub brain-access admin)** is **closed** — see [Hub brain-access admin (shipped — OPP-099 closure)](#hub-brain-access-admin-shipped--opp-099-closure). **Next:** **Spike 2** (plaintext++) and **policy-by-reference** cleanup under **Denormalized `privacy_policy`**; later **Spikes 3–4** (fragments, hard predicates).
 
-**See also:** [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) · [wiki-sharing.md](./wiki-sharing.md) · [integrations.md](./integrations.md) (Ripmail boundary) · **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (closed epic — stub → archive)
+**See also:** [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · **[IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md)** (notification / inbox / **async approval** — **prerequisite** for trustworthy brain-to-brain beyond auto-send) · **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant SQLite: **durable** notification + chat — **plumbing** for that idea) · [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) · [wiki-sharing.md](./wiki-sharing.md) · [integrations.md](./integrations.md) (Ripmail boundary) · **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (closed epic — stub → archive)
 
 ---
 
@@ -15,6 +15,16 @@
 - **Defense in depth:** combine **machine-enforced** rules (tools, paths, mail predicates) with **soft instructions** (LLM-facing fragments). Neither layer replaces the other.
 - **Honest security UX:** soft rules are **instructions**, not cryptographic guarantees; copy and Hub surfaces should say so (see [Hub brain-access admin (shipped — OPP-099 closure)](#hub-brain-access-admin-shipped--opp-099-closure)).
 - **Reuse Ripmail semantics** where mail is constrained: same **search-shaped** predicates / evaluator as inbox rules and `ripmail search` (see [Ripmail INBOX-CUSTOMIZATION](../../ripmail/skills/ripmail/references/INBOX-CUSTOMIZATION.md), `[SearchOptions](../../ripmail/src/search/types.rs)`, `[OPP-038` archived](../ripmail/docs/opportunities/archive/OPP-038-inbox-rules-as-search-language.md)).
+
+---
+
+## Notification, inbox, and human-in-the-loop (prerequisite for secure brain-to-brain)
+
+**Policy text + LLM privacy filtering** (Spike 0) can **auto-send** an answer when the pipeline completes. That is necessary for experimentation but **insufficient** as the only long-term posture for many users: it offers **no asynchronous “draft in hand” review**, **no obvious surface** to **edit and release** or **decline** without treating Hub **audit logs** as the workflow, and **weak support** when the answering user is **offline** or not watching chat.
+
+**Required capability:** a **unified notification and inbox layer** (brief queue + durable items + deep links) that includes **brain-to-brain** events—**inbound information requests**, **draft answers pending approval**, **delivered / blocked** outcomes—so **per-grant “require approval before send”** ([IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md)) is **usable**. Ripmail `notify` / `inform` dispositions feed the same substrate; they are not the whole product. **Product spec:** **[IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md)**. **Tenant-side persistence (first engineering step):** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — versioned per-tenant SQLite for notification rows (and related app state such as chat), before full brief UX ships.
+
+Until that ships, treat **auto-send-after-filter** as an **honest but limited** trust mode: good for **low-stakes** grants and evaluation, **not** a substitute for **operator confidence** in sensitive collaborations.
 
 ---
 

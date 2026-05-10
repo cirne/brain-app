@@ -1,6 +1,8 @@
 # Chat history: move to SQLite
 
-**Status:** Not yet implemented — current store is JSON files under `$BRAIN_HOME/chats/`.
+**Status:** Tracked as **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — chat tables will live in the **tenant app SQLite** (single DB with notifications and shared schema lifecycle), not a standalone `chats.db` effort in isolation.
+
+**Current store:** JSON files under `$BRAIN_HOME/chats/` (per tenant in hosted mode).
 
 ---
 
@@ -21,7 +23,7 @@ The architecture doc acknowledges this in [agent-chat.md](./agent-chat.md).
 
 ## Target design
 
-A **single SQLite database** per tenant at `$BRAIN_HOME/chats.db`, owned by the Node process, alongside but separate from ripmail's SQLite.
+Implemented under **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** as part of a **single per-tenant Brain app SQLite** (not necessarily named `chats.db`; path will live in `brain-layout` + helpers). **Rough** session/message schema:
 
 Rough schema:
 

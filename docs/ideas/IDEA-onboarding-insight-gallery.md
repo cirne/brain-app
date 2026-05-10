@@ -2,7 +2,7 @@
 
 **Status:** Backlog — no OPP yet; product + agent UX; builds on existing onboarding and wiki bootstrap work  
 **Index:** [IDEAS.md](../IDEAS.md)  
-**Relates to:** [VISION.md](../VISION.md) (five-minute magic), [STRATEGY.md](../STRATEGY.md) (trust moat), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md), [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md), [OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md), [OPP-054](../opportunities/OPP-054-guided-onboarding-agent.md)
+**Relates to:** [VISION.md](../VISION.md) (five-minute magic), [STRATEGY.md](../STRATEGY.md) (trust moat), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md), [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md), [OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md), [OPP-054](../opportunities/OPP-054-guided-onboarding-agent.md), [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md) (standing **brief** vs one-time **gallery**; shared signals / empty-chat context), **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (eventual durable brief/notification store — gallery remains discovery-first)
 
 ---
 
