@@ -3,7 +3,7 @@
  * Mirrors ripmail/src/config.rs ConfigJson.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export interface ImapConfig {
@@ -109,5 +109,25 @@ export function loadGoogleOAuthTokens(ripmailHome: string, sourceId: string): Go
     return JSON.parse(readFileSync(path, 'utf8')) as GoogleOAuthTokens
   } catch {
     return null
+  }
+}
+
+/** Google OAuth refresh returns `invalid_grant` when the refresh token is revoked or expired. */
+export function errorMessageIndicatesInvalidGoogleGrant(message: string): boolean {
+  return /\binvalid_grant\b/i.test(message)
+}
+
+/**
+ * Remove stored OAuth tokens for a mailbox source (ripmail `{sourceId}/google-oauth.json`).
+ * Returns whether the file existed and was removed.
+ */
+export function removeGoogleOAuthTokenFile(ripmailHome: string, sourceId: string): boolean {
+  const path = join(ripmailHome, sourceId, 'google-oauth.json')
+  if (!existsSync(path)) return false
+  try {
+    unlinkSync(path)
+    return true
+  } catch {
+    return false
   }
 }

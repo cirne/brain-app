@@ -4,7 +4,14 @@
  */
 
 import { prepareRipmailDb } from '../db.js'
-import { loadRipmailConfig, getImapSources, loadImapPassword, loadGoogleOAuthTokens } from './config.js'
+import {
+  loadRipmailConfig,
+  getImapSources,
+  loadImapPassword,
+  loadGoogleOAuthTokens,
+  errorMessageIndicatesInvalidGoogleGrant,
+  removeGoogleOAuthTokenFile,
+} from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
 import type { RefreshOptions, RefreshResult } from '../types.js'
@@ -41,22 +48,31 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
         const isGmailOAuth = source.imapAuth === 'googleOAuth'
         if (isGmailOAuth) {
           const oauthTokens = loadGoogleOAuthTokens(ripmailHome, source.id)
-          if (oauthTokens) {
-            const result = await syncGmailSource(
-              db,
-              ripmailHome,
-              source.id,
-              source.email ?? '',
-              oauthTokens,
-              { historicalSince: opts?.historicalSince },
-            )
-            totalAdded += result.messagesAdded
-            totalUpdated += result.messagesUpdated
-            if (result.error) {
-              brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:gmail-error')
-            }
+          if (!oauthTokens) {
+            brainLogger.warn({ sourceId: source.id }, 'ripmail:refresh:gmail-no-oauth-file')
             continue
           }
+          const result = await syncGmailSource(
+            db,
+            ripmailHome,
+            source.id,
+            source.email ?? '',
+            oauthTokens,
+            { historicalSince: opts?.historicalSince },
+          )
+          totalAdded += result.messagesAdded
+          totalUpdated += result.messagesUpdated
+          if (result.error) {
+            brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:gmail-error')
+            if (errorMessageIndicatesInvalidGoogleGrant(result.error)) {
+              const cleared = removeGoogleOAuthTokenFile(ripmailHome, source.id)
+              brainLogger.warn(
+                { sourceId: source.id, removedOAuthFile: cleared },
+                'ripmail:refresh:gmail-invalid-grant-cleared',
+              )
+            }
+          }
+          continue
         }
 
         const password = loadImapPassword(ripmailHome, source.id)

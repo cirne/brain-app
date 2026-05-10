@@ -35,9 +35,9 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 export function createAskCollaboratorTool() {
   return defineTool({
     name: 'ask_collaborator',
-    label: 'Ask collaborator',
+    label: 'Ask Brain',
     description:
-      'Send a question to someone who **shared their workspace with you** (you are the grant asker). Composes mail with the correct collaborator subject line and **sends immediately** — no separate draft review step. Use when the user wants to ask that person something from chat. After success, reply briefly (e.g. question sent; they will get a notification when the other person responds). Requires an active grant id (`bqg_…`).',
+      'Ask Brain: send a question to someone who **shared their workspace with you** (you are the grant asker). Composes mail with the correct collaborator subject line and **sends immediately** — no separate draft review step. When the user **@mentions** a handle and wants to **ask or message** that person through Braintunnel, use this tool — not **draft_email**. After success, reply briefly (e.g. question sent; they will get a notification when the other person responds).',
     parameters: Type.Object({
       grant_id: Type.String({
         description: 'Brain-query grant id (`bqg_…`) where the current user is the asker.',

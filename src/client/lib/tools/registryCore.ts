@@ -61,7 +61,7 @@ const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }>
   draft_email: { key: 'draftEmail', defaultValue: 'Draft email' },
   edit_draft: { key: 'editDraft', defaultValue: 'Edit draft' },
   send_draft: { key: 'sendDraft', defaultValue: 'Send mail' },
-  ask_collaborator: { key: 'askCollaborator', defaultValue: 'Ask collaborator' },
+  ask_collaborator: { key: 'askCollaborator', defaultValue: 'Ask Brain' },
   find_person: { key: 'findPerson', defaultValue: 'Find contact' },
   calendar: { key: 'calendar', defaultValue: 'Calendar' },
   web_search: { key: 'webSearch', defaultValue: 'Web search' },

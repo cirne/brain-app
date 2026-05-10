@@ -35,5 +35,7 @@ describe('renderPromptTemplate', () => {
       brainCollaborationEnabled: true,
     })
     expect(s).toContain('ask_collaborator')
+    expect(s).toContain('Ask Brain')
+    expect(s).toContain('@mentions')
   })
 })
