@@ -9,8 +9,6 @@
 
   type Props = {
     model: PolicyCardModel
-    /** Rows in recent owner log attributable to this policy (server log slice). */
-    policyActivityCount: number
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     onAddUser: (_policyCanonicalText: string, _entry: WorkspaceHandleEntry) => void | Promise<void>
     onRemoveGrant: (_grantId: string) => void | Promise<void>
@@ -21,7 +19,6 @@
 
   let {
     model,
-    policyActivityCount,
     onSettingsNavigate,
     onAddUser,
     onRemoveGrant,
@@ -106,8 +103,4 @@
     {/each}
   </div>
 
-  <p class="m-0 text-[0.6875rem] font-medium leading-snug text-muted">
-    {$t('access.policyCard.collaboratorsCount', { count: model.grants.length })} ·
-    {$t('access.policyCard.recentInboundQueries', { count: policyActivityCount })}
-  </p>
 </div>

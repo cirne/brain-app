@@ -1,3 +1,5 @@
+import { displaySubjectWithoutBraintunnelMarker } from '@shared/braintunnelMailMarker.js'
+
 /** Max rows to render in empty-chat strip (not counting overflow hint). */
 export const EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP = 3
 
@@ -20,14 +22,13 @@ export type NotificationKickoffHints = {
   subject?: string
   /** Brain-query grant notification — opaque ids for agent routing. */
   grantId?: string
-  logId?: string
-  /** Other workspace handle (e.g. grant owner). */
+  /** Other workspace handle (e.g. grant owner, or asker on `brain_query_mail`). */
   peerHandle?: string
   peerUserId?: string
-  questionPreview?: string
-  deliveryMode?: string
   /** From mail payload `attention.actionRequired`. */
   actionRequired?: boolean
+  /** Ask primary email when `peerHandle` is missing (`brain_query_mail`). */
+  peerPrimaryEmail?: string
 }
 
 export type NotificationPresentation = {
@@ -62,17 +63,16 @@ function hintsFrom(input: NotificationPresentationInput): NotificationKickoffHin
   if (attention.actionRequired === true) base.actionRequired = true
 
   const grantId = typeof p.grantId === 'string' ? p.grantId.trim() : ''
-  const logId = typeof p.logId === 'string' ? p.logId.trim() : ''
+  const peerHandleDirect = typeof p.peerHandle === 'string' ? p.peerHandle.trim() : ''
   const ownerHandle = typeof p.ownerHandle === 'string' ? p.ownerHandle.trim() : ''
-  const askerId = typeof p.askerId === 'string' ? p.askerId.trim() : ''
-  const questionPreview = typeof p.questionPreview === 'string' ? p.questionPreview.trim() : ''
-  const deliveryMode = typeof p.deliveryMode === 'string' ? p.deliveryMode.trim() : ''
+  const peerUserIdPayload = typeof p.peerUserId === 'string' ? p.peerUserId.trim() : ''
   if (grantId) base.grantId = grantId
-  if (logId) base.logId = logId
-  if (ownerHandle) base.peerHandle = ownerHandle
-  if (askerId) base.peerUserId = askerId
-  if (questionPreview) base.questionPreview = questionPreview
-  if (deliveryMode) base.deliveryMode = deliveryMode
+  if (peerHandleDirect) base.peerHandle = peerHandleDirect.replace(/^@/, '')
+  else if (ownerHandle) base.peerHandle = ownerHandle.replace(/^@/, '')
+  if (peerUserIdPayload) base.peerUserId = peerUserIdPayload
+
+  const peerPrimaryEmail = typeof p.peerPrimaryEmail === 'string' ? p.peerPrimaryEmail.trim() : ''
+  if (peerPrimaryEmail) base.peerPrimaryEmail = peerPrimaryEmail
 
   return base
 }
@@ -100,14 +100,14 @@ function mailNotifyPresentation(input: NotificationPresentationInput): Notificat
 
 function brainQueryGrantReceivedPresentation(input: NotificationPresentationInput): NotificationPresentation {
   const p = input.payload && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
-  const ownerHandle = typeof p.ownerHandle === 'string' ? p.ownerHandle.trim() : ''
+  const ownerHandle = typeof p.ownerHandle === 'string' ? p.ownerHandle.trim().replace(/^@/, '') : ''
   const summaryLine = truncateOneLine(
     ownerHandle ? `@${ownerHandle} is now sharing with you` : 'Someone is now sharing with you',
     SUMMARY_MAX_CHARS,
   )
   const kickoffUserMessage = ownerHandle
-    ? `${ownerHandle} shared access so I can ask their workspace assistant from chat—they chose what's allowed. Explain **how to ask** them—mention @${ownerHandle} in chat with a concrete question.`
-    : 'Someone shared access so I can ask their workspace assistant from chat—they chose what\'s allowed. Explain **how to ask** in chat (mention them with @ once their handle is known).'
+    ? `**@${ownerHandle}** is sharing with you — you can ask them questions from chat, they answer from their workspace under the policy they set, and you'll get notified when there's a reply.`
+    : `Someone is sharing with you — you can ask them questions from chat, they answer from their workspace under the policy they set, and you'll get notified when there's a reply.`
   return {
     id: input.id,
     sourceKind: input.sourceKind,
@@ -117,15 +117,18 @@ function brainQueryGrantReceivedPresentation(input: NotificationPresentationInpu
   }
 }
 
-function brainQueryInboundPresentation(input: NotificationPresentationInput): NotificationPresentation {
+function brainQueryMailPresentation(input: NotificationPresentationInput): NotificationPresentation {
   const p = input.payload && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
-  const q = typeof p.questionPreview === 'string' ? p.questionPreview.trim() : ''
-  const status = typeof p.status === 'string' ? p.status.trim() : ''
-  const summaryLine = truncateOneLine(q ? `Inbound query: ${q}` : 'Inbound brain-query', SUMMARY_MAX_CHARS)
+  const handle = typeof p.peerHandle === 'string' ? p.peerHandle.trim().replace(/^@/, '') : ''
+  const email = typeof p.peerPrimaryEmail === 'string' ? p.peerPrimaryEmail.trim() : ''
+  const atLabel = handle ? `@${handle}` : email || 'Collaborator'
+  const rawSubject = typeof p.subject === 'string' ? p.subject.trim() : ''
+  const displaySubject = displaySubjectWithoutBraintunnelMarker(rawSubject) || '(no subject)'
+  const summaryLine = truncateOneLine(`${atLabel} asked: ${displaySubject}`, SUMMARY_MAX_CHARS)
   const kickoffUserMessage =
-    q || status
-      ? `Someone ran a brain-query against my workspace (status ${status || 'unknown'}). Question: ${JSON.stringify(q || '(unknown)')}. Summarize what happened and whether I should adjust sharing.`
-      : 'Someone used brain-query against my workspace. Help me understand what happened.'
+    atLabel === 'Collaborator'
+      ? 'Someone sent you a question — read it and help them with an answer.'
+      : `**${atLabel}** sent you a question — read it and help them with an answer.`
   return {
     id: input.id,
     sourceKind: input.sourceKind,
@@ -158,8 +161,8 @@ export function presentationForNotificationRow(input: NotificationPresentationIn
   if (input.sourceKind === 'brain_query_grant_received') {
     return brainQueryGrantReceivedPresentation(input)
   }
-  if (input.sourceKind === 'brain_query_inbound') {
-    return brainQueryInboundPresentation(input)
+  if (input.sourceKind === 'brain_query_mail') {
+    return brainQueryMailPresentation(input)
   }
   return fallbackPresentation(input)
 }

@@ -61,6 +61,7 @@ const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }>
   draft_email: { key: 'draftEmail', defaultValue: 'Draft email' },
   edit_draft: { key: 'editDraft', defaultValue: 'Edit draft' },
   send_draft: { key: 'sendDraft', defaultValue: 'Send mail' },
+  ask_collaborator: { key: 'askCollaborator', defaultValue: 'Ask collaborator' },
   find_person: { key: 'findPerson', defaultValue: 'Find contact' },
   calendar: { key: 'calendar', defaultValue: 'Calendar' },
   web_search: { key: 'webSearch', defaultValue: 'Web search' },
@@ -76,7 +77,6 @@ const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }>
   list_recent_messages: { key: 'listRecentMessages', defaultValue: 'Recent messages' },
   get_message_thread: { key: 'getMessageThread', defaultValue: 'Conversation' },
   suggest_reply_options: { key: 'suggestReplyOptions', defaultValue: 'Quick Replies' },
-  reject_question: { key: 'rejectQuestion', defaultValue: 'Decline question' },
   mark_notification: { key: 'markNotification', defaultValue: 'Notification done' },
 }
 
@@ -136,9 +136,6 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
   },
   youtube_search: {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.youtube_search,
-  },
-  reject_question: {
-    chat: { showInChat: true },
   },
   finish_conversation: {
     chat: { showInChat: false },

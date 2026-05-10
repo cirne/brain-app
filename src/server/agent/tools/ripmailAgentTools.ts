@@ -16,6 +16,7 @@ import {
   mergeSearchIndexStdoutHints,
 } from '@server/agent/searchIndexCoerce.js'
 import { extractRipmailIndexedMarkdownTitle } from '@shared/readEmailPreview.js'
+import { assertOptionalBrainQueryGrantId, buildB2bDraftEmailInstruction } from '@shared/braintunnelMailMarker.js'
 import { applyInboxResolution, selectSearchResultTier, stripReadEmailResult, stripSearchIndexResult } from './ripmailCli.js'
 import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
 import { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
@@ -848,7 +849,7 @@ export function createRipmailAgentTools(wikiDir: string) {
   const draftEmail = defineTool({
     name: 'draft_email',
     description:
-      'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). When the workspace has more than one Gmail account, optional `from` picks which mailbox sends — accepts an email address or ripmail source id; omit `from` to use the workspace default send mailbox set in the Hub. Returns draft id, recipients, and subject for the tool message; **the full body appears in the draft editor/preview only** — do not repeat the body in your next chat turn unless the user asks for it.',
+      'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). When the workspace has more than one Gmail account, optional `from` picks which mailbox sends — accepts an email address or ripmail source id; omit `from` to use the workspace default send mailbox set in the Hub. Use **b2b_query: true** for **Braintunnel collaborator** mail (cross-workspace grant) so the subject is steered to start with `[braintunnel]`. Optional **grant_id** (`bqg_…`) is assistant-only context — do not paste into the email unless the user asks. Returns draft id, recipients, and subject for the tool message; **the full body appears in the draft editor/preview only** — do not repeat the body in your next chat turn unless the user asks for it.',
     label: 'Draft Email',
     parameters: Type.Object({
       action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
@@ -861,25 +862,47 @@ export function createRipmailAgentTools(wikiDir: string) {
             'Sender mailbox (email or ripmail source id). Use when the user names an account such as "send from my work email"; omit otherwise to use the workspace default.',
         }),
       ),
+      b2b_query: Type.Optional(
+        Type.Boolean({
+          description:
+            'True for Braintunnel collaborator / cross-workspace mail — subject must use the `[braintunnel]` prefix.',
+        }),
+      ),
+      grant_id: Type.Optional(
+        Type.String({
+          description: 'Optional `bqg_…` id when b2b_query is true; assistant context only — not for the email body unless the user asks.',
+        }),
+      ),
     }),
     async execute(
       _toolCallId: string,
-      params: { action: 'new' | 'reply' | 'forward'; instruction: string; to?: string; message_id?: string; from?: string },
+      params: {
+        action: 'new' | 'reply' | 'forward'
+        instruction: string
+        to?: string
+        message_id?: string
+        from?: string
+        b2b_query?: boolean
+        grant_id?: string
+      },
     ) {
+      assertOptionalBrainQueryGrantId(params.grant_id)
+      const instruction =
+        params.b2b_query === true ? buildB2bDraftEmailInstruction(params.instruction, params.grant_id) : params.instruction
       const rm = ripmailBin()
       const resolvedFrom = await resolveRipmailSourceForCli(params.from)
       const sourceFlag = resolvedFrom?.trim() ? ` --source ${JSON.stringify(resolvedFrom.trim())}` : ''
       let cmd: string
       if (params.action === 'new') {
         if (!params.to) throw new Error('to is required for action=new')
-        cmd = `${rm} draft new --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
+        cmd = `${rm} draft new --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(instruction)} --with-body --json${sourceFlag}`
       } else if (params.action === 'reply') {
         if (!params.message_id) throw new Error('message_id is required for action=reply')
-        cmd = `${rm} draft reply --message-id ${JSON.stringify(params.message_id)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
+        cmd = `${rm} draft reply --message-id ${JSON.stringify(params.message_id)} --instruction ${JSON.stringify(instruction)} --with-body --json${sourceFlag}`
       } else {
         if (!params.message_id) throw new Error('message_id is required for action=forward')
         if (!params.to) throw new Error('to is required for action=forward')
-        cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
+        cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(instruction)} --with-body --json${sourceFlag}`
       }
       const { stdout } = await execRipmailAsync(cmd, { timeout: 30000 })
       const { contentText, details } = ripmailDraftStdoutToToolContent(stdout)
@@ -893,7 +916,7 @@ export function createRipmailAgentTools(wikiDir: string) {
   const editDraft = defineTool({
     name: 'edit_draft',
     description:
-      'Refine an existing draft. Can modify body (via instruction), subject, and recipients (to/cc/bcc). Use add_cc/remove_cc etc. to adjust recipients without replacing them entirely. Returns updated draft metadata in the tool message; **full body stays in the draft editor/preview** — do not paste the body into chat unless the user asks.',
+      'Refine an existing draft. Can modify body (via instruction), subject, and recipients (to/cc/bcc). Use add_cc/remove_cc etc. to adjust recipients without replacing them entirely. For **Braintunnel collaborator** threads, keep the `[braintunnel]` subject prefix when changing the subject. Returns updated draft metadata in the tool message; **full body stays in the draft editor/preview** — do not paste the body into chat unless the user asks.',
     label: 'Edit Draft',
     parameters: Type.Object({
       draft_id: Type.String({ description: 'Draft ID to edit' }),

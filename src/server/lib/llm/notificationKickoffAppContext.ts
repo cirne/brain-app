@@ -1,4 +1,5 @@
 import type { NotificationKickoffHints } from '@shared/notifications/presentation.js'
+import { getBrainQueryGrantById } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 
 const APP_QUEUE_HEADER = '[App — notification queue item]' as const
 
@@ -20,45 +21,56 @@ function brainQueryGrantReceivedAppContext(h: NotificationKickoffHints): string 
   if (h.grantId) meta.push(`- grant_id (opaque): \`${h.grantId}\``)
 
   const peer = h.peerHandle?.trim() ?? ''
-  const mentionTry =
-    peer.length > 0
-      ? `**mentioning \`@${peer}\` in chat** with a concrete question (same UX as asking someone's brain in-app). `
-      : '**mentioning them with @ in chat** with a concrete question. '
 
   return [
     APP_QUEUE_HEADER,
     '',
-    'The user opened an unread notification about **brain-query sharing** (another workspace let them ask that workspace\'s assistant from chat—the sharer controls what may be used).',
+    'The user opened an unread notification: another workspace **connected them** so they can ask that person questions from chat (answers come back asynchronously; the user gets notified when there is something new).',
     '',
     ...meta,
     '',
-    `**Interaction:** Help them understand they can ask the sharer's workspace assistant from **their own** chat. Focus on **how to ask**: ${mentionTry}Do **not** default to telling them to open **Settings**—only mention review/revoke there if they ask about managing access. This is **not** email—do **not** use **read_mail_message** unless the user explicitly switches to mail.`,
+    `**Interaction:** Welcome the connection in plain language (no transport or implementation detail unless they ask). When they want to **send a question** to ${peer ? `**@${peer}**` : 'the sharer'}, use **ask_collaborator** with \`grant_id\` and their question — it composes and **sends immediately** (no separate draft approval step). After a successful send, confirm briefly and set the expectation that they will get a notification when the other person responds.`,
     '',
-    "**Cross-workspace mechanism:** Those answers are produced by invoking **`ask_brain`** (peer handle + question)—not by local wiki/mail search alone. Dev **`var/agent-diagnostics/`** chat traces have shown **`@handle …` turns ending with empty assistant text** when the model **stopped without calling `ask_brain`**; when you give tips, spell out that cross-brain questions require **`ask_brain`** so users are not misled into thinking a bare @mention alone retrieves the sharer's context.",
+    '**If** they say they never get alerts for messages from this connection, you may help them add or verify an **inbox_rules** rule (subject matches `[braintunnel]`, action **notify**). Do not lead with that.',
+    '',
+    'Do **not** default to telling them to open **Settings**—only mention review/revoke there if they ask about managing access.',
     ...completionSuffix(),
     '',
     'Use normal assistant tools only if the user asks for vault or mail follow-up.',
   ].join('\n')
 }
 
-function brainQueryInboundAppContext(h: NotificationKickoffHints): string {
+function brainQueryMailAppContext(h: NotificationKickoffHints): string {
   const meta = [...routingBullets(h)]
-  if (h.questionPreview) meta.push(`- question_preview: ${JSON.stringify(h.questionPreview)}`)
-  if (h.logId) meta.push(`- brain_query_log_id (opaque): \`${h.logId}\``)
-  if (h.peerUserId) meta.push(`- asker_workspace_id (opaque): \`${h.peerUserId}\``)
-  if (h.deliveryMode) meta.push(`- delivery_mode: ${h.deliveryMode}`)
+  if (h.messageId) meta.push(`- message_id: \`${h.messageId}\``)
+  if (h.subject) meta.push(`- subject: ${JSON.stringify(h.subject)}`)
+  if (h.grantId) meta.push(`- grant_id (opaque): \`${h.grantId}\``)
+  if (h.peerHandle) meta.push(`- peer_handle: @${h.peerHandle}`)
+  if (h.peerUserId) meta.push(`- peer_user_id (opaque): \`${h.peerUserId}\``)
+  if (h.peerPrimaryEmail) meta.push(`- peer_primary_email: ${JSON.stringify(h.peerPrimaryEmail)}`)
+
+  const grant = h.grantId?.trim() ? getBrainQueryGrantById(h.grantId.trim()) : null
+  const policyBlock =
+    grant && grant.privacy_policy.trim().length > 0
+      ? [
+          '',
+          '**Grant policy (instructions for drafting a reply; not a cryptographic guarantee):**',
+          grant.privacy_policy.trim(),
+        ].join('\n')
+      : ''
 
   return [
     APP_QUEUE_HEADER,
     '',
-    'The user opened an unread notification about an **inbound brain-query** (someone queried this workspace via brain-query; research ran in owner context per policy).',
+    'The user opened a notification: someone they have a **shared-brain** connection with sent them a question (routed through mail under the hood — do not explain that unless they ask).',
     '',
     ...meta,
+    policyBlock,
     '',
-    '**Interaction:** Summarize what happened (who asked, outcome status) and whether they should review **Settings → Sharing** or brain-query policy. Do **not** use **read_mail_message** for this event unless the user pivots to email.',
+    '**Interaction:** Use **read_mail_message** with the message id above. Summarize what they are being asked in plain language. To **draft a reply**, use **draft_email** with **action=reply**, **b2b_query: true**, and **grant_id** when you have it so the thread stays on the collaborator path. Respect the grant policy. Use **send_draft** only after the user has seen the draft and wants it sent (human-in-the-loop).',
     ...completionSuffix(),
     '',
-    'Use normal assistant tools only if relevant to follow-up the user requests.',
+    'Use normal assistant tools as needed.',
   ].join('\n')
 }
 
@@ -107,7 +119,7 @@ type AppContextBuilder = (h: NotificationKickoffHints) => string
  */
 const NOTIFICATION_APP_CONTEXT_BY_KIND: Record<string, AppContextBuilder> = {
   brain_query_grant_received: brainQueryGrantReceivedAppContext,
-  brain_query_inbound: brainQueryInboundAppContext,
+  brain_query_mail: brainQueryMailAppContext,
 }
 
 export function notificationKickoffAppContextText(h: NotificationKickoffHints): string {

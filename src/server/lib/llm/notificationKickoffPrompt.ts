@@ -15,23 +15,19 @@ export function parseNotificationKickoffFromBody(body: Record<string, unknown>):
   const messageId = typeof o.messageId === 'string' ? o.messageId.trim() : ''
   const subject = typeof o.subject === 'string' ? o.subject.trim() : ''
   const grantId = typeof o.grantId === 'string' ? o.grantId.trim() : ''
-  const logId = typeof o.logId === 'string' ? o.logId.trim() : ''
   const peerHandle = typeof o.peerHandle === 'string' ? o.peerHandle.trim() : ''
   const peerUserId = typeof o.peerUserId === 'string' ? o.peerUserId.trim() : ''
-  const questionPreview = typeof o.questionPreview === 'string' ? o.questionPreview.trim() : ''
-  const deliveryMode = typeof o.deliveryMode === 'string' ? o.deliveryMode.trim() : ''
   const actionRequired = o.actionRequired === true
 
   const hints: NotificationKickoffHints = { notificationId, sourceKind }
   if (messageId) hints.messageId = messageId
   if (subject) hints.subject = subject
   if (grantId) hints.grantId = grantId
-  if (logId) hints.logId = logId
   if (peerHandle) hints.peerHandle = peerHandle
   if (peerUserId) hints.peerUserId = peerUserId
-  if (questionPreview) hints.questionPreview = questionPreview
-  if (deliveryMode) hints.deliveryMode = deliveryMode
   if (actionRequired) hints.actionRequired = true
+  const peerPrimaryEmail = typeof o.peerPrimaryEmail === 'string' ? o.peerPrimaryEmail.trim() : ''
+  if (peerPrimaryEmail) hints.peerPrimaryEmail = peerPrimaryEmail
   return hints
 }
 

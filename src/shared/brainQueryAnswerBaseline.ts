@@ -1,7 +1,6 @@
 /**
- * Cross-brain (brain query) baseline: categories the app never passes through,
- * regardless of grant policy text. Kept in sync with the privacy filter in
- * `runBrainQuery.ts`.
+ * Cross-brain collaborator baseline: categories the owner policy never releases,
+ * regardless of grant policy text. Reflects product rules for mail-first collaboration.
  */
 export const POLICY_ALWAYS_OMIT = [
   'BASELINE — NEVER PASS THROUGH (always enforced; the owner policy may add stricter rules but CANNOT override this):',

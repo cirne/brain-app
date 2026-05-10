@@ -85,34 +85,16 @@ describe('notification presentation', () => {
     expect(row.summaryLine).toContain('@donna')
     expect(row.summaryLine).toContain('sharing')
     expect(row.kickoffUserMessage).toContain('donna')
-    expect(row.kickoffUserMessage).toContain('how to ask')
-    expect(row.kickoffUserMessage).toContain('@donna')
+    expect(row.kickoffUserMessage).toContain('ask them questions')
+    expect(row.kickoffUserMessage).not.toContain('[braintunnel]')
+    expect(row.kickoffUserMessage).not.toContain('inbox_rules')
+    expect(row.kickoffUserMessage).not.toContain('draft_email')
     expect(row.kickoffUserMessage).not.toContain('logistics')
     expect(row.kickoffUserMessage).not.toContain('Preview')
     expect(row.kickoffUserMessage).not.toContain('Settings')
     expect(row.kickoffHints.peerHandle).toBe('donna')
     expect(row.kickoffHints.grantId).toBe('bqg_x')
     expect(row.kickoffUserMessage).not.toContain('bqg_x')
-  })
-
-  it('brain_query_inbound uses question preview and log id in hints only', () => {
-    const row = presentationForNotificationRow({
-      id: 'q1',
-      sourceKind: 'brain_query_inbound',
-      payload: {
-        logId: 'bql_y',
-        askerId: 'usr_a',
-        questionPreview: 'What is the project status?',
-        status: 'ok',
-        deliveryMode: 'auto_sent',
-      },
-    })
-    expect(row.summaryLine).toContain('Inbound query')
-    expect(row.kickoffHints.logId).toBe('bql_y')
-    expect(row.kickoffHints.peerUserId).toBe('usr_a')
-    expect(row.kickoffHints.deliveryMode).toBe('auto_sent')
-    expect(row.kickoffUserMessage).not.toContain('bql_y')
-    expect(row.kickoffUserMessage).toContain('project status')
   })
 
   it('truncates long subject', () => {
@@ -124,6 +106,49 @@ describe('notification presentation', () => {
     })
     expect(row.summaryLine.length).toBeLessThanOrEqual(72)
     expect(row.summaryLine.endsWith('…')).toBe(true)
+  })
+
+  it('brain_query_mail summary uses @handle asked pattern', () => {
+    const row = presentationForNotificationRow({
+      id: 'bm1',
+      sourceKind: 'brain_query_mail',
+      payload: {
+        messageId: 'mid@x',
+        subject: '[braintunnel] Need your notes',
+        threadId: 't1',
+        grantId: 'bqg_0123456789abcdef0123456789ab',
+        peerUserId: 'usr_asker00000000000001',
+        peerHandle: 'pat',
+        peerPrimaryEmail: 'pat@example.com',
+        attention: { notify: true, actionRequired: false },
+        decidedAt: '2026-01-01',
+      },
+    })
+    expect(row.summaryLine).toContain('@pat asked:')
+    expect(row.summaryLine).toContain('Need your notes')
+    expect(row.kickoffHints.grantId).toBe('bqg_0123456789abcdef0123456789ab')
+    expect(row.kickoffHints.peerHandle).toBe('pat')
+    expect(row.kickoffHints.peerPrimaryEmail).toBe('pat@example.com')
+    expect(row.kickoffUserMessage).toContain('@pat')
+    expect(row.kickoffUserMessage).toContain('sent you a question')
+    expect(row.kickoffUserMessage).not.toContain('read_mail_message')
+    expect(row.kickoffUserMessage).not.toContain('bqg_')
+  })
+
+  it('brain_query_mail summary falls back to email when no handle', () => {
+    const row = presentationForNotificationRow({
+      id: 'bm2',
+      sourceKind: 'brain_query_mail',
+      payload: {
+        messageId: 'm2',
+        subject: 'Re: [braintunnel] follow up',
+        peerPrimaryEmail: 'only@example.com',
+        attention: { notify: true, actionRequired: false },
+      },
+    })
+    expect(row.summaryLine).toContain('only@example.com asked:')
+    expect(row.summaryLine).toContain('Re:')
+    expect(row.summaryLine).toContain('follow up')
   })
 
   it('unknown sourceKind uses generic notification kickoff', () => {

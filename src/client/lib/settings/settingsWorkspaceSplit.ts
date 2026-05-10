@@ -6,7 +6,6 @@ const OVERLAY_SUPPRESSES_WORKSPACE_SPLIT_DETAIL = new Set<Overlay['type']>([
   'chat-history',
   'brain-access',
   'brain-access-policy',
-  'brain-access-preview',
   'settings-connections',
   'settings-wiki',
 ])

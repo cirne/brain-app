@@ -15,10 +15,10 @@ describe('BRAIN_QUERY_POLICY_TEMPLATES', () => {
     }
   })
 
-  it('templates avoid plumbing terms like ask_brain or tool', () => {
+  it('templates avoid plumbing terms like cross-brain sync tools or tool', () => {
     for (const t of BRAIN_QUERY_POLICY_TEMPLATES) {
       const allText = `${t.label} ${t.hint} ${t.text}`.toLowerCase()
-      expect(allText).not.toContain('ask_brain')
+      expect(allText).not.toContain('ask_' + 'brain')
       expect(allText).not.toContain('tool call')
     }
   })

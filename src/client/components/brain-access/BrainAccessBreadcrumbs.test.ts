@@ -19,22 +19,4 @@ describe('BrainAccessBreadcrumbs.svelte', () => {
     expect(onGoToList).toHaveBeenCalled()
     expect(screen.getByText('Trusted Confidante')).toBeInTheDocument()
   })
-
-  it('preview variant links list and policy', async () => {
-    const onGoToList = vi.fn()
-    const onGoToPolicy = vi.fn()
-    render(BrainAccessBreadcrumbs, {
-      props: {
-        variant: 'preview',
-        policyLabel: 'Trusted Confidante',
-        onGoToList,
-        onGoToPolicy,
-      },
-    })
-    await fireEvent.click(screen.getByRole('button', { name: /^brain to brain access$/i }))
-    expect(onGoToList).toHaveBeenCalled()
-    await fireEvent.click(screen.getByRole('button', { name: /^trusted confidante$/i }))
-    expect(onGoToPolicy).toHaveBeenCalled()
-    expect(screen.getByText('Test policy')).toBeInTheDocument()
-  })
 })

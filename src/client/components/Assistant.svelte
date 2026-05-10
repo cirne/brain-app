@@ -12,7 +12,6 @@ import AppShell from '@components/app/AppShell.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
-  import AnswerPreviewPage from '@components/brain-access/AnswerPreviewPage.svelte'
   import Wiki from '@components/Wiki.svelte'
   import WikiDirList from '@components/WikiDirList.svelte'
   import WikiPrimaryShell from '@components/WikiPrimaryShell.svelte'
@@ -1183,7 +1182,7 @@ import AppShell from '@components/app/AppShell.svelte'
   $effect(() => {
     if (brainQueryEnabled) return
     const o = shell.route.overlay
-    if (o?.type === 'brain-access' || o?.type === 'brain-access-policy' || o?.type === 'brain-access-preview') {
+    if (o?.type === 'brain-access' || o?.type === 'brain-access-policy') {
       navigateShell({ zone: 'settings' })
       shell.route = parseRoute()
     }
@@ -1516,21 +1515,6 @@ import AppShell from '@components/app/AppShell.svelte'
                     onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
                     onBackToBrainAccessList={() =>
                       navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
-                  />
-                {:else if settingsPrimaryShell === 'brain-access-preview'}
-                  <AnswerPreviewPage
-                    policyId={shell.route.overlay!.policyId}
-                    onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
-                    onBackToBrainAccessList={() =>
-                      navigateShell({ zone: 'settings', overlay: { type: 'brain-access' } })}
-                    onBackToPolicy={() => {
-                      const o = shell.route.overlay
-                      if (!o || o.type !== 'brain-access-preview') return
-                      navigateShell({
-                        zone: 'settings',
-                        overlay: { type: 'brain-access-policy', policyId: o.policyId },
-                      })
-                    }}
                   />
                 {:else}
                   <BrainSettingsPage

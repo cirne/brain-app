@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   mergeNotificationKickoffPromptMessages,
   notificationKickoffAppContextText,
   parseNotificationKickoffFromBody,
 } from './notificationKickoffPrompt.js'
+import * as brainQueryGrantsRepo from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 
 describe('notificationKickoffPrompt', () => {
   it('parseNotificationKickoffFromBody extracts hints', () => {
@@ -35,20 +36,18 @@ describe('notificationKickoffPrompt', () => {
       parseNotificationKickoffFromBody({
         notificationKickoff: {
           notificationId: 'n',
-          sourceKind: 'brain_query_inbound',
-          logId: ' L1 ',
+          sourceKind: 'brain_query_mail',
           peerUserId: ' usr_a ',
-          questionPreview: ' Hi? ',
-          deliveryMode: 'auto_sent',
+          grantId: ' g1 ',
+          peerHandle: ' pat ',
         },
       }),
     ).toEqual({
       notificationId: 'n',
-      sourceKind: 'brain_query_inbound',
-      logId: 'L1',
+      sourceKind: 'brain_query_mail',
       peerUserId: 'usr_a',
-      questionPreview: 'Hi?',
-      deliveryMode: 'auto_sent',
+      grantId: 'g1',
+      peerHandle: 'pat',
     })
   })
 
@@ -68,35 +67,76 @@ describe('notificationKickoffPrompt', () => {
     })
   })
 
-  it('notificationKickoffAppContextText for inbound brain-query skips read_mail_message instructions', () => {
-    const t = notificationKickoffAppContextText({
-      notificationId: 'n1',
-      sourceKind: 'brain_query_inbound',
-      logId: 'log_z',
-      questionPreview: 'status?',
-      peerUserId: 'usr_x',
-      deliveryMode: 'auto_sent',
+  it('parseNotificationKickoffFromBody extracts peerPrimaryEmail', () => {
+    expect(
+      parseNotificationKickoffFromBody({
+        notificationKickoff: {
+          notificationId: 'n',
+          sourceKind: 'brain_query_mail',
+          peerPrimaryEmail: '  a@b.co  ',
+        },
+      }),
+    ).toEqual({
+      notificationId: 'n',
+      sourceKind: 'brain_query_mail',
+      peerPrimaryEmail: 'a@b.co',
     })
-    expect(t).toContain('inbound brain-query')
-    expect(t).toContain('log_z')
-    expect(t).toContain('Do **not** use **read_mail_message**')
-    expect(t).toContain('Do **not** call **mark_notification**')
   })
 
-  it('notificationKickoffAppContextText for brain_query_grant_received emphasizes how to ask sharer via @ mention', () => {
+  it('notificationKickoffAppContextText for brain_query_grant_received steers to ask_collaborator', () => {
     const t = notificationKickoffAppContextText({
       notificationId: 'n1',
       sourceKind: 'brain_query_grant_received',
       grantId: 'g1',
       peerHandle: 'donna',
     })
-    expect(t).toContain('how to ask')
-    expect(t).toContain('`@donna`')
-    expect(t).toContain('ask_brain')
-    expect(t).toContain('agent-diagnostics')
+    expect(t).toContain('ask_collaborator')
+    expect(t).toContain('inbox_rules')
+    expect(t).toContain('[braintunnel]')
+    expect(t).not.toContain('draft_email')
+    expect(t).not.toContain('ask_' + 'brain')
+    expect(t).toContain('**@donna**')
     expect(t).toContain('Do **not** default')
     expect(t).not.toContain('Settings → Sharing')
     expect(t).not.toContain('trusted confidant')
+  })
+
+  it('notificationKickoffAppContextText for brain_query_mail routes to mail tools', () => {
+    const t = notificationKickoffAppContextText({
+      notificationId: 'n1',
+      sourceKind: 'brain_query_mail',
+      messageId: 'mid@x',
+      subject: '[braintunnel] hi',
+      grantId: 'bqg_0123456789abcdef01234567',
+    })
+    expect(t).toContain('shared-brain')
+    expect(t).toContain('read_mail_message')
+    expect(t).toContain('b2b_query')
+    expect(t).toContain('send_draft')
+  })
+
+  it('notificationKickoffAppContextText for brain_query_mail injects grant privacy_policy when present', () => {
+    const spy = vi.spyOn(brainQueryGrantsRepo, 'getBrainQueryGrantById').mockReturnValue({
+      id: 'bqg_0123456789abcdef01234567',
+      owner_id: 'usr_o',
+      asker_id: 'usr_a',
+      privacy_policy: 'Keep logistics only.',
+      created_at_ms: 0,
+      updated_at_ms: 0,
+      revoked_at_ms: null,
+    })
+    try {
+      const t = notificationKickoffAppContextText({
+        notificationId: 'n1',
+        sourceKind: 'brain_query_mail',
+        grantId: 'bqg_0123456789abcdef01234567',
+        messageId: 'm1',
+      })
+      expect(t).toContain('Grant policy')
+      expect(t).toContain('Keep logistics only.')
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('notificationKickoffAppContextText references tools without encouraging default mark_notification', () => {

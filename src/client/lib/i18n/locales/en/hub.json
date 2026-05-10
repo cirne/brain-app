@@ -260,9 +260,9 @@
   "hubBrainAccessSummary": {
     "ariaLabel": "Brain sharing summary",
     "title": "Brain to Brain",
-    "description": "Choose who can ask your brain and what each collaborator may learn - policies, audit-style activity, and revokes live in Settings.",
+    "description": "Choose who may collaborate via email under each policy — grants and presets live in Settings.",
     "manageTitle": "Manage Brain access",
-    "manageSubtitle": "Full-screen policies, collaborators, and inbound activity"
+    "manageSubtitle": "Policies, collaborators, and revokes"
   },
   "hubBackgroundAgentsDetail": {
     "lead": "Wiki expansion fills and updates your vault using your profile, indexed mail, optional Messages (when available), and public web research when that improves accuracy. Use a full pass for a broad overview or a continue pass to deepen or fix gaps after mail syncs.",

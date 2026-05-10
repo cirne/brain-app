@@ -24,8 +24,6 @@ export type Overlay =
   | { type: 'brain-access' }
   /** Single policy detail (`/settings/brain-access/policy/:policyId`). */
   | { type: 'brain-access-policy'; policyId: string }
-  /** Cross-brain answer preview for a policy (`.../policy/:policyId/preview`). */
-  | { type: 'brain-access-preview'; policyId: string }
   /** Mail/calendar connections (`/settings/connections`). */
   | { type: 'settings-connections' }
   /** Wiki background activity (`/settings/wiki`). */
@@ -369,9 +367,6 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
     case 'brain-access-policy':
       if (overlay.policyId) q.set('brainPolicy', overlay.policyId)
       break
-    case 'brain-access-preview':
-      if (overlay.policyId) q.set('brainPolicy', overlay.policyId)
-      break
     case 'settings-connections':
     case 'settings-wiki':
       break
@@ -444,12 +439,6 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
         ? { type: 'brain-access-policy', policyId: brainPolicy }
         : { type: 'brain-access-policy', policyId: '' }
     }
-    case 'brain-access-preview': {
-      const brainPolicy = sp.get('brainPolicy')?.trim()
-      return brainPolicy
-        ? { type: 'brain-access-preview', policyId: brainPolicy }
-        : { type: 'brain-access-preview', policyId: '' }
-    }
     case 'settings-connections':
       return { type: 'settings-connections' }
     case 'settings-wiki':
@@ -496,7 +485,7 @@ function settingsRouteFromSearch(href: string): Route | null {
   const previewRest = url.pathname.match(/^\/settings\/brain-access\/policy\/([^/]+)\/preview$/)
   if (previewRest?.[1]) {
     const policyId = safeDecodePathSegment(previewRest[1])
-    return { zone: 'settings', overlay: { type: 'brain-access-preview', policyId } }
+    return { zone: 'settings', overlay: { type: 'brain-access-policy', policyId } }
   }
 
   const policyRest = url.pathname.match(/^\/settings\/brain-access\/policy\/([^/]+)$/)
@@ -690,13 +679,6 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
       const id = o.policyId?.trim()
       if (id) {
         return `/settings/brain-access/policy/${encodeURIComponent(id)}`
-      }
-      return '/settings/brain-access'
-    }
-    if (o?.type === 'brain-access-preview') {
-      const id = o.policyId?.trim()
-      if (id) {
-        return `/settings/brain-access/policy/${encodeURIComponent(id)}/preview`
       }
       return '/settings/brain-access'
     }

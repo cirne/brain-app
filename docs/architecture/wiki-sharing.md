@@ -23,7 +23,7 @@ Risk concentrates in **reconciliation when ACL or paths change** (revoke, prefix
 
 | Store               | Path                                           | Contents                                                                                           |
 | ------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Cross-tenant SQLite | `$BRAIN_DATA_ROOT/.global/brain-global.sqlite` | **`brain_global_schema`** (singleton version) + **`wiki_shares`** ACL + **`brain_query_grants`** / **`brain_query_log`** (brain-query delegation POC — [IDEA: brain-query delegation](../ideas/IDEA-brain-query-delegation.md)) |
+| Cross-tenant SQLite | `$BRAIN_DATA_ROOT/.global/brain-global.sqlite` | **`brain_global_schema`** (singleton version) + **`wiki_shares`** ACL + **`brain_query_grants`** (collaborator consent + policy — [brain-query delegation](brain-query-delegation.md)) |
 | Owner wiki files    | `$BRAIN_DATA_ROOT/<ownerUserId>/wikis/me/`     | Personal vault markdown                                                                                 |
 | Grantee inbound share projection | `$BRAIN_DATA_ROOT/<granteeUserId>/wikis/@<handle>/…` | **App-managed** symlinks into the owner’s allowed prefix only ([`wikiShareProjection.ts`](../../src/server/lib/shares/wikiShareProjection.ts))                                                                          |
 

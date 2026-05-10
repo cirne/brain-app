@@ -8,6 +8,7 @@ import {
   createBrainQueryGrant,
   deleteBrainQueryGrantsForOwner,
   deleteBrainQueryGrantsForTenant,
+  getBrainQueryGrantById,
   getActiveBrainQueryGrant,
   listBrainQueryGrantsForAsker,
   listBrainQueryGrantsForOwner,
@@ -16,11 +17,6 @@ import {
   revokeBrainQueryGrantAsAsker,
   updateBrainQueryGrantPrivacyPolicy,
 } from './brainQueryGrantsRepo.js'
-import {
-  insertBrainQueryLog,
-  listBrainQueryLogForAsker,
-  listBrainQueryLogForOwner,
-} from './brainQueryLogRepo.js'
 
 describe('brainQueryGrantsRepo', () => {
   let dbPath: string
@@ -124,48 +120,14 @@ describe('brainQueryGrantsRepo', () => {
     expect(listBrainQueryGrantsForOwner(o2)).toHaveLength(1)
   })
 
-  it('UNIQUE(owner_id, asker_id) on second create', () => {
+  it('createBrainQueryGrant replaces prior row for same owner/asker pair', () => {
     const o = 'usr_uniq1111111111111111'
     const a = 'usr_uniq2222222222222222'
-    createBrainQueryGrant({ ownerId: o, askerId: a })
-    expect(() => createBrainQueryGrant({ ownerId: o, askerId: a })).toThrow()
-  })
-})
-
-describe('brainQueryLogRepo', () => {
-  let dbPath: string
-  const prevGlobal = process.env.BRAIN_GLOBAL_SQLITE_PATH
-
-  beforeEach(async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'bql-repo-'))
-    dbPath = join(dir, 'brain-global.sqlite')
-    process.env.BRAIN_GLOBAL_SQLITE_PATH = dbPath
-    closeBrainGlobalDbForTests()
-  })
-
-  afterEach(async () => {
-    closeBrainGlobalDbForTests()
-    if (prevGlobal !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevGlobal
-    else delete process.env.BRAIN_GLOBAL_SQLITE_PATH
-    await rm(join(dbPath, '..'), { recursive: true, force: true })
-  })
-
-  it('insert and list by owner / asker', () => {
-    insertBrainQueryLog({
-      ownerId: 'usr_o',
-      askerId: 'usr_a',
-      question: 'Q?',
-      draftAnswer: 'draft',
-      finalAnswer: 'final',
-      filterNotes: null,
-      status: 'ok',
-      durationMs: 100,
-    })
-    const oRows = listBrainQueryLogForOwner('usr_o', 10)
-    expect(oRows).toHaveLength(1)
-    expect(oRows[0].draft_answer).toBe('draft')
-    const aRows = listBrainQueryLogForAsker('usr_a', 10)
-    expect(aRows).toHaveLength(1)
-    expect(aRows[0].final_answer).toBe('final')
+    const r1 = createBrainQueryGrant({ ownerId: o, askerId: a, privacyPolicy: 'first' })
+    const r2 = createBrainQueryGrant({ ownerId: o, askerId: a, privacyPolicy: 'second' })
+    expect(r2.id).not.toBe(r1.id)
+    expect(r2.privacy_policy).toBe('second')
+    expect(getBrainQueryGrantById(r1.id)).toBeNull()
+    expect(getActiveBrainQueryGrant({ ownerId: o, askerId: a })?.id).toBe(r2.id)
   })
 })

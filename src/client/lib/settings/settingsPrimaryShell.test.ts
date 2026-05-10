@@ -14,9 +14,6 @@ describe('resolveSettingsPrimaryShell', () => {
     expect(resolveSettingsPrimaryShell({ type: 'brain-access-policy', policyId: 'p' }, true)).toBe(
       'brain-access-policy',
     )
-    expect(
-      resolveSettingsPrimaryShell({ type: 'brain-access-preview', policyId: 'p' }, true),
-    ).toBe('brain-access-preview')
   })
 
   it('hides brain-access when feature off', () => {

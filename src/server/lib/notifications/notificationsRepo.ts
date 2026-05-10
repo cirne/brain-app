@@ -177,6 +177,24 @@ export function updateNotificationPayload(id: string, payload: unknown): Notific
   return getNotificationById(id)
 }
 
+/** Updates kind + payload (e.g. upgrade `mail_notify` → `brain_query_mail` after sync enrichment). */
+export function updateNotificationSourceKindAndPayload(
+  id: string,
+  sourceKind: string,
+  payload: unknown,
+): NotificationRow | null {
+  const db = getTenantDb()
+  const now = Date.now()
+  const payloadJson = JSON.stringify(payload ?? null)
+  const sk = sourceKind.trim()
+  if (!sk) return null
+  const r = db
+    .prepare(`UPDATE notifications SET source_kind = ?, payload_json = ?, updated_at_ms = ? WHERE id = ?`)
+    .run(sk, payloadJson, now, id)
+  if (r.changes === 0) return null
+  return getNotificationById(id)
+}
+
 function getNotificationById(id: string): NotificationRow | null {
   const db = getTenantDb()
   const row = db

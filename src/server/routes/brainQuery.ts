@@ -22,19 +22,6 @@ import {
   updateBrainQueryGrantPrivacyPolicy,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
-import {
-  listBrainQueryLogForAsker,
-  listBrainQueryLogForOwner,
-  type BrainQueryLogRow,
-} from '@server/lib/brainQuery/brainQueryLogRepo.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
-import { streamAgentSseResponse } from '@server/lib/chat/streamAgentSse.js'
-import {
-  buildResearchUserMessage,
-  createBrainQueryResearchAgent,
-  previewBrainQueryPrivacyFilter,
-  runBrainQuery,
-} from '@server/lib/brainQuery/runBrainQuery.js'
 
 const GRANT_POLICY_PREVIEW_MAX = 200
 
@@ -55,19 +42,6 @@ export type BrainQueryGrantApi = {
   updatedAtMs: number
 }
 
-export type BrainQueryLogApi = {
-  id: string
-  ownerId: string
-  askerId: string
-  question: string
-  draftAnswer?: string | null
-  finalAnswer: string | null
-  filterNotes: string | null
-  status: string
-  createdAtMs: number
-  durationMs: number | null
-}
-
 async function toApiGrant(row: BrainQueryGrantRow): Promise<BrainQueryGrantApi> {
   const ownerHome = tenantHomeDir(row.owner_id)
   const askerHome = tenantHomeDir(row.asker_id)
@@ -85,27 +59,6 @@ async function toApiGrant(row: BrainQueryGrantRow): Promise<BrainQueryGrantApi> 
     privacyPolicy: row.privacy_policy,
     createdAtMs: row.created_at_ms,
     updatedAtMs: row.updated_at_ms,
-  }
-}
-
-function toApiLogAsker(row: BrainQueryLogRow): BrainQueryLogApi {
-  return {
-    id: row.id,
-    ownerId: row.owner_id,
-    askerId: row.asker_id,
-    question: row.question,
-    finalAnswer: row.final_answer,
-    filterNotes: row.filter_notes,
-    status: row.status,
-    createdAtMs: row.created_at_ms,
-    durationMs: row.duration_ms,
-  }
-}
-
-function toApiLogOwner(row: BrainQueryLogRow): BrainQueryLogApi {
-  return {
-    ...toApiLogAsker(row),
-    draftAnswer: row.draft_answer,
   }
 }
 
@@ -167,161 +120,6 @@ async function resolveAskerUserId(params: {
 }
 
 const brainQuery = new Hono()
-
-/**
- * POST /api/brain-query/preview/research — owner-only SSE stream for the brain-query **research** agent
- * (same wire as `/api/chat`). Does not write `brain_query_log`.
- */
-brainQuery.post('/preview/research', async (c) => {
-  let body: { message?: unknown; timezone?: unknown; privacyPolicy?: unknown }
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'invalid_json' }, 400)
-  }
-  const message = typeof body.message === 'string' ? body.message.trim() : ''
-  const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : undefined
-  const privacyPolicy = typeof body.privacyPolicy === 'string' ? body.privacyPolicy : ''
-  if (!message) {
-    return c.json({ error: 'message_required' }, 400)
-  }
-  const tz = timezone && timezone.length > 0 ? timezone : 'UTC'
-  try {
-    const agent = createBrainQueryResearchAgent(tz, privacyPolicy)
-    const prompt = buildResearchUserMessage(message)
-    return streamAgentSseResponse(c, agent, prompt, {
-      wikiDirForDiffs: wikiDir(),
-      runSuggestReplyRepair: false,
-      agentKind: 'brain_query_preview',
-    })
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return c.json({ error: 'preview_research_failed', message: msg }, 500)
-  }
-})
-
-/**
- * POST /api/brain-query/preview/filter — owner-only JSON for the privacy-filter step (no log write).
- * Body: `{ question, draftAnswer, privacyPolicy }`.
- */
-brainQuery.post('/preview/filter', async (c) => {
-  let body: { question?: unknown; draftAnswer?: unknown; privacyPolicy?: unknown }
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'invalid_json' }, 400)
-  }
-  const question = typeof body.question === 'string' ? body.question : ''
-  const draftAnswer = typeof body.draftAnswer === 'string' ? body.draftAnswer : ''
-  const privacyPolicy = typeof body.privacyPolicy === 'string' ? body.privacyPolicy : ''
-  const out = await previewBrainQueryPrivacyFilter({ question, draftAnswer, privacyPolicy })
-  if (!out.ok) {
-    return c.json({ ok: false as const, error: out.code, message: out.message }, 400)
-  }
-  return c.json({
-    ok: true as const,
-    status: out.status,
-    finalAnswer: out.finalAnswer,
-    filterNotes: out.filterNotes,
-    draftAnswer: out.draftAnswer,
-  })
-})
-
-/** POST /api/brain-query — asker queries target brain (requires grant) */
-brainQuery.post('/', async (c) => {
-  const ctx = getTenantContext()
-  let body: { targetHandle?: unknown; question?: unknown; timezone?: unknown }
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'invalid_json' }, 400)
-  }
-  const targetHandle = typeof body.targetHandle === 'string' ? body.targetHandle.trim() : ''
-  const question = typeof body.question === 'string' ? body.question : ''
-  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
-  if (!targetHandle) {
-    return c.json({ error: 'targetHandle_required' }, 400)
-  }
-  let normalized: string
-  try {
-    normalized = parseWorkspaceHandle(targetHandle.replace(/^@/, ''))
-  } catch (e) {
-    const msg = e instanceof InvalidWorkspaceHandleError ? e.message : 'Invalid handle.'
-    return c.json({ error: 'invalid_handle', message: msg }, 400)
-  }
-  const target = await resolveConfirmedHandle({
-    handle: normalized,
-    excludeUserId: ctx.tenantUserId,
-  })
-  if (!target) {
-    return c.json({ error: 'handle_not_found', message: `No Braintunnel user @${normalized}.` }, 400)
-  }
-  if (target.userId === ctx.tenantUserId) {
-    return c.json({ error: 'cannot_query_self', message: 'Use your own tools in this workspace.' }, 400)
-  }
-  try {
-    const out = await runBrainQuery({
-      ownerId: target.userId,
-      askerId: ctx.tenantUserId,
-      question,
-      timezone,
-    })
-    if (out.ok) {
-      return c.json({
-        ok: true as const,
-        answer: out.answer,
-        logId: out.logId,
-        ownerId: target.userId,
-        ownerHandle: target.handle,
-      })
-    }
-    if (out.code === 'denied_no_grant') {
-      return c.json(
-        {
-          ok: false as const,
-          code: out.code,
-          message: out.message,
-          logId: out.logId,
-        },
-        403,
-      )
-    }
-    if (out.code === 'filter_blocked') {
-      return c.json(
-        {
-          ok: false as const,
-          code: out.code,
-          message: out.message,
-          logId: out.logId,
-        },
-        403,
-      )
-    }
-    if (out.code === 'early_rejected') {
-      return c.json(
-        {
-          ok: false as const,
-          code: out.code,
-          message: out.message,
-          logId: out.logId,
-        },
-        400,
-      )
-    }
-    return c.json(
-      {
-        ok: false as const,
-        code: out.code,
-        message: out.message,
-        logId: out.logId,
-      },
-      500,
-    )
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return c.json({ error: 'brain_query_failed', message: msg }, 500)
-  }
-})
 
 brainQuery.get('/grants', async (c) => {
   const ctx = getTenantContext()
@@ -449,19 +247,6 @@ brainQuery.delete('/grants/:id', async (c) => {
     return c.json({ ok: true as const })
   }
   return c.json({ error: 'not_found_or_forbidden' }, 404)
-})
-
-brainQuery.get('/log', async (c) => {
-  const ctx = getTenantContext()
-  const role = c.req.query('role')?.trim().toLowerCase()
-  const limitRaw = c.req.query('limit')
-  const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 50
-  if (role === 'asker') {
-    const rows = listBrainQueryLogForAsker(ctx.tenantUserId, Number.isFinite(limit) ? limit : 50)
-    return c.json({ entries: rows.map(toApiLogAsker) })
-  }
-  const rows = listBrainQueryLogForOwner(ctx.tenantUserId, Number.isFinite(limit) ? limit : 50)
-  return c.json({ entries: rows.map(toApiLogOwner) })
 })
 
 export default brainQuery

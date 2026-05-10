@@ -1,15 +1,14 @@
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import { B2B_ENABLED } from '@server/lib/features.js'
 import type { AgentTool } from '@mariozechner/pi-agent-core'
 import { createWikiScopedPiTools, type WikiWriteCreatesPolicy } from './tools/wikiScopedFsTools.js'
 import { createWikiFileManagementTools } from './tools/wikiFileManagementTools.js'
+import { createAskCollaboratorTool } from './tools/askCollaboratorTool.js'
 import { createRipmailAgentTools } from './tools/ripmailAgentTools.js'
 import { createCalendarTool } from './tools/calendarTools.js'
 import { createWebAgentTools } from './tools/webAgentTools.js'
 import { createUiAgentTools } from './tools/uiAgentTools.js'
 import { createLocalMessageTools } from './tools/localMessageTools.js'
-import { createBrainQueryTool } from './tools/brainQueryTool.js'
-import { B2B_ENABLED } from '@server/lib/features.js'
-
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 export {
   buildRipmailSearchCommandLine,
@@ -114,7 +113,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const { listRecentMessagesTool, getMessageThreadTool, searchMessagesTool } = createLocalMessageTools(wikiDir)
 
-  const askBrain = B2B_ENABLED ? createBrainQueryTool() : null
+  const askCollaboratorTool = B2B_ENABLED ? createAskCollaboratorTool() : null
 
   const tools = [
     read,
@@ -136,6 +135,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     draftEmail,
     editDraft,
     sendDraft,
+    ...(askCollaboratorTool ? [askCollaboratorTool] : []),
     findPerson,
     calendar,
     webSearch,
@@ -151,7 +151,6 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     loadSkill,
     suggestReplyOptions,
     markNotification,
-    ...(askBrain ? [askBrain] : []),
     searchMessagesTool,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]

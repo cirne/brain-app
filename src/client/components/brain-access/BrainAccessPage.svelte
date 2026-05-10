@@ -10,10 +10,7 @@
   import {
     buildPolicyCardModels,
     classifyGrantPolicy,
-    ownerLogEntriesForPolicy,
     type BrainAccessGrantRow,
-    type BrainAccessLogRow,
-    type PolicyCardModel,
   } from '@client/lib/brainAccessPolicyGrouping.js'
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
   import PolicyCard from './PolicyCard.svelte'
@@ -34,7 +31,6 @@
   let busy = $state(false)
   let grantedByMe = $state<BrainAccessGrantRow[]>([])
   let grantedToMe = $state<BrainAccessGrantRow[]>([])
-  let logOwner = $state<BrainAccessLogRow[]>([])
   let customPolicies = $state<BrainAccessCustomPolicy[]>([])
   let removeBusyId = $state<string | null>(null)
   let changeGrantId = $state<string | null>(null)
@@ -83,53 +79,12 @@
     }
   }
 
-  function parseLog(json: unknown): BrainAccessLogRow[] {
-    if (!json || typeof json !== 'object') return []
-    const o = json as Record<string, unknown>
-    const entries = o.entries
-    if (!Array.isArray(entries)) return []
-    return entries
-      .map((x): BrainAccessLogRow | null => {
-        if (!x || typeof x !== 'object') return null
-        const r = x as Record<string, unknown>
-        if (
-          typeof r.id !== 'string' ||
-          typeof r.ownerId !== 'string' ||
-          typeof r.askerId !== 'string' ||
-          typeof r.question !== 'string' ||
-          typeof r.status !== 'string' ||
-          typeof r.createdAtMs !== 'number'
-        ) {
-          return null
-        }
-        const draftAnswer = 'draftAnswer' in r ? r.draftAnswer : null
-        return {
-          id: r.id,
-          ownerId: r.ownerId,
-          askerId: r.askerId,
-          question: r.question,
-          draftAnswer: typeof draftAnswer === 'string' ? draftAnswer : null,
-          finalAnswer:
-            typeof r.finalAnswer === 'string' || r.finalAnswer === null ? (r.finalAnswer as string | null) : null,
-          filterNotes:
-            typeof r.filterNotes === 'string' || r.filterNotes === null ? (r.filterNotes as string | null) : null,
-          status: r.status,
-          createdAtMs: r.createdAtMs,
-          durationMs: typeof r.durationMs === 'number' ? r.durationMs : null,
-        }
-      })
-      .filter((x): x is BrainAccessLogRow => x !== null)
-  }
-
   async function reload(): Promise<void> {
     loadError = null
     busy = true
     customPolicies = readCustomPolicies()
     try {
-      const [gRes, loRes] = await Promise.all([
-        fetch('/api/brain-query/grants'),
-        fetch('/api/brain-query/log?role=owner&limit=80'),
-      ])
+      const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
         loadError = (await gRes.text()) || $t('access.brainAccessPage.errors.failedToLoadGrants')
         return
@@ -141,9 +96,6 @@
       }
       grantedByMe = parsed.grantedByMe
       grantedToMe = parsed.grantedToMe
-      if (loRes.ok) {
-        logOwner = parseLog(await loRes.json())
-      }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
     } finally {
@@ -156,10 +108,6 @@
   })
 
   const policyCards = $derived(buildPolicyCardModels(grantedByMe, customPolicies))
-
-  function activityCount(model: PolicyCardModel): number {
-    return ownerLogEntriesForPolicy(logOwner, grantedByMe, customPolicies, model.policyId).length
-  }
 
   async function addUser(canonicalText: string, entry: WorkspaceHandleEntry): Promise<void> {
     loadError = null
@@ -260,7 +208,6 @@
       {#each policyCards as model (model.policyId)}
         <PolicyCard
           {model}
-          policyActivityCount={activityCount(model)}
           {onSettingsNavigate}
           onAddUser={(text, entry) => void addUser(text, entry)}
           onRemoveGrant={(id) => void removeGrant(id)}

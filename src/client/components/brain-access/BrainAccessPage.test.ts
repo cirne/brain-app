@@ -28,9 +28,6 @@ describe('BrainAccessPage.svelte', () => {
             new Response(JSON.stringify({ grantedByMe: [], grantedToMe: [] }), { status: 200 }),
           )
         }
-        if (u.includes('/api/brain-query/log')) {
-          return Promise.resolve(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
-        }
         return Promise.resolve(new Response('not found', { status: 404 }))
       }) as typeof fetch,
     )

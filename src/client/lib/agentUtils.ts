@@ -1,4 +1,3 @@
-import { REJECT_QUESTION_TOOL_NAME } from '@shared/brainQueryReject.js'
 import type { NotificationKickoffHints } from '@shared/notifications/presentation.js'
 import { contextToString, type SurfaceContext } from '../router.js'
 
@@ -49,64 +48,11 @@ export function ensureChatMessageIds(messages: ChatMessage[]): ChatMessage[] {
 }
 
 /**
- * Plain text from the latest assistant message (text parts + legacy `content`).
- * Matches server-side draft extraction for brain-query preview.
- */
-export function lastAssistantPlainTextFromMessages(messages: ChatMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (m.role !== 'assistant') continue
-    const parts = m.parts
-    if (parts?.length) {
-      let acc = ''
-      for (const p of parts) {
-        if (p.type === 'text') acc += p.content
-      }
-      const t = acc.trim()
-      if (t.length > 0) return t
-    }
-    const c = m.content?.trim()
-    if (c && c.length > 0) return c
-  }
-  return ''
-}
-
-/**
- * Serializable snapshot of chat messages for persistence (e.g. preview history).
+ * Serializable snapshot of chat messages for persistence.
  * Prefer over `structuredClone`: agent stream payloads may include values browsers cannot clone.
  */
 export function cloneChatMessagesSnapshot(messages: ChatMessage[]): ChatMessage[] {
   return JSON.parse(JSON.stringify(messages)) as ChatMessage[]
-}
-
-/**
- * Cross-brain preview: if the research agent refused via `reject_question`, returns the
- * collaborator-facing explanation (and optional reason for UI labels).
- */
-export function extractBrainQueryEarlyRejectionFromChatMessages(
-  messages: ChatMessage[],
-): { explanation: string; reason?: string } | null {
-  for (const m of messages) {
-    if (m.role !== 'assistant' || !m.parts?.length) continue
-    for (const p of m.parts) {
-      if (p.type !== 'tool') continue
-      const tc = p.toolCall
-      if (tc.name !== REJECT_QUESTION_TOOL_NAME || !tc.done) continue
-      const det = tc.details as { explanation?: string; reason?: string; rejected?: boolean } | undefined
-      const fromDetails = typeof det?.explanation === 'string' ? det.explanation.trim() : ''
-      if (fromDetails)
-        return {
-          explanation: fromDetails,
-          reason: typeof det?.reason === 'string' ? det.reason : undefined,
-        }
-      const args = tc.args as { explanation?: string } | undefined
-      const fromArgs = typeof args?.explanation === 'string' ? args.explanation.trim() : ''
-      if (fromArgs) return { explanation: fromArgs }
-      const resultText = typeof tc.result === 'string' ? tc.result.trim() : ''
-      if (resultText) return { explanation: resultText }
-    }
-  }
-  return null
 }
 
 /** UI reference scale for the chat header token ring (not necessarily the active model context window). */

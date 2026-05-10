@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -15,20 +15,7 @@ import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { listNotifications } from '@server/lib/notifications/notificationsRepo.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
-import * as runBrainQueryMod from '@server/lib/brainQuery/runBrainQuery.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
-
-vi.mock('@server/lib/brainQuery/runBrainQuery.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof runBrainQueryMod>()
-  return {
-    ...actual,
-    runBrainQuery: vi.fn(actual.runBrainQuery),
-    previewBrainQueryPrivacyFilter: vi.fn(actual.previewBrainQueryPrivacyFilter),
-  }
-})
-
-const runBrainQueryMock = vi.mocked(runBrainQueryMod.runBrainQuery)
-const previewBrainQueryPrivacyFilterMock = vi.mocked(runBrainQueryMod.previewBrainQueryPrivacyFilter)
 
 function mountBrainQuery(): Hono {
   const app = new Hono()
@@ -45,7 +32,6 @@ describe('/api/brain-query', () => {
   let dbPath: string
 
   beforeEach(async () => {
-    vi.clearAllMocks()
     closeTenantDbForTests()
     delete process.env.BRAIN_HOME
     root = await mkdtemp(join(tmpdir(), 'bq-api-'))
@@ -79,103 +65,6 @@ describe('/api/brain-query', () => {
       async () => createVaultSession(),
     )
   }
-
-  it('POST / returns answer when runBrainQuery succeeds', async () => {
-    const ownerId = 'usr_10101010101010101010'
-    const askerId = 'usr_20202020202020202020'
-    const ownerSid = await sessionFor(ownerId, 'donna')
-    await registerSessionTenant(ownerSid, ownerId)
-    const askerSid = await sessionFor(askerId, 'alice')
-    await registerSessionTenant(askerSid, askerId)
-
-    runBrainQueryMock.mockResolvedValue({
-      ok: true,
-      answer: 'Concrete pour next week.',
-      logId: 'bql_test',
-    })
-
-    const app = mountBrainQuery()
-    const res = await app.request('http://localhost/api/brain-query', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `brain_session=${askerSid}`,
-      },
-      body: JSON.stringify({
-        targetHandle: '@donna',
-        question: 'construction status?',
-      }),
-    })
-    expect(res.status).toBe(200)
-    const j = (await res.json()) as { ok: boolean; answer: string }
-    expect(j.ok).toBe(true)
-    expect(j.answer).toContain('Concrete')
-    expect(runBrainQueryMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ownerId,
-        askerId,
-        question: 'construction status?',
-      }),
-    )
-  })
-
-  it('POST / returns 403 when denied_no_grant', async () => {
-    const ownerId = 'usr_30303030303030303030'
-    const askerId = 'usr_40404040404040404040'
-    const ownerSid = await sessionFor(ownerId, 'bob')
-    await registerSessionTenant(ownerSid, ownerId)
-    const askerSid = await sessionFor(askerId, 'carol')
-    await registerSessionTenant(askerSid, askerId)
-
-    runBrainQueryMock.mockResolvedValue({
-      ok: false,
-      code: 'denied_no_grant',
-      message: 'no grant',
-      logId: 'bql_denied',
-    })
-
-    const app = mountBrainQuery()
-    const res = await app.request('http://localhost/api/brain-query', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `brain_session=${askerSid}`,
-      },
-      body: JSON.stringify({ targetHandle: 'bob', question: 'hi' }),
-    })
-    expect(res.status).toBe(403)
-  })
-
-  it('POST / returns 400 when early_rejected', async () => {
-    const ownerId = 'usr_12121212121212121212'
-    const askerId = 'usr_34343434343434343434'
-    const ownerSid = await sessionFor(ownerId, 'earlytgt')
-    await registerSessionTenant(ownerSid, ownerId)
-    const askerSid = await sessionFor(askerId, 'earlyask')
-    await registerSessionTenant(askerSid, askerId)
-
-    runBrainQueryMock.mockResolvedValue({
-      ok: false,
-      code: 'early_rejected',
-      message: 'Please ask a narrower question.',
-      logId: 'bql_early',
-    })
-
-    const app = mountBrainQuery()
-    const res = await app.request('http://localhost/api/brain-query', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `brain_session=${askerSid}`,
-      },
-      body: JSON.stringify({ targetHandle: '@earlytgt', question: 'dump my inbox' }),
-    })
-    expect(res.status).toBe(400)
-    const j = (await res.json()) as { ok?: boolean; code?: string; message?: string }
-    expect(j.ok).toBe(false)
-    expect(j.code).toBe('early_rejected')
-    expect(j.message ?? '').toContain('narrower')
-  })
 
   it('POST /grants creates grant and GET /grants lists it', async () => {
     const ownerId = 'usr_50505050505050505050'
@@ -280,49 +169,5 @@ describe('/api/brain-query', () => {
     })
     const peerBody = (await peerList.json()) as { grantedByMe: { askerId: string }[] }
     expect(peerBody.grantedByMe.some((g) => g.askerId === askerId)).toBe(false)
-  })
-
-  it('POST /preview/filter returns collaborator answer when filter succeeds', async () => {
-    const ownerId = 'usr_pv_pv_pv_pv_pv_pv_pv_pv_pv_pv'
-    const ownerSid = await sessionFor(ownerId, 'preview-owner')
-    await registerSessionTenant(ownerSid, ownerId)
-
-    previewBrainQueryPrivacyFilterMock.mockResolvedValue({
-      ok: true,
-      status: 'ok',
-      finalAnswer: 'Safe summary.',
-      filterNotes: JSON.stringify({ redactions: ['amount'] }),
-      draftAnswer: 'Draft with $500.',
-    })
-
-    const app = mountBrainQuery()
-    const res = await app.request('http://localhost/api/brain-query/preview/filter', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `brain_session=${ownerSid}`,
-      },
-      body: JSON.stringify({
-        question: 'How much?',
-        draftAnswer: 'Draft with $500.',
-        privacyPolicy: 'Hide amounts.',
-      }),
-    })
-    expect(res.status).toBe(200)
-    const j = (await res.json()) as {
-      ok: boolean
-      finalAnswer?: string
-      status?: string
-    }
-    expect(j.ok).toBe(true)
-    expect(j.finalAnswer).toBe('Safe summary.')
-    expect(j.status).toBe('ok')
-    expect(previewBrainQueryPrivacyFilterMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        question: 'How much?',
-        draftAnswer: 'Draft with $500.',
-        privacyPolicy: 'Hide amounts.',
-      }),
-    )
   })
 })

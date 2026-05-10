@@ -1,31 +1,29 @@
-# Idea: Brain-query delegation (LLM-to-LLM fast path)
+# Idea: Brain-query delegation (mail-first collaboration)
 
-**Status:** Active — **Phase 0 (hosted)** shipped; **Hub / Brain access admin (Spike 1)** closed (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Next:** policy depth ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)), including **policy-by-reference** for grants (**[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** — server policy rows + `policy_id` on grants; addresses [BUG-048](../bugs/BUG-048-brain-access-policy-bucket-mismatch-text-snapshots.md)). **Persistence:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** — `var/brain-tenant.sqlite` + **`notifications`**; **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** / async approval UX and **brain-query enqueue** to that store remain follow-on.
+**Status:** Active — **mail-first cross-brain shipped** (**[OPP-106 stub](../opportunities/OPP-106-email-first-cross-brain-collaboration.md)** — archived spec: [archive/OPP-106…](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md)). **Grants + policy:** Hub / Settings **Brain access** (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Next:** policy depth (**[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** — server policy rows + `policy_id` on grants). **Persistence:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** — `var/brain-tenant.sqlite` + **`notifications`** for **`mail_notify`**, **`brain_query_mail`**, **`brain_query_grant_received`**, etc.
 
-**Planned simplification:** **[OPP-106](../opportunities/OPP-106-email-first-cross-brain-collaboration.md)** — **email-first** cross-brain collaboration; **delete** synchronous **`ask_brain` / `runBrainQuery`** and related Hub preview/settings surface; **retain** **`brain_query_grants`** + policy as the consent + instruction envelope.
+**Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
 
-**Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (inc. [Hub closure §](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)) · **Tool:** `ask_brain`
-
-**Related:** **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** — **notification + inbox + brief** infrastructure and **async approval** of drafted outbound brain-query replies; treated as a **required product capability** before brain-to-brain is **secure and usable** for typical users (see [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)). **Durable tenant rows:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** (`var/brain-tenant.sqlite`). [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol — **superseded** by this B2B direction). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** is the **current** bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
+**Related:** **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** — prioritized notification + inbox + brief infrastructure. [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (directory sharing — **superseded** by this B2B direction for query-shaped collaboration). **Strategic tension:** wiki/file sharing adds projection surface area; brain-to-brain **grants + mail** are the **current** bet — see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
 
 ---
 
 ## Where we are now (2026-05)
 
-**Shipped (Phase 0, same instance):**
+**Shipped:**
 
-- **Brain-to-brain query** from user A’s chat via the **`ask_brain`** tool: resolve `@handle`, enforce **`brain_query_grants`** in global DB, run a **read-only research** pass in user B’s tenant, then a **privacy-filter** pass using B’s **per-connection freeform policy** (seeded default, owner-editable).
-- **Audit log** (`brain_query_log`) with owner vs asker views; draft vs filtered answer visible to the owner only.
+- **`brain_query_grants`** in the global DB — opt-in collaborators + per-connection **privacy policy** prose (until **[OPP-100]** adds `policy_id` SSOT).
+- **Grant CRUD** at **`/api/brain-query/grants`** when **`BRAIN_B2B_ENABLED`**; **`BRAIN_B2B_ENABLED`** still gates collaborator surfaces.
+- **Mail-first Q&A:** collaborator messages use the **`[braintunnel]`** subject marker; inbound mail surfaces as **`brain_query_mail`** notifications; **`brain_query_grant_received`** still fires when someone grants you access.
+- **No synchronous cross-tenant agent:** the former **`ask_brain` / `runBrainQuery`** pipeline, preview APIs, and **`brain_query_log`** are removed ([architecture: brain-query-delegation.md](../architecture/brain-query-delegation.md)).
 
-**Admin / Hub UI:**
-
-- **Spike 1 shipped (2026-05).** Usable **Brain access** in Hub (grants, policy drill-down, templates + custom policies, activity views) and **@** people vs wiki in chat — see [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure). Historical epic: **[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**.
-
-**Not done yet (unchanged from earlier roadmap):** cross-instance routing, **unified notifications / inbox** (including **async human approval** of outbound answers), layered policy/presets ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)) — see [Experiment path](#experiment-path-fast-start) below. **Usability + trust:** notification and approval UX is specified in **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** and cross-referenced from [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) as a **prerequisite** for confidence in brain-to-brain beyond auto-send-after-filter. **`notifications` + chat persistence:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped**; brain-query “pending approval” should **enqueue** to that table as a follow-on.
+**Not done / roadmap:** cross-instance routing, richer **policy-by-reference** ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)), and continued **notification / brief** polish from [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md).
 
 ---
 
 ## The core idea
+
+**Transport note (post–OPP-106):** Shipping code uses **mail + `[braintunnel]` + notifications**, not a synchronous cross-tenant research/filter RPC. The prose below reflects the **historical Phase 0 LLM-to-LLM experiment**; **today**, grants and policy still scope *who* may collaborate, while the assistant works answers **inside the owner’s workspace** via mail tools after **`brain_query_mail`** — see [brain-query-delegation.md](../architecture/brain-query-delegation.md).
 
 Instead of emailing Donna and waiting hours, you say:
 
