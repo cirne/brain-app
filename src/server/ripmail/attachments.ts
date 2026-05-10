@@ -103,10 +103,15 @@ async function extractText(absPath: string, mimeType: string): Promise<string> {
 
   if (mime === 'application/pdf' || absPath.endsWith('.pdf')) {
     try {
-      const pdfParse = (await import('pdf-parse')).default
+      const { PDFParse } = await import('pdf-parse')
       const buf = readFileSync(absPath)
-      const result = await pdfParse(buf)
-      return result.text ?? ''
+      const parser = new PDFParse({ data: buf })
+      try {
+        const result = await parser.getText()
+        return result.text ?? ''
+      } finally {
+        await parser.destroy()
+      }
     } catch (e) {
       return `(PDF extraction failed: ${String(e)})`
     }

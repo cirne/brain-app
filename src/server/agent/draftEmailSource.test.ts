@@ -3,7 +3,16 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-const ripmailDraftNewFn = vi.hoisted(() => vi.fn(() => ({ id: 'draft-1', subject: 'Test', body: 'b', to: ['bob@example.com'], createdAt: '', updatedAt: '' })))
+const ripmailDraftNewFn = vi.hoisted(() =>
+  vi.fn((_home: string, _opts?: { sourceId?: string }) => ({
+    id: 'draft-1',
+    subject: 'Test',
+    body: 'b',
+    to: ['bob@example.com'],
+    createdAt: '',
+    updatedAt: '',
+  })),
+)
 
 vi.mock('@server/ripmail/index.js', () => ({
   ripmailSourcesList: vi.fn(() => ({ sources: [] })),

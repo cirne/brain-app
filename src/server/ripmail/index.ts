@@ -56,7 +56,8 @@ import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList } f
 import { send } from './send.js'
 import { refresh } from './sync/index.js'
 export { loadRipmailConfig, saveRipmailConfig } from './sync/config.js'
-import type { SearchOptions, InboxOptions } from './inbox.js'
+import type { InboxOptions } from './inbox.js'
+import type { SearchOptions } from './types.js'
 
 // Re-export option types
 export type { InboxOptions } from './inbox.js'

@@ -24,19 +24,11 @@ vi.mock('../agent/interviewFinalizeAgent.js', () => ({
   runInterviewFinalize: interviewFinalizeMocks.runInterviewFinalize,
 }))
 
-const ripmailHeavySpawnMocks = vi.hoisted(() => ({
-  runRipmailBackfillForBrain: vi.fn().mockResolvedValue({ ok: true, messagesAdded: 0, messagesUpdated: 0 }),
-}))
 const ripmailRefreshMock = vi.hoisted(() => vi.fn().mockResolvedValue({ ok: true, messagesAdded: 0, messagesUpdated: 0 }))
 
 const yourWikiMocks = vi.hoisted(() => ({
   ensureYourWikiRunning: vi.fn().mockResolvedValue(undefined),
 }))
-
-vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@server/lib/ripmail/ripmailHeavySpawn.js')>()
-  return { ...actual, runRipmailBackfillForBrain: ripmailHeavySpawnMocks.runRipmailBackfillForBrain }
-})
 
 vi.mock('@server/ripmail/sync/index.js', () => ({
   refresh: ripmailRefreshMock,
@@ -506,7 +498,6 @@ describe('onboarding routes', () => {
 
   describe('PATCH /state indexing to onboarding-agent (mail threshold)', () => {
     beforeEach(() => {
-      ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockClear()
       ripmailRefreshMock.mockClear()
     })
     afterEach(() => {

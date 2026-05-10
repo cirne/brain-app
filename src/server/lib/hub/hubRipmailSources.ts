@@ -128,7 +128,8 @@ export async function getHubRipmailSourceDetail(id: string): Promise<HubRipmailS
   }
 
   const kind = cfgRow.kind ?? ''
-  const fileSourceRaw = (cfgRow as Record<string, unknown>).fileSource as { roots?: Array<{ id: string; name?: string; recursive?: boolean }>; includeGlobs?: string[]; ignoreGlobs?: string[]; maxFileBytes?: number; respectGitignore?: boolean } | null | undefined
+  const row = cfgRow as unknown as Record<string, unknown>
+  const fileSourceRaw = row.fileSource as { roots?: Array<{ id: string; name?: string; recursive?: boolean }>; includeGlobs?: string[]; ignoreGlobs?: string[]; maxFileBytes?: number; respectGitignore?: boolean } | null | undefined
   let fileSource: HubFileSourceConfig | null = null
   if (fileSourceRaw) {
     fileSource = {
@@ -140,10 +141,10 @@ export async function getHubRipmailSourceDetail(id: string): Promise<HubRipmailS
     }
   }
 
-  const calendarIds = (cfgRow as Record<string, unknown>).calendarIds as string[] | null | undefined
-  const icsUrl = (cfgRow as Record<string, unknown>).icsUrl as string | null | undefined
-  const includeSharedWithMe = Boolean((cfgRow as Record<string, unknown>).includeSharedWithMe)
-  const oauthSourceId = (cfgRow as Record<string, unknown>).oauthSourceId as string | null | undefined
+  const calendarIds = row.calendarIds as string[] | null | undefined
+  const icsUrl = row.icsUrl as string | null | undefined
+  const includeSharedWithMe = Boolean(row.includeSharedWithMe)
+  const oauthSourceId = row.oauthSourceId as string | null | undefined
 
   return {
     ok: true,
@@ -201,7 +202,7 @@ export async function updateHubRipmailFileSource(
     const sources = config.sources ?? []
     const idx = sources.findIndex((s) => s.id === trimmed)
     if (idx === -1) return { ok: false, error: 'Source not found' }
-    ;(sources[idx] as Record<string, unknown>).fileSource = fileSource
+    ;(sources[idx] as unknown as Record<string, unknown>).fileSource = fileSource
     saveRipmailConfig(home, { ...config, sources })
     return { ok: true }
   } catch (e) {
@@ -221,7 +222,7 @@ export async function updateIncludeSharedWithMe(
     const sources = config.sources ?? []
     const idx = sources.findIndex((s) => s.id === trimmed)
     if (idx === -1) return { ok: false, error: 'Source not found' }
-    ;(sources[idx] as Record<string, unknown>).includeSharedWithMe = include
+    ;(sources[idx] as unknown as Record<string, unknown>).includeSharedWithMe = include
     saveRipmailConfig(home, { ...config, sources })
     return { ok: true }
   } catch (e) {
@@ -267,7 +268,9 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
     // Load configured calendar IDs from config.json
     const config = loadRipmailConfig(home)
     const cfgRow = (config.sources ?? []).find((s) => s.id === trimmed)
-    const configuredIdsRaw = (cfgRow as Record<string, unknown> | undefined)?.calendarIds as string[] | undefined
+    const configuredIdsRaw = (cfgRow as unknown as Record<string, unknown> | undefined)?.calendarIds as
+      | string[]
+      | undefined
     const configuredIds = Array.isArray(configuredIdsRaw)
       ? resolveConfiguredCalendarIdsForPicker(configuredIdsRaw, allCalendars, cfgRow?.email)
       : []
@@ -290,7 +293,7 @@ export async function updateHubRipmailCalendarIds(
     const sources = config.sources ?? []
     const idx = sources.findIndex((s) => s.id === trimmed)
     if (idx === -1) return { ok: false, error: 'Source not found' }
-    ;(sources[idx] as Record<string, unknown>).calendarIds = calendarIds
+    ;(sources[idx] as unknown as Record<string, unknown>).calendarIds = calendarIds
     saveRipmailConfig(home, { ...config, sources })
     return { ok: true }
   } catch (e) {

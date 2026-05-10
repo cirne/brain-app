@@ -12,10 +12,6 @@ vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
     getCalendarEventsFromRipmail: vi.fn(),
   }
 })
-vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
-  runRipmailRefreshForBrain: vi.fn(),
-}))
-
 vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
   runRipmailRefreshInBackground: vi.fn(() => ({ ok: true })),
 }))

@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import type { ReadIndexedFileResult, ReadMailResult } from '@server/ripmail/types.js'
 
-const ripmailReadMockFn = vi.fn(() => null)
-const ripmailReadIndexedFileMockFn = vi.fn(() => null)
+const ripmailReadMockFn = vi.fn((): ReadMailResult | null => null)
+const ripmailReadIndexedFileMockFn = vi.fn((): ReadIndexedFileResult | null => null)
 const ripmailAttachmentReadMockFn = vi.fn(async () => '')
 
 vi.mock('@server/ripmail/index.js', () => ({

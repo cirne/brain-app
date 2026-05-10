@@ -20,8 +20,17 @@ export interface SourceConfig {
   imapAuth?: 'appPassword' | 'googleOAuth'
   label?: string
   includeInDefault?: boolean
+  /** Google Calendar source: selected calendar IDs (Hub / config.json). */
+  calendarIds?: string[]
+  icsUrl?: string
+  includeSharedWithMe?: boolean
+  oauthSourceId?: string
   fileSource?: {
-    roots?: Array<{ id: string }>
+    roots?: Array<{ id: string; name?: string; recursive?: boolean }>
+    includeGlobs?: string[]
+    ignoreGlobs?: string[]
+    maxFileBytes?: number
+    respectGitignore?: boolean
   }
 }
 
