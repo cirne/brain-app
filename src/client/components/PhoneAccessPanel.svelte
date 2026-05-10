@@ -3,6 +3,7 @@
   import QRCode from 'qrcode'
   import { Smartphone, Wifi, Copy, Check, ExternalLink, ShieldCheck, Globe, Lock, RefreshCw } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let networkInfo = $state<{
     ips: string[]
@@ -22,12 +23,12 @@
   async function fetchNetworkInfo() {
     try {
       const res = await fetch('/api/onboarding/network-info')
-      if (!res.ok) throw new Error('Failed to fetch network info')
+      if (!res.ok) throw new Error($t('inbox.phoneAccessPanel.errors.fetchNetworkInfoFailed'))
       networkInfo = await res.json()
 
       await generateQrCode()
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unknown error'
+      error = e instanceof Error ? e.message : $t('inbox.phoneAccessPanel.errors.unknown')
     }
   }
 
@@ -128,7 +129,10 @@
   }
 
   async function resetMagicLink() {
-    if (isResetting || !confirm('This will invalidate your current remote link and all signed-in phones. Continue?')) return
+    if (
+      isResetting ||
+      !confirm($t('inbox.phoneAccessPanel.confirm.resetMagicLink'))
+    ) return
     isResetting = true
     try {
       const res = await fetch('/api/onboarding/reset-magic-link', { method: 'POST' })
@@ -191,7 +195,7 @@
       <Smartphone size={48} strokeWidth={1.5} />
     </div>
 
-    <h3 class="m-0 mb-4 text-2xl font-bold">Connect Phone</h3>
+    <h3 class="m-0 mb-4 text-2xl font-bold">{$t('inbox.phoneAccessPanel.title')}</h3>
 
     <div class="remote-toggle-container mb-6 w-full">
       <button
@@ -211,8 +215,10 @@
           {/if}
         </div>
         <div class="toggle-text flex flex-1 flex-col">
-          <span class="label text-sm font-semibold text-foreground">Remote Access</span>
-          <span class="status text-xs text-muted">{remoteAccessEnabled ? 'Enabled' : 'Local Only'}</span>
+          <span class="label text-sm font-semibold text-foreground">{$t('inbox.phoneAccessPanel.remoteAccess.title')}</span>
+          <span class="status text-xs text-muted">{remoteAccessEnabled
+            ? $t('inbox.phoneAccessPanel.remoteAccess.enabled')
+            : $t('inbox.phoneAccessPanel.remoteAccess.localOnly')}</span>
         </div>
         <div
           class={cn(
@@ -243,11 +249,11 @@
           disabled={isTogglingLan}
         >
           <div class="toggle-text flex flex-1 flex-col">
-            <span class="label text-sm font-semibold text-foreground">Same-LAN direct (Wi‑Fi)</span>
+            <span class="label text-sm font-semibold text-foreground">{$t('inbox.phoneAccessPanel.lanDirect.title')}</span>
             <span class="status text-xs text-muted">
               {allowLanDirectAccess
-                ? 'Phone can open Braintunnel on your LAN (vault login required)'
-                : 'Block private LAN; use tunnel or this computer'}
+                ? $t('inbox.phoneAccessPanel.lanDirect.enabledDescription')
+                : $t('inbox.phoneAccessPanel.lanDirect.disabledDescription')}
             </span>
           </div>
           <div
@@ -265,47 +271,53 @@
           </div>
         </button>
         <p class="lan-hint m-0 mt-2 text-xs leading-tight text-muted">
-          TLS-encrypted. Turn on only on networks you trust; the UI still requires your vault
-          password.
+          {$t('inbox.phoneAccessPanel.lanDirect.hint')}
         </p>
       </div>
     {/if}
 
     <p class="instruction mb-8 text-[0.9375rem] leading-normal text-muted">
-      Scan this code with your phone to access Braintunnel {#if networkInfo?.tunnelUrl}from anywhere{:else}over your local network{/if}.
+      {$t('inbox.phoneAccessPanel.scanInstructionPrefix')}
+      {#if networkInfo?.tunnelUrl}
+        {$t('inbox.phoneAccessPanel.scanInstructionFromAnywhere')}
+      {:else}
+        {$t('inbox.phoneAccessPanel.scanInstructionLocalNetwork')}
+      {/if}.
     </p>
 
     {#if error}
       <div class="error-msg p-8 text-danger">
-        <p>Error: {error}</p>
-        <button onclick={fetchNetworkInfo}>Retry</button>
+        <p>{$t('inbox.phoneAccessPanel.errors.label', { error })}</p>
+        <button onclick={fetchNetworkInfo}>{$t('inbox.phoneAccessPanel.actions.retry')}</button>
       </div>
     {:else if !qrCodeDataUrl || (remoteAccessEnabled && !networkInfo?.tunnelUrl && isToggling)}
       <div class="loading flex flex-col items-center gap-4 py-12 text-muted">
         <div
           class="spinner h-6 w-6 border-2 border-border [border-top-color:var(--accent)] [animation:spin_0.8s_linear_infinite]"
         ></div>
-        <p>{remoteAccessEnabled && !networkInfo?.tunnelUrl && isToggling ? 'Setting up a secure endpoint...' : 'Generating QR code...'}</p>
+        <p>{remoteAccessEnabled && !networkInfo?.tunnelUrl && isToggling
+          ? $t('inbox.phoneAccessPanel.loading.settingUpSecureEndpoint')
+          : $t('inbox.phoneAccessPanel.loading.generatingQrCode')}</p>
       </div>
     {:else}
       <div class="qr-container mb-8 bg-white p-4 [box-shadow:0_4px_20px_rgba(0,0,0,0.1)]">
-        <img class="block h-60 w-60" src={qrCodeDataUrl} alt="QR Code for Phone Access" />
+        <img class="block h-60 w-60" src={qrCodeDataUrl} alt={$t('inbox.phoneAccessPanel.qrAlt')} />
       </div>
 
       <div class="info-box mb-6 flex w-full flex-col gap-4 bg-surface-2 p-4 text-left [&_svg]:mt-0.5 [&_svg]:shrink-0">
         {#if networkInfo?.tunnelUrl}
           <div class="info-item flex gap-3 text-[0.8125rem] leading-tight text-muted">
             <ExternalLink size={16} />
-            <span>This link is accessible over the internet via a secure tunnel.</span>
+            <span>{$t('inbox.phoneAccessPanel.info.remoteAccessible')}</span>
           </div>
         {:else}
           <div class="info-item flex gap-3 text-[0.8125rem] leading-tight text-muted">
             <Wifi size={16} />
-            <span>Ensure your phone is connected to the same Wi-Fi network as this computer.</span>
+            <span>{$t('inbox.phoneAccessPanel.info.sameWifi')}</span>
           </div>
           <div class="info-item flex gap-3 text-[0.8125rem] leading-tight text-muted">
             <ShieldCheck size={16} />
-            <span>This link is only accessible within your local network.</span>
+            <span>{$t('inbox.phoneAccessPanel.info.localOnly')}</span>
           </div>
         {/if}
       </div>
@@ -317,7 +329,7 @@
         <button
           class="copy-btn flex h-8 w-8 items-center justify-center text-muted transition-colors duration-150 hover:bg-[var(--bg-4)] hover:text-foreground"
           onclick={() => copyToClipboard(primaryUrl)}
-          title="Copy local URL"
+          title={$t('inbox.phoneAccessPanel.actions.copyLocalUrl')}
         >
           {#if copied}
             <Check size={16} color="var(--accent)" />
@@ -335,7 +347,7 @@
             disabled={isResetting}
           >
             <RefreshCw size={12} class={isResetting ? 'spin' : ''} />
-            <span>Generate new remote link</span>
+            <span>{$t('inbox.phoneAccessPanel.actions.generateNewRemoteLink')}</span>
           </button>
         </div>
       {/if}

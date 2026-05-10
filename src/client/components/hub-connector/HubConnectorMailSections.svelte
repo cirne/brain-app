@@ -7,6 +7,7 @@
     HUB_MAIL_BACKFILL_WINDOW_OPTIONS,
     type HubMailStatusOk,
   } from '@client/lib/hub/hubRipmailSource.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     mailKind: string
@@ -74,47 +75,48 @@
   class={cn('hub-source-status-section flex flex-col gap-[0.65rem]', sectionDivider)}
   aria-labelledby="hub-mail-status-heading"
 >
-  <h2 id="hub-mail-status-heading" class={headingClass}>Mailbox</h2>
+  <h2 id="hub-mail-status-heading" class={headingClass}>{$t('inbox.hubConnectorMailSections.mailboxHeading')}</h2>
   {#if mailStatusLoading && !mailStatus}
-    <p class={noteClass} role="status">Loading status…</p>
+    <p class={noteClass} role="status">{$t('inbox.hubConnectorMailSections.loadingStatus')}</p>
   {:else if mailStatusError}
     <p class={errClass} role="alert">{mailStatusError}</p>
   {:else if mailStatus}
     {#if mailStatus.index.staleLockInDb}
       <p class={warnClass} role="alert">
-        A previous sync stopped unexpectedly. Quit Braintunnel completely and reopen to clear the stale lock.
+        {$t('inbox.hubConnectorMailSections.warnings.staleLock')}
       </p>
     {/if}
     {#if mailStatus.index.refreshRunning || mailStatus.index.backfillRunning}
       <p class={cn(noteClass, noteActive)} role="status">
         {#if mailStatus.index.refreshRunning && mailStatus.index.backfillRunning}
-          Refresh and backfill are running…
+          {$t('inbox.hubConnectorMailSections.status.refreshAndBackfillRunning')}
         {:else if mailStatus.index.backfillRunning}
-          Backfill is running…
+          {$t('inbox.hubConnectorMailSections.status.backfillRunning')}
         {:else}
-          Refresh is running…
+          {$t('inbox.hubConnectorMailSections.status.refreshRunning')}
         {/if}
       </p>
     {/if}
     {#if mailStatus.mailbox?.needsBackfill}
       <p class={warnClass}>
-        This account is configured but has no indexed mail yet. Run backfill (or refresh) to pull history.
+        {$t('inbox.hubConnectorMailSections.warnings.needsBackfill')}
       </p>
     {/if}
     {#if mailStatus.mailbox}
       {@const mb = mailStatus.mailbox}
       {@const idx = mailStatus.index}
       <p class={indexLineClass} role="status">
-        <span>{mb.messageCount.toLocaleString()} messages</span>
+        <span>{$t('inbox.hubConnectorMailSections.summary.messages', { count: mb.messageCount.toLocaleString() })}</span>
         <span class={indexLineSep} aria-hidden="true">·</span>
         <span>{formatDay(mb.earliestDate)} — {formatDay(mb.latestDate)}</span>
         <span class={indexLineSep} aria-hidden="true">·</span>
-        <span>Last sync {formatLastSync(idx)}</span>
+        <span>{$t('inbox.hubConnectorMailSections.summary.lastSync', { value: formatLastSync(idx) })}</span>
       </p>
     {:else}
       <p class={noteClass}>
-        No mailbox row in <code class={codeClass}>ripmail status</code> for this source id yet. After the first
-        successful sync, counts and dates will appear here.
+        {$t('inbox.hubConnectorMailSections.summary.noMailboxRowPrefix')}
+        <code class={codeClass}>ripmail status</code>
+        {$t('inbox.hubConnectorMailSections.summary.noMailboxRowSuffix')}
       </p>
     {/if}
   {/if}
@@ -125,9 +127,9 @@
     class={cn('hub-source-prefs-section flex flex-col gap-[0.6rem]', sectionDivider)}
     aria-labelledby="hub-mail-prefs-heading"
   >
-    <h2 id="hub-mail-prefs-heading" class={headingClass}>This mailbox</h2>
+    <h2 id="hub-mail-prefs-heading" class={headingClass}>{$t('inbox.hubConnectorMailSections.preferences.heading')}</h2>
     <p class={noteClass}>
-      Settings for this mailbox only — other accounts in your workspace are unaffected.
+      {$t('inbox.hubConnectorMailSections.preferences.description')}
     </p>
     {#if prefsError}
       <p class={errClass} role="alert">{prefsError}</p>
@@ -144,10 +146,10 @@
       />
       <span class="hub-source-pref-text flex flex-col gap-[0.15rem]">
         <span class="hub-source-pref-title text-sm font-semibold leading-[1.3] text-foreground">
-          Search this mailbox by default
+          {$t('inbox.hubConnectorMailSections.preferences.searchByDefaultTitle')}
         </span>
         <span class="hub-source-pref-sub text-[0.8125rem] leading-[1.4] text-muted">
-          When off, Braintunnel only searches this mailbox if you ask it to. It still gets indexed in the background.
+          {$t('inbox.hubConnectorMailSections.preferences.searchByDefaultDescription')}
         </span>
       </span>
     </label>
@@ -163,10 +165,10 @@
       />
       <span class="hub-source-pref-text flex flex-col gap-[0.15rem]">
         <span class="hub-source-pref-title text-sm font-semibold leading-[1.3] text-foreground">
-          Send from this mailbox by default
+          {$t('inbox.hubConnectorMailSections.preferences.sendByDefaultTitle')}
         </span>
         <span class="hub-source-pref-sub text-[0.8125rem] leading-[1.4] text-muted">
-          When you ask Braintunnel to send a message and don't name an account, it uses this one.
+          {$t('inbox.hubConnectorMailSections.preferences.sendByDefaultDescription')}
         </span>
       </span>
     </label>
@@ -175,7 +177,7 @@
 
 <div class={cn('hub-source-mail-sync flex flex-col gap-3', sectionDivider)}>
   <p class="hub-source-sync-lead m-0 text-[0.8125rem] leading-[1.45] text-muted">
-    Refresh pulls new mail for this account. Backfill re-downloads history for the window below (long-running).
+    {$t('inbox.hubConnectorMailSections.sync.description')}
   </p>
   <div
     class="hub-source-sync-controls flex flex-wrap items-center gap-x-4 gap-y-2"
@@ -184,7 +186,7 @@
       class="hub-backfill-label text-[0.8125rem] font-semibold text-muted"
       for="hub-panel-backfill-since"
     >
-      Backfill window
+      {$t('inbox.hubConnectorMailSections.sync.backfillWindow')}
     </label>
     <select
       id="hub-panel-backfill-since"
@@ -205,7 +207,9 @@
         onclick={onRefresh}
       >
         <RefreshCw size={16} aria-hidden="true" />
-        {sourceSyncAction === 'refresh' ? 'Starting…' : 'Refresh'}
+        {sourceSyncAction === 'refresh'
+          ? $t('inbox.hubConnectorMailSections.sync.starting')
+          : $t('common.actions.refresh')}
       </button>
     {/if}
     <button
@@ -215,7 +219,9 @@
       onclick={onBackfill}
     >
       <History size={16} aria-hidden="true" />
-      {sourceSyncAction === 'backfill' ? 'Starting…' : 'Retry sync (backfill)'}
+      {sourceSyncAction === 'backfill'
+        ? $t('inbox.hubConnectorMailSections.sync.starting')
+        : $t('inbox.hubConnectorMailSections.sync.retryBackfill')}
     </button>
   </div>
 </div>

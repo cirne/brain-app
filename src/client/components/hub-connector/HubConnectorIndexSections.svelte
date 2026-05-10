@@ -8,6 +8,7 @@
     formatRelativeDate,
     type HubSourceDetailOk,
   } from '@client/lib/hub/hubRipmailSource.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     sourceDetailError: string | null
@@ -57,12 +58,12 @@
     {@const st = sourceDetail.status}
     <p class={indexLineClass} role="status">
       {#if isGoogleCalendar}
-        <span>{st.calendarEventRows.toLocaleString()} events</span>
+        <span>{$t('inbox.hubConnectorIndexSections.summary.events', { count: st.calendarEventRows.toLocaleString() })}</span>
       {:else}
-        <span>{st.documentIndexRows.toLocaleString()} documents</span>
+        <span>{$t('inbox.hubConnectorIndexSections.summary.documents', { count: st.documentIndexRows.toLocaleString() })}</span>
       {/if}
       <span class={indexLineSep} aria-hidden="true">·</span>
-      <span>Last synced {formatRelativeDate(st.lastSyncedAt)}</span>
+      <span>{$t('inbox.hubConnectorIndexSections.summary.lastSynced', { value: formatRelativeDate(st.lastSyncedAt) })}</span>
     </p>
   {/if}
 
@@ -94,7 +95,7 @@
     <p class="hub-ics-line m-0 flex flex-col gap-[0.2rem] text-[0.8125rem] leading-[1.4] text-muted">
       <span
         class="hub-ics-label text-[0.6875rem] font-semibold uppercase tracking-[0.05em] text-muted"
-      >Feed</span>
+      >{$t('inbox.hubConnectorIndexSections.feedLabel')}</span>
       <span
         class="hub-ics-url break-all text-[0.78rem] text-foreground [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]"
         title={sourceDetail.icsUrl}
@@ -115,7 +116,7 @@
         class={cn(hubDialogBtnBase, hubDialogBtnPrimary, hubSourceSyncBtn)}
         disabled={sourceSyncAction !== null || indexRefreshPending || driveSyncBlocked}
         title={driveSyncBlocked
-          ? 'Add at least one Drive folder in the list above before syncing'
+          ? $t('inbox.hubConnectorIndexSections.refresh.driveBlockedTitle')
           : undefined}
         onclick={onRefresh}
       >
@@ -125,10 +126,10 @@
           class={indexRefreshPending ? 'hub-refresh-working' : ''}
         />
         {sourceSyncAction === 'refresh'
-          ? 'Starting…'
+          ? $t('inbox.hubConnectorIndexSections.refresh.starting')
           : indexRefreshPending
-            ? 'Syncing…'
-            : 'Refresh index'}
+            ? $t('inbox.hubConnectorIndexSections.refresh.syncing')
+            : $t('nav.hub.refreshIndex')}
       </button>
     </div>
   {/if}

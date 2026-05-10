@@ -8,6 +8,7 @@
   import { subscribe, emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'
   import { getEmailDraftHeaderCell } from '@client/lib/emailDraftSlideHeaderContext.js'
+  import { t } from '@client/lib/i18n/index.js'
   import '../styles/wiki/wikiMarkdown.css'
 
   type DraftJson = {
@@ -71,7 +72,7 @@
     onContextChange?.({
       type: 'email-draft',
       draftId: id,
-      subject: subject.trim() || '(loading)',
+      subject: subject.trim() || $t('inbox.emailDraftEditor.loadingSubject'),
       toLine: toLine.trim(),
       bodyPreview: bodyMd.trim().slice(0, 800),
     })
@@ -94,7 +95,7 @@
     const id = draftId?.trim()
     if (!id) {
       loading = false
-      loadError = 'No draft selected.'
+      loadError = $t('inbox.emailDraftEditor.errors.noDraftSelected')
       return
     }
     loading = true
@@ -105,7 +106,9 @@
       const data = (await res.json()) as DraftJson & { error?: string }
       if (!res.ok || data.error) {
         loadError =
-          typeof data.error === 'string' ? data.error : `Could not load draft (${res.status}).`
+          typeof data.error === 'string'
+            ? data.error
+            : $t('inbox.emailDraftEditor.errors.loadDraftWithStatus', { status: res.status })
         loading = false
         return
       }
@@ -139,7 +142,9 @@
       const data = (await res.json()) as DraftJson & { error?: string }
       if (!res.ok || data.error) {
         saveState = 'error'
-        actionError = typeof data.error === 'string' ? data.error : 'Save failed'
+        actionError = typeof data.error === 'string'
+          ? data.error
+          : $t('common.status.saveFailed')
         return false
       }
       applyDraftJson(data)
@@ -174,7 +179,9 @@
       const sendJson = (await sendRes.json()) as { ok?: boolean; error?: string }
       if (!sendRes.ok || sendJson.ok === false) {
         sendState = 'error'
-        actionError = typeof sendJson.error === 'string' ? sendJson.error : 'Send failed'
+        actionError = typeof sendJson.error === 'string'
+          ? sendJson.error
+          : $t('inbox.emailDraftEditor.errors.sendFailed')
         return
       }
       sendState = 'idle'
@@ -263,61 +270,61 @@
   {#if loading}
     <div class="draft-loading flex items-center gap-2.5 p-6 text-muted">
       <Loader2 size={22} class="spin" aria-hidden="true" />
-      <span>Loading draft…</span>
+      <span>{$t('inbox.emailDraftEditor.loadingDraft')}</span>
     </div>
   {:else if loadError}
     <p class="draft-load-error m-0 mb-2 shrink-0 px-0.5 text-[13px] text-[var(--danger,#c62828)]" role="alert">{loadError}</p>
   {:else}
     <div
       class="draft-meta mb-1.5 flex shrink-0 flex-col gap-0 border-b border-[color-mix(in_srgb,var(--border)_70%,transparent)] pb-2"
-      aria-label="Draft recipients and subject"
+      aria-label={$t('inbox.emailDraftEditor.metaAriaLabel')}
     >
       <div class={metaRowClass}>
-        <label class={metaKeyClass} for="email-draft-to">To</label>
+        <label class={metaKeyClass} for="email-draft-to">{$t('inbox.emailDraftEditor.fields.to')}</label>
         <input
           id="email-draft-to"
           class={metaInputClass}
           type="text"
           bind:value={toLine}
           autocomplete="off"
-          placeholder="Recipients"
+          placeholder={$t('inbox.emailDraftEditor.placeholders.recipients')}
         />
       </div>
       <div class={metaRowClass}>
-        <label class={metaKeyClass} for="email-draft-subject">Subject</label>
+        <label class={metaKeyClass} for="email-draft-subject">{$t('inbox.emailDraftEditor.fields.subject')}</label>
         <input
           id="email-draft-subject"
           class={metaInputClass}
           type="text"
           bind:value={subject}
           autocomplete="off"
-          placeholder="Subject"
+          placeholder={$t('inbox.emailDraftEditor.placeholders.subject')}
         />
       </div>
       <details class="meta-cc-bcc m-0 border-none p-0" bind:open={ccBccOpen}>
         <summary
           class="meta-cc-bcc-summary cursor-pointer select-none list-none pb-1.5 pl-[calc(3.75rem+0.65rem)] pr-0 pt-[5px] text-[11px] font-semibold tracking-[0.03em] text-muted transition-colors duration-100 hover:text-foreground"
-        >Cc · Bcc</summary>
+        >{$t('inbox.emailDraftEditor.fields.ccBcc')}</summary>
         <div class="{metaRowClass} meta-row--nested pl-0 [.meta-cc-bcc_&:first-of-type]:pt-0.5">
-          <label class={metaKeyClass} for="email-draft-cc">Cc</label>
+          <label class={metaKeyClass} for="email-draft-cc">{$t('inbox.emailDraftEditor.fields.cc')}</label>
           <input
             id="email-draft-cc"
             class={metaInputClass}
             type="text"
             bind:value={ccLine}
             autocomplete="off"
-            placeholder="Optional"
+            placeholder={$t('inbox.emailDraftEditor.placeholders.optional')}
           />
         </div>
         <div class="{metaRowClass} meta-row--nested pl-0">
-          <label class={metaKeyClass} for="email-draft-bcc">Bcc</label>
+          <label class={metaKeyClass} for="email-draft-bcc">{$t('inbox.emailDraftEditor.fields.bcc')}</label>
           <input
             id="email-draft-bcc"
             class={metaInputClass}
             type="text"
             bind:value={bccLine}
             autocomplete="off"
-            placeholder="Optional"
+            placeholder={$t('inbox.emailDraftEditor.placeholders.optional')}
           />
         </div>
       </details>

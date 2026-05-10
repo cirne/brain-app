@@ -5,6 +5,7 @@
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { FDA_GATE_OPEN_EVENT } from '@client/lib/onboarding/fdaGateKeys.js'
   import { formatRelativeDate } from '@client/lib/hub/hubRipmailSource.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type HubConnectedDevice = {
     id: string
@@ -39,13 +40,23 @@
   const busy = $derived(action !== null)
 
   function activityLine(lastUsedAt: string | null, createdAt: string): string {
-    if (lastUsedAt) return `Last sync ${formatRelativeDate(lastUsedAt)}`
-    return `Linked ${formatRelativeDate(createdAt)} · waiting for first sync from this Mac`
+    if (lastUsedAt) {
+      return $t('inbox.hubAppleMessagesPanel.activity.lastSync', {
+        value: formatRelativeDate(lastUsedAt),
+      })
+    }
+    return $t('inbox.hubAppleMessagesPanel.activity.linkedAwaitingFirstSync', {
+      value: formatRelativeDate(createdAt),
+    })
   }
 
   function scopesPlain(scopes: string[]): string {
-    if (!Array.isArray(scopes) || scopes.length === 0) return 'Messages from this Mac'
-    if (scopes.includes('ingest:imessage')) return 'Messages from this Mac'
+    if (!Array.isArray(scopes) || scopes.length === 0) {
+      return $t('inbox.hubAppleMessagesPanel.scopes.messagesFromThisMac')
+    }
+    if (scopes.includes('ingest:imessage')) {
+      return $t('inbox.hubAppleMessagesPanel.scopes.messagesFromThisMac')
+    }
     return scopes.join(', ')
   }
 
@@ -65,13 +76,15 @@
         loadError =
           typeof j?.error === 'string' && j.error.trim()
             ? j.error.trim()
-            : `Could not load connections (${res.status})`
+            : $t('inbox.hubAppleMessagesPanel.errors.loadConnectionsWithStatus', {
+              status: res.status,
+            })
         devices = []
         return
       }
       devices = Array.isArray(j?.devices) ? (j.devices as HubConnectedDevice[]) : []
     } catch {
-      loadError = 'Could not load connections'
+      loadError = $t('inbox.hubAppleMessagesPanel.errors.loadConnections')
       devices = []
     } finally {
       loading = false
@@ -129,7 +142,7 @@
     setupCode = null
     const name = optionalNameDraft.trim()
     if (name.length > 120) {
-      turnOnError = 'Use a shorter name (120 characters max), or leave it blank.'
+      turnOnError = $t('inbox.hubAppleMessagesPanel.errors.nameTooLong')
       return
     }
     action = { kind: 'adding' }
@@ -140,12 +153,12 @@
         body: name ? JSON.stringify({ label: name }) : '{}',
       })
       if (!res.ok) {
-        turnOnError = await readApiError(res, 'Could not turn on Messages sync')
+        turnOnError = await readApiError(res, $t('inbox.hubAppleMessagesPanel.errors.turnOnSync'))
         return
       }
       const j = (await res.json()) as { ok?: boolean; token?: string }
       if (j.ok !== true || typeof j.token !== 'string' || !j.token) {
-        turnOnError = 'Could not turn on Messages sync'
+        turnOnError = $t('inbox.hubAppleMessagesPanel.errors.turnOnSync')
         return
       }
       setupCode = j.token
@@ -154,7 +167,7 @@
       notifyHubDevicesChanged()
       void pollForFirstUse()
     } catch {
-      turnOnError = 'Could not turn on Messages sync'
+      turnOnError = $t('inbox.hubAppleMessagesPanel.errors.turnOnSync')
     } finally {
       action = null
     }
@@ -189,7 +202,7 @@
   async function disconnectDevice(device: HubConnectedDevice): Promise<void> {
     if (busy) return
     const ok = window.confirm(
-      `Stop syncing from “${device.label}”? You can turn this on again later; Messages already copied stay in your workspace until you remove them separately.`,
+      $t('inbox.hubAppleMessagesPanel.confirm.disconnectDevice', { label: device.label }),
     )
     if (!ok) return
     action = { kind: 'revoking', deviceId: device.id }
@@ -198,13 +211,13 @@
         method: 'DELETE',
       })
       if (!res.ok) {
-        alert(await readApiError(res, 'Could not disconnect'))
+        alert(await readApiError(res, $t('inbox.hubAppleMessagesPanel.errors.disconnect')))
         return
       }
       await fetchDevices()
       notifyHubDevicesChanged()
     } catch {
-      alert('Could not disconnect')
+      alert($t('inbox.hubAppleMessagesPanel.errors.disconnect'))
     } finally {
       action = null
     }
@@ -213,7 +226,7 @@
   async function wipeSyncedMessages(): Promise<void> {
     if (busy) return
     const ok = window.confirm(
-      'Remove all synced Messages data from Braintunnel in this workspace? This does not delete texts in Apple Messages.',
+      $t('inbox.hubAppleMessagesPanel.confirm.wipeSyncedMessages'),
     )
     if (!ok) return
     action = { kind: 'wiping' }
@@ -222,16 +235,16 @@
         method: 'POST',
       })
       if (!res.ok) {
-        alert(await readApiError(res, 'Could not remove synced data'))
+        alert(await readApiError(res, $t('inbox.hubAppleMessagesPanel.errors.removeSyncedData')))
         return
       }
       const j = (await res.json()) as { ok?: boolean; deleted?: number }
       const deleted = typeof j.deleted === 'number' ? j.deleted : 0
       await fetchDevices()
       notifyHubDevicesChanged()
-      alert(`Removed ${deleted} synced conversation${deleted === 1 ? '' : 's'} from the index.`)
+      alert($t('inbox.hubAppleMessagesPanel.status.removedFromIndex', { count: deleted }))
     } catch {
-      alert('Could not remove synced data')
+      alert($t('inbox.hubAppleMessagesPanel.errors.removeSyncedData'))
     } finally {
       action = null
     }
@@ -270,28 +283,30 @@
         <MessageSquare size={22} strokeWidth={2} />
       </div>
       <div class="ham-hero-text min-w-0">
-        <h2 class="ham-title m-0 text-[1.125rem] font-bold tracking-tight leading-tight text-foreground">Apple Messages on this Mac</h2>
+        <h2 class="ham-title m-0 text-[1.125rem] font-bold tracking-tight leading-tight text-foreground">{$t('inbox.hubAppleMessagesPanel.hero.title')}</h2>
         <p class="ham-lead m-0 mt-2 text-[0.9375rem] leading-[1.55] text-muted">
-          Search your texts in Braintunnel by copying a private snapshot from this Mac into your workspace. Data is used
-          for your search index; you can disconnect anytime.
+          {$t('inbox.hubAppleMessagesPanel.hero.lead')}
         </p>
       </div>
     </header>
 
     <section class="ham-block flex flex-col gap-2" aria-labelledby="ham-what-syncs">
-      <h3 id="ham-what-syncs" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">What syncs</h3>
+      <h3 id="ham-what-syncs" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">{$t('inbox.hubAppleMessagesPanel.sections.whatSyncs')}</h3>
       <p class="ham-p m-0 text-[0.9375rem] leading-[1.55] text-foreground">
-        Relevant iMessage history from <strong>this Mac</strong> is read locally and indexed so you can search and open
-        threads in Braintunnel—similar to mail and folders in Search index.
+        {$t('inbox.hubAppleMessagesPanel.whatSyncs.beforeStrong')}
+        <strong>{$t('inbox.hubAppleMessagesPanel.whatSyncs.strong')}</strong>
+        {$t('inbox.hubAppleMessagesPanel.whatSyncs.afterStrong')}
       </p>
     </section>
 
     <section class="ham-block flex flex-col gap-2" aria-labelledby="ham-perms">
-      <h3 id="ham-perms" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">Permissions</h3>
+      <h3 id="ham-perms" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">{$t('inbox.hubAppleMessagesPanel.sections.permissions')}</h3>
       <p class="ham-p m-0 text-[0.9375rem] leading-[1.55] text-foreground">
-        macOS may ask for <strong>Full Disk Access</strong> so Braintunnel can read the Messages database on this machine.
-        If you use contact names in threads, the app may ask for <strong>Contacts</strong> to show familiar names—resolved
-        on your Mac before anything is stored.
+        {$t('inbox.hubAppleMessagesPanel.permissions.beforeFdaStrong')}
+        <strong>{$t('inbox.hubAppleMessagesPanel.permissions.fdaStrong')}</strong>
+        {$t('inbox.hubAppleMessagesPanel.permissions.betweenStrong')}
+        <strong>{$t('inbox.hubAppleMessagesPanel.permissions.contactsStrong')}</strong>
+        {$t('inbox.hubAppleMessagesPanel.permissions.afterContactsStrong')}
       </p>
       {#if fdaGranted === false}
         <div
@@ -303,10 +318,10 @@
           </span>
           <div class="ham-callout-body flex min-w-0 flex-1 flex-col gap-2">
             <p class="ham-callout-p m-0 text-[0.8125rem] leading-tight text-foreground">
-              Full Disk Access is off or not detected. Turn it on in System Settings, then return here.
+              {$t('inbox.hubAppleMessagesPanel.permissions.fdaDisabled')}
             </p>
             <button type="button" class={cn(hubBtn, hubBtnSecondary, 'ham-callout-btn self-start')} onclick={openFdaHelp}>
-              Open Full Disk Access help
+              {$t('inbox.hubAppleMessagesPanel.actions.openFdaHelp')}
             </button>
           </div>
         </div>
@@ -318,7 +333,7 @@
           <span class="ham-callout-icon ham-callout-icon--ok mt-[0.05rem] flex shrink-0 items-center justify-center text-accent" aria-hidden="true">
             <CheckCircle2 size={18} />
           </span>
-          <p class="ham-callout-p ham-callout-p--inline m-0 pt-[0.05rem] text-[0.8125rem] leading-tight text-foreground">Full Disk Access looks enabled for this app.</p>
+          <p class="ham-callout-p ham-callout-p--inline m-0 pt-[0.05rem] text-[0.8125rem] leading-tight text-foreground">{$t('inbox.hubAppleMessagesPanel.permissions.fdaEnabled')}</p>
         </div>
       {/if}
     </section>
@@ -337,12 +352,13 @@
             <ChevronRight size={16} strokeWidth={2} />
           {/if}
         </span>
-        Technical details
+        {$t('inbox.hubAppleMessagesPanel.sections.technicalDetails')}
       </summary>
       <div class="ham-disclosure-body px-[0.85rem] pb-3 pt-[0.65rem]">
         <p class="ham-p ham-p--tight m-0 text-[0.8125rem] leading-tight text-foreground">
-          Connections are revocable links between this workspace and a Braintunnel helper on your Mac. We do not show raw
-          secrets after you leave this panel—use <strong>Turn on Messages sync</strong> again if you need a new link.
+          {$t('inbox.hubAppleMessagesPanel.technicalDetails.beforeStrong')}
+          <strong>{$t('inbox.hubAppleMessagesPanel.technicalDetails.turnOnStrong')}</strong>
+          {$t('inbox.hubAppleMessagesPanel.technicalDetails.afterStrong')}
         </p>
       </div>
     </details>
@@ -353,10 +369,9 @@
 
     {#if setupCode}
       <div class="ham-setup border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-2))] px-[0.9rem] py-[0.85rem]">
-        <p class="ham-setup-title m-0 text-sm font-semibold text-foreground">Next step on this Mac</p>
+        <p class="ham-setup-title m-0 text-sm font-semibold text-foreground">{$t('inbox.hubAppleMessagesPanel.setup.nextStepTitle')}</p>
         <p class="ham-p ham-p--muted m-0 text-[0.8125rem] leading-tight text-muted">
-          Paste this one-time code into the Braintunnel Mac helper when it asks. It is only shown here once—copy it now
-          if you still need it.
+          {$t('inbox.hubAppleMessagesPanel.setup.description')}
         </p>
         <textarea
           class="ham-code mt-2 block min-h-[4rem] w-full resize-y border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-2 text-xs leading-tight text-foreground [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]"
@@ -366,10 +381,10 @@
         ></textarea>
         <div class="ham-setup-actions mt-[0.65rem] flex flex-wrap gap-2">
           <button type="button" class={cn(hubBtn, hubBtnPrimary)} onclick={() => void copyText(setupCode ?? '')}>
-            Copy code
+            {$t('inbox.hubAppleMessagesPanel.actions.copyCode')}
           </button>
           <button type="button" class={cn(hubBtn, hubBtnSecondary)} onclick={() => (setupCode = null)}>
-            Hide code
+            {$t('inbox.hubAppleMessagesPanel.actions.hideCode')}
           </button>
         </div>
       </div>
@@ -382,7 +397,9 @@
         disabled={busy}
         onclick={() => void turnOn()}
       >
-        {action?.kind === 'adding' ? 'Turning on…' : 'Turn on Messages sync'}
+        {action?.kind === 'adding'
+          ? $t('inbox.hubAppleMessagesPanel.actions.turningOn')
+          : $t('inbox.hubAppleMessagesPanel.actions.turnOnSync')}
       </button>
 
       <details
@@ -399,10 +416,10 @@
               <ChevronRight size={16} strokeWidth={2} />
             {/if}
           </span>
-          Optional: name this Mac
+          {$t('inbox.hubAppleMessagesPanel.sections.optionalName')}
         </summary>
         <div class="ham-disclosure-body px-[0.85rem] pb-3 pt-[0.65rem]">
-          <label class="ham-label mb-[0.35rem] block text-xs font-semibold text-muted" for="ham-optional-name">Name (optional)</label>
+          <label class="ham-label mb-[0.35rem] block text-xs font-semibold text-muted" for="ham-optional-name">{$t('inbox.hubAppleMessagesPanel.fields.optionalNameLabel')}</label>
           <input
             id="ham-optional-name"
             class="ham-input box-border w-full border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.55rem] py-[0.4rem] text-sm text-foreground"
@@ -410,7 +427,7 @@
             maxlength={120}
             autocomplete="off"
             bind:value={optionalNameDraft}
-            placeholder="e.g. Work MacBook"
+            placeholder={$t('inbox.hubAppleMessagesPanel.fields.optionalNamePlaceholder')}
           />
         </div>
       </details>
@@ -420,13 +437,13 @@
       class="ham-block ham-block--ruled flex flex-col gap-2 border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-4"
       aria-labelledby="ham-connections"
     >
-      <h3 id="ham-connections" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">Active connections</h3>
+      <h3 id="ham-connections" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">{$t('inbox.hubAppleMessagesPanel.sections.activeConnections')}</h3>
       {#if loading}
-        <p class="ham-muted m-0 text-[0.8125rem] leading-tight text-muted" role="status">Loading…</p>
+        <p class="ham-muted m-0 text-[0.8125rem] leading-tight text-muted" role="status">{$t('common.status.loading')}</p>
       {:else if loadError}
         <p class="ham-err m-0 text-[0.8125rem] leading-tight text-danger" title={loadError}>{loadError}</p>
       {:else if devices.length === 0}
-        <p class="ham-muted m-0 text-[0.8125rem] leading-tight text-muted">None yet. Turn on sync above to link this Mac.</p>
+        <p class="ham-muted m-0 text-[0.8125rem] leading-tight text-muted">{$t('inbox.hubAppleMessagesPanel.empty.noConnections')}</p>
       {:else}
         <ul class="ham-device-list m-0 flex list-none flex-col gap-2 p-0">
           {#each devices as device (device.id)}
@@ -447,7 +464,9 @@
                 disabled={busy}
                 onclick={() => void disconnectDevice(device)}
               >
-                {action?.kind === 'revoking' && action.deviceId === device.id ? 'Disconnecting…' : 'Disconnect'}
+                {action?.kind === 'revoking' && action.deviceId === device.id
+                  ? $t('inbox.hubAppleMessagesPanel.actions.disconnecting')
+                  : $t('inbox.hubAppleMessagesPanel.actions.disconnect')}
               </button>
             </li>
           {/each}
@@ -458,9 +477,9 @@
     <section
       class="ham-block ham-block--ruled ham-block--danger-zone flex flex-col gap-[0.65rem] border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-4"
     >
-      <h3 id="ham-remove" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">Remove from search index</h3>
+      <h3 id="ham-remove" class="ham-h m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted">{$t('inbox.hubAppleMessagesPanel.sections.removeFromSearchIndex')}</h3>
       <p class="ham-p ham-p--muted m-0 text-[0.8125rem] leading-tight text-muted">
-        Clears Messages content Braintunnel has already copied into this workspace. Your Apple Messages app is unchanged.
+        {$t('inbox.hubAppleMessagesPanel.remove.description')}
       </p>
       <button
         type="button"
@@ -468,13 +487,15 @@
         disabled={busy}
         onclick={() => void wipeSyncedMessages()}
       >
-        {action?.kind === 'wiping' ? 'Removing…' : 'Remove synced Messages from index'}
+        {action?.kind === 'wiping'
+          ? $t('inbox.hubAppleMessagesPanel.actions.removing')
+          : $t('inbox.hubAppleMessagesPanel.actions.removeSyncedMessages')}
       </button>
     </section>
 
     <footer class="ham-footer pt-1">
       <button type="button" class={cn(hubBtn, hubBtnSecondary, hamBtnBlock)} onclick={onClosePanel}>
-        Close panel
+        {$t('common.actions.closePanel')}
       </button>
     </footer>
   </div>

@@ -3,6 +3,7 @@
   import type { SurfaceContext } from '@client/router.js'
   import { FDA_GATE_OPEN_EVENT } from '@client/lib/onboarding/fdaGateKeys.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type CompactRow = {
     sent_at_unix: number
@@ -46,7 +47,11 @@
     loading = true
     errorText = null
     fullDiskAccessHint = false
-    onContextChange?.({ type: 'messages', chat: initialChat.trim(), displayLabel: '(loading)' })
+    onContextChange?.({
+      type: 'messages',
+      chat: initialChat.trim(),
+      displayLabel: $t('inbox.messageThread.loadingLabel'),
+    })
 
     const q = new URLSearchParams()
     q.set('chat', initialChat.trim())
@@ -66,7 +71,8 @@
         }
         if (threadFetchLatest.isStale(token)) return
         if (!res.ok || !data.ok) {
-          errorText = data.error ?? `Request failed (${res.status})`
+          errorText =
+            data.error ?? $t('inbox.messageThread.errors.requestFailedWithStatus', { status: res.status })
           fullDiskAccessHint = data.full_disk_access_hint === true
           return
         }
@@ -116,9 +122,9 @@
   class="message-thread-panel flex min-h-0 flex-1 flex-col overflow-y-auto px-3.5 pb-5 pt-3"
 >
   {#if !initialChat?.trim()}
-    <p class="status m-0 text-[13px] text-muted">Open a thread from the agent (get_message_thread) to view messages here.</p>
+    <p class="status m-0 text-[13px] text-muted">{$t('inbox.messageThread.empty.openFromAgent')}</p>
   {:else if loading}
-    <p class="status m-0 text-[13px] text-muted">Loading messages…</p>
+    <p class="status m-0 text-[13px] text-muted">{$t('inbox.messageThread.loadingMessages')}</p>
   {:else if errorText}
     <p class="status error m-0 text-[13px] text-[var(--danger,#f87171)]">{errorText}</p>
     {#if fullDiskAccessHint}
@@ -127,17 +133,17 @@
           type="button"
           class="fda-grant-link cursor-pointer border-none bg-none p-0 text-accent underline [text-underline-offset:3px] [font:inherit] hover:[filter:brightness(1.1)]"
           onclick={openFdaGateFromHint}
-        >Grant Full Disk Access…</button>
+        >{$t('inbox.messageThread.actions.grantFullDiskAccess')}</button>
       </p>
     {/if}
   {:else if messages.length === 0}
-    <p class="status m-0 text-[13px] text-muted">No messages in the current time window.</p>
+    <p class="status m-0 text-[13px] text-muted">{$t('inbox.messageThread.empty.noMessagesInWindow')}</p>
   {:else}
     <div class="thread-meta mb-3">
       {#if total > messages.length}
-        <span class="meta-count text-[11px] text-muted">{messages.length} loaded · {total} in range</span>
+        <span class="meta-count text-[11px] text-muted">{$t('inbox.messageThread.meta.loadedInRange', { loaded: messages.length, total })}</span>
       {:else}
-        <span class="meta-count text-[11px] text-muted">{messages.length} messages</span>
+        <span class="meta-count text-[11px] text-muted">{$t('inbox.messageThread.meta.messagesCount', { count: messages.length })}</span>
       {/if}
     </div>
     <div class="bubble-list flex flex-col gap-3">
@@ -148,7 +154,7 @@
             row.is_from_me && 'me items-end',
           )}
         >
-          <div class="msg-meta mb-1 px-1.5 text-[10px] text-muted">{timeLabel(row.sent_at_unix)}{#if !row.is_from_me && row.is_read === false}<span class="unread text-accent"> · Unread</span>{/if}</div>
+          <div class="msg-meta mb-1 px-1.5 text-[10px] text-muted">{timeLabel(row.sent_at_unix)}{#if !row.is_from_me && row.is_read === false}<span class="unread text-accent"> · {$t('inbox.messageThread.status.unread')}</span>{/if}</div>
           <div
             class={cn(
               'bubble max-w-[min(92%,520px)] whitespace-pre-wrap [word-break:break-word] bg-surface-2 px-3 py-2 text-sm leading-snug text-foreground',

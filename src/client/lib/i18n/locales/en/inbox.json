@@ -1,3 +1,285 @@
 {
-  "placeholder": {}
+  "placeholder": {},
+  "csvSpreadsheetView": {
+    "emptyFile": "Empty file",
+    "errors": {
+      "invalidSheet": "Invalid sheet"
+    },
+    "sheetFallback": "Sheet {{index}}",
+    "workbookSheetsAriaLabel": "Workbook sheets"
+  },
+  "emailDraftEditor": {
+    "loadingSubject": "(loading)",
+    "loadingDraft": "Loading draft…",
+    "metaAriaLabel": "Draft recipients and subject",
+    "errors": {
+      "noDraftSelected": "No draft selected.",
+      "loadDraftWithStatus": "Could not load draft ({{status}}).",
+      "sendFailed": "Send failed"
+    },
+    "fields": {
+      "to": "To",
+      "subject": "Subject",
+      "ccBcc": "Cc · Bcc",
+      "cc": "Cc",
+      "bcc": "Bcc"
+    },
+    "placeholders": {
+      "recipients": "Recipients",
+      "subject": "Subject",
+      "optional": "Optional"
+    }
+  },
+  "fileViewer": {
+    "errors": {
+      "httpStatus": "HTTP {{status}}"
+    }
+  },
+  "hubAppleMessagesPanel": {
+    "hero": {
+      "title": "Apple Messages on this Mac",
+      "lead": "Search your texts in Braintunnel by copying a private snapshot from this Mac into your workspace. Data is used for your search index; you can disconnect anytime."
+    },
+    "sections": {
+      "whatSyncs": "What syncs",
+      "permissions": "Permissions",
+      "technicalDetails": "Technical details",
+      "optionalName": "Optional: name this Mac",
+      "activeConnections": "Active connections",
+      "removeFromSearchIndex": "Remove from search index"
+    },
+    "whatSyncs": {
+      "beforeStrong": "Relevant iMessage history from ",
+      "strong": "this Mac",
+      "afterStrong": " is read locally and indexed so you can search and open threads in Braintunnel—similar to mail and folders in Search index."
+    },
+    "permissions": {
+      "beforeFdaStrong": "macOS may ask for ",
+      "fdaStrong": "Full Disk Access",
+      "betweenStrong": " so Braintunnel can read the Messages database on this machine. If you use contact names in threads, the app may ask for ",
+      "contactsStrong": "Contacts",
+      "afterContactsStrong": " to show familiar names—resolved on your Mac before anything is stored.",
+      "fdaDisabled": "Full Disk Access is off or not detected. Turn it on in System Settings, then return here.",
+      "fdaEnabled": "Full Disk Access looks enabled for this app."
+    },
+    "technicalDetails": {
+      "beforeStrong": "Connections are revocable links between this workspace and a Braintunnel helper on your Mac. We do not show raw secrets after you leave this panel—use ",
+      "turnOnStrong": "Turn on Messages sync",
+      "afterStrong": " again if you need a new link."
+    },
+    "setup": {
+      "nextStepTitle": "Next step on this Mac",
+      "description": "Paste this one-time code into the Braintunnel Mac helper when it asks. It is only shown here once—copy it now if you still need it."
+    },
+    "fields": {
+      "optionalNameLabel": "Name (optional)",
+      "optionalNamePlaceholder": "e.g. Work MacBook"
+    },
+    "actions": {
+      "openFdaHelp": "Open Full Disk Access help",
+      "copyCode": "Copy code",
+      "hideCode": "Hide code",
+      "turningOn": "Turning on…",
+      "turnOnSync": "Turn on Messages sync",
+      "disconnecting": "Disconnecting…",
+      "disconnect": "Disconnect",
+      "removing": "Removing…",
+      "removeSyncedMessages": "Remove synced Messages from index"
+    },
+    "activity": {
+      "lastSync": "Last sync {{value}}",
+      "linkedAwaitingFirstSync": "Linked {{value}} · waiting for first sync from this Mac"
+    },
+    "scopes": {
+      "messagesFromThisMac": "Messages from this Mac"
+    },
+    "empty": {
+      "noConnections": "None yet. Turn on sync above to link this Mac."
+    },
+    "errors": {
+      "loadConnectionsWithStatus": "Could not load connections ({{status}})",
+      "loadConnections": "Could not load connections",
+      "nameTooLong": "Use a shorter name (120 characters max), or leave it blank.",
+      "turnOnSync": "Could not turn on Messages sync",
+      "disconnect": "Could not disconnect",
+      "removeSyncedData": "Could not remove synced data"
+    },
+    "confirm": {
+      "disconnectDevice": "Stop syncing from “{{label}}”? You can turn this on again later; Messages already copied stay in your workspace until you remove them separately.",
+      "wipeSyncedMessages": "Remove all synced Messages data from Braintunnel in this workspace? This does not delete texts in Apple Messages."
+    },
+    "status": {
+      "removedFromIndex_one": "Removed {{count}} synced conversation from the index.",
+      "removedFromIndex_other": "Removed {{count}} synced conversations from the index."
+    },
+    "remove": {
+      "description": "Clears Messages content Braintunnel has already copied into this workspace. Your Apple Messages app is unchanged."
+    }
+  },
+  "hubConnectorIndexSections": {
+    "feedLabel": "Feed",
+    "summary": {
+      "events": "{{count}} events",
+      "documents": "{{count}} documents",
+      "lastSynced": "Last synced {{value}}"
+    },
+    "refresh": {
+      "driveBlockedTitle": "Add at least one Drive folder in the list above before syncing",
+      "starting": "Starting…",
+      "syncing": "Syncing…"
+    }
+  },
+  "hubConnectorMailSections": {
+    "mailboxHeading": "Mailbox",
+    "loadingStatus": "Loading status…",
+    "warnings": {
+      "staleLock": "A previous sync stopped unexpectedly. Quit Braintunnel completely and reopen to clear the stale lock.",
+      "needsBackfill": "This account is configured but has no indexed mail yet. Run backfill (or refresh) to pull history."
+    },
+    "status": {
+      "refreshAndBackfillRunning": "Refresh and backfill are running…",
+      "backfillRunning": "Backfill is running…",
+      "refreshRunning": "Refresh is running…"
+    },
+    "summary": {
+      "messages": "{{count}} messages",
+      "lastSync": "Last sync {{value}}",
+      "noMailboxRowPrefix": "No mailbox row in ",
+      "noMailboxRowSuffix": " for this source id yet. After the first successful sync, counts and dates will appear here."
+    },
+    "preferences": {
+      "heading": "This mailbox",
+      "description": "Settings for this mailbox only — other accounts in your workspace are unaffected.",
+      "searchByDefaultTitle": "Search this mailbox by default",
+      "searchByDefaultDescription": "When off, Braintunnel only searches this mailbox if you ask it to. It still gets indexed in the background.",
+      "sendByDefaultTitle": "Send from this mailbox by default",
+      "sendByDefaultDescription": "When you ask Braintunnel to send a message and don't name an account, it uses this one."
+    },
+    "sync": {
+      "description": "Refresh pulls new mail for this account. Backfill re-downloads history for the window below (long-running).",
+      "backfillWindow": "Backfill window",
+      "starting": "Starting…",
+      "retryBackfill": "Retry sync (backfill)"
+    }
+  },
+  "inboxPanel": {
+    "title": "Inbox",
+    "errors": {
+      "loadFailed": "Failed to load inbox",
+      "connectFailed": "Could not connect to inbox",
+      "syncFailed": "Sync failed"
+    },
+    "actions": {
+      "summarizeTitle": "New chat: summarize all inbox items",
+      "summarize": "Summarize",
+      "syncing": "Syncing...",
+      "searchEmails": "Search emails"
+    },
+    "compose": {
+      "forwardRecipientPlaceholder": "recipient@example.com",
+      "replyInstructionPlaceholder": "Brief instructions for the reply...",
+      "forwardInstructionPlaceholder": "Brief instructions for the forward...",
+      "drafting": "Drafting...",
+      "draft": "Draft",
+      "errors": {
+        "createDraftFailed": "Failed to create draft"
+      }
+    },
+    "thread": {
+      "noSubject": "(no subject)",
+      "loadingSubject": "(loading)",
+      "loading": "Loading...",
+      "headersAriaLabel": "Message headers",
+      "showLess": "Show less",
+      "showMore": "Show more",
+      "iframeTitle": "Email message body",
+      "failedToLoad": "Failed to load message.",
+      "errors": {
+        "notFound": "Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.",
+        "loadWithStatus": "Could not load message ({{status}}).",
+        "loadGeneric": "Could not load message."
+      }
+    },
+    "empty": {
+      "unavailable": "Inbox unavailable — ripmail may not be configured.",
+      "noMessages": "No messages"
+    }
+  },
+  "mailSearchResultsPanel": {
+    "noSubject": "(No subject)",
+    "aria": {
+      "openIndexedFile": "Open indexed file",
+      "openEmail": "Open email"
+    },
+    "count": {
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results"
+    },
+    "empty": {
+      "resultsExpired": "Search results are no longer available. Run the search again to refresh this view.",
+      "noMatches": "No matching emails or indexed files."
+    }
+  },
+  "messageThread": {
+    "loadingLabel": "(loading)",
+    "loadingMessages": "Loading messages…",
+    "actions": {
+      "grantFullDiskAccess": "Grant Full Disk Access…"
+    },
+    "errors": {
+      "requestFailedWithStatus": "Request failed ({{status}})"
+    },
+    "empty": {
+      "openFromAgent": "Open a thread from the agent (get_message_thread) to view messages here.",
+      "noMessagesInWindow": "No messages in the current time window."
+    },
+    "meta": {
+      "loadedInRange": "{{loaded}} loaded · {{total}} in range",
+      "messagesCount_one": "{{count}} message",
+      "messagesCount_other": "{{count}} messages"
+    },
+    "status": {
+      "unread": "Unread"
+    }
+  },
+  "phoneAccessPanel": {
+    "title": "Connect Phone",
+    "remoteAccess": {
+      "title": "Remote Access",
+      "enabled": "Enabled",
+      "localOnly": "Local Only"
+    },
+    "lanDirect": {
+      "title": "Same-LAN direct (Wi-Fi)",
+      "enabledDescription": "Phone can open Braintunnel on your LAN (vault login required)",
+      "disabledDescription": "Block private LAN; use tunnel or this computer",
+      "hint": "TLS-encrypted. Turn on only on networks you trust; the UI still requires your vault password."
+    },
+    "scanInstructionPrefix": "Scan this code with your phone to access Braintunnel ",
+    "scanInstructionFromAnywhere": "from anywhere",
+    "scanInstructionLocalNetwork": "over your local network",
+    "loading": {
+      "settingUpSecureEndpoint": "Setting up a secure endpoint...",
+      "generatingQrCode": "Generating QR code..."
+    },
+    "qrAlt": "QR Code for Phone Access",
+    "info": {
+      "remoteAccessible": "This link is accessible over the internet via a secure tunnel.",
+      "sameWifi": "Ensure your phone is connected to the same Wi-Fi network as this computer.",
+      "localOnly": "This link is only accessible within your local network."
+    },
+    "actions": {
+      "retry": "Retry",
+      "copyLocalUrl": "Copy local URL",
+      "generateNewRemoteLink": "Generate new remote link"
+    },
+    "errors": {
+      "fetchNetworkInfoFailed": "Failed to fetch network info",
+      "unknown": "Unknown error",
+      "label": "Error: {{error}}"
+    },
+    "confirm": {
+      "resetMagicLink": "This will invalidate your current remote link and all signed-in phones. Continue?"
+    }
+  }
 }
