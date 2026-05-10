@@ -42,12 +42,12 @@ let app: Hono
 beforeEach(async () => {
   vi.clearAllMocks()
   // Default mocks
-  ripmailInboxMock.mockReturnValue({
+  ripmailInboxMock.mockResolvedValue({
     items: [{ messageId: 'msg-1', fromName: 'Alice', fromAddress: 'alice@example.com', subject: 'Hello', date: '2026-04-12', snippet: 'Hi there', action: 'inform', matchedRuleIds: [], requiresUserAction: false }],
     counts: { notify: 0, inform: 1, ignore: 0, actionRequired: 0 },
   })
-  ripmailWhoMock.mockReturnValue({ contacts: [{ primaryAddress: 'bob@example.com', personId: 1, addresses: [], sentCount: 0, receivedCount: 5 }] })
-  ripmailReadMailMock.mockReturnValue({
+  ripmailWhoMock.mockResolvedValue({ contacts: [{ primaryAddress: 'bob@example.com', personId: 1, addresses: [], sentCount: 0, receivedCount: 5 }] })
+  ripmailReadMailMock.mockResolvedValue({
     messageId: 'msg-99',
     fromAddress: 'x@test.com',
     toAddresses: [],
@@ -62,10 +62,10 @@ beforeEach(async () => {
   })
   ripmailDraftViewMock.mockReturnValue({ id: 'draft-1', subject: 'Re: Hello', body: 'Draft body', to: [], createdAt: '', updatedAt: '' })
   ripmailDraftEditMock.mockReturnValue({ id: 'draft-1', subject: 'Hi', body: 'Line1\n\nLine2', to: ['a@example.com'], createdAt: '', updatedAt: '' })
-  ripmailDraftReplyMock.mockReturnValue({ id: 'draft-2', subject: 'Re: Hello', body: '', to: [], createdAt: '', updatedAt: '' })
-  ripmailDraftForwardMock.mockReturnValue({ id: 'draft-3', subject: 'Fwd: Hello', body: '', to: ['charlie@example.com'], createdAt: '', updatedAt: '' })
+  ripmailDraftReplyMock.mockResolvedValue({ id: 'draft-2', subject: 'Re: Hello', body: '', to: [], createdAt: '', updatedAt: '' })
+  ripmailDraftForwardMock.mockResolvedValue({ id: 'draft-3', subject: 'Fwd: Hello', body: '', to: ['charlie@example.com'], createdAt: '', updatedAt: '' })
   ripmailSendMock.mockResolvedValue({ ok: true, draftId: 'draft-1', dryRun: false })
-  ripmailArchiveMock.mockReturnValue({ results: [{ messageId: 'msg-1', local: { ok: true } }] })
+  ripmailArchiveMock.mockResolvedValue({ results: [{ messageId: 'msg-1', local: { ok: true } }] })
   extractDraftEditsMock.mockResolvedValue({ body_instruction: '' })
 
   vi.resetModules()
@@ -90,7 +90,7 @@ describe('GET /api/inbox', () => {
   })
 
   it('returns 503 when inbox ripmail fails', async () => {
-    ripmailInboxMock.mockImplementation(() => { throw new Error('db error') })
+    ripmailInboxMock.mockRejectedValue(new Error('db error'))
     const res = await app.request('/api/inbox')
     expect(res.status).toBe(503)
     expect(await res.json()).toEqual({ ok: false, error: 'ripmail_unavailable' })
@@ -143,7 +143,7 @@ describe('GET /api/inbox/who', () => {
   })
 
   it('returns empty array when ripmail fails', async () => {
-    ripmailWhoMock.mockImplementation(() => { throw new Error('db error') })
+    ripmailWhoMock.mockRejectedValue(new Error('db error'))
     const res = await app.request('/api/inbox/who')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual([])
@@ -162,7 +162,7 @@ describe('GET /api/inbox/:id', () => {
   })
 
   it('returns 404 when message not found', async () => {
-    ripmailReadMailMock.mockReturnValue(null)
+    ripmailReadMailMock.mockResolvedValue(null)
     const res = await app.request('/api/inbox/no-such-id')
     expect(res.status).toBe(404)
   })

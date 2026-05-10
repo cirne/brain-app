@@ -69,7 +69,7 @@ export function indexedFolderRootsFromSourcesListJson(parsed: unknown): string[]
 export async function loadRipmailIndexedFolderRoots(): Promise<string[]> {
   try {
     const { ripmailHomeForBrain } = await import('@server/lib/platform/brainHome.js')
-    const { sources } = ripmailSourcesList(ripmailHomeForBrain())
+    const { sources } = await ripmailSourcesList(ripmailHomeForBrain())
     return indexedFolderRootsFromSourcesListJson({ sources })
   } catch {
     return []

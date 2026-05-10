@@ -80,7 +80,7 @@ export function createAskCollaboratorTool() {
       const resolvedFrom = await resolveRipmailSourceForCli(params.from)
       const subject = b2bSubjectFromQuestion(params.question)
       const body = params.question.trim()
-      const draft = ripmailDraftNew(home, {
+      const draft = await ripmailDraftNew(home, {
         to: to.trim(),
         sourceId: resolvedFrom?.trim() || undefined,
         subject,

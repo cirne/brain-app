@@ -4,6 +4,7 @@
 
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { htmlToAgentMarkdown } from '../lib/htmlToAgentMarkdown.js'
 import type { RipmailDb } from './db.js'
 import type { AttachmentMeta } from './types.js'
 
@@ -90,7 +91,7 @@ export async function attachmentRead(
 
   if (!existsSync(absPath)) return '(attachment file not found on disk)'
 
-  const extracted = await extractText(absPath, row.mime_type)
+  const extracted = await extractAttachmentText(absPath, row.mime_type)
 
   // Cache back to DB
   db.prepare(`UPDATE attachments SET extracted_text = ? WHERE id = ?`).run(extracted, row.id)
@@ -98,7 +99,8 @@ export async function attachmentRead(
   return extracted
 }
 
-async function extractText(absPath: string, mimeType: string): Promise<string> {
+/** Same MIME/extension extraction logic used when caching attachment bodies (exported for tests). */
+export async function extractAttachmentText(absPath: string, mimeType: string): Promise<string> {
   const mime = mimeType.toLowerCase()
 
   if (mime === 'application/pdf' || absPath.endsWith('.pdf')) {
@@ -123,8 +125,8 @@ async function extractText(absPath: string, mimeType: string): Promise<string> {
   ) {
     try {
       const mammoth = await import('mammoth')
-      const result = await mammoth.extractRawText({ path: absPath })
-      return result.value ?? ''
+      const result = await mammoth.convertToHtml({ path: absPath })
+      return htmlToAgentMarkdown(result.value ?? '')
     } catch (e) {
       return `(DOCX extraction failed: ${String(e)})`
     }
@@ -138,7 +140,8 @@ async function extractText(absPath: string, mimeType: string): Promise<string> {
   ) {
     try {
       const XLSX = await import('xlsx')
-      const wb = XLSX.readFile(absPath)
+      const buf = readFileSync(absPath)
+      const wb = XLSX.read(buf, { type: 'buffer' })
       const sheets = wb.SheetNames.map((name) => {
         const ws = wb.Sheets[name]!
         return `## ${name}\n${XLSX.utils.sheet_to_csv(ws)}`
@@ -151,7 +154,7 @@ async function extractText(absPath: string, mimeType: string): Promise<string> {
 
   if (mime === 'text/html' || absPath.endsWith('.html') || absPath.endsWith('.htm')) {
     const html = readFileSync(absPath, 'utf8')
-    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    return htmlToAgentMarkdown(html)
   }
 
   if (mime === 'text/csv' || absPath.endsWith('.csv')) {

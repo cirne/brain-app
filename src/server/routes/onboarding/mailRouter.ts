@@ -11,7 +11,7 @@ import { kickWikiSupervisorIfIndexedGatePasses } from '@server/lib/backgroundTas
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
 import { loadRipmailConfig, saveRipmailConfig } from '@server/ripmail/sync/config.js'
-import { openRipmailDb } from '@server/ripmail/db.js'
+import { prepareRipmailDb } from '@server/ripmail/db.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 export const onboardingMailRouter = new Hono()
@@ -71,7 +71,7 @@ async function runAppleMailSetup(c: Context) {
     }
 
     if (platform() === 'darwin') {
-      const db = openRipmailDb(home)
+      const db = await prepareRipmailDb(home)
       const existing = db.prepare(`SELECT id FROM sources WHERE id = 'apple-calendar'`).get()
       if (!existing) {
         db.prepare(`INSERT INTO sources (id, kind, label, include_in_default) VALUES ('apple-calendar', 'appleCalendar', 'Apple Calendar', 1)`).run()

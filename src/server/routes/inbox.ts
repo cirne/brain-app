@@ -50,7 +50,7 @@ function optionalSubject(v: unknown): string | undefined {
 inbox.get('/', async (c) => {
   try {
     const home = ripmailHomeForBrain()
-    const result = ripmailInbox(home, { since: '24h', thorough: false })
+    const result = await ripmailInbox(home, { since: '24h', thorough: false })
     // Build mailboxes format expected by flattenInboxFromRipmailData
     const data = { mailboxes: [{ id: 'default', items: result.items }] }
     const rows = flattenInboxFromRipmailData(data)
@@ -85,7 +85,7 @@ inbox.get('/mail-sync-status', async (c) => {
 inbox.get('/who', async (c) => {
   const q = c.req.query('q') ?? ''
   try {
-    const data = ripmailWho(ripmailHomeForBrain(), q.trim() || undefined, { limit: q.trim() ? 20 : 60 })
+    const data = await ripmailWho(ripmailHomeForBrain(), q.trim() || undefined, { limit: q.trim() ? 20 : 60 })
     return c.json(data.contacts ?? [])
   } catch {
     return c.json([])
@@ -184,7 +184,7 @@ inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
     const home = ripmailHomeForBrain()
-    const msg = ripmailReadMail(home, id, { plainBody: true, fullBody: true })
+    const msg = await ripmailReadMail(home, id, { plainBody: true, fullBody: true })
     if (!msg) return c.json({ error: 'Not found' }, 404)
     const headersText = `From: ${msg.fromAddress}\nTo: ${msg.toAddresses.join(', ')}\nSubject: ${msg.subject}\nDate: ${msg.date}`
     const displayBody = msg.bodyText ?? ''
@@ -199,7 +199,7 @@ inbox.post('/:id/reply', async (c) => {
   const id = c.req.param('id')
   const { instruction } = await c.req.json()
   try {
-    const draft = ripmailDraftReply(ripmailHomeForBrain(), { messageId: id, instruction })
+    const draft = await ripmailDraftReply(ripmailHomeForBrain(), { messageId: id, instruction })
     return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
@@ -211,7 +211,7 @@ inbox.post('/:id/forward', async (c) => {
   const id = c.req.param('id')
   const { to, instruction } = await c.req.json()
   try {
-    const draft = ripmailDraftForward(ripmailHomeForBrain(), { messageId: id, to, instruction })
+    const draft = await ripmailDraftForward(ripmailHomeForBrain(), { messageId: id, to, instruction })
     return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
@@ -221,7 +221,7 @@ inbox.post('/:id/forward', async (c) => {
 // POST /api/inbox/:id/archive
 inbox.post('/:id/archive', async (c) => {
   const id = c.req.param('id')
-  ripmailArchive(ripmailHomeForBrain(), [id])
+  await ripmailArchive(ripmailHomeForBrain(), [id])
   return c.json({ ok: true })
 })
 

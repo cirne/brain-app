@@ -17,49 +17,49 @@ vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
 }))
 
 vi.mock('@server/ripmail/index.js', () => ({
-  ripmailSourcesList: vi.fn(() => ({ sources: [] })),
-  ripmailSourcesStatus: vi.fn(() => []),
-  ripmailSourcesAddLocalDir: vi.fn(() => ({ id: 'src', kind: 'localDir', docCount: 0, includeInDefault: true })),
-  ripmailSourcesAddGoogleDrive: vi.fn(() => ({ id: 'src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
-  ripmailSourcesEdit: vi.fn(),
-  ripmailSourcesRemove: vi.fn(),
-  ripmailSearch: vi.fn(() => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
-  ripmailReadMail: vi.fn(() => null),
-  ripmailReadIndexedFile: vi.fn(() => null),
+  ripmailSourcesList: vi.fn(async () => ({ sources: [] })),
+  ripmailSourcesStatus: vi.fn(async () => []),
+  ripmailSourcesAddLocalDir: vi.fn(async () => ({ id: 'src', kind: 'localDir', docCount: 0, includeInDefault: true })),
+  ripmailSourcesAddGoogleDrive: vi.fn(async () => ({ id: 'src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
+  ripmailSourcesEdit: vi.fn(async () => {}),
+  ripmailSourcesRemove: vi.fn(async () => {}),
+  ripmailSearch: vi.fn(async () => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
+  ripmailReadMail: vi.fn(async () => null),
+  ripmailReadIndexedFile: vi.fn(async () => null),
   ripmailAttachmentRead: vi.fn(async () => ''),
-  ripmailWho: vi.fn(() => ({ contacts: [{ personId: 1, primaryAddress: 'alice@example.com', addresses: [], sentCount: 0, receivedCount: 42 }] })),
-  ripmailInbox: vi.fn(() => ({
+  ripmailWho: vi.fn(async () => ({ contacts: [{ personId: 1, primaryAddress: 'alice@example.com', addresses: [], sentCount: 0, receivedCount: 42 }] })),
+  ripmailInbox: vi.fn(async () => ({
     items: [
       { messageId: 'msg1', sourceId: 's1', fromAddress: 'a@b.com', subject: 'Test Subject', date: '2026-01-01', snippet: 'snippet', action: 'inform', matchedRuleIds: [], requiresUserAction: false }
     ],
     counts: { notify: 0, inform: 1, ignore: 0, actionRequired: 0 },
   })),
-  ripmailStatus: vi.fn(() => ({ indexedMessages: 0, sources: [], isRunning: false })),
+  ripmailStatus: vi.fn(async () => ({ indexedMessages: 0, sources: [], isRunning: false })),
   ripmailRulesList: vi.fn(() => ({ version: 4, rules: [{ kind: 'search', id: 'r1', action: 'notify', query: 'foo', fromOrToUnion: false, threadScope: true }] })),
   ripmailRulesShow: vi.fn(() => null),
   ripmailRulesAdd: vi.fn(() => ({ kind: 'search', id: 'r-new', action: 'notify', query: 'test', fromOrToUnion: false, threadScope: true })),
   ripmailRulesEdit: vi.fn(() => ({})),
   ripmailRulesRemove: vi.fn(),
   ripmailRulesMove: vi.fn(),
-  ripmailRulesValidate: vi.fn(() => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
-  ripmailArchive: vi.fn(() => ({
+  ripmailRulesValidate: vi.fn(async () => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
+  ripmailArchive: vi.fn(async () => ({
     results: [
       { messageId: 'msg1', local: { ok: true } },
       { messageId: 'msg2', local: { ok: true } },
     ]
   })),
-  ripmailDraftNew: vi.fn(() => ({ id: 'draft-1', subject: 'Test', body: 'body content', to: ['bob@example.com'], createdAt: '', updatedAt: '' })),
-  ripmailDraftReply: vi.fn(() => ({ id: 'draft-1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
-  ripmailDraftForward: vi.fn(() => ({ id: 'draft-1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftNew: vi.fn(async () => ({ id: 'draft-1', subject: 'Test', body: 'body content', to: ['bob@example.com'], createdAt: '', updatedAt: '' })),
+  ripmailDraftReply: vi.fn(async () => ({ id: 'draft-1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftForward: vi.fn(async () => ({ id: 'draft-1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
   ripmailDraftEdit: vi.fn(),
   ripmailDraftView: vi.fn(() => ({ id: 'draft-1', subject: 'Test', body: 'body content', to: ['bob@example.com'], cc: ['cc@example.com'], createdAt: '', updatedAt: '' })),
   ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'draft-1', dryRun: false })),
-  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
-  ripmailCalendarListCalendars: vi.fn(() => []),
-  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'evt-new', sourceId: 'user_gmail_com-gcal', sourceKind: 'googleCalendar', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false, summary: 'Standup' })),
-  ripmailCalendarUpdateEvent: vi.fn(),
-  ripmailCalendarCancelEvent: vi.fn(),
-  ripmailCalendarDeleteEvent: vi.fn(),
+  ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarListCalendars: vi.fn(async () => []),
+  ripmailCalendarCreateEvent: vi.fn(async () => ({ uid: 'evt-new', sourceId: 'user_gmail_com-gcal', sourceKind: 'googleCalendar', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false, summary: 'Standup' })),
+  ripmailCalendarUpdateEvent: vi.fn(async () => {}),
+  ripmailCalendarCancelEvent: vi.fn(async () => {}),
+  ripmailCalendarDeleteEvent: vi.fn(async () => {}),
   ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
 }))
 import {
@@ -691,7 +691,7 @@ Sel: {{selection}} File: {{open_file}}`,
 
     it('returns not-found message when no results', async () => {
       const { ripmailWho } = await import('@server/ripmail/index.js')
-      vi.mocked(ripmailWho).mockReturnValueOnce({ contacts: [] })
+      vi.mocked(ripmailWho).mockResolvedValueOnce({ contacts: [] })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'find_person')!
@@ -702,7 +702,7 @@ Sel: {{selection}} File: {{open_file}}`,
 
     it('returns wiki results even if ripmail fails', async () => {
       const { ripmailWho } = await import('@server/ripmail/index.js')
-      vi.mocked(ripmailWho).mockImplementationOnce(() => { throw new Error('ripmail who failed') })
+      vi.mocked(ripmailWho).mockRejectedValueOnce(new Error('ripmail who failed'))
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t) => t.name === 'find_person')!
@@ -814,7 +814,7 @@ Sel: {{selection}} File: {{open_file}}`,
     it('runs ripmail inbox --thorough when thorough is true', async () => {
       const { ripmailInbox } = await import('@server/ripmail/index.js')
       // Override mock to return thorough result with winningRuleId
-      vi.mocked(ripmailInbox).mockReturnValueOnce({
+      vi.mocked(ripmailInbox).mockResolvedValueOnce({
         items: [{ messageId: 'mid-hidden', sourceId: 's1', fromAddress: 'a@b.com', subject: 'Hidden', date: '2026-01-01', snippet: 's', action: 'ignore', matchedRuleIds: ['noisy-list'], winningRuleId: 'noisy-list', requiresUserAction: false }],
         counts: { notify: 0, inform: 0, ignore: 1, actionRequired: 0 },
       })
@@ -865,7 +865,7 @@ Sel: {{selection}} File: {{open_file}}`,
   describe('archive_emails tool — unresolved ids', () => {
     it('does not claim success when ripmail reports local.ok=false for every id', async () => {
       const { ripmailArchive } = await import('@server/ripmail/index.js')
-      vi.mocked(ripmailArchive).mockReturnValueOnce({
+      vi.mocked(ripmailArchive).mockResolvedValueOnce({
         results: [
           { messageId: 'bogus-1', local: { ok: false } },
           { messageId: 'bogus-2', local: { ok: false } },

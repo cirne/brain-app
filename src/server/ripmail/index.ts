@@ -7,7 +7,15 @@
  * Older Brain code spawned the `ripmail` CLI for mail; `main` uses this module in-process.
  */
 
-export { openRipmailDb, closeRipmailDb, invalidateRipmailDbCache, openMemoryRipmailDb, ripmailDbPath } from './db.js'
+export {
+  openRipmailDb,
+  prepareRipmailDb,
+  RipmailDbSchemaDriftError,
+  closeRipmailDb,
+  invalidateRipmailDbCache,
+  openMemoryRipmailDb,
+  ripmailDbPath,
+} from './db.js'
 export { SCHEMA_VERSION } from './schema.js'
 
 export type {
@@ -38,7 +46,7 @@ export type {
   RefreshResult,
 } from './types.js'
 
-import { openRipmailDb } from './db.js'
+import { prepareRipmailDb } from './db.js'
 import { search } from './search.js'
 import { readMail, readIndexedFile } from './mailRead.js'
 import { attachmentList, attachmentRead } from './attachments.js'
@@ -76,34 +84,34 @@ export type {
 // ---------------------------------------------------------------------------
 
 /** Search mail and indexed files. */
-export function ripmailSearch(ripmailHome: string, opts: SearchOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSearch(ripmailHome: string, opts: SearchOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return search(db, opts)
 }
 
 /** Read a mail message by Message-ID. */
-export function ripmailReadMail(
+export async function ripmailReadMail(
   ripmailHome: string,
   messageId: string,
   opts?: { plainBody?: boolean; fullBody?: boolean; includeAttachments?: boolean },
 ) {
-  const db = openRipmailDb(ripmailHome)
+  const db = await prepareRipmailDb(ripmailHome)
   return readMail(db, messageId, opts)
 }
 
 /** Read an indexed file (Drive / localDir). */
-export function ripmailReadIndexedFile(
+export async function ripmailReadIndexedFile(
   ripmailHome: string,
   id: string,
   opts?: { fullBody?: boolean },
 ) {
-  const db = openRipmailDb(ripmailHome)
+  const db = await prepareRipmailDb(ripmailHome)
   return readIndexedFile(db, id, opts)
 }
 
 /** List attachments for a message. */
-export function ripmailAttachmentList(ripmailHome: string, messageId: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailAttachmentList(ripmailHome: string, messageId: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return attachmentList(db, messageId)
 }
 
@@ -113,31 +121,31 @@ export async function ripmailAttachmentRead(
   messageId: string,
   key: string | number,
 ) {
-  const db = openRipmailDb(ripmailHome)
+  const db = await prepareRipmailDb(ripmailHome)
   return attachmentRead(db, messageId, key, ripmailHome)
 }
 
 /** Find contacts. */
-export function ripmailWho(ripmailHome: string, query?: string, opts?: { limit?: number; sourceId?: string }) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailWho(ripmailHome: string, query?: string, opts?: { limit?: number; sourceId?: string }) {
+  const db = await prepareRipmailDb(ripmailHome)
   return who(db, query, opts)
 }
 
 /** Index status. */
-export function ripmailStatus(ripmailHome: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailStatus(ripmailHome: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return status(db)
 }
 
 /** ParsedRipmailStatus — compatible with parseRipmailStatusJson consumers. */
-export function ripmailStatusParsed(ripmailHome: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailStatusParsed(ripmailHome: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return statusParsed(db, ripmailHome)
 }
 
 /** Run inbox scan (deterministic rules). */
-export function ripmailInbox(ripmailHome: string, opts?: InboxOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailInbox(ripmailHome: string, opts?: InboxOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return inbox(db, ripmailHome, opts)
 }
 
@@ -172,119 +180,125 @@ export function ripmailRulesMove(ripmailHome: string, opts: import('./rules.js')
 }
 
 /** Validate inbox rules. */
-export function ripmailRulesValidate(ripmailHome: string, opts?: import('./rules.js').RulesValidateOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailRulesValidate(ripmailHome: string, opts?: import('./rules.js').RulesValidateOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return rulesValidate(db, ripmailHome, opts)
 }
 
 /** List sources. */
-export function ripmailSourcesList(ripmailHome: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSourcesList(ripmailHome: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return sourcesList(db)
 }
 
 /** Sources status. */
-export function ripmailSourcesStatus(ripmailHome: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSourcesStatus(ripmailHome: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return sourcesStatus(db)
 }
 
 /** Add local dir source. */
-export function ripmailSourcesAddLocalDir(ripmailHome: string, opts: import('./sources.js').AddLocalDirOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSourcesAddLocalDir(
+  ripmailHome: string,
+  opts: import('./sources.js').AddLocalDirOptions,
+) {
+  const db = await prepareRipmailDb(ripmailHome)
   return sourcesAddLocalDir(db, opts)
 }
 
 /** Add Google Drive source. */
-export function ripmailSourcesAddGoogleDrive(ripmailHome: string, opts: import('./sources.js').AddGoogleDriveOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSourcesAddGoogleDrive(
+  ripmailHome: string,
+  opts: import('./sources.js').AddGoogleDriveOptions,
+) {
+  const db = await prepareRipmailDb(ripmailHome)
   return sourcesAddGoogleDrive(db, opts)
 }
 
 /** Edit a source. */
-export function ripmailSourcesEdit(ripmailHome: string, id: string, opts: { label?: string; path?: string }) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSourcesEdit(ripmailHome: string, id: string, opts: { label?: string; path?: string }) {
+  const db = await prepareRipmailDb(ripmailHome)
   return sourcesEdit(db, id, opts)
 }
 
 /** Remove a source. */
-export function ripmailSourcesRemove(ripmailHome: string, id: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailSourcesRemove(ripmailHome: string, id: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return sourcesRemove(db, id)
 }
 
 /** Archive messages. */
-export function ripmailArchive(ripmailHome: string, messageIds: string[]) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailArchive(ripmailHome: string, messageIds: string[]) {
+  const db = await prepareRipmailDb(ripmailHome)
   return archive(db, messageIds)
 }
 
 /** Unarchive messages. */
-export function ripmailUnarchive(ripmailHome: string, messageIds: string[]) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailUnarchive(ripmailHome: string, messageIds: string[]) {
+  const db = await prepareRipmailDb(ripmailHome)
   return unarchive(db, messageIds)
 }
 
 /** Calendar range query. */
-export function ripmailCalendarRange(
+export async function ripmailCalendarRange(
   ripmailHome: string,
   from: number,
   to: number,
   opts?: { sourceIds?: string[]; calendarIds?: string[] },
 ) {
-  const db = openRipmailDb(ripmailHome)
+  const db = await prepareRipmailDb(ripmailHome)
   return calendarRange(db, from, to, opts)
 }
 
 /** List calendars. */
-export function ripmailCalendarListCalendars(ripmailHome: string, opts?: { sourceIds?: string[] }) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailCalendarListCalendars(ripmailHome: string, opts?: { sourceIds?: string[] }) {
+  const db = await prepareRipmailDb(ripmailHome)
   return calendarListCalendars(db, opts)
 }
 
 /** Create calendar event. */
-export function ripmailCalendarCreateEvent(ripmailHome: string, opts: import('./calendar.js').CreateEventOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailCalendarCreateEvent(ripmailHome: string, opts: import('./calendar.js').CreateEventOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return calendarCreateEvent(db, opts)
 }
 
 /** Update calendar event. */
-export function ripmailCalendarUpdateEvent(
+export async function ripmailCalendarUpdateEvent(
   ripmailHome: string,
   uid: string,
   updates: Parameters<typeof calendarUpdateEvent>[2],
 ) {
-  const db = openRipmailDb(ripmailHome)
+  const db = await prepareRipmailDb(ripmailHome)
   return calendarUpdateEvent(db, uid, updates)
 }
 
 /** Cancel calendar event. */
-export function ripmailCalendarCancelEvent(ripmailHome: string, uid: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailCalendarCancelEvent(ripmailHome: string, uid: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return calendarCancelEvent(db, uid)
 }
 
 /** Delete calendar event. */
-export function ripmailCalendarDeleteEvent(ripmailHome: string, uid: string) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailCalendarDeleteEvent(ripmailHome: string, uid: string) {
+  const db = await prepareRipmailDb(ripmailHome)
   return calendarDeleteEvent(db, uid)
 }
 
 /** Create draft. */
-export function ripmailDraftNew(ripmailHome: string, opts: import('./draft.js').NewDraftOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailDraftNew(ripmailHome: string, opts: import('./draft.js').NewDraftOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return draftNew(db, ripmailHome, opts)
 }
 
 /** Reply draft. */
-export function ripmailDraftReply(ripmailHome: string, opts: import('./draft.js').ReplyDraftOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailDraftReply(ripmailHome: string, opts: import('./draft.js').ReplyDraftOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return draftReply(db, ripmailHome, opts)
 }
 
 /** Forward draft. */
-export function ripmailDraftForward(ripmailHome: string, opts: import('./draft.js').ForwardDraftOptions) {
-  const db = openRipmailDb(ripmailHome)
+export async function ripmailDraftForward(ripmailHome: string, opts: import('./draft.js').ForwardDraftOptions) {
+  const db = await prepareRipmailDb(ripmailHome)
   return draftForward(db, ripmailHome, opts)
 }
 

@@ -10,16 +10,16 @@ vi.mock('@server/lib/platform/brainHome.js', () => ({
 }))
 
 vi.mock('@server/ripmail/index.js', () => ({
-  ripmailSourcesList: vi.fn(() => ({ sources: [
+  ripmailSourcesList: vi.fn(async () => ({ sources: [
     { id: 'x_netjets_local', kind: 'localDir', label: 'NetJets', docCount: 0, includeInDefault: true },
     { id: 'a_gmail_com', kind: 'imap', label: 'a@gmail.com', docCount: 0, includeInDefault: true },
   ]})),
-  ripmailSourcesStatus: vi.fn(() => [
+  ripmailSourcesStatus: vi.fn(async () => [
     { sourceId: 'drive_x', kind: 'googleDrive', docCount: 42, lastSyncedAt: '2026-04-30T10:00:00Z' },
   ]),
-  ripmailSourcesRemove: vi.fn(),
-  ripmailCalendarListCalendars: vi.fn(() => []),
-  ripmailStatusParsed: vi.fn(() => ({
+  ripmailSourcesRemove: vi.fn(async () => {}),
+  ripmailCalendarListCalendars: vi.fn(async () => []),
+  ripmailStatusParsed: vi.fn(async () => ({
     indexedTotal: 100,
     lastSyncedAt: '2026-04-30T10:00:00Z',
     dateRange: { from: '2026-01-01', to: '2026-04-30' },
@@ -140,7 +140,7 @@ describe('hub routes', () => {
 
   it('GET /sources returns error payload when ripmail fails', async () => {
     const { ripmailSourcesList } = await import('@server/ripmail/index.js')
-    vi.mocked(ripmailSourcesList).mockImplementationOnce(() => { throw new Error('ripmail: nope') })
+    vi.mocked(ripmailSourcesList).mockRejectedValueOnce(new Error('ripmail: nope'))
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources')

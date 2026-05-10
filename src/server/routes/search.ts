@@ -56,7 +56,7 @@ search.get('/', async (c) => {
         })
       )
     }),
-    Promise.resolve(ripmailSearch(ripmailHomeForBrain(), { query: q, limit: 10, includeAll: false }))
+    ripmailSearch(ripmailHomeForBrain(), { query: q, limit: 10, includeAll: false })
       .then((data): EmailResult[] =>
         (data.results ?? []).slice(0, 10).map((r) => ({
           type: 'email' as const,

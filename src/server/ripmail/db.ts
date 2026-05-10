@@ -3,7 +3,8 @@
  *
  * - DB path: `<ripmail_home>/ripmail.db` (unchanged from Rust)
  * - Schema version stored in `user_version` PRAGMA
- * - On version mismatch: wipe and recreate (no migrations — early dev convention)
+ * - On version mismatch: {@link openRipmailDb} throws {@link RipmailDbSchemaDriftError}; callers
+ *   await {@link prepareRipmailDb} to wipe SQLite, repopulate from maildirs in-process (no SQLite migrations).
  */
 
 import Database from 'better-sqlite3'
@@ -14,11 +15,27 @@ import { SCHEMA_STATEMENTS, SCHEMA_VERSION } from './schema.js'
 
 export type RipmailDb = Database.Database
 
+/** Thrown when on-disk DB `user_version` does not match {@link SCHEMA_VERSION}. Use {@link prepareRipmailDb}. */
+export class RipmailDbSchemaDriftError extends Error {
+  readonly ripmailHome: string
+  readonly storedVersion: number
+  readonly expectedVersion: number
+  constructor(ripmailHome: string, storedVersion: number, expectedVersion: number) {
+    super(`ripmail: schema drift for ${ripmailHome} — user_version=${storedVersion} expected=${expectedVersion}`)
+    this.name = 'RipmailDbSchemaDriftError'
+    this.ripmailHome = ripmailHome
+    this.storedVersion = storedVersion
+    this.expectedVersion = expectedVersion
+  }
+}
+
 /**
  * Map from ripmail home path to open DB connection.
  * One connection per home — ripmail DB is single-writer, single-process.
  */
 const dbCache = new Map<string, RipmailDb>()
+
+const prepareRipmailInflight = new Map<string, Promise<RipmailDb>>()
 
 /** Path to `ripmail.db` inside a ripmail home dir. */
 export function ripmailDbPath(ripmailHome: string): string {
@@ -48,10 +65,20 @@ function openFresh(dbPath: string): RipmailDb {
   return db
 }
 
+function removeRipmailDbArtifacts(dbPath: string): void {
+  for (const p of [`${dbPath}-wal`, `${dbPath}-shm`, dbPath]) {
+    try {
+      rmSync(p, { force: true })
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /**
  * Open (or return cached) the ripmail DB for `ripmailHome`.
  * Creates the directory and DB file if they don't exist.
- * Wipes + recreates the DB when schema version doesn't match.
+ * On **`user_version` mismatch**, closes and throws {@link RipmailDbSchemaDriftError} — use {@link prepareRipmailDb}.
  */
 export function openRipmailDb(ripmailHome: string): RipmailDb {
   const cached = dbCache.get(ripmailHome)
@@ -71,20 +98,53 @@ export function openRipmailDb(ripmailHome: string): RipmailDb {
     db.pragma('foreign_keys = ON')
     const stored = db.pragma('user_version', { simple: true }) as number
     if (stored !== SCHEMA_VERSION) {
-      brainLogger.warn(
-        { ripmailHome, stored, expected: SCHEMA_VERSION },
-        'ripmail:db:version-mismatch — wiping and recreating',
-      )
-      db.close()
-      rmSync(dbPath)
-      db = openFresh(dbPath)
-    } else {
-      seedSyncSummaryRows(db)
+      try {
+        db.close()
+      } catch {
+        /* ignore */
+      }
+      throw new RipmailDbSchemaDriftError(ripmailHome, stored, SCHEMA_VERSION)
     }
+    seedSyncSummaryRows(db)
   }
 
   dbCache.set(ripmailHome, db)
   return db
+}
+
+/**
+ * Opens the ripmail DB after ensuring schema matches: on drift, wipes SQLite artifacts and awaits
+ * maildir repopulation (same-process, non-blocking for the runtime vs `spawnSync`).
+ * Concurrent calls for the same `ripmailHome` share one prepare operation.
+ */
+export async function prepareRipmailDb(ripmailHome: string): Promise<RipmailDb> {
+  let flight = prepareRipmailInflight.get(ripmailHome)
+  if (flight) return flight
+
+  flight = doPrepareRipmailDb(ripmailHome)
+  prepareRipmailInflight.set(ripmailHome, flight)
+  try {
+    return await flight
+  } finally {
+    prepareRipmailInflight.delete(ripmailHome)
+  }
+}
+
+async function doPrepareRipmailDb(ripmailHome: string): Promise<RipmailDb> {
+  try {
+    return openRipmailDb(ripmailHome)
+  } catch (e) {
+    if (!(e instanceof RipmailDbSchemaDriftError)) throw e
+    brainLogger.warn(
+      { ripmailHome: e.ripmailHome, stored: e.storedVersion, expected: e.expectedVersion },
+      'ripmail:db:version-mismatch — wiping and rebuilding from maildir cache',
+    )
+    invalidateRipmailDbCache(e.ripmailHome)
+    removeRipmailDbArtifacts(ripmailDbPath(e.ripmailHome))
+    const { repopulateRipmailIndexFromAllMaildirs } = await import('./rebuildFromMaildir.js')
+    await repopulateRipmailIndexFromAllMaildirs(e.ripmailHome)
+    return openRipmailDb(ripmailHome)
+  }
 }
 
 /**

@@ -18,7 +18,7 @@ import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileTh
 import { isOnboardingInitialMailSyncComplete } from '@shared/onboardingMailGate.js'
 import { notifyOnboardingInterviewDone } from '@server/lib/backgroundTasks/orchestrator.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
-import { openRipmailDb } from '@server/ripmail/db.js'
+import { prepareRipmailDb } from '@server/ripmail/db.js'
 import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
@@ -39,7 +39,7 @@ onboardingCoreRouter.post('/clear-stale-lock', async (c) => {
 
   try {
     // TS module: reset sync running flag in DB
-    const db = openRipmailDb(ripmailHomeForBrain())
+    const db = await prepareRipmailDb(ripmailHomeForBrain())
     db.prepare(
       `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id IN (1, 2)`,
     ).run()

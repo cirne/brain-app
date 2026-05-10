@@ -36,4 +36,10 @@ describe('Docker packaging (OPP-041 Phase 1)', () => {
     expect(pkg.scripts['docker:build']).toBe('docker build -t brain-app:local .')
     expect(pkg.scripts['docker:deploy']).toBe('bash scripts/docker-deploy-do.sh')
   })
+
+  it('server bundle copies ripmail default rules beside dist/server/index.js', () => {
+    const raw = readFileSync(join(repoRoot, 'scripts/build-server-bundle.mjs'), 'utf-8')
+    expect(raw).toContain('src/server/ripmail/rules')
+    expect(raw).toMatch(/join\(outdir, ['"]rules['"]\)/)
+  })
 })

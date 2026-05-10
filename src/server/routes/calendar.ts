@@ -56,7 +56,7 @@ type PersonHit = { primaryAddress?: string; displayName?: string; name?: string;
 
 async function searchEmails(query: string, limit: number): Promise<EmailHit[]> {
   try {
-    const data = ripmailSearch(ripmailHomeForBrain(), { query, limit, includeAll: false })
+    const data = await ripmailSearch(ripmailHomeForBrain(), { query, limit, includeAll: false })
     return (data.results ?? []).slice(0, limit).map((r) => ({
       type: 'email' as const,
       id: r.messageId,
@@ -178,7 +178,7 @@ async function lookupPeople(emails: string[]): Promise<PersonHit[]> {
   const seen = new Set<string>()
   for (const email of emails.slice(0, 6)) {
     try {
-      const data = ripmailWho(ripmailHomeForBrain(), email, { limit: 3 })
+      const data = await ripmailWho(ripmailHomeForBrain(), email, { limit: 3 })
       for (const p of data.contacts ?? []) {
         const addr = (p.primaryAddress ?? '').toLowerCase()
         if (addr && !seen.has(addr)) {

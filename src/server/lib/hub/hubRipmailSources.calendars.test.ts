@@ -6,13 +6,13 @@ vi.mock('@server/lib/platform/brainHome.js', () => ({
 }))
 
 vi.mock('@server/ripmail/index.js', () => ({
-  ripmailCalendarListCalendars: vi.fn(() => []),
-  ripmailSourcesRemove: vi.fn(),
-  ripmailSourcesList: vi.fn(() => ({ sources: [] })),
-  ripmailSourcesStatus: vi.fn(() => []),
+  ripmailCalendarListCalendars: vi.fn(async () => []),
+  ripmailSourcesRemove: vi.fn(async () => {}),
+  ripmailSourcesList: vi.fn(async () => ({ sources: [] })),
+  ripmailSourcesStatus: vi.fn(async () => []),
   loadRipmailConfig: vi.fn(() => ({ sources: [] })),
   saveRipmailConfig: vi.fn(),
-  ripmailStatusParsed: vi.fn(() => ({
+  ripmailStatusParsed: vi.fn(async () => ({
     indexedTotal: 0, lastSyncedAt: null, dateRange: { from: null, to: null },
     syncRunning: false, refreshRunning: false, backfillRunning: false,
     syncLockAgeMs: null, ftsReady: 0, staleLockInDb: false,
@@ -54,7 +54,7 @@ describe('resolveConfiguredCalendarIdsForPicker', () => {
 
 describe('getHubRipmailCalendarsForSource', () => {
   it('maps ripmail calendar color onto HubCalendarRow', async () => {
-    vi.mocked(ripmailCalendarListCalendars).mockReturnValue([
+    vi.mocked(ripmailCalendarListCalendars).mockResolvedValue([
       { id: 'c1', name: 'One', sourceId: 'src1' },
       { id: 'c2', name: 'Two', sourceId: 'src1' },
     ])
@@ -71,7 +71,7 @@ describe('getHubRipmailCalendarsForSource', () => {
   })
 
   it('resolves configured primary to API calendar id using source email', async () => {
-    vi.mocked(ripmailCalendarListCalendars).mockReturnValue([
+    vi.mocked(ripmailCalendarListCalendars).mockResolvedValue([
       { id: 'lewiscirne@gmail.com', name: 'Lew', sourceId: 'lewiscirne_gmail_com-gcal' },
       { id: 'team@group.calendar.google.com', name: 'Team Katelyn', sourceId: 'lewiscirne_gmail_com-gcal' },
     ])

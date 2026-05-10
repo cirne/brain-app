@@ -16,8 +16,9 @@ const haveEval =
   existsSync(ripHome) && existsSync(join(ripHome, 'config.json')) && existsSync(dbSqlite)
 
 describe('eval home ripmail', () => {
-  it.skipIf(!haveEval)('indexed messages > 0 after brain:seed-enron-demo', () => {
-    const n = ripmailStatus(ripHome).indexedMessages
+  it.skipIf(!haveEval)('indexed messages > 0 after brain:seed-enron-demo', async () => {
+    const s = await ripmailStatus(ripHome)
+    const n = s.indexedMessages
     expect(n).toBeGreaterThan(0)
   })
 })

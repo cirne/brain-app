@@ -48,7 +48,7 @@ export function formatRipmailSourcesForPrompt(stdout: string): string {
 /** Returns formatted sources prompt section using the in-process TS module. */
 export async function buildRipmailSourcesPromptSection(): Promise<string> {
   try {
-    const { sources } = ripmailSourcesList(ripmailHomeForBrain())
+    const { sources } = await ripmailSourcesList(ripmailHomeForBrain())
     return formatRipmailSourcesForPrompt(JSON.stringify({ sources }))
   } catch {
     return ''

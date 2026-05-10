@@ -22,7 +22,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetBrainQueryGrantById: vi.fn(),
   mockGetPrimaryEmail: vi.fn(),
-  mockDraftNew: vi.fn(() => ({
+  mockDraftNew: vi.fn(async () => ({
     id: 'dr_1',
     subject: '[braintunnel] What is the status?',
     body: 'What is the status?',
@@ -88,7 +88,7 @@ describe('ask_collaborator tool', () => {
       revoked_at_ms: null,
     })
     mockGetPrimaryEmail.mockResolvedValue('owner@test.dev')
-    mockDraftNew.mockReturnValue({
+    mockDraftNew.mockResolvedValue({
       id: 'dr_1',
       subject: '[braintunnel] What is the status?',
       body: 'What is the status?',

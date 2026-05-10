@@ -3,7 +3,7 @@
  * Orchestrates sync across all configured IMAP and Google OAuth sources.
  */
 
-import { openRipmailDb } from '../db.js'
+import { prepareRipmailDb } from '../db.js'
 import { loadRipmailConfig, getImapSources, loadImapPassword, loadGoogleOAuthTokens } from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
@@ -16,7 +16,7 @@ import { clearSyncSummaryRunning, setSyncSummaryRunning } from './persist.js'
  * Reads ripmail config.json to discover IMAP / Gmail sources.
  */
 export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promise<RefreshResult> {
-  const db = openRipmailDb(ripmailHome)
+  const db = await prepareRipmailDb(ripmailHome)
   const config = loadRipmailConfig(ripmailHome)
   const imapSources = getImapSources(config)
 

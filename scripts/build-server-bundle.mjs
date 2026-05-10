@@ -2,7 +2,8 @@
 /**
  * Production server build: bundle + minify app code into dist/server/*.js.
  * Dependencies stay external (node_modules); dev-only code (e.g. Vite middleware) is tree-shaken.
- * Copies repo `shared/` → `dist/server/shared/` (sibling of index.js; see resolveRepoSharedPath.ts).
+ * Copies repo `shared/` → `dist/server/shared/` (sibling of index.js; see resolveRepoSharedPath.ts),
+ * `src/server/prompts/` → `dist/server/prompts/`, and `src/server/ripmail/rules/` → `dist/server/rules/`.
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -57,6 +58,12 @@ if (existsSync(sharedSrc)) {
 const promptsSrc = join(root, 'src/server/prompts')
 if (existsSync(promptsSrc)) {
   cpSync(promptsSrc, join(outdir, 'prompts'), { recursive: true })
+}
+
+/** inbox.ts loads `./rules/default_rules.v3.json` via import.meta.url → sibling of bundled index.js. */
+const ripmailRulesSrc = join(root, 'src/server/ripmail/rules')
+if (existsSync(ripmailRulesSrc)) {
+  cpSync(ripmailRulesSrc, join(outdir, 'rules'), { recursive: true })
 }
 
 console.log('[build-server-bundle] done →', outdir)

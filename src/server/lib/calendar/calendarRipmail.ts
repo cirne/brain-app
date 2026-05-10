@@ -3,7 +3,7 @@
  */
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { ensureGoogleOAuthImapSiblingSources } from '@server/lib/platform/googleOAuth.js'
-import { openRipmailDb } from '@server/ripmail/db.js'
+import { prepareRipmailDb } from '@server/ripmail/db.js'
 import { calendarRange, calendarListCalendars } from '@server/ripmail/calendar.js'
 import type { CalendarEvent } from './calendarCache.js'
 
@@ -221,7 +221,7 @@ export function flattenRipmailListCalendarsJson(parsed: unknown): {
 
 async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: RipmailListCalendarRow[] }> {
   try {
-    const db = openRipmailDb(ripmailHomeForBrain())
+    const db = await prepareRipmailDb(ripmailHomeForBrain())
     const items = calendarListCalendars(db)
     const configured = items.length > 0
     const calendars: RipmailListCalendarRow[] = items.map((c) => ({
@@ -266,7 +266,7 @@ export async function getCalendarEventsFromRipmail(opts: {
     ripmailCalendarSourcesInfo(),
     (async () => {
       try {
-        const db = openRipmailDb(ripmailHomeForBrain())
+        const db = await prepareRipmailDb(ripmailHomeForBrain())
         return calendarRange(db, fromUnix, toUnix, {
           calendarIds: opts.calendarIds?.length ? opts.calendarIds : undefined,
         })

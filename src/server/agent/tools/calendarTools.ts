@@ -268,7 +268,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         if (searchQ) {
           const fromUnix = Math.floor(new Date(params.start + 'T00:00:00Z').getTime() / 1000)
           const toUnix = Math.floor(new Date(params.end + 'T23:59:59Z').getTime() / 1000)
-          const rangeResult = ripmailCalendarRange(ripmailHomeForBrain(), fromUnix, toUnix, {
+          const rangeResult = await ripmailCalendarRange(ripmailHomeForBrain(), fromUnix, toUnix, {
             calendarIds: params.calendar_ids?.length ? params.calendar_ids : undefined,
           })
           const qLower = searchQ.toLowerCase()
@@ -389,7 +389,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
       }
 
       if (params.op === 'list_calendars') {
-        const calendars = ripmailCalendarListCalendars(ripmailHomeForBrain(), {
+        const calendars = await ripmailCalendarListCalendars(ripmailHomeForBrain(), {
           sourceIds: params.source?.trim() ? [params.source.trim()] : undefined,
         })
         const text = JSON.stringify({ calendars })
@@ -410,7 +410,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
             'op=configure_source: when `calendar_ids` lists more than one calendar, pass `default_calendar_ids` with the ids the user chose for default day-view (ripmail `sources edit --default-calendar`). Decide from list_calendars + context—do not omit.',
           )
         }
-        ripmailSourcesEdit(ripmailHomeForBrain(), params.source, {
+        await ripmailSourcesEdit(ripmailHomeForBrain(), params.source, {
           label: [...calIds, ...defs].join(', '),
         })
         runCalendarRefreshAgent(params.source)
@@ -446,7 +446,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
           startAt = Math.floor(new Date(s).getTime() / 1000)
           endAt = Math.floor(new Date(e).getTime() / 1000)
         }
-        const event = ripmailCalendarCreateEvent(ripmailHomeForBrain(), {
+        const event = await ripmailCalendarCreateEvent(ripmailHomeForBrain(), {
           sourceId: source,
           calendarId: calId,
           summary: title,
@@ -491,7 +491,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         if (!hasField) {
           throw new Error('update_event needs at least one of: title, description, location, timed start/end, all_day+all_day_date, or recurrence fields')
         }
-        ripmailCalendarUpdateEvent(ripmailHomeForBrain(), eventUid, updates)
+        await ripmailCalendarUpdateEvent(ripmailHomeForBrain(), eventUid, updates)
         runCalendarRefreshAgent(sourceId)
         return {
           content: [{ type: 'text' as const, text: 'Event updated. Calendar re-index started in the background.' }],
@@ -503,7 +503,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         const eid = params.event_id?.trim()
         if (!eid) throw new Error('event_id is required for op=cancel_event')
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        ripmailCalendarCancelEvent(ripmailHomeForBrain(), eventUid)
+        await ripmailCalendarCancelEvent(ripmailHomeForBrain(), eventUid)
         runCalendarRefreshAgent(sourceId)
         return {
           content: [{ type: 'text' as const, text: 'Event cancelled. Calendar re-index started in the background.' }],
@@ -518,7 +518,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
           throw new Error('delete_event does not support scope=future (use cancel_event with scope=future)')
         }
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        ripmailCalendarDeleteEvent(ripmailHomeForBrain(), eventUid)
+        await ripmailCalendarDeleteEvent(ripmailHomeForBrain(), eventUid)
         runCalendarRefreshAgent(sourceId)
         return {
           content: [{ type: 'text' as const, text: 'Event deleted. Calendar re-index started in the background.' }],

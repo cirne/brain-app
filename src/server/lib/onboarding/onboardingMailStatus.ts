@@ -128,7 +128,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
 
   const t0 = performance.now()
   try {
-    const parsed = ripmailStatusParsed(ripmailHomePath())
+    const parsed = await ripmailStatusParsed(ripmailHomePath())
     const ms = Math.round(performance.now() - t0)
     logOnboardingMailDebug('poll', { execMs: ms, parsed }, 'summary')
     maybeWarnRipmailStatusAnomalies(parsed, ms)

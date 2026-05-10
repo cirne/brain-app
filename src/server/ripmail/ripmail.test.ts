@@ -76,8 +76,8 @@ function insertMessage(
 // ---------------------------------------------------------------------------
 
 describe('schema', () => {
-  it('SCHEMA_VERSION is 29', () => {
-    expect(SCHEMA_VERSION).toBe(29)
+  it('SCHEMA_VERSION is 30', () => {
+    expect(SCHEMA_VERSION).toBe(30)
   })
 
   it('openMemoryRipmailDb creates DB with expected tables', () => {

@@ -24,31 +24,28 @@ const ripmailDb = join(ripmailHome, 'ripmail.db')
 
 const JANET_WEEKLY_REPORT_ID = '2322798.1075855417584.JavaMail.evans@thyme'
 
-function isCorpusReady(): boolean {
-  if (!existsSync(ripmailDb)) return false
+function isCorpusReady(): Promise<boolean> {
+  if (!existsSync(ripmailDb)) return Promise.resolve(false)
   try {
-    if (statSync(ripmailDb).size < 10_000) return false
+    if (statSync(ripmailDb).size < 10_000) return Promise.resolve(false)
   } catch {
-    return false
+    return Promise.resolve(false)
   }
-  try {
-    const n = ripmailStatus(ripmailHome).indexedMessages
-    return n >= 1_000
-  } catch {
-    return false
-  }
+  return ripmailStatus(ripmailHome)
+    .then((s) => s.indexedMessages >= 1_000)
+    .catch(() => false)
 }
 
 describe('Enron corpus (TS ripmail)', () => {
   let corpusReady = false
 
-  beforeAll(() => {
-    corpusReady = isCorpusReady()
+  beforeAll(async () => {
+    corpusReady = await isCorpusReady()
   })
 
-  it('search: Weekly Report from janet returns hits', (ctx) => {
+  it('search: Weekly Report from janet returns hits', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const tsResult = ripmailSearch(ripmailHome, {
+    const tsResult = await ripmailSearch(ripmailHome, {
       query: 'Weekly Report',
       from: 'janet.butler@enron.com',
       afterDate: '2001-11-01',
@@ -60,35 +57,35 @@ describe('Enron corpus (TS ripmail)', () => {
     expect(tsResult.totalMatched).toBeGreaterThan(0)
   })
 
-  it('readMail: known message id', (ctx) => {
+  it('readMail: known message id', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const tsResult = ripmailReadMail(ripmailHome, JANET_WEEKLY_REPORT_ID, { includeAttachments: false })
+    const tsResult = await ripmailReadMail(ripmailHome, JANET_WEEKLY_REPORT_ID, { includeAttachments: false })
     expect(tsResult).not.toBeNull()
     expect(tsResult!.messageId).toBe(JANET_WEEKLY_REPORT_ID)
     expect(tsResult!.fromAddress.toLowerCase()).toContain('janet')
     expect(tsResult!.subject).toBeTruthy()
   })
 
-  it('who: kean returns contacts', (ctx) => {
+  it('who: kean returns contacts', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const tsResult = ripmailWho(ripmailHome, 'kean', { limit: 20 })
+    const tsResult = await ripmailWho(ripmailHome, 'kean', { limit: 20 })
     expect(tsResult.contacts.length).toBeGreaterThan(0)
   })
 
-  it('attachmentList: known message', (ctx) => {
+  it('attachmentList: known message', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const tsResult = ripmailAttachmentList(ripmailHome, JANET_WEEKLY_REPORT_ID)
+    const tsResult = await ripmailAttachmentList(ripmailHome, JANET_WEEKLY_REPORT_ID)
     expect(Array.isArray(tsResult)).toBe(true)
   })
 
-  it('status: indexedMessages > 0', (ctx) => {
+  it('status: indexedMessages > 0', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    expect(ripmailStatus(ripmailHome).indexedMessages).toBeGreaterThan(0)
+    expect((await ripmailStatus(ripmailHome)).indexedMessages).toBeGreaterThan(0)
   })
 
-  it('search: broad pattern', (ctx) => {
+  it('search: broad pattern', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const result = ripmailSearch(ripmailHome, {
+    const result = await ripmailSearch(ripmailHome, {
       query: 'Enron',
       limit: 10,
       includeAll: true,
@@ -96,9 +93,9 @@ describe('Enron corpus (TS ripmail)', () => {
     expect(result.results.length).toBeGreaterThan(0)
   })
 
-  it('search: from filter only', (ctx) => {
+  it('search: from filter only', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const result = ripmailSearch(ripmailHome, {
+    const result = await ripmailSearch(ripmailHome, {
       from: 'enron.com',
       limit: 10,
       includeAll: true,
@@ -106,9 +103,9 @@ describe('Enron corpus (TS ripmail)', () => {
     expect(result.results.length).toBeGreaterThan(0)
   })
 
-  it('readMail: rawPath populated', (ctx) => {
+  it('readMail: rawPath populated', async (ctx) => {
     if (!corpusReady) return ctx.skip()
-    const result = ripmailReadMail(ripmailHome, JANET_WEEKLY_REPORT_ID)
+    const result = await ripmailReadMail(ripmailHome, JANET_WEEKLY_REPORT_ID)
     expect(result).not.toBeNull()
     expect(result!.rawPath).toBeTruthy()
   })

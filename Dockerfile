@@ -1,4 +1,6 @@
-# Brain (Hono + Svelte) — Linux server image. See docs/opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md
+# Braintunnel — Linux server image (Hono + Svelte + in-process ripmail as TypeScript).
+# Multi-stage Node build only: no Rust/Cargo, no standalone `ripmail` ELF — mail is `src/server/ripmail/`
+# compiled into `dist/server`. Hosted layout: docs/opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md
 #
 # Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo` or `BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs` (host) or
 # `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.

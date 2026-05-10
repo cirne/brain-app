@@ -79,7 +79,7 @@ export async function removeHubRipmailSource(
   const trimmed = id?.trim()
   if (!trimmed) return { ok: false, error: 'Source id required' }
   try {
-    ripmailSourcesRemove(ripmailHomeForBrain(), trimmed)
+    await ripmailSourcesRemove(ripmailHomeForBrain(), trimmed)
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
@@ -89,7 +89,7 @@ export async function removeHubRipmailSource(
 export async function getHubRipmailSourcesList(): Promise<HubRipmailSourcesPayload> {
   try {
     const home = ripmailHomeForBrain()
-    const { sources } = ripmailSourcesList(home)
+    const { sources } = await ripmailSourcesList(home)
     return {
       sources: sources.map((s) => ({
         id: s.id,
@@ -114,7 +114,7 @@ export async function getHubRipmailSourceDetail(id: string): Promise<HubRipmailS
   let status: HubRipmailSourceStatusRow | null = null
   let statusError: string | undefined
   try {
-    const statusRows = ripmailSourcesStatus(home)
+    const statusRows = await ripmailSourcesStatus(home)
     const row = statusRows.find((r) => r.sourceId === trimmed)
     if (row) {
       status = {
@@ -260,7 +260,7 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
   if (!trimmed) return { ok: false, error: 'id required' }
   try {
     const home = ripmailHomeForBrain()
-    const calendars = ripmailCalendarListCalendars(home, { sourceIds: [trimmed] })
+    const calendars = await ripmailCalendarListCalendars(home, { sourceIds: [trimmed] })
     const allCalendars: HubCalendarRow[] = calendars.map((c) => ({
       id: c.id,
       name: c.name ?? c.id,

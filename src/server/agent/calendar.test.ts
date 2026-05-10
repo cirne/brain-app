@@ -15,39 +15,39 @@ vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
 })
 
 vi.mock('@server/ripmail/index.js', () => ({
-  ripmailSourcesList: vi.fn(() => ({ sources: [] })),
-  ripmailSourcesStatus: vi.fn(() => []),
-  ripmailSourcesAddLocalDir: vi.fn(() => ({ id: 'src', kind: 'localDir', docCount: 0, includeInDefault: true })),
-  ripmailSourcesAddGoogleDrive: vi.fn(() => ({ id: 'src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
-  ripmailSourcesEdit: vi.fn(),
-  ripmailSourcesRemove: vi.fn(),
-  ripmailSearch: vi.fn(() => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
-  ripmailReadMail: vi.fn(() => null),
-  ripmailReadIndexedFile: vi.fn(() => null),
+  ripmailSourcesList: vi.fn(async () => ({ sources: [] })),
+  ripmailSourcesStatus: vi.fn(async () => []),
+  ripmailSourcesAddLocalDir: vi.fn(async () => ({ id: 'src', kind: 'localDir', docCount: 0, includeInDefault: true })),
+  ripmailSourcesAddGoogleDrive: vi.fn(async () => ({ id: 'src', kind: 'googleDrive', docCount: 0, includeInDefault: true })),
+  ripmailSourcesEdit: vi.fn(async () => {}),
+  ripmailSourcesRemove: vi.fn(async () => {}),
+  ripmailSearch: vi.fn(async () => ({ results: [], totalMatched: 0, hints: [], timings: { totalMs: 1 } })),
+  ripmailReadMail: vi.fn(async () => null),
+  ripmailReadIndexedFile: vi.fn(async () => null),
   ripmailAttachmentRead: vi.fn(async () => ''),
-  ripmailWho: vi.fn(() => ({ contacts: [] })),
-  ripmailInbox: vi.fn(() => ({ items: [], counts: { notify: 0, inform: 0, ignore: 0, actionRequired: 0 } })),
-  ripmailStatus: vi.fn(() => ({ indexedMessages: 0, sources: [], isRunning: false })),
+  ripmailWho: vi.fn(async () => ({ contacts: [] })),
+  ripmailInbox: vi.fn(async () => ({ items: [], counts: { notify: 0, inform: 0, ignore: 0, actionRequired: 0 } })),
+  ripmailStatus: vi.fn(async () => ({ indexedMessages: 0, sources: [], isRunning: false })),
   ripmailRulesList: vi.fn(() => ({ version: 4, rules: [] })),
   ripmailRulesShow: vi.fn(() => null),
   ripmailRulesAdd: vi.fn(() => ({})),
   ripmailRulesEdit: vi.fn(() => ({})),
   ripmailRulesRemove: vi.fn(),
   ripmailRulesMove: vi.fn(),
-  ripmailRulesValidate: vi.fn(() => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
-  ripmailArchive: vi.fn(() => ({ results: [] })),
-  ripmailDraftNew: vi.fn(() => ({ id: 'd1', subject: 'Test', body: '', to: [], createdAt: '', updatedAt: '' })),
-  ripmailDraftReply: vi.fn(() => ({ id: 'd1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
-  ripmailDraftForward: vi.fn(() => ({ id: 'd1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailRulesValidate: vi.fn(async () => ({ fingerprint: 'abc', ruleCount: 0, errors: [], warnings: [] })),
+  ripmailArchive: vi.fn(async () => ({ results: [] })),
+  ripmailDraftNew: vi.fn(async () => ({ id: 'd1', subject: 'Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftReply: vi.fn(async () => ({ id: 'd1', subject: 'Re: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftForward: vi.fn(async () => ({ id: 'd1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
   ripmailDraftEdit: vi.fn(),
   ripmailDraftView: vi.fn(() => ({ id: 'd1', subject: 'Test', body: 'hi', to: [], createdAt: '', updatedAt: '' })),
   ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'd1', dryRun: false })),
-  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
-  ripmailCalendarListCalendars: vi.fn(() => [{ id: 'cal1', name: 'My Calendar', sourceId: 'src1' }]),
-  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
-  ripmailCalendarUpdateEvent: vi.fn(),
-  ripmailCalendarCancelEvent: vi.fn(),
-  ripmailCalendarDeleteEvent: vi.fn(),
+  ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarListCalendars: vi.fn(async () => [{ id: 'cal1', name: 'My Calendar', sourceId: 'src1' }]),
+  ripmailCalendarCreateEvent: vi.fn(async () => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
+  ripmailCalendarUpdateEvent: vi.fn(async () => {}),
+  ripmailCalendarCancelEvent: vi.fn(async () => {}),
+  ripmailCalendarDeleteEvent: vi.fn(async () => {}),
   ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
 }))
 
@@ -463,7 +463,7 @@ describe('calendar tool adaptive resolution', () => {
 
   it('search uses ripmail calendar search and skips getCalendarEvents', async () => {
     const { ripmailCalendarRange } = await import('@server/ripmail/index.js')
-    vi.mocked(ripmailCalendarRange).mockReturnValue({
+    vi.mocked(ripmailCalendarRange).mockResolvedValue({
       events: [{
         uid: 'x1',
         sourceId: 's-gcal',
@@ -510,7 +510,7 @@ describe('calendar tool adaptive resolution', () => {
       endAt: 1776715200 + i * 3600,
       allDay: false,
     }))
-    vi.mocked(ripmailCalendarRange).mockReturnValue({ events: manyEvents, sourcesConfigured: true })
+    vi.mocked(ripmailCalendarRange).mockResolvedValue({ events: manyEvents, sourcesConfigured: true })
 
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)

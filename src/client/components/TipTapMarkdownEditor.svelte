@@ -11,7 +11,7 @@
   import BubbleMenu from '@tiptap/extension-bubble-menu'
   import FloatingMenu from '@tiptap/extension-floating-menu'
   import { Placeholder } from '@tiptap/extension-placeholder'
-  import TurndownService from 'turndown'
+  import { createBaseTurndownService } from '@shared/turndownBrainBase.js'
   import {
     Bold,
     Code2,
@@ -37,11 +37,7 @@
   import { floatingBlockMenuShouldShow } from '@client/lib/tiptapFloatingMenuVisibility.js'
   import '../styles/wiki/wikiMarkdown.css'
 
-  const turndown = new TurndownService({
-    headingStyle: 'atx',
-    codeBlockStyle: 'fenced',
-    bulletListMarker: '-',
-  })
+  const turndown = createBaseTurndownService()
 
   /** Round-trip `data-wiki` links back to Obsidian `[[path]]` / `[[path|label]]` (same as chat / wiki viewer). */
   turndown.addRule('wikiDataLink', {

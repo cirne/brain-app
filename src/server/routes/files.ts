@@ -61,7 +61,7 @@ files.get('/indexed', async c => {
     return c.json({ error: msg }, 403)
   }
   try {
-    const result = ripmailReadIndexedFile(ripmailHomeForBrain(), readArg, { fullBody: true })
+    const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), readArg, { fullBody: true })
     if (!result) {
       return c.json({ error: 'not an indexed file read (expected googleDrive or localDir)' }, 422)
     }
@@ -95,7 +95,7 @@ files.get('/read', async c => {
     return c.json({ error: 'Not found' }, 404)
   }
   try {
-    const result = ripmailReadIndexedFile(ripmailHomeForBrain(), fullPath, { fullBody: true })
+    const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), fullPath, { fullBody: true })
     if (!result) {
       return c.json({ error: 'file not found in index' }, 404)
     }

@@ -146,7 +146,7 @@ export async function getHubSourceMailStatus(sourceId: string): Promise<HubSourc
     return { ok: false, sourceId: id, error: 'ripmail DB not found' }
   }
   try {
-    const parsed = ripmailStatusParsed(home)
+    const parsed = await ripmailStatusParsed(home)
     // Minimal CLI-shaped JSON so tests + parseHubSourceMailStatusFromStdout stay aligned with Rust output.
     const stdout = JSON.stringify({
       sync: {

@@ -3,8 +3,9 @@
  * Mirrors ripmail/src/rebuild_index.rs + post-rebuild bootstrap (ripmail/src/cli/commands/sync.rs).
  */
 
-import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
-import { relative, resolve, sep } from 'node:path'
+import type { Dirent } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, resolve, sep } from 'node:path'
 import type { RipmailDb } from './db.js'
 import { invalidateRipmailDbCache, openRipmailDb } from './db.js'
 import { parseInboxWindowToIsoCutoff } from './inboxWindow.js'
@@ -14,6 +15,7 @@ import {
   parseStoredIndexDateUtc,
 } from './sync/ingestDate.js'
 import { parseEml } from './sync/parse.js'
+import { loadRipmailConfig, getImapSources } from './sync/config.js'
 
 const DEFAULT_IMAP_FOLDER = '[Gmail]/All Mail'
 const LABELS_JSON = '[]'
@@ -58,6 +60,42 @@ export function rawPathForSqliteStore(ripmailHome: string, emlPath: string): str
     throw new Error(`rebuild-index: eml ${emlPath} must be under RIPMAIL_HOME ${ripmailHome}`)
   }
   return rel.split(sep).join('/')
+}
+
+/** Mailbox maildirs under a ripmail home (multi-account + legacy `maildir/`). */
+export function discoverRipmailMaildirRoots(ripmailHome: string): string[] {
+  const roots = new Set<string>()
+  const legacy = join(ripmailHome, 'maildir')
+  try {
+    if (statSync(legacy).isDirectory()) roots.add(legacy)
+  } catch {
+    /* */
+  }
+  const cfg = loadRipmailConfig(ripmailHome)
+  for (const s of getImapSources(cfg)) {
+    const p = join(ripmailHome, s.id, 'maildir')
+    try {
+      if (statSync(p).isDirectory()) roots.add(p)
+    } catch {
+      /* */
+    }
+  }
+  let rd: Dirent[]
+  try {
+    rd = readdirSync(ripmailHome, { withFileTypes: true }) as Dirent[]
+  } catch {
+    return [...roots].sort()
+  }
+  for (const e of rd) {
+    if (!e.isDirectory() || e.name.startsWith('.')) continue
+    const p = join(ripmailHome, e.name, 'maildir')
+    try {
+      if (statSync(p).isDirectory()) roots.add(p)
+    } catch {
+      /* */
+    }
+  }
+  return [...roots].sort()
 }
 
 function mimeFromExt(filename: string): string {
@@ -157,27 +195,26 @@ DELETE FROM threads;
 `
 
 /**
- * Wipe indexed mail then import every `.eml` under `maildirRoot`.
- * `ripmailHome` is `$RIPMAIL_HOME`; stored `raw_path` values are relative to it.
+ * Append messages from one maildir tree (must not DELETE global index — caller clears once).
  */
-export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: string): Promise<number> {
-  mkdirSync(ripmailHome, { recursive: true })
-  invalidateRipmailDbCache(ripmailHome)
-
-  const db = openRipmailDb(ripmailHome)
+export async function appendMaildirToOpenDb(
+  db: RipmailDb,
+  ripmailHome: string,
+  maildirRoot: string,
+  uidOffset: number,
+): Promise<{ inserted: number; nextUidExclusive: number }> {
   const mailboxId = inferMailboxIdFromMaildirRoot(maildirRoot)
   const paths = collectEmlPaths(maildirRoot)
   const batchFloor = await minTrustworthyIndexDateInMaildir(paths, mailboxId)
 
   type ParsedRow = {
-    path: string
     uid: number
     msg: Awaited<ReturnType<typeof parseEml>>
     rawRel: string
   }
 
   const parsedRows: ParsedRow[] = []
-  let uid = 0
+  let uid = uidOffset
   for (const path of paths) {
     let buf: Buffer
     try {
@@ -209,7 +246,7 @@ export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: 
       continue
     }
 
-    parsedRows.push({ path, uid, msg, rawRel })
+    parsedRows.push({ uid, msg, rawRel })
   }
 
   const insertMessage = db.prepare(`
@@ -239,7 +276,6 @@ export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: 
   `)
 
   const trx = db.transaction((rows: ParsedRow[]) => {
-    db.exec(DELETE_INDEX_DATA)
     let inserted = 0
     for (const row of rows) {
       const stripped = row.msg.messageId.replace(/^<|>$/g, '')
@@ -279,8 +315,7 @@ export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: 
       upsertThread.run(mid, row.msg.subject, row.msg.date)
 
       for (const att of row.msg.attachments) {
-        const mime =
-          att.mimeType?.trim() ? att.mimeType : mimeFromExt(att.filename)
+        const mime = att.mimeType?.trim() ? att.mimeType : mimeFromExt(att.filename)
         insertAttachment.run(mid, att.filename, mime, att.size, '')
       }
       inserted += 1
@@ -288,7 +323,45 @@ export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: 
     return inserted
   })
 
-  const n = trx(parsedRows)
+  const inserted = trx(parsedRows)
+  return { inserted, nextUidExclusive: uid }
+}
+
+/** After wiping `ripmail.db`, refill the mail index from all local mailbox maildirs (no snapshots). */
+export async function repopulateRipmailIndexFromAllMaildirs(ripmailHome: string): Promise<number> {
+  mkdirSync(ripmailHome, { recursive: true })
+  invalidateRipmailDbCache(ripmailHome)
+
+  const db = openRipmailDb(ripmailHome)
+  db.exec(DELETE_INDEX_DATA)
+  const roots = discoverRipmailMaildirRoots(ripmailHome)
+  let nextUidExclusive = 0
+  let total = 0
+  for (const root of roots) {
+    const { inserted, nextUidExclusive: next } = await appendMaildirToOpenDb(
+      db,
+      ripmailHome,
+      root,
+      nextUidExclusive,
+    )
+    total += inserted
+    nextUidExclusive = next
+  }
   runPostRebuildBootstrapTs(db)
-  return n
+  return total
+}
+
+/**
+ * Wipe indexed mail then import every `.eml` under `maildirRoot`.
+ * `ripmailHome` is `$RIPMAIL_HOME`; stored `raw_path` values are relative to it.
+ */
+export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: string): Promise<number> {
+  mkdirSync(ripmailHome, { recursive: true })
+  invalidateRipmailDbCache(ripmailHome)
+
+  const db = openRipmailDb(ripmailHome)
+  db.exec(DELETE_INDEX_DATA)
+  const { inserted } = await appendMaildirToOpenDb(db, ripmailHome, maildirRoot, 0)
+  runPostRebuildBootstrapTs(db)
+  return inserted
 }

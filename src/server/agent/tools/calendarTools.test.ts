@@ -10,13 +10,13 @@ vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
 }))
 
 vi.mock('@server/ripmail/index.js', () => ({
-  ripmailCalendarListCalendars: vi.fn(() => []),
-  ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),
-  ripmailCalendarCreateEvent: vi.fn(() => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
-  ripmailCalendarUpdateEvent: vi.fn(),
-  ripmailCalendarCancelEvent: vi.fn(),
-  ripmailCalendarDeleteEvent: vi.fn(),
-  ripmailSourcesEdit: vi.fn(),
+  ripmailCalendarListCalendars: vi.fn(async () => []),
+  ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
+  ripmailCalendarCreateEvent: vi.fn(async () => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
+  ripmailCalendarUpdateEvent: vi.fn(async () => {}),
+  ripmailCalendarCancelEvent: vi.fn(async () => {}),
+  ripmailCalendarDeleteEvent: vi.fn(async () => {}),
+  ripmailSourcesEdit: vi.fn(async () => {}),
 }))
 
 vi.mock('@server/lib/platform/brainHome.js', () => ({

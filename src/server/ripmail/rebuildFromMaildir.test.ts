@@ -12,6 +12,7 @@ import {
   collectEmlPaths,
   inferMailboxIdFromMaildirRoot,
   rebuildIndexFromMaildir,
+  repopulateRipmailIndexFromAllMaildirs,
 } from './rebuildFromMaildir.js'
 import {
   applyRebuildIndexDateNormalization,
@@ -27,6 +28,15 @@ To: Bob <bob@test.dev>
 Subject: Hello rebuild
 
 Body text here.
+`
+
+const SAMPLE_EML2 = `Message-ID: <seed-msg-2@test.dev>
+Date: Mon, 15 Jan 2026 13:00:00 +0000
+From: Carol <carol@test.dev>
+To: Dave <dave@test.dev>
+Subject: Second mailbox
+
+Second body.
 `
 
 describe('ingestDate (rebuild)', () => {
@@ -74,6 +84,26 @@ describe('rebuildIndexFromMaildir', () => {
 
   it('inferMailboxIdFromMaildirRoot reads parent of maildir', () => {
     expect(inferMailboxIdFromMaildirRoot('/tmp/x/mbox/maildir')).toBe('mbox')
+  })
+
+  it('repopulates from every mailbox maildir under ripmail home', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'brain-repopulate-'))
+    cleanup = root
+    const ripHome = join(root, 'rip')
+    const cur1 = join(ripHome, 'mbox_one', 'maildir', 'cur')
+    const cur2 = join(ripHome, 'mbox_two', 'maildir', 'cur')
+    mkdirSync(cur1, { recursive: true })
+    mkdirSync(cur2, { recursive: true })
+    writeFileSync(join(cur1, 'a.eml'), SAMPLE_EML)
+    writeFileSync(join(cur2, 'b.eml'), SAMPLE_EML2)
+
+    const n = await repopulateRipmailIndexFromAllMaildirs(ripHome)
+    expect(n).toBe(2)
+
+    const db = openRipmailDb(ripHome)
+    const c = db.prepare(`SELECT COUNT(*) AS c FROM messages`).get() as { c: number }
+    expect(c.c).toBe(2)
+    closeRipmailDb(ripHome)
   })
 
   it('inserts message row and applies bulk-archive bootstrap', async () => {

@@ -11,6 +11,7 @@ import {
 
 vi.mock('@server/ripmail/db.js', () => ({
   openRipmailDb: vi.fn(() => ({})),
+  prepareRipmailDb: vi.fn(async () => ({})),
 }))
 vi.mock('@server/ripmail/calendar.js', () => ({
   calendarRange: vi.fn(),
