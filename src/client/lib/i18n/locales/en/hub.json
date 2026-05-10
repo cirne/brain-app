@@ -1,0 +1,7 @@
+{
+  "calendarPicker": {
+    "hint": "Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar. Changes save as soon as you toggle a calendar.",
+    "empty": "No calendars found yet. Try refreshing once your calendar account has connected.",
+    "loading": "Loading calendars…"
+  }
+}

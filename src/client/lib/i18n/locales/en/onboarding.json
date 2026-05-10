@@ -1,0 +1,12 @@
+{
+  "profiling": {
+    "title": "Building your profile",
+    "leadDesktop": "Your wiki lives in your vault on this Mac—private to this device, not uploaded, and not available on the web. We use mail stored here to draft a short profile into your local notes.",
+    "leadHosted": "We're building your profile by learning from your emails. This will take a few moments."
+  },
+  "wikiBuildout": {
+    "title": "Setting up your wiki",
+    "leadDesktop": "We're creating pages from your profile and mail. Your wiki stays in your vault on this Mac only—not uploaded and not reachable from elsewhere.",
+    "leadHosted": "We're creating pages from your profile and mail. Your wiki lives in your vault so the assistant can stay aligned with you."
+  }
+}

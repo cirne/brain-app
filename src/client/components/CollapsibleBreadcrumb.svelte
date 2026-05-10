@@ -2,6 +2,7 @@
   import { BookOpen, File, FolderOpen, Users } from 'lucide-svelte'
   import WikiBreadcrumbMenuDirIcon from '@components/WikiBreadcrumbMenuDirIcon.svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { WikiBreadcrumbMenuIcon } from '@client/lib/wikiPrimaryBarCrumbs.js'
 
   /**
@@ -23,7 +24,7 @@
   let {
     items,
     mobilePanel = false,
-    rootLabel = 'My Wiki',
+    rootLabel,
   }: {
     items: BreadcrumbItem[]
     mobilePanel?: boolean
@@ -114,17 +115,18 @@
   const currentItem = $derived(items[items.length - 1])
   const hasHierarchy = $derived(items.length > 1)
   const dropdownItems = $derived(items.slice(0, -1))
+  const resolvedRootLabel = $derived(rootLabel ?? $t('nav.wiki.root'))
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
 
 <div class="collapsible-breadcrumb-wrapper relative flex min-w-0 flex-1 items-center">
   {#if items.length === 0}
-    <div role="navigation" aria-label="Wiki page path" class={navClass}>
-      <span class={breadcrumbCurrent}>{rootLabel}</span>
+    <div role="navigation" aria-label={$t('nav.breadcrumb.pagePath')} class={navClass}>
+      <span class={breadcrumbCurrent}>{resolvedRootLabel}</span>
     </div>
   {:else if hasHierarchy}
-    <div role="navigation" aria-label="Wiki page path" class={navClass}>
+    <div role="navigation" aria-label={$t('nav.breadcrumb.pagePath')} class={navClass}>
       <button
         bind:this={dropdownButtonEl}
         type="button"
@@ -135,7 +137,7 @@
         onclick={() => {
           dropdownOpen = !dropdownOpen
         }}
-        aria-label="Show full path"
+        aria-label={$t('nav.breadcrumb.showFullPath')}
         aria-expanded={dropdownOpen}
         aria-haspopup="menu"
       >
@@ -154,7 +156,7 @@
     </div>
   {:else}
     {@const only = items[0]!}
-    <div role="navigation" aria-label="Wiki page path" class={navClass}>
+    <div role="navigation" aria-label={$t('nav.breadcrumb.pagePath')} class={navClass}>
       {#if only.isCurrent}
         <span class={breadcrumbCurrent}>{only.label}</span>
       {:else}
@@ -181,7 +183,7 @@
       class="breadcrumb-dropdown pointer-events-auto fixed z-[1] overflow-y-auto border border-border bg-surface-2 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
       style={dropdownStyle}
       role="menu"
-      aria-label="Full path"
+      aria-label={$t('nav.breadcrumb.fullPath')}
       tabindex="-1"
     >
       {#each dropdownItems as item, i (i)}

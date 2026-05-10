@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { BookOpen, Mail, X, Search } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -131,14 +132,14 @@
   <button
     type="button"
     class="search-backdrop absolute inset-0 z-0 m-0 block appearance-none border-none bg-surface p-0 [cursor:default] md:bg-black/50"
-    aria-label="Close search"
+    aria-label={$t('search.overlay.close')}
     onclick={onClose}
   ></button>
   <div
     class="search-panel relative z-[1] flex min-h-0 flex-1 flex-col self-stretch overflow-hidden md:max-h-[calc(100vh-80px)] md:w-[560px] md:flex-[0_1_auto] md:self-center"
     role="dialog"
     aria-modal="true"
-    aria-label="Search"
+    aria-label={$t('search.overlay.title')}
     tabindex="-1"
   >
     <div
@@ -149,7 +150,7 @@
         bind:this={inputEl}
         bind:value={query}
         class="input min-w-0 flex-1 border-none bg-transparent py-1 text-base text-foreground focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-        placeholder="Search your docs and emails..."
+        placeholder={$t('search.placeholder.global')}
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
@@ -165,7 +166,7 @@
         <button
           class="clear-btn flex shrink-0 items-center p-1 text-muted hover:text-foreground"
           onclick={() => { query = ''; inputEl?.focus() }}
-          aria-label="Clear"
+          aria-label={$t('search.overlay.clear')}
         >
           <X size={16} />
         </button>
@@ -173,7 +174,7 @@
       <button
         class="close-btn shrink-0 whitespace-nowrap py-1 pl-2 pr-0 text-sm text-accent"
         onclick={onClose}
-      >Cancel</button>
+      >{$t('search.overlay.cancel')}</button>
     </div>
 
     <div
@@ -182,7 +183,7 @@
     >
     {#if !query.trim()}
       <div class="search-empty flex flex-col items-center gap-3 px-5 pb-10 pt-8">
-        <p class="hint m-0 p-0 text-center text-sm text-muted">Search your docs and emails</p>
+        <p class="hint m-0 p-0 text-center text-sm text-muted">{$t('search.overlay.hint')}</p>
         {#if onWikiHome}
           <button
             type="button"
@@ -190,12 +191,12 @@
             onclick={() => { onWikiHome(); onClose() }}
           >
             <BookOpen size={16} strokeWidth={2} aria-hidden="true" />
-            <span>Wiki home</span>
+            <span>{$t('search.overlay.wikiHome')}</span>
           </button>
         {/if}
       </div>
     {:else if !loading && results.length === 0}
-      <p class="hint px-5 py-10 text-center text-sm text-muted">No results for "{query}"</p>
+      <p class="hint px-5 py-10 text-center text-sm text-muted">{$t('search.overlay.noResults', { query })}</p>
     {:else}
       {#each results as result, i (result.type === 'wiki' ? result.path : result.id)}
         {#if result.type === 'wiki'}

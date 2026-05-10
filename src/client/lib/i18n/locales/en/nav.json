@@ -1,0 +1,80 @@
+{
+  "sidebar": {
+    "open": "Open sidebar",
+    "close": "Close sidebar"
+  },
+  "search": {
+    "open": "Search",
+    "openWithShortcut": "Search (⌘K)",
+    "mailFallback": "Mail search"
+  },
+  "topActions": "Top actions",
+  "wiki": {
+    "label": "Wiki",
+    "home": "Wiki home",
+    "homeWithShortcut": "Wiki home (⌘⇧H)",
+    "root": "My Wiki"
+  },
+  "chat": {
+    "label": "Chat",
+    "newWithShortcut": "New chat (⌘N)",
+    "alreadyInNewChat": "Already in new chat",
+    "newConversation": "New conversation",
+    "newConversationAlreadyEmpty": "New conversation (already empty)"
+  },
+  "settings": {
+    "title": "Settings",
+    "label": "Settings",
+    "workspace": "Workspace settings"
+  },
+  "menu": {
+    "actions": "Actions",
+    "moreActions": "More actions",
+    "moreWikiActions": "More wiki actions",
+    "pageActions": "Page actions",
+    "folderActions": "Folder actions"
+  },
+  "sync": {
+    "showErrors": "Show sync errors",
+    "errorsTitle": "Sync errors"
+  },
+  "breadcrumb": {
+    "pagePath": "Wiki page path",
+    "showFullPath": "Show full path",
+    "fullPath": "Full path"
+  },
+  "calendar": {
+    "weekNavigation": "Week navigation",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "refreshCalendars": "Refresh calendars"
+  },
+  "hub": {
+    "refreshIndex": "Refresh index"
+  },
+  "yourWiki": {
+    "pauseLoop": "Pause the wiki loop",
+    "resumeLoop": "Resume the wiki loop",
+    "phase": {
+      "starting": "Starting",
+      "enriching": "Enriching",
+      "cleaning": "Cleaning up",
+      "paused": "Paused",
+      "error": "Error",
+      "idle": "Idle"
+    },
+    "pageCount_one": "{{count}} page",
+    "pageCount_other": "{{count}} pages"
+  },
+  "thread": {
+    "actions": "Thread actions"
+  },
+  "draft": {
+    "actions": "Draft actions"
+  },
+  "slideOver": {
+    "openFolder": "Open folder",
+    "openWikiHome": "Open wiki home",
+    "detailContent": "Detail content"
+  }
+}

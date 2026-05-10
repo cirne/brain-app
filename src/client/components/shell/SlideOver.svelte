@@ -41,6 +41,7 @@
   import AnchoredActionMenu from './AnchoredActionMenu.svelte'
   import AnchoredMenuRow from './AnchoredMenuRow.svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { Overlay, SurfaceContext } from '@client/lib/router.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import { createSlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
@@ -263,6 +264,15 @@
     void globalThis.navigator?.clipboard?.writeText?.(href)
   }
 
+  function yourWikiPhaseLabel(phase: string | undefined): string {
+    if (phase === 'starting') return $t('nav.yourWiki.phase.starting')
+    if (phase === 'enriching') return $t('nav.yourWiki.phase.enriching')
+    if (phase === 'cleaning') return $t('nav.yourWiki.phase.cleaning')
+    if (phase === 'paused') return $t('nav.yourWiki.phase.paused')
+    if (phase === 'error') return $t('nav.yourWiki.phase.error')
+    return $t('nav.yourWiki.phase.idle')
+  }
+
   // Tailwind utility shortcuts
   const headerIconBtnBase =
     'inline-flex h-7 w-7 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center border-none bg-transparent text-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
@@ -299,7 +309,7 @@
             'min-h-11 min-w-11 justify-center py-0 text-[15px] [&_svg]:h-[22px] [&_svg]:w-[22px]',
         )}
         onclick={headerDismiss}
-        aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Back'}
+        aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? $t('common.actions.discardDraft') : $t('common.actions.back')}
       >
         {#if overlay.type === 'email-draft' && emailDraftHdr.current}
           <X size={18} strokeWidth={2} aria-hidden="true" />
@@ -310,14 +320,14 @@
     {/snippet}
     {#snippet center()}
       {#if overlay.type === 'calendar' && calendarHdr.current}
-        <div class="cal-week-inline flex flex-1 min-w-0 items-center justify-center gap-2" aria-label="Week navigation">
+        <div class="cal-week-inline flex flex-1 min-w-0 items-center justify-center gap-2" aria-label={$t('nav.calendar.weekNavigation')}>
           <button
             type="button"
             class={cn(
               'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg shrink-0 items-center justify-center text-base text-muted hover:bg-surface-3 hover:text-foreground',
             )}
             onclick={calendarHdr.current.prevWeek}
-            aria-label="Previous week"
+            aria-label={$t('nav.calendar.previousWeek')}
           >
             &#8592;
           </button>
@@ -331,7 +341,7 @@
               'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg shrink-0 items-center justify-center text-base text-muted hover:bg-surface-3 hover:text-foreground',
             )}
             onclick={calendarHdr.current.nextWeek}
-            aria-label="Next week"
+            aria-label={$t('nav.calendar.nextWeek')}
           >
             &#8594;
           </button>
@@ -395,15 +405,10 @@
                   mobilePanel && 'text-[10px] px-1.5 py-0.5',
                   ['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-white',
                 )}>
-                  {yourWikiHdr.current.doc.phase === 'starting' ? 'Starting' :
-                   yourWikiHdr.current.doc.phase === 'enriching' ? 'Enriching' :
-                   yourWikiHdr.current.doc.phase === 'cleaning' ? 'Cleaning up' :
-                   yourWikiHdr.current.doc.phase === 'paused' ? 'Paused' :
-                   yourWikiHdr.current.doc.phase === 'error' ? 'Error' :
-                   'Idle'}
+                  {yourWikiPhaseLabel(yourWikiHdr.current.doc.phase)}
                 </span>
                 {#if yourWikiHdr.current.doc.pageCount > 0}
-                  <span class={cn('page-count-mini whitespace-nowrap text-muted [font-variant-numeric:tabular-nums]', mobilePanel ? 'text-xs' : 'text-[11px]')}>{yourWikiHdr.current.doc.pageCount} pages</span>
+                  <span class={cn('page-count-mini whitespace-nowrap text-muted [font-variant-numeric:tabular-nums]', mobilePanel ? 'text-xs' : 'text-[11px]')}>{$t('nav.yourWiki.pageCount', { count: yourWikiHdr.current.doc.pageCount })}</span>
                 {/if}
               </div>
             </div>
@@ -430,7 +435,7 @@
               class={cn('header-action-btn flex h-7 w-7 max-md:h-10 max-md:w-10 items-center justify-center text-muted transition-colors hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
               disabled={yourWikiHdr.current.actionBusy}
               onclick={yourWikiHdr.current.pause}
-              title="Pause the wiki loop"
+              title={$t('nav.yourWiki.pauseLoop')}
             >
               <Pause size={14} aria-hidden="true" />
             </button>
@@ -440,7 +445,7 @@
               class={cn('header-action-btn header-action-btn-primary flex h-7 w-7 max-md:h-10 max-md:w-10 items-center justify-center text-accent transition-colors hover:enabled:bg-accent-dim hover:enabled:text-accent [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
               disabled={yourWikiHdr.current.actionBusy}
               onclick={yourWikiHdr.current.resume}
-              title="Resume the wiki loop"
+              title={$t('nav.yourWiki.resumeLoop')}
             >
               <Play size={14} aria-hidden="true" />
             </button>
@@ -453,8 +458,8 @@
           class={cn('cal-header-icon-btn', headerIconBtnBase)}
           onclick={calendarHdr.current.goToday}
           disabled={calendarHdr.current.headerBusy}
-          title="Today"
-          aria-label="Today"
+          title={$t('common.actions.today')}
+          aria-label={$t('common.actions.today')}
         >
           <CalendarIcon size={18} strokeWidth={2} aria-hidden="true" />
         </button>
@@ -463,8 +468,8 @@
           class={cn('cal-header-icon-btn', headerIconBtnBase)}
           onclick={calendarHdr.current.refreshCalendars}
           disabled={calendarHdr.current.headerBusy}
-          title="Refresh calendars"
-          aria-label="Refresh calendars"
+          title={$t('nav.calendar.refreshCalendars')}
+          aria-label={$t('nav.calendar.refreshCalendars')}
         >
           <span class={calendarHdr.current.headerBusy ? 'cal-refresh-spin' : ''}>
             <RefreshCw size={18} strokeWidth={2} aria-hidden="true" />
@@ -476,8 +481,8 @@
           type="button"
           class={cn('cal-header-icon-btn', headerIconBtnBase)}
           disabled={hubSourceHdr.current.refreshDisabled}
-          title={hubSourceHdr.current.refreshTitle ?? 'Refresh index'}
-          aria-label="Refresh index"
+          title={hubSourceHdr.current.refreshTitle ?? $t('nav.hub.refreshIndex')}
+          aria-label={$t('nav.hub.refreshIndex')}
           aria-busy={hubSourceHdr.current.refreshSpinning ? 'true' : undefined}
           onclick={() => hubSourceHdr.current?.onRefresh()}
         >
@@ -493,11 +498,11 @@
       {/if}
       {#if overlay.type === 'wiki' && wikiSlideHeader}
         {#if wikiSlideHeader.saveState === 'saving'}
-          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saving…</span>
+          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">{$t('common.status.saving')}</span>
         {:else if wikiSlideHeader.saveState === 'saved'}
-          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saved</span>
+          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">{$t('common.status.saved')}</span>
         {:else if wikiSlideHeader.saveState === 'error'}
-          <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Save failed</span>
+          <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">{$t('common.status.saveFailed')}</span>
         {/if}
       {/if}
       {#if mobilePanel && (overlay.type === 'wiki' || overlay.type === 'wiki-dir')}
@@ -508,8 +513,8 @@
           onclick={() => {
             wikiMobileMoreOpen = !wikiMobileMoreOpen
           }}
-          title="More actions"
-          aria-label="More wiki actions"
+          title={$t('nav.menu.moreActions')}
+          aria-label={$t('nav.menu.moreWikiActions')}
           aria-expanded={wikiMobileMoreOpen}
           aria-haspopup="menu"
         >
@@ -517,13 +522,13 @@
         </button>
       {/if}
       {#if overlay.type === 'email' && inboxHdr.current}
-        <div class="inbox-thread-header-actions flex shrink-0 items-center gap-0.5" role="toolbar" aria-label="Thread actions">
+        <div class="inbox-thread-header-actions flex shrink-0 items-center gap-0.5" role="toolbar" aria-label={$t('nav.thread.actions')}>
           <button
             type="button"
             class={inboxThreadHeaderBtn}
             onclick={() => inboxHdr.current?.onReply()}
-            title="Reply"
-            aria-label="Reply"
+            title={$t('common.actions.reply')}
+            aria-label={$t('common.actions.reply')}
           >
             <Reply size={18} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -531,8 +536,8 @@
             type="button"
             class={inboxThreadHeaderBtn}
             onclick={() => inboxHdr.current?.onForward()}
-            title="Forward"
-            aria-label="Forward"
+            title={$t('common.actions.forward')}
+            aria-label={$t('common.actions.forward')}
           >
             <Forward size={18} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -540,21 +545,21 @@
             type="button"
             class={inboxThreadHeaderBtn}
             onclick={() => inboxHdr.current?.onArchive()}
-            title="Archive"
-            aria-label="Archive thread"
+            title={$t('common.actions.archive')}
+            aria-label={$t('common.actions.archiveThread')}
           >
             <Archive size={18} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
       {/if}
       {#if overlay.type === 'email-draft' && emailDraftHdr.current}
-        <div class="inbox-thread-header-actions flex shrink-0 items-center gap-0.5" role="toolbar" aria-label="Draft actions">
+        <div class="inbox-thread-header-actions flex shrink-0 items-center gap-0.5" role="toolbar" aria-label={$t('nav.draft.actions')}>
           {#if emailDraftHdr.current.saveState === 'saving'}
-            <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saving…</span>
+            <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">{$t('common.status.saving')}</span>
           {:else if emailDraftHdr.current.saveState === 'saved'}
-            <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saved</span>
+            <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">{$t('common.status.saved')}</span>
           {:else if emailDraftHdr.current.saveState === 'error'}
-            <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Save failed</span>
+            <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">{$t('common.status.saveFailed')}</span>
           {/if}
           <button
             type="button"
@@ -564,8 +569,8 @@
               emailDraftHdr.current.sendState === 'sending' ||
               emailDraftHdr.current.saveState === 'saving'
             }
-            title="Save draft"
-            aria-label="Save draft"
+            title={$t('common.actions.saveDraft')}
+            aria-label={$t('common.actions.saveDraft')}
           >
             {#if emailDraftHdr.current.saveState === 'saving'}
               <span class="cal-refresh-spin" aria-hidden="true">
@@ -583,8 +588,8 @@
               emailDraftHdr.current.sendState === 'sending' ||
               emailDraftHdr.current.saveState === 'saving'
             }
-            title="Send"
-            aria-label="Send"
+            title={$t('common.actions.send')}
+            aria-label={$t('common.actions.send')}
           >
             {#if emailDraftHdr.current.sendState === 'sending'}
               <span class="cal-refresh-spin" aria-hidden="true">
@@ -601,8 +606,8 @@
           type="button"
           class="fullscreen-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent text-muted outline-none transition-colors focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground"
           onclick={onToggleFullscreen}
-          title={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          aria-label={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          title={detailFullscreen ? $t('common.actions.exitFullscreen') : $t('common.actions.fullscreen')}
+          aria-label={detailFullscreen ? $t('common.actions.exitFullscreen') : $t('common.actions.fullscreen')}
         >
           {#if detailFullscreen}
             <Minimize2 size={18} strokeWidth={2} aria-hidden="true" />
@@ -615,8 +620,8 @@
         type="button"
         class="close-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent text-muted transition-colors hover:text-foreground"
         onclick={headerDismiss}
-        aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close panel'}
-        title={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close'}
+        aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? $t('common.actions.discardDraft') : $t('common.actions.closePanel')}
+        title={overlay.type === 'email-draft' && emailDraftHdr.current ? $t('common.actions.discardDraft') : $t('common.actions.close')}
       >
         <X size={18} strokeWidth={2} aria-hidden="true" />
       </button>
@@ -626,7 +631,7 @@
     <AnchoredActionMenu
       open={wikiMobileMoreOpen}
       anchorEl={wikiMoreAnchorEl}
-      menuLabel={overlay.type === 'wiki' ? 'Page actions' : 'Folder actions'}
+      menuLabel={overlay.type === 'wiki' ? $t('nav.menu.pageActions') : $t('nav.menu.folderActions')}
       onDismiss={() => {
         wikiMobileMoreOpen = false
       }}
@@ -636,7 +641,7 @@
           {@const pSegs = wikiPageBreadcrumbSegments(overlay.path)}
           {#if pSegs.length >= 2}
             <AnchoredMenuRow
-              label="Open folder"
+              label={$t('nav.slideOver.openFolder')}
               onclick={() => {
                 onWikiDirNavigate?.(wikiDirPathPrefix(pSegs, pSegs.length - 2))
                 wikiMobileMoreOpen = false
@@ -648,7 +653,7 @@
             </AnchoredMenuRow>
           {:else}
             <AnchoredMenuRow
-              label="Open wiki home"
+              label={$t('nav.slideOver.openWikiHome')}
               onclick={() => {
                 onWikiDirNavigate?.(undefined)
                 wikiMobileMoreOpen = false
@@ -661,7 +666,7 @@
           {/if}
         {:else if overlay.type === 'wiki-dir'}
           <AnchoredMenuRow
-            label="Search"
+            label={$t('common.actions.search')}
             onclick={() => {
               onOpenSearch?.()
               wikiMobileMoreOpen = false
@@ -673,7 +678,7 @@
           </AnchoredMenuRow>
         {/if}
         <AnchoredMenuRow
-          label="Copy link"
+          label={$t('common.actions.copyLink')}
           onclick={() => {
             copyCurrentLocationLink()
             wikiMobileMoreOpen = false
@@ -690,7 +695,7 @@
     class="slide-body flex min-h-0 flex-1 flex-col overflow-hidden"
     bind:this={mobile.slideBodyEl}
     role={mobilePanel ? 'region' : undefined}
-    aria-label={mobilePanel ? 'Detail content' : undefined}
+    aria-label={mobilePanel ? $t('nav.slideOver.detailContent') : undefined}
     onpointerdown={mobile.onPointerDown}
     onpointermove={mobile.onPointerMove}
     onpointerup={mobile.onPointerEnd}
@@ -736,7 +741,7 @@
       />
     {:else if overlay.type === 'mail-search'}
       <MailSearchResultsPanel
-        queryLine={mailSearchResults?.queryLine ?? overlay.query ?? 'Mail search'}
+        queryLine={mailSearchResults?.queryLine ?? overlay.query ?? $t('nav.search.mailFallback')}
         items={mailSearchResults?.items ?? null}
         totalMatched={mailSearchResults?.totalMatched}
         searchSource={mailSearchResults?.searchSource}

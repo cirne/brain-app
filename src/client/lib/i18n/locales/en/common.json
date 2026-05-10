@@ -1,0 +1,50 @@
+{
+  "actions": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close",
+    "open": "Open",
+    "save": "Save",
+    "refresh": "Refresh",
+    "back": "Back",
+    "clear": "Clear",
+    "today": "Today",
+    "reply": "Reply",
+    "forward": "Forward",
+    "archive": "Archive",
+    "archiveThread": "Archive thread",
+    "send": "Send",
+    "saveDraft": "Save draft",
+    "discardDraft": "Discard draft",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "closePanel": "Close panel",
+    "copyLink": "Copy link",
+    "search": "Search",
+    "pause": "Pause",
+    "resume": "Resume"
+  },
+  "status": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed"
+  },
+  "brand": {
+    "name": "Braintunnel"
+  },
+  "home": {
+    "sections": {
+      "today": "Today",
+      "inbox": "Inbox",
+      "docs": "Docs"
+    },
+    "inboxUnread_one": "{{count}} unread",
+    "inboxUnread_other": "{{count}} unread",
+    "empty": {
+      "noMessages": "No messages",
+      "noRecentChanges": "No recent changes"
+    }
+  }
+}

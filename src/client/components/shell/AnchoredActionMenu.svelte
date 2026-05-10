@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   /**
    * Render under `document.body` so `position:fixed` coords from `getBoundingClientRect()`
@@ -27,10 +28,12 @@
     open,
     onDismiss,
     anchorEl,
-    menuLabel = 'Actions',
+    menuLabel,
     children,
     panelClass,
   }: Props = $props()
+
+  const resolvedMenuLabel = $derived(menuLabel ?? $t('nav.menu.actions'))
 
   const panelStyle = $derived.by(() => {
     if (!open || !anchorEl || typeof globalThis.window === 'undefined') return ''
@@ -82,7 +85,7 @@
         .join(' ')}
       style={panelStyle}
       role="menu"
-      aria-label={menuLabel}
+      aria-label={resolvedMenuLabel}
       tabindex="-1"
     >
       {@render children()}

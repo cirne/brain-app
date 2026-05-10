@@ -6,10 +6,14 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/svelte'
 import { afterEach, vi } from 'vitest'
 
+import { initI18n, setLanguage } from '@client/lib/i18n/index.js'
 import {
   backgroundAgentsFromEvents,
   yourWikiDocFromEvents,
 } from '@client/lib/hubEvents/hubEventsStores.js'
+
+await initI18n({ forceLanguage: 'en' })
+await setLanguage('en')
 
 afterEach(() => {
   cleanup()
