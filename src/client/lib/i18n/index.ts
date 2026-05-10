@@ -65,10 +65,13 @@ function translate(
 ): string {
   const options = normalizeOptions(defaultValueOrOptions, maybeOptions)
   const split = splitNamespace(key)
+  const fallback = options?.defaultValue ?? key
   if (split.ns) {
-    return i18next.t(split.key, { ns: split.ns, ...options })
+    const value = i18next.t(split.key, { ns: split.ns, ...options })
+    return typeof value === 'string' && value.length > 0 ? value : fallback
   }
-  return i18next.t(split.key, options)
+  const value = i18next.t(split.key, options)
+  return typeof value === 'string' && value.length > 0 ? value : fallback
 }
 
 const translateStore = writable<TranslateFn>(translate)

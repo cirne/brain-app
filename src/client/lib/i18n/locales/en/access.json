@@ -205,7 +205,7 @@
     "header": {
       "title": "Test policy responses",
       "lead": "Run a sample question to see your assistant's full research (private), the answer collaborators would get, and what was trimmed or withheld.",
-      "previewsNotSaved": "Previews aren't saved to inbound activity."
+      "previewsNotSaved": "Previews aren’t saved to inbound activity."
     },
     "crossBrainPreviewAria": "Cross-brain preview",
     "emptyPrompt": "Ask a question below to see how this policy filters replies—you'll get the private research pass, the collaborator-facing answer, and a short note on what changed.",

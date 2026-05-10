@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+import { get } from 'svelte/store'
   import { fly, slide } from 'svelte/transition'
   import { cn } from '@client/lib/cn.js'
   import Search from '@components/Search.svelte'
@@ -1045,7 +1046,9 @@
         shell.agentContext = { type: 'wiki', path: o.path, title }
       } else if (o.type === 'wiki-dir') {
         const dirPath = o.path?.trim() ?? ''
-        const title = dirPath ? (dirPath.split('/').pop() ?? dirPath) : $t('nav.wiki.label')
+        const title = dirPath
+          ? (dirPath.split('/').pop() ?? dirPath)
+          : get(t)('nav.wiki.label', 'Wiki')
         shell.agentContext = { type: 'wiki-dir', path: dirPath, title }
       } else {
         shell.agentContext = { type: 'chat' }
