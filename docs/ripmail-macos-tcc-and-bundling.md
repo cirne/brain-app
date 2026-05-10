@@ -1,9 +1,11 @@
 # ripmail, macOS TCC / Full Disk Access, and bundling (planning)
 
-**Status:** Planning — to revisit **after** migrating ripmail source into this repository.  
+**Status:** Planning — FDA / signing tradeoffs for **Braintunnel.app** (Tauri + bundled Node).  
+**Update (2026-05):** Indexed mail runs **in-process** in **`src/server/ripmail/`** (no Rust `ripmail` binary in the default bundle). Treat §§ about **`cargo build -p ripmail`** / `server-bundle/ripmail` as **historical** unless we reintroduce a native sidecar.
+
 **Related:** [BUG-004](bugs/archive/BUG-004-full-disk-access-detection-and-onboarding.md) (FDA onboarding UX), [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md) (native Mac app).
 
-This document captures what we know today about **Full Disk Access (FDA)** on macOS, how it interacts with **Braintunnel.app** (Tauri + bundled Node + ripmail), and **architectural options** once **ripmail is developed inside this repo** (no separate “sidecar only” checkout). It is meant to support a later decision on **signing**, **bundle layout**, and **where privileged file I/O runs** — not to prescribe implementation before the migration lands.
+This document captures what we know today about **Full Disk Access (FDA)** on macOS, how it interacts with **Braintunnel.app** (Tauri + bundled Node), and **architectural options** for **where privileged file I/O runs**. It is meant to support a later decision on **signing** and **bundle layout** — not to prescribe implementation.
 
 ---
 

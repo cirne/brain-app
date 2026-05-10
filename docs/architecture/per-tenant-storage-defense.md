@@ -75,7 +75,7 @@ Desktop (Tauri, local-first) would need:
 - A second storage backend, or
 - An embedded database with migration and reconciliation logic
 
-**Per-user durables as files + SQLite** keeps the desktop path credible without a parallel data platform. The same `brainLayout.ts` helpers, the same ripmail subprocess contract, the same wiki file tools—**zero conditional branches** for storage topology in the agent or application layer.
+**Per-user durables as files + SQLite** keeps the desktop path credible without a parallel data platform. The same `brainLayout.ts` helpers, the same **`@server/ripmail`** mail contract (TypeScript, in-process), the same wiki file tools—**zero conditional branches** for storage topology in the agent or application layer.
 
 ### 6. Team-level deployment and appliance futures
 
@@ -111,7 +111,7 @@ Ripmail is **designed around local SQLite** (`RIPMAIL_HOME/<account>/mail.db`). 
 
 The inbox is the **largest corpus** and the **most performance-sensitive** part of the product (FTS queries, threading, attachment enumeration). Keeping it as **per-tenant SQLite on colocated storage** is the path of least architectural disruption and maintains ripmail's design integrity.
 
-See [integrations.md § Ripmail subprocess](./integrations.md) and [ripmail/docs/ARCHITECTURE.md](../../ripmail/docs/ARCHITECTURE.md).
+See [integrations.md](./integrations.md) and, for the deleted Rust crate only, `ripmail/docs/ARCHITECTURE.md` on a **rust snapshot tag** ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)).
 
 ## Trade-offs and Honest Objections
 
@@ -193,5 +193,5 @@ This is the hill we're willing to die on—until the product tells us otherwise.
 - [deployment-models.md](./deployment-models.md) — desktop vs cloud, single codebase strategy
 - [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) — security isolation, path jailing, BUG-012
 - [PRODUCTIZATION.md](../PRODUCTIZATION.md) — multi-user product gaps, wiki backing store, auth, team deployment
-- [integrations.md](./integrations.md) — ripmail subprocess, trust boundaries
+- [integrations.md](./integrations.md) — mail stack (`@server/ripmail`), trust boundaries
 - [SECURITY.md](../SECURITY.md) — threat model, session architecture

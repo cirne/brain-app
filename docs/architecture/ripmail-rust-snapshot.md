@@ -1,8 +1,8 @@
 # Rust ripmail — recoverable git snapshot (pre–TypeScript port)
 
-Braintunnel’s inbox stack historically lived in the **`ripmail/`** Cargo crate (Rust CLI + SQLite + subprocess from Node). **[OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)** ports that logic to TypeScript and merges the mail index into tenant SQLite. After that cutover, the Rust tree may shrink or leave the default branch, so this page records an **annotated git tag** you can use to check out the last **Rust-first** layout for archaeology, diffs, or emergency reference.
+Braintunnel’s inbox stack **used to** live in the **`ripmail/`** Cargo crate (Rust CLI + subprocess from Node). **`main` today** runs the same responsibilities in **`src/server/ripmail/`** (TypeScript, in-process `better-sqlite3`); the Rust crate is **not** on the default branch anymore. This page keeps **annotated git tags** for checking out the last **Rust-first** tree (archaeology, diffs, regression comparison) and records **CI/release** notes from the cutover.
 
-**Canonical opportunity context:** [OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md) · **Indexed record:** [archived OPP-105](../opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)
+**Canonical opportunity context:** [OPP-103](../opportunities/OPP-103-ripmail-ts-port.md) · **Indexed record:** [archived OPP-105](../opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)
 
 ---
 
@@ -40,27 +40,27 @@ git fetch origin tag ripmail-rust-snapshot-2026-05-10
 git switch -c recover-rust-ripmail ripmail-rust-snapshot-2026-05-10
 ```
 
-At that snapshot, Rust sources and decisions live under **`ripmail/`** (e.g. `ripmail/docs/ARCHITECTURE.md` in that checkout). The server spawned the **`ripmail`** CLI and desktop builds compiled **`cargo build -p ripmail --release`**. On current `main`, mail runs in **`src/server/ripmail/`**; see [AGENTS.md](../../AGENTS.md).
+At that snapshot, Rust sources and decisions live under **`ripmail/`** (e.g. `ripmail/docs/ARCHITECTURE.md` in that checkout). The server spawned the **`ripmail`** CLI and desktop builds compiled **`cargo build -p ripmail --release`**. On current `main`, mail runs in **`src/server/ripmail/`**; layout: [shared/brain-layout.json](../../shared/brain-layout.json), overview: [AGENTS.md](../../AGENTS.md).
 
 ---
 
 ## Related docs (on this tag)
 
 - **[docs/ARCHITECTURE.md](../ARCHITECTURE.md)** — app-level index; **Ripmail** row links here.
-- **[architecture/integrations.md](./integrations.md)** — subprocess + trust boundaries (evolves after TS port).
+- **[architecture/integrations.md](./integrations.md)** — trust boundaries for mail vs `chat.db` (current `main`).
 
 ---
 
-## After the TypeScript port merge — CI and release checklist
+## CI and release checklist (cutover — largely complete)
 
-When **`ripmail/`** leaves the default branch ([OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)), update automation and contributor docs so nothing still assumes a Cargo-built Linux binary.
+**As of 2026-05**, default-branch **[`ci.yml`](../../.github/workflows/ci.yml)** no longer builds or publishes a Linux **`ripmail`** ELF; Docker and Enron workflows assume the **TypeScript** stack. Use the table below only when auditing stragglers (old docs, `ripmail-latest` consumers, desktop bundle scripts).
 
-| Area | What to change |
+| Area | Status / notes |
 |------|----------------|
-| **[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)** | Remove or replace the **`ripmail`** job (`cargo fmt` / `clippy` / `nextest` for `-p ripmail`). Remove **`ripmail-release`** (`softprops/action-gh-release`, rolling tag `ripmail-latest`). In **`docker`**, drop the “Build ripmail (Linux)” step unless the Dockerfile still needs a sidecar binary (post-port Docker should match the new layout). |
-| **[`.github/workflows/e2e-enron.yml`](../../.github/workflows/e2e-enron.yml)** | Replace `cargo build -p ripmail --release` with whatever invokes the **TS mail CLI** (or document that Enron E2E requires a prebuilt `RIPMAIL_BIN` / in-repo runner). |
-| **[`CLOUD-AGENTS.md`](../../CLOUD-AGENTS.md)** | Replace “download `ripmail-linux-x86_64` from `ripmail-latest`” with the **post-port** setup (e.g. no separate binary, or a new artifact name and release tag). |
-| **[`package.json`](../../package.json)** | Remove or repurpose `ripmail:*` and **`docker:ripmail:build`** / **`scripts/docker-prebuild-ripmail.ts`** if Docker no longer copies a Rust artifact into `.docker/linux-ripmail/`. |
-| **Desktop / Tauri** | **`desktop:bundle-server`** and release docs in **AGENTS.md** should describe bundling the **TS** implementation (or dropping the separate `ripmail` binary from the bundle) — tracked on the port branch. |
+| **[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)** | **Done:** `ripmail` / `ripmail-release` jobs and Docker’s “build ripmail ELF” step removed. |
+| **[`.github/workflows/e2e-enron.yml`](../../.github/workflows/e2e-enron.yml)** | **Done:** Vitest + Playwright use Node + TS mail paths (no `cargo build -p ripmail`). |
+| **[`CLOUD-AGENTS.md`](../../CLOUD-AGENTS.md)** | **Done for cloud:** in-process mail; see doc for historical **`ripmail-latest`** note. |
+| **[`package.json`](../../package.json)** | **Done:** `ripmail:*` / `docker:ripmail:build` scripts removed with the port. |
+| **Desktop / Tauri** | **`desktop:bundle-server`** should **not** expect a `ripmail` binary in `server-bundle/` (see [archive/OPP-007-native-mac-app.md](../opportunities/archive/OPP-007-native-mac-app.md), root `package.json`); verify release docs match whatever the bundle ships. |
 
-**Last Rust binary on GitHub Releases:** the `ripmail-latest` asset published by `ripmail-release` remains the **final pre-port Linux x86_64** build until a push to `main` after the workflow is removed or repurposed.
+**Last Rust binary on GitHub Releases:** rolling tag **`ripmail-latest`** may still point at the **final pre-port** `ripmail-linux-x86_64` asset until releases are cleaned up manually.

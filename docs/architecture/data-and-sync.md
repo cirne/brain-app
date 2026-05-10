@@ -13,7 +13,7 @@ Typical directories under `BRAIN_HOME`:
 | `wiki/` | Markdown wiki pages (dev / non-macOS; **not** used for wiki content on bundled macOS — see above) |
 | `chats/` | **`onboarding.json`** + **`onboarding/`** adjuncts only — **not** chat transcripts; sessions live in **`var/brain-tenant.sqlite`** |
 | `skills/` | User slash skills (seeded defaults on first run) |
-| `ripmail/` | Ripmail config + SQLite index when `RIPMAIL_HOME` is not overridden |
+| `ripmail/` | Mail config + SQLite index (paths from [`brain-layout.json`](../../shared/brain-layout.json)); accessed in-process via **`src/server/ripmail/`** |
 | `cache/` | `wiki-dir-icons.json` and other small JSON caches |
 | `var/` | `brain-tenant.sqlite` (chat + notifications — [chat-history-sqlite.md](./chat-history-sqlite.md)), `wiki-edits.jsonl` (agent wiki edit log), other small JSON |
 

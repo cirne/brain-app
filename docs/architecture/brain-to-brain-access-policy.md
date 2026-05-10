@@ -234,7 +234,7 @@ Still **one text blob** per grant; backend filter behavior unchanged unless we a
 <a id="spike-4-hard-predicates"></a>
 ### Spike 4 — Hard predicates (layer 2)
 
-- Wiki path allow/deny per grant; Ripmail-aligned mail predicates on search **and** fetch-by-id / thread expansion; optional push into Ripmail subprocess—per [Hard predicates](#hard-predicates-wiki-and-mail).
+- Wiki path allow/deny per grant; Ripmail-aligned mail predicates on search **and** fetch-by-id / thread expansion—per [Hard predicates](#hard-predicates-wiki-and-mail).
 
 ---
 

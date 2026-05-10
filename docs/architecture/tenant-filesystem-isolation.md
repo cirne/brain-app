@@ -37,7 +37,7 @@ This doc records **five complementary isolation strategies** (kernel, process, a
 
 ### 2. POSIX user per tenant + privilege drop
 
-**Idea:** Map each workspace to a Linux UID/GID; `chown` / `chmod 700` the tenant home; run agent/tool subprocesses (and ideally `ripmail`) **as that UID** (`setuid` child, `systemd-run --uid=…`, etc.). DAC then denies reads of sibling trees under `BRAIN_DATA_ROOT`.
+**Idea:** Map each workspace to a Linux UID/GID; `chown` / `chmod 700` the tenant home; run agent/tool subprocesses **as that UID** (`setuid` child, `systemd-run --uid=…`, etc.). DAC then denies reads of sibling trees under `BRAIN_DATA_ROOT`. (Mail sync today is in-process Node; if a native helper returns, it should inherit the same jail model.)
 
 **Density:** Many UIDs per host is normal; the limiter is **RAM** for concurrent tenants, not UID count.
 

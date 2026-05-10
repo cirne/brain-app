@@ -1,30 +1,30 @@
 # Background mail sync and Your Wiki supervisor — process model & scaling
 
-How **incremental mail index refresh** (`ripmail refresh`) and the **Your Wiki** supervisor relate to HTTP requests, browser presence, and **multi-tenant** deployments. Complements **[background-task-orchestration.md](./background-task-orchestration.md)** (routes, orchestrator, bootstrap) and **[data-and-sync.md](./data-and-sync.md)** (storage layout).
+How **incremental mail index refresh** and the **Your Wiki** supervisor relate to HTTP requests, browser presence, and **multi-tenant** deployments. Complements **[background-task-orchestration.md](./background-task-orchestration.md)** (routes, orchestrator, bootstrap) and **[data-and-sync.md](./data-and-sync.md)** (storage layout).
 
 ---
 
 ## TL;DR
 
 - There is **no** process-wide timer that runs `runFullSync()` every *N* seconds for all tenants. **`SYNC_INTERVAL_SECONDS` / `getSyncIntervalMs()`** exist in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts) but are **not** wired to a server `setInterval` today.
-- **Mail refresh** runs when something **explicitly** triggers it: API routes, agent tools, the **Your Wiki** lap preamble, onboarding flows, or the **`sync-cli`** helper — not because “the user has a tab open.”
-- **Hub** polling of **`GET /api/background-status`** is **per browser** and updates **status UI**; it does not, by itself, run `ripmail refresh` (though that route **does** call the wiki indexed-gate kick — see below).
+- **Mail refresh** runs when something **explicitly** triggers it: API routes, agent tools, the **Your Wiki** lap preamble, onboarding flows, or the **`sync-cli`** helper — not because “the user has a tab open.” Implementation is **`ripmailRefresh`** from **`@server/ripmail/sync`** (TypeScript, in-process), not a `ripmail refresh` subprocess.
+- **Hub** polling of **`GET /api/background-status`** is **per browser** and updates **status UI**; it does not, by itself, run a mail refresh (though that route **does** call the wiki indexed-gate kick — see below).
 - **Your Wiki** uses **at most one in-process supervisor loop** per Node OS process (`loopRunning` in [`yourWikiSupervisor.ts`](../../src/server/agent/yourWikiSupervisor.ts)). That loop binds **one tenant** via `AsyncLocalStorage.run` for its lifetime. **Many tenants on one process do not get N parallel supervisor loops.**
 
 ---
 
-## What triggers `ripmail refresh`
+## What triggers mail refresh
 
 | Trigger | Tenant / scope | Notes |
 |--------|----------------|--------|
-| `POST /api/inbox/sync` | Current session → `brainHome()` / ripmail home | Fire-and-forget from handler; see [`inbox.ts`](../../src/server/routes/inbox.ts). Onboarding may run **`syncInboxRipmailOnboarding`** (`refresh` + **`historicalSince: '1y'`**) instead of a plain `refresh`. |
-| `POST /api/calendar/sync` | Same | Full `ripmail refresh` (mail + indexed calendar); [`calendar.ts`](../../src/server/routes/calendar.ts). |
-| `POST /api/calendar/refresh` | Same | Calendar sources only (`-S` per calendar id). |
+| `POST /api/inbox/sync` | Current session → ripmail home | Fire-and-forget from handler; see [`inbox.ts`](../../src/server/routes/inbox.ts). Onboarding may run **`syncInboxRipmailOnboarding`** (`refresh` + **`historicalSince: '1y'`**) instead of a plain `refresh`. |
+| `POST /api/calendar/sync` | Same | Full refresh (mail + indexed calendar); [`calendar.ts`](../../src/server/routes/calendar.ts). |
+| `POST /api/calendar/refresh` | Same | Calendar sources only. |
 | Your Wiki supervisor — laps after the first | Tenant bound when the loop started | **`refreshMailAndWait`** before enrich; ~90s cap; [`yourWikiSupervisor.ts`](../../src/server/agent/yourWikiSupervisor.ts). Lap 1 skips refresh (build-out after onboarding). |
-| Agent tools (e.g. `refresh_sources`) | Request tenant | Same subprocess stack as other ripmail invokes. |
+| Agent tools (e.g. `refresh_sources`) | Request tenant | Same in-process **`@server/ripmail`** stack as other mail routes. |
 | `npm run …` / **`sync-cli`** | Process default tenant / `BRAIN_HOME` resolution | Calls **`runFullSync()`** ([`sync-cli.ts`](../../src/server/sync-cli.ts)). |
 
-Implementation detail: inbox/calendar routes use **`runRipmailRefreshForBrain`** / **`runRipmailHeavyArgv`** — **wait for exit** with timeout and single-flight dedupe per home ([`ripmailHeavySpawn.ts`](../../src/server/lib/ripmail/ripmailHeavySpawn.ts)), not a detached “kick and forget” parent for the main refresh path.
+Implementation detail: handlers await **`ripmailRefresh`** via **`syncInboxRipmail`** / **`refreshMailAndWait`** in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts) (in-process; **`RipmailTimeoutError`** preserves the supervisor timeout contract from the old subprocess era).
 
 ---
 
@@ -60,9 +60,9 @@ When a loop **starts**, the **tenant** is captured (`tryGetTenantContext()` at *
 
 **Startup diagnostics** note that **`BRAIN_HOME` is per-request** in hosted mode and that there is **no** process-level periodic wiki/sync cron ([`startupDiagnostics.ts`](../../src/server/lib/platform/startupDiagnostics.ts)): background work is driven by **requests** and the **single** supervisor loop when it is active.
 
-### Ripmail refresh concurrency
+### Mail refresh concurrency
 
-Per-tenant **index refresh** from **`POST /api/inbox/sync`** is naturally **scoped to the session** that issued it. **`ripmailHeavySpawn`** serializes identical argv per ripmail home. Heavy deployments still need to budget **CPU, IMAP connections, and LLM** for wiki laps separately from “many users clicked sync.”
+Per-tenant **`POST /api/inbox/sync`** is naturally **scoped to the session** that issued it. Overlapping **`ripmailRefresh`** calls share one Node process and one tenant SQLite + IMAP stack — there is **no** separate `ripmailHeavySpawn` subprocess serializer anymore. Heavy deployments still need to budget **CPU, IMAP connections, and LLM** for wiki laps separately from “many users clicked sync.”
 
 ### Directions for horizontal scale
 
@@ -77,7 +77,7 @@ Related: in-memory **agent session Map** limits for multi-instance chat — **[a
 
 ## Shutdown
 
-**`registerPeriodicSyncAndShutdown`** ([`periodicSyncAndShutdown.ts`](../../src/server/lifecycle/periodicSyncAndShutdown.ts)) handles **SIGINT/SIGTERM**: stops tunnel, prepares wiki supervisor shutdown, terminates tracked ripmail children, closes the HTTP server — **not** a periodic sync ticker. (The name reflects “lifecycle hooks” bundled in one registration.)
+**`registerPeriodicSyncAndShutdown`** ([`periodicSyncAndShutdown.ts`](../../src/server/lifecycle/periodicSyncAndShutdown.ts)) handles **SIGINT/SIGTERM**: stops tunnel, prepares wiki supervisor shutdown, terminates any **tracked ripmail child processes** (rare subprocess adapters), closes the HTTP server — **not** a periodic sync ticker. (The name reflects “lifecycle hooks” bundled in one registration.)
 
 **`prepareWikiSupervisorShutdown`** aborts in-flight lap refresh and agent phases cleanly.
 

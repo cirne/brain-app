@@ -30,9 +30,9 @@ Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
 The session list reads **`chat_sessions`** ordered by **`updated_at_ms`** (newest first). Optional `limit` on `GET /api/chat/sessions` is **capped at 500** at the HTTP layer. **FTS5** over titles/previews is a documented follow-on ([chat-history-sqlite.md](./chat-history-sqlite.md)).
 
-**Mail `notify`** items surface as **`notifications`** rows (mirrored from ripmail after refresh — see [OPP-102 stub](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)); **`GET/PATCH /api/notifications`** and agent tooling (`mark_notification`) cover list/read/dismiss.
+**Mail `notify`** items surface as **`notifications`** rows (mirrored from the mail index after refresh — see [archived OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)); **`GET/PATCH /api/notifications`** and agent tooling (`mark_notification`) cover list/read/dismiss.
 
-**Unifying** chat + mail into a single SQLite file is **[OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)** (ripmail TS port); until then, the mail index stays under **`ripmail/`**.
+**Merging** the mail SQLite file into the same **`var/brain-tenant.sqlite`** as chat is **[OPP-104](../opportunities/OPP-104-unified-tenant-sqlite.md)**. **[OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)** is the TypeScript in-process mail port (**shipped on `main`**). Until **OPP-104**, the mail index remains **`ripmail/ripmail.db`** (per-tenant layout).
 
 ## SSE wire format (`POST /api/chat`)
 

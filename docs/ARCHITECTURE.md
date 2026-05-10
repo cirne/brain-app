@@ -8,7 +8,7 @@ High-level map of **brain-app** (Hono + Svelte + pi-agent-core). Roadmap: [OPPOR
 
 ## Overview
 
-Personal assistant web app: **Chat** (agent), **Wiki** (markdown vault), **Inbox** (ripmail), served from one Node process.
+Personal assistant web app: **Chat** (agent), **Wiki** (markdown vault), **Inbox** (indexed mail in **`src/server/ripmail/`**), served from one Node process.
 
 ```
 Browser (Svelte 5)
@@ -98,9 +98,9 @@ Chat transport, tooling surface, Pi integration, metering hooks, and local model
 
 ---
 
-## Data plane: `$BRAIN_HOME`, ripmail, search, corpora
+## Data plane: `$BRAIN_HOME`, mail (ripmail layout), search, corpora
 
-On-disk layout, integrations, evaluations, and the Rust inbox implementation.
+On-disk layout, integrations, evaluations, and the **TypeScript** mail stack (**`src/server/ripmail/`**, in-process `better-sqlite3` on each tenant’s **`ripmail/`** tree per [`brain-layout.json`](../shared/brain-layout.json)).
 
 
 | Topic                                                                         | Doc                                                                                                                               |
@@ -112,8 +112,8 @@ On-disk layout, integrations, evaluations, and the Rust inbox implementation.
 | External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
 | Eval home, Enron fixture mail, search index rebuild                           | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
 | Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)               | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
-| **Rust ripmail — recoverable snapshot** (git tag before TS port; see [OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)) | [architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)                                                     |
-| Mail index + sync (**TypeScript**, OPP-103)                                                                                                          | [`src/server/ripmail/`](../src/server/ripmail/index.ts) · [architecture/integrations.md](architecture/integrations.md)              |
+| **Rust ripmail — archaeology** (annotated git tags; last tree before crate left `main`) | [architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md) · [archived OPP-105](opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md) |
+| **Mail TS port** (scope + follow-on unified DB)                               | [OPP-103](opportunities/OPP-103-ripmail-ts-port.md) · [OPP-104](opportunities/OPP-104-unified-tenant-sqlite.md)                     |
 
 
 ---
@@ -127,7 +127,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 | Topic                                                                   | Doc                                                                        |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Chat + app notifications: tenant SQLite (`var/brain-tenant.sqlite`); mail index still ripmail (until [OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
+| Chat + app notifications: tenant SQLite (`var/brain-tenant.sqlite`); mail index in tenant **`ripmail/`** (separate SQLite today; merge follow-on [OPP-104](opportunities/OPP-104-unified-tenant-sqlite.md)) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
 | Preferences scattered across JSON + `localStorage`                      | [architecture/preferences-store.md](architecture/preferences-store.md)     |
 
 
@@ -137,7 +137,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 | Topic                                                       | Doc                                                                        |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
 - **Tailwind in the build; Tailwind-first components** | [architecture/tailwind-migration.md](architecture/tailwind-migration.md)   |
-| Calendar writes: subprocess vs direct Google Calendar API   | [architecture/calendar-write-path.md](architecture/calendar-write-path.md) |
+| Calendar (in-process `@server/ripmail`; historical subprocess-era notes) | [architecture/calendar-write-path.md](architecture/calendar-write-path.md) |
 
 
 ### Sessions and long-term architecture
@@ -156,7 +156,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 - **Single user, single process** — no separate API server; sessions are in-memory with chat history persisted in **`var/brain-tenant.sqlite`** per tenant (see [chat-history-sqlite.md](architecture/chat-history-sqlite.md)); **`chats/`** retains onboarding JSON only.
 - **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
   - **Bootstrap then maintenance** — after enough indexed mail, a **one-shot wiki bootstrap** may create bounded first-draft stubs ([OPP-095](opportunities/OPP-095-wiki-first-draft-bootstrap.md)); the **Your Wiki** supervisor then runs deepen-only laps ([architecture/background-task-orchestration.md](architecture/background-task-orchestration.md)).
-  - **Email and index via ripmail** — subprocess CLI, `RIPMAIL_HOME` under Brain by default.
+  - **Email and mail index** — **`src/server/ripmail/`** (TypeScript, in-process); on-disk **`ripmail/`** layout under each tenant home ([`brain-layout.json`](../shared/brain-layout.json)). Optional **`RIPMAIL_BIN`** only for rare subprocess-backed tests ([architecture/integrations.md](architecture/integrations.md)).
   - **UI Shell** — Svelte 5 SPA. The top-nav **Brain Hub widget** replaces legacy status bars and sync buttons, providing a single entry point to **Brain Hub** (`/hub`) for administration and system health.
   - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc). **Local MLX (Qwen on Apple Silicon):** [local-mlx-llm.md](architecture/local-mlx-llm.md).
 

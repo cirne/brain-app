@@ -140,7 +140,7 @@ Extra row metadata (conceptual): `remote_id`, `remote_updated_at`, `content_hash
 
 **MCP is optional sync-transport / reference**, not the query API.
 
-Preferred connector implementation: **native HTTP client in ripmail** for refresh loops (predictable errors, no subprocess JSON-RPC). Official MCP servers can help explore API shapes; they are a poor fit as the inner loop of high-frequency sync.
+Preferred connector implementation: **HTTP client inside `src/server/ripmail/sync/`** for refresh loops (predictable errors, no extra process). Official MCP servers can help explore API shapes; they are a poor fit as the inner loop of high-frequency sync.
 
 If brain-app gains MCP-driven extensibility later, sync results must still **land in ripmail** before search—not bypass the index.
 
@@ -181,7 +181,7 @@ Optional breadth accelerator (hosted connector layer): [OPP-040](../opportunitie
 
 ## Related
 
-- [integrations.md](./integrations.md) — subprocess boundary, `/api/search`, trust notes  
+- [integrations.md](./integrations.md) — `@server/ripmail`, `/api/search`, trust notes  
 - [OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources[]` target architecture  
 - [OPP-045](../opportunities/OPP-045-google-drive.md) — Google Drive product milestone  
 - [packaging-and-distribution.md](../packaging-and-distribution.md) — OAuth / cloud-drive constraints  

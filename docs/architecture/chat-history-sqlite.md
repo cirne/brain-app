@@ -1,6 +1,6 @@
 # Chat history: SQLite
 
-**Status:** **Implemented** — sessions and messages live in **`var/brain-tenant.sqlite`** per tenant (`files.tenantSqlite` in [`brain-layout.json`](../../shared/brain-layout.json), helper [`brainLayoutTenantSqlitePath`](../../src/server/lib/platform/brainLayout.ts)). Ripmail’s index remains under **`ripmail/`** until [OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md) merges mail into the same file.
+**Status:** **Implemented** — sessions and messages live in **`var/brain-tenant.sqlite`** per tenant (`files.tenantSqlite` in [`brain-layout.json`](../../shared/brain-layout.json), helper [`brainLayoutTenantSqlitePath`](../../src/server/lib/platform/brainLayout.ts)). The **mail index** (FTS, sync state, drafts, etc.) lives in the tenant **`ripmail/`** tree (see layout keys in `brain-layout.json`), opened in-process by **`src/server/ripmail/`**. **Merging** that mail database into the same SQLite file as chat + notifications is **[OPP-104](../opportunities/OPP-104-unified-tenant-sqlite.md)** (after **[OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)** — TypeScript mail runtime).
 
 **Previous store:** JSON files under `$BRAIN_HOME/chats/` (removed — clean break per [AGENTS.md](../../AGENTS.md)).
 
