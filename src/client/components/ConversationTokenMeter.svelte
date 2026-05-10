@@ -1,6 +1,7 @@
 <script lang="ts">
   import { CHAT_TOKEN_METER_REFERENCE } from '@client/lib/agentUtils.js'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   /** Show abbreviated token count beside the ring only above this usage (keeps header quiet). */
   const SHOW_COUNT_MIN_EXCLUSIVE = 100_000
@@ -37,7 +38,11 @@
   const titleText = $derived.by(() => {
     const n = Math.max(0, Math.floor(totalTokens))
     const ref = Math.max(0, Math.floor(referenceTokens))
-    return `${formatTokensK(n)} / ${formatTokensK(ref)} Tokens (${pctRounded}%)`
+    return $t('chat.tokenMeter.title', {
+      used: formatTokensK(n),
+      reference: formatTokensK(ref),
+      percent: pctRounded,
+    })
   })
 
   const showCount = $derived(totalTokens > SHOW_COUNT_MIN_EXCLUSIVE)

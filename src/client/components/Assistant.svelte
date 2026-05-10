@@ -99,6 +99,7 @@
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
   import { overlayForWikiPrimaryShortcut } from '@client/lib/wikiPrimaryShortcutOverlay.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
   import {
     BookOpen,
@@ -1044,7 +1045,7 @@
         shell.agentContext = { type: 'wiki', path: o.path, title }
       } else if (o.type === 'wiki-dir') {
         const dirPath = o.path?.trim() ?? ''
-        const title = dirPath ? (dirPath.split('/').pop() ?? dirPath) : 'Wiki'
+        const title = dirPath ? (dirPath.split('/').pop() ?? dirPath) : $t('nav.wiki.label')
         shell.agentContext = { type: 'wiki-dir', path: dirPath, title }
       } else {
         shell.agentContext = { type: 'chat' }
@@ -1219,7 +1220,7 @@
 <div class="app flex h-full flex-col">
   {#snippet mobileNavOverflowMenu({ dismiss })}
     <AnchoredMenuRow
-      label="Search"
+      label={$t('common.actions.search')}
       onclick={() => {
         shell.showSearch = true
         dismiss()
@@ -1230,7 +1231,7 @@
       {/snippet}
     </AnchoredMenuRow>
     <AnchoredMenuRow
-      label="Wiki home"
+      label={$t('nav.wiki.home')}
       onclick={() => {
         navigateWikiPrimary()
         dismiss()
@@ -1241,7 +1242,7 @@
       {/snippet}
     </AnchoredMenuRow>
     <AnchoredMenuRow
-      label="Settings"
+      label={$t('nav.settings.label')}
       onclick={() => {
         openSettings()
         dismiss()
@@ -1253,7 +1254,11 @@
     </AnchoredMenuRow>
     {#if showMobileOverflowChatSessionActions}
       <AnchoredMenuRow
-        label={chatHearReplies ? 'Turn audio off' : 'Turn audio on'}
+        label={
+          chatHearReplies
+            ? $t('chat.assistant.mobileOverflow.turnAudioOff')
+            : $t('chat.assistant.mobileOverflow.turnAudioOn')
+        }
         onclick={() => {
           refs.agentChat?.toggleHearRepliesFromHeader()
           dismiss()
@@ -1269,7 +1274,7 @@
       </AnchoredMenuRow>
       {#if !isNewChatWithNothingToDelete}
         <AnchoredMenuRow
-          label="Delete chat"
+          label={$t('chat.agentChat.deleteChatAria')}
           onclick={() => {
             refs.agentChat?.requestDeleteCurrentChat()
             dismiss()
@@ -1365,14 +1370,14 @@
                 {#snippet bar()}
                   <div class="wiki-primary-bar flex shrink-0 items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-2.5 py-1.5">
                     <WikiPrimaryBarCrumbs crumbs={wikiPrimaryBarCrumbs} onOpenWikiDir={openWikiDir} />
-                    <div class="wiki-primary-actions flex shrink-0 items-center gap-2" role="toolbar" aria-label="Wiki actions">
+                    <div class="wiki-primary-actions flex shrink-0 items-center gap-2" role="toolbar" aria-label={$t('chat.assistant.wikiActionsToolbarAria')}>
                       {#if shell.route.overlay.type === 'wiki' && wikiPrimarySlideHeader}
                         {#if wikiPrimarySlideHeader.saveState === 'saving'}
-                          <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saving…</span>
+                          <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">{$t('common.status.saving')}</span>
                         {:else if wikiPrimarySlideHeader.saveState === 'saved'}
-                          <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saved</span>
+                          <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">{$t('common.status.saved')}</span>
                         {:else if wikiPrimarySlideHeader.saveState === 'error'}
-                          <span class="wiki-save-hint wiki-save-err text-xs font-semibold text-[var(--text-3,var(--text-2))]" role="status">Save failed</span>
+                          <span class="wiki-save-hint wiki-save-err text-xs font-semibold text-[var(--text-3,var(--text-2))]" role="status">{$t('common.status.saveFailed')}</span>
                         {/if}
                       {/if}
                     </div>

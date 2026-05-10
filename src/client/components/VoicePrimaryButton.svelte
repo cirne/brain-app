@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowUp, Loader2, Mic } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { VoiceTapPhase } from '@client/lib/voiceTapCapture.js'
 
   let {
@@ -21,10 +22,10 @@
   const blocked = $derived(disabled || holdGated)
 
   function ariaPrimary(): string {
-    if (phase === 'transcribing') return 'Transcribing'
-    if (phase === 'arming') return 'Preparing microphone'
-    if (phase === 'recording') return 'Send voice message'
-    return 'Start recording'
+    if (phase === 'transcribing') return $t('chat.voice.stateTranscribing')
+    if (phase === 'arming') return $t('chat.voice.preparingMicrophone')
+    if (phase === 'recording') return $t('chat.voice.sendVoiceMessage')
+    return $t('chat.voice.startRecording')
   }
 </script>
 

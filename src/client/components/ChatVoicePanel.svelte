@@ -2,6 +2,7 @@
   import { onDestroy, onMount, tick } from 'svelte'
   import { Keyboard, Loader2 } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import { formatRecordingDuration } from '@client/lib/voicePanelFormat.js'
   import { VoiceTapRecorder, type VoiceTapPhase } from '@client/lib/voiceTapCapture.js'
   import VoiceActionButtons from '@components/VoiceActionButtons.svelte'
@@ -169,7 +170,7 @@
 <div
   class={cn(containerBase, containerByLayout)}
   role="toolbar"
-  aria-label="Voice input"
+  aria-label={$t('chat.voice.toolbarAria')}
 >
   <div
     class={cn(
@@ -199,15 +200,15 @@
           >
             <Loader2 size={20} strokeWidth={2} />
           </span>
-          <span class="chat-voice-processing-text whitespace-nowrap text-[13px] font-medium tracking-[0.02em] text-muted">Transcribing…</span>
+          <span class="chat-voice-processing-text whitespace-nowrap text-[13px] font-medium tracking-[0.02em] text-muted">{$t('chat.voice.transcribing')}</span>
         </div>
       {:else if layout === 'composer-flow' && phase === 'idle' && onExitVoiceMode}
         <button
           type="button"
           class="voice-exit-keyboard inline-flex h-11 min-w-[44px] cursor-pointer items-center justify-center border border-border bg-surface-3 p-0 text-muted transition-colors duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-surface hover:text-foreground active:[filter:brightness(0.97)] [margin-left:max(8px,env(safe-area-inset-left,0px))]"
           onclick={() => onExitVoiceMode()}
-          aria-label="Type with keyboard"
-          title="Keyboard"
+          aria-label={$t('chat.voice.typeWithKeyboardAria')}
+          title={$t('chat.voice.keyboardTitle')}
         >
           <Keyboard size={20} strokeWidth={2.25} aria-hidden="true" />
         </button>
@@ -225,7 +226,7 @@
         <span
           class="chat-voice-timer text-[11px] font-semibold leading-none tracking-[0.04em] text-foreground tabular-nums [font-feature-settings:'tnum'_1]"
           aria-live="polite"
-          aria-label={`Recording length ${timerLabel}`}
+          aria-label={$t('chat.voice.recordingLengthAria', { duration: timerLabel })}
         >
           {timerLabel}
         </span>

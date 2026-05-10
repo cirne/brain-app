@@ -1,6 +1,7 @@
 <script lang="ts">
   import { RotateCcw, X } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     visible = false,
@@ -31,7 +32,7 @@
     type="button"
     class={cn(chipBase, 'voice-chip--ghost border-transparent bg-transparent font-medium text-muted [box-shadow:none]')}
     disabled={disabled || !visible}
-    aria-label="Cancel recording"
+    aria-label={$t('chat.voice.cancelRecordingAria')}
     onclick={onCancel}
   >
     <X size={16} strokeWidth={2.25} class="voice-chip-ic" aria-hidden="true" />
@@ -40,7 +41,7 @@
     type="button"
     class={chipBase}
     disabled={disabled || !visible}
-    aria-label="Restart recording"
+    aria-label={$t('chat.voice.restartRecordingAria')}
     onclick={() => void onRestart()}
   >
     <RotateCcw size={16} strokeWidth={2.25} class="voice-chip-ic" aria-hidden="true" />

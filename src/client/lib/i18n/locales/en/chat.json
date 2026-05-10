@@ -28,6 +28,46 @@
     "deleteConfirmLabel": "Delete",
     "deleteDialogBody": "This will permanently remove \"{{label}}\"."
   },
+  "history": {
+    "newChatFallbackTitle": "New chat",
+    "loadFailed": "Could not load chats",
+    "loadFailedGeneric": "Failed to load",
+    "removeFromHistoryAria": "Remove from history",
+    "chatsHeading": "Chats",
+    "newChat": "New chat",
+    "emptyChats": "No chats yet.",
+    "viewAllChats": "View all chats…",
+    "recentsHeading": "Recents",
+    "emptyRecents": "No recent documents or email."
+  },
+  "historyPage": {
+    "searchChatsLabel": "Search chats",
+    "filterPlaceholder": "Filter",
+    "noSearchMatches": "No chats match your search."
+  },
+  "assistant": {
+    "wikiActionsToolbarAria": "Wiki actions",
+    "mobileOverflow": {
+      "turnAudioOn": "Turn audio on",
+      "turnAudioOff": "Turn audio off"
+    }
+  },
+  "tokenMeter": {
+    "title": "{{used}} / {{reference}} Tokens ({{percent}}%)"
+  },
+  "voice": {
+    "cancelRecordingAria": "Cancel recording",
+    "restartRecordingAria": "Restart recording",
+    "stateTranscribing": "Transcribing",
+    "preparingMicrophone": "Preparing microphone",
+    "sendVoiceMessage": "Send voice message",
+    "startRecording": "Start recording",
+    "toolbarAria": "Voice input",
+    "transcribing": "Transcribing…",
+    "typeWithKeyboardAria": "Type with keyboard",
+    "keyboardTitle": "Keyboard",
+    "recordingLengthAria": "Recording length {{duration}}"
+  },
   "input": {
     "placeholder": "What do you need to know or get done?",
     "noMatchingSkills": "No matching skills",
