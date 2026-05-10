@@ -20,6 +20,7 @@
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   function notifyChatSessionsChanged() {
     emit({ type: 'chat:sessions-changed' })
@@ -97,7 +98,7 @@
     /** POST target for SSE (default main chat). */
     chatEndpoint = '/api/chat',
     /** Title until `set_chat_title` runs. */
-    headerFallbackTitle = 'Chat',
+    headerFallbackTitle = $t('chat.agentChat.headerFallbackTitle'),
     /** If set, sent as the first user message after mount (e.g. onboarding kickoff). */
     autoSendMessage = null as string | null,
     /** Called once when the server emits a terminal `done` event for the stream. */
@@ -503,7 +504,7 @@
         err.messages = [
           {
             role: 'assistant',
-            content: `Could not load chat (${res.status}).`,
+            content: $t('chat.agentChat.loadFailedWithStatus', { status: res.status }),
           },
         ]
         sessions = setSessionImmutable(sessions, loadId, {
@@ -547,7 +548,7 @@
       if (sessionLoadLatest.isStale(token) || isAbortError(e)) return
       const pk = createPendingSessionKey()
       sessions = setSessionImmutable(sessions, pk, {
-        messages: [{ role: 'assistant', content: 'Could not load chat.' }],
+        messages: [{ role: 'assistant', content: $t('chat.agentChat.loadFailed') }],
         streaming: false,
         abortController: null,
         sessionId: null,
@@ -772,7 +773,7 @@
   const contextChip = $derived.by((): string | null => {
     if (context.type === 'email') return `📧 ${context.subject}`
     if (context.type === 'calendar') return `📅 ${context.date}`
-    if (context.type === 'inbox') return '📥 Inbox'
+    if (context.type === 'inbox') return `📥 ${$t('chat.agentChat.inboxContextLabel')}`
     if (context.type === 'messages') return `💬 ${context.displayLabel}`
     return null
   })
@@ -875,7 +876,7 @@
               aria-label={streaming &&
               !(streamingBusyLabel ?? '').trim() &&
               !(chatTitle ?? '').trim()
-                ? 'Assistant is working'
+                ? $t('chat.messageRow.assistantWorkingAria')
                 : undefined}
             >
               {#if streaming}
@@ -914,10 +915,10 @@
                 hearRepliesOn && 'hear-replies-header-btn--on text-accent hover:text-accent',
               )}
               aria-pressed={hearRepliesOn}
-              title="Assistant speaks replies (text-to-speech)"
+              title={$t('chat.agentChat.hearRepliesToggleTitle')}
               aria-label={hearRepliesOn
-                ? 'Assistant voice output on'
-                : 'Assistant voice output off'}
+                ? $t('chat.agentChat.hearRepliesOnAria')
+                : $t('chat.agentChat.hearRepliesOffAria')}
               onclick={toggleHearRepliesFromHeader}
             >
               {#if hearRepliesOn}
@@ -931,8 +932,8 @@
                 type="button"
                 class={cn('delete-chat-btn', iconBtnClass)}
                 onclick={requestDeleteCurrentChat}
-                title="Delete chat"
-                aria-label="Delete chat"
+                title={$t('chat.agentChat.deleteChatAria')}
+                aria-label={$t('chat.agentChat.deleteChatAria')}
               >
                 <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -1062,7 +1063,7 @@
               type="button"
               role="switch"
               aria-checked={hearRepliesForChatComposer}
-              aria-label="Audio conversation"
+              aria-label={$t('chat.agentChat.audioConversation')}
               class={cn(
                 'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full', 
                 'px-4 py-2 text-md transition-colors duration-150'
@@ -1070,7 +1071,7 @@
               onclick={toggleHearRepliesFromHeader}
             >
               <Volume2 size={15} strokeWidth={2} aria-hidden="true" />
-              <span>Audio conversation</span>
+              <span>{$t('chat.agentChat.audioConversation')}</span>
               <span
                 class={cn(
                   'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
@@ -1103,16 +1104,16 @@
 
   <ConfirmDialog
     open={pendingDelete !== null}
-    title="Delete chat?"
+    title={$t('chat.agentChat.deleteDialogTitle')}
     titleId="agent-chat-delete-title"
-    confirmLabel="Delete"
-    cancelLabel="Cancel"
+    confirmLabel={$t('chat.agentChat.deleteConfirmLabel')}
+    cancelLabel={$t('common.actions.cancel')}
     confirmVariant="danger"
     onDismiss={cancelDeleteCurrentChat}
     onConfirm={() => void confirmDeleteCurrentChat()}
   >
     {#if pendingDelete}
-      <p>This will permanently remove "{pendingDelete.label}".</p>
+      <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
     {/if}
   </ConfirmDialog>
 </div>

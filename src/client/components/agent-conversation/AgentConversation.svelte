@@ -4,6 +4,7 @@
   import { ChevronDown } from 'lucide-svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { AgentConversationViewProps } from '@client/lib/agentConversationViewTypes.js'
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
@@ -231,7 +232,9 @@
           'jump-to-latest pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pr-4 pl-3.5 text-xs font-semibold tracking-[0.04em] text-foreground uppercase shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] backdrop-blur-[10px] transition-[transform,box-shadow,border-color] duration-[180ms] ease-in-out [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_28px_rgba(0,0,0,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:translate-y-0 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]',
           streaming && 'streaming border-[color-mix(in_srgb,var(--accent)_28%,var(--border))]',
         )}
-        aria-label={streaming ? 'Jump to latest, reply in progress' : 'Jump to latest messages'}
+        aria-label={streaming
+          ? $t('chat.agentConversation.jumpToLatestStreamingAria')
+          : $t('chat.agentConversation.jumpToLatestAria')}
         onclick={() => scrollToBottom()}
       >
         {#if streaming}
@@ -241,7 +244,7 @@
           ></span>
         {/if}
         <ChevronDown size={16} strokeWidth={2.25} class="jump-chevron shrink-0 opacity-85" aria-hidden="true" />
-        <span class="jump-text leading-none">Latest</span>
+        <span class="jump-text leading-none">{$t('chat.agentConversation.latest')}</span>
       </button>
     </div>
   {/if}

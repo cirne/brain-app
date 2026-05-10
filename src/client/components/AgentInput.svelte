@@ -3,6 +3,7 @@
   import { ArrowUp, AtSign, List, MessageSquarePlus, Mic, Square } from 'lucide-svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import { handleTextareaCursorKeys } from '@client/lib/agentInputCursor.js'
   import {
@@ -11,7 +12,7 @@
   } from '@client/lib/workspaceHandleSuggest.js'
 
   let {
-    placeholder = 'What do you need to know or get done?',
+    placeholder = undefined as string | undefined,
     disabled = false,
     streaming = false,
     /** OPP-016: FIFO texts queued until the current stream ends (shown stacked, oldest first). */
@@ -48,6 +49,8 @@
     onVoiceEntry?: () => void
     voiceEntryDisabled?: boolean
   } = $props()
+
+  const resolvedPlaceholder = $derived(placeholder ?? $t('chat.input.placeholder'))
 
   let input = $state('')
   let inputEl: HTMLTextAreaElement
@@ -233,7 +236,7 @@
 
   $effect(() => {
     void input
-    void placeholder
+    void resolvedPlaceholder
     void queuedMessages.length
     void tick().then(() => {
       if (inputEl) autoResize(inputEl)
@@ -314,7 +317,7 @@
           <span class="slash-label shrink-0 text-xs text-foreground">{skill.label}</span>
         </button>
       {:else}
-        <div class="mention-empty px-3 py-2 text-xs text-muted">No matching skills</div>
+        <div class="mention-empty px-3 py-2 text-xs text-muted">{$t('chat.input.noMatchingSkills')}</div>
       {/each}
     </div>
   {/if}
@@ -324,16 +327,16 @@
     <div
       class="mention-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[260px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
       role="listbox"
-      aria-label="Mention people or documents"
+      aria-label={$t('chat.input.mentionMenuAria')}
     >
       {#if rows.length === 0}
-        <div class="mention-empty px-3 py-2 text-xs text-muted">No matches</div>
+        <div class="mention-empty px-3 py-2 text-xs text-muted">{$t('chat.input.noMentionMatches')}</div>
       {:else}
         {#if peopleCount > 0}
           <div
             class="mention-section-header px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
             role="presentation"
-          >People</div>
+          >{$t('chat.input.mentionsPeople')}</div>
         {/if}
         {#each rows as row, i (row.kind === 'person' ? `p:${row.entry.userId}` : `d:${row.path}`)}
           {#if row.kind === 'person' && i === peopleCount - 0}
@@ -343,7 +346,7 @@
             <div
               class="mention-section-header px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
               role="presentation"
-            >Documents</div>
+            >{$t('chat.input.mentionsDocuments')}</div>
           {/if}
           <button
             type="button"
@@ -378,7 +381,7 @@
         <div
           class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"
           role="list"
-          aria-label="Messages queued to send when assistant finishes"
+          aria-label={$t('chat.input.queuedMessagesAria')}
         >
           {#each queuedMessages as message, i (i)}
             <div
@@ -398,13 +401,17 @@
       {/if}
       <div class="input-composer flex flex-1 min-w-0 flex-row items-stretch">
         {#if onNewChat}
-          <div class="lead-actions flex shrink-0 flex-row items-stretch self-stretch" role="group" aria-label="Start new chat">
+          <div
+            class="lead-actions flex shrink-0 flex-row items-stretch self-stretch"
+            role="group"
+            aria-label={$t('chat.input.startNewChatAria')}
+          >
             <button
               type="button"
               class="new-chat-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] p-0 border-none border-r border-r-border bg-surface text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:[filter:brightness(0.97)]"
               onclick={() => onNewChat()}
-              title="New chat (⌘N)"
-              aria-label="New chat"
+              title={$t('chat.input.newChatTitle')}
+              aria-label={$t('chat.input.newChatAria')}
             >
               <MessageSquarePlus size={20} strokeWidth={2} aria-hidden="true" />
             </button>
@@ -422,7 +429,7 @@
             bind:value={input}
             oninput={handleInput}
             onkeydown={handleKeydown}
-            {placeholder}
+            placeholder={resolvedPlaceholder}
             rows="1"
             {disabled}
           ></textarea>
@@ -433,14 +440,14 @@
             streaming && 'send-actions--streaming [&_.stop-btn]:border-r [&_.stop-btn]:border-r-white/25',
           )}
           role="group"
-          aria-label={streaming ? 'Queue or stop assistant' : 'Send message'}
+          aria-label={streaming ? $t('chat.input.queueOrStopAria') : $t('chat.input.sendGroupAria')}
         >
           {#if streaming}
             <button
               type="button"
               class={cn(sendBtnBase, 'stop-btn bg-muted hover:[filter:brightness(1.1)]')}
               onclick={() => onStop?.()}
-              aria-label="Stop"
+              aria-label={$t('chat.input.stopAria')}
             >
               <Square size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" />
             </button>
@@ -449,8 +456,8 @@
               class={sendBtnBase}
               onclick={submit}
               disabled={disabled || !input.trim()}
-              title="Queue message (sends when assistant finishes)"
-              aria-label="Queue message to send when assistant finishes"
+              title={$t('chat.input.queueMessageTitle')}
+              aria-label={$t('chat.input.queueMessageAria')}
             >
               <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
             </button>
@@ -460,8 +467,8 @@
               class={cn(sendBtnBase, 'voice-right-btn')}
               disabled={voiceEntryDisabled}
               onclick={() => onVoiceEntry()}
-              title="Voice input"
-              aria-label="Voice input"
+              title={$t('chat.input.voiceInputTitle')}
+              aria-label={$t('chat.input.voiceInputAria')}
             >
               <Mic size={20} strokeWidth={2.25} aria-hidden="true" />
             </button>
@@ -471,7 +478,7 @@
               class={sendBtnBase}
               onclick={submit}
               disabled={disabled || !input.trim()}
-              aria-label="Send message"
+              aria-label={$t('chat.input.sendMessageAria')}
             >
               <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
             </button>

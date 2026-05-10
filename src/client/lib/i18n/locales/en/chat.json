@@ -3,5 +3,63 @@
     "prompt": "Ask anything about your docs, email, or calendar.",
     "atHint": "Use @ to reference docs in",
     "yourWiki": "your wiki"
+  },
+  "agentConversation": {
+    "jumpToLatestStreamingAria": "Jump to latest, reply in progress",
+    "jumpToLatestAria": "Jump to latest messages",
+    "latest": "Latest"
+  },
+  "messageRow": {
+    "you": "You",
+    "assistant": "Assistant",
+    "assistantWorkingAria": "Assistant is working"
+  },
+  "agentChat": {
+    "headerFallbackTitle": "Chat",
+    "loadFailedWithStatus": "Could not load chat ({{status}}).",
+    "loadFailed": "Could not load chat.",
+    "inboxContextLabel": "Inbox",
+    "hearRepliesToggleTitle": "Assistant speaks replies (text-to-speech)",
+    "hearRepliesOnAria": "Assistant voice output on",
+    "hearRepliesOffAria": "Assistant voice output off",
+    "deleteChatAria": "Delete chat",
+    "audioConversation": "Audio conversation",
+    "deleteDialogTitle": "Delete chat?",
+    "deleteConfirmLabel": "Delete",
+    "deleteDialogBody": "This will permanently remove \"{{label}}\"."
+  },
+  "input": {
+    "placeholder": "What do you need to know or get done?",
+    "noMatchingSkills": "No matching skills",
+    "mentionMenuAria": "Mention people or documents",
+    "noMentionMatches": "No matches",
+    "mentionsPeople": "People",
+    "mentionsDocuments": "Documents",
+    "queuedMessagesAria": "Messages queued to send when assistant finishes",
+    "startNewChatAria": "Start new chat",
+    "newChatTitle": "New chat (⌘N)",
+    "newChatAria": "New chat",
+    "queueOrStopAria": "Queue or stop assistant",
+    "sendGroupAria": "Send message",
+    "stopAria": "Stop",
+    "queueMessageTitle": "Queue message (sends when assistant finishes)",
+    "queueMessageAria": "Queue message to send when assistant finishes",
+    "voiceInputTitle": "Voice input",
+    "voiceInputAria": "Voice input",
+    "sendMessageAria": "Send message"
+  },
+  "toolCall": {
+    "openName": "Open {{name}}",
+    "to": "to",
+    "moving": "Moving",
+    "openPath": "Open {{path}}"
+  },
+  "composerContextBar": {
+    "toolbarAria": "Referenced pages and suggested replies",
+    "referencedPagesAria": "Referenced pages",
+    "suggestedRepliesAria": "Suggested replies"
+  },
+  "referencedFilesStrip": {
+    "referenced": "Referenced"
   }
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import WikiFileName from '@components/WikiFileName.svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     paths,
@@ -11,7 +12,9 @@
 </script>
 
 <div class="mt-4 border-t border-border pt-3">
-  <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">Referenced</div>
+  <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+    {$t('chat.referencedFilesStrip.referenced')}
+  </div>
   <div class="flex flex-wrap gap-1.5">
     {#each paths as path}
       <button
