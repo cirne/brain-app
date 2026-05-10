@@ -6,6 +6,11 @@ vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
+vi.mock('./hubRipmailSources.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./hubRipmailSources.js')>()
+  return { ...actual, browseHubRipmailFolders: vi.fn() }
+})
+
 vi.mock('@mariozechner/pi-ai', () => ({
   completeSimple: vi.fn(),
 }))
@@ -19,13 +24,9 @@ vi.mock('@server/lib/llm/llmOnPayloadChain.js', () => ({
   chainLlmOnPayload: vi.fn(),
 }))
 
-import { runRipmailArgv, type RipmailRunResult } from '@server/lib/ripmail/ripmailRun.js'
 import { completeSimple } from '@mariozechner/pi-ai'
 import { suggestDriveFolders } from './hubDriveSuggest.js'
-
-function ripmailOk(stdout: string, stderr = ''): RipmailRunResult {
-  return { stdout, stderr, code: 0, signal: null, durationMs: 1, timedOut: false, pid: 1 }
-}
+import { browseHubRipmailFolders } from './hubRipmailSources.js'
 
 const FOLDERS = [
   { id: 'f1', name: 'Projects', hasChildren: true },
@@ -33,9 +34,6 @@ const FOLDERS = [
   { id: 'f3', name: 'Notes', hasChildren: false },
 ]
 
-function browseFoldersOutput() {
-  return ripmailOk(JSON.stringify({ folders: FOLDERS }))
-}
 
 function llmJsonResponse(suggested: object[], ignoreGlobs: string[], ignoreSummary = '') {
   const json = JSON.stringify({
@@ -51,12 +49,12 @@ function llmJsonResponse(suggested: object[], ignoreGlobs: string[], ignoreSumma
 
 describe('suggestDriveFolders', () => {
   beforeEach(() => {
-    vi.mocked(runRipmailArgv).mockReset()
+    vi.mocked(browseHubRipmailFolders).mockReset()
     vi.mocked(completeSimple).mockReset()
   })
 
   it('returns suggestions with include flags from LLM', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: FOLDERS })
     vi.mocked(completeSimple).mockResolvedValue(
       llmJsonResponse(
         [
@@ -82,7 +80,7 @@ describe('suggestDriveFolders', () => {
   })
 
   it('returns empty suggestions when Drive has no folders', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(ripmailOk(JSON.stringify({ folders: [] })))
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: [] })
 
     const result = await suggestDriveFolders('drive_x')
     expect(result.ok).toBe(true)
@@ -93,14 +91,14 @@ describe('suggestDriveFolders', () => {
   })
 
   it('returns ok:false when browse-folders fails', async () => {
-    vi.mocked(runRipmailArgv).mockRejectedValue(new Error('ripmail error'))
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: false, error: 'ripmail error' })
 
     const result = await suggestDriveFolders('drive_x')
     expect(result.ok).toBe(false)
   })
 
   it('returns ok:false when LLM returns error', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: FOLDERS })
     vi.mocked(completeSimple).mockResolvedValue({
       stopReason: 'error',
       errorMessage: 'LLM unavailable',
@@ -112,7 +110,7 @@ describe('suggestDriveFolders', () => {
   })
 
   it('filters out suggestions for unknown folder ids', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: FOLDERS })
     vi.mocked(completeSimple).mockResolvedValue(
       llmJsonResponse(
         [
@@ -131,7 +129,7 @@ describe('suggestDriveFolders', () => {
   })
 
   it('treats missing ignoreSummary as empty string', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: FOLDERS })
     vi.mocked(completeSimple).mockResolvedValue(
       llmJsonResponse([{ id: 'f1', name: 'Projects', reason: 'Work', include: true }], ['*.bak']) as never,
     )
@@ -143,7 +141,7 @@ describe('suggestDriveFolders', () => {
   })
 
   it('caps ignoreGlobs returned from the LLM', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: FOLDERS })
     const many = Array.from({ length: 100 }, (_, i) => `pat${i}*`)
     vi.mocked(completeSimple).mockResolvedValue(
       llmJsonResponse(
@@ -163,7 +161,7 @@ describe('suggestDriveFolders', () => {
   })
 
   it('handles LLM response wrapped in markdown code fences', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(browseHubRipmailFolders).mockResolvedValue({ ok: true, folders: FOLDERS })
     const raw = JSON.stringify({
       suggested: [{ id: 'f1', name: 'Projects', reason: 'Work docs', include: true }],
       ignoreGlobs: [],

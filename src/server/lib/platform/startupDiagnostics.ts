@@ -1,7 +1,6 @@
 import { BRAIN_DEFAULT_HTTP_PORT, GOOGLE_OAUTH_CALLBACK_PATH } from './brainHttpPort.js'
 import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { logFdaProbeForStartup } from '@server/lib/apple/fdaProbe.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 /** One-shot logs for container / production debugging (paths, ripmail index). */
@@ -40,9 +39,10 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
       'warning: IMESSAGE_DB_PATH is set while BRAIN_DATA_ROOT is set — iMessage is host-level, not tenant-scoped',
     )
   }
-  const rm = ripmailBin()
-  brainLogger.info(`RIPMAIL_BIN=${rm}`)
-  brainLogger.info('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')
+  brainLogger.info('ripmail: TypeScript in-process module (OPP-103); no subprocess binary required for agent tools')
+  if (process.env.RIPMAIL_BIN?.trim()) {
+    brainLogger.info(`RIPMAIL_BIN=${process.env.RIPMAIL_BIN} (set; used by remaining UI routes pending full TS migration)`)
+  }
 
   brainLogger.info('Local messages / iMessage tools: disabled in hosted multi-tenant mode.')
 

@@ -3,8 +3,8 @@
  * inventing `source=` values (folder labels, vendor names, etc.).
  */
 
-import { ripmailBin } from './ripmailBin.js'
-import { execRipmailAsync } from './ripmailRun.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { ripmailSourcesList } from '@server/ripmail/index.js'
 
 export type RipmailSourceListEntry = {
   id?: unknown
@@ -45,12 +45,11 @@ export function formatRipmailSourcesForPrompt(stdout: string): string {
   }
 }
 
-/** Runs `ripmail sources list --json`; empty string if ripmail is missing or errors. */
+/** Returns formatted sources prompt section using the in-process TS module. */
 export async function buildRipmailSourcesPromptSection(): Promise<string> {
   try {
-    const rm = ripmailBin()
-    const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 12000 })
-    return formatRipmailSourcesForPrompt(stdout)
+    const { sources } = ripmailSourcesList(ripmailHomeForBrain())
+    return formatRipmailSourcesForPrompt(JSON.stringify({ sources }))
   } catch {
     return ''
   }

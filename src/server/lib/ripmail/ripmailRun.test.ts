@@ -24,7 +24,6 @@ import {
   getRipmailChildDebugSnapshot,
   diagnosticTailCharBudgetForRipmailClose,
 } from './ripmailRun.js'
-import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 
 describe('diagnosticTailCharBudgetForRipmailClose', () => {
   it('uses a short budget for signal exit without timeout (shutdown / interrupt)', () => {
@@ -112,26 +111,9 @@ exit 0
     expect(envText).toContain('RIPMAIL_SPAWN_LABEL=inbox-list')
   })
 
-  it('concurrent refresh same home shares one flight when argv match', async () => {
-    const script = join(binDir, 'r4')
-    await writeFile(
-      script,
-      `#!/bin/sh
-echo ok
-exit 0
-`,
-    )
-    await chmod(script, 0o755)
-    process.env.RIPMAIL_BIN = script
-
-    const { runRipmailHeavyArgv } = await import('@server/lib/ripmail/ripmailHeavySpawn.js')
-    const home = ripmailHomeForBrain()
-    expect(home).toContain(brainHome)
-
-    const a = runRipmailHeavyArgv(['refresh'], { timeoutMs: 5000 })
-    const b = runRipmailHeavyArgv(['refresh'], { timeoutMs: 5000 })
-    await Promise.all([a, b])
-    expect(getRipmailChildDebugSnapshot().spawnCount).toBeGreaterThanOrEqual(1)
+  it.skip('concurrent refresh same home (ripmailHeavySpawn deleted — TS refresh is in-process)', async () => {
+    // ripmailHeavySpawn.ts was deleted in OPP-103 TS port.
+    // Concurrent in-process refresh is handled by the TS sync module.
   })
 })
 

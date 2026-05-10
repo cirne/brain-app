@@ -5,13 +5,13 @@ import {
 } from '@server/lib/onboarding/onboardingState.js'
 import {
   getOnboardingMailStatus,
-  ripmailBin,
   ripmailHomePath,
 } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { kickWikiSupervisorIfIndexedGatePasses } from '@server/lib/backgroundTasks/wikiKickAfterOnboardingDone.js'
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
+import { loadRipmailConfig, saveRipmailConfig } from '@server/ripmail/sync/config.js'
+import { openRipmailDb } from '@server/ripmail/db.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 export const onboardingMailRouter = new Hono()
@@ -50,34 +50,39 @@ async function runAppleMailSetup(c: Context) {
   }
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
   const appleMailPath = typeof body.appleMailPath === 'string' ? body.appleMailPath.trim() : ''
-  const rm = ripmailBin()
   const home = ripmailHomePath()
-  let cmd = `${rm} setup --apple-mail --no-validate --no-skill`
-  if (appleMailPath) {
-    cmd += ` --apple-mail-path ${JSON.stringify(appleMailPath)}`
-  }
   brainLogger.info(
-    {
-      ripmailBin: rm,
-      ripmailHome: home,
-      home: process.env.HOME ?? '(unset)',
-    },
+    { ripmailHome: home, home: process.env.HOME ?? '(unset)' },
     '[onboarding/setup-mail] start',
   )
   try {
-    await execRipmailAsync(cmd, { timeout: 120000 })
+    // Register Apple Mail source in config.json
+    const config = loadRipmailConfig(home)
+    const sources = config.sources ?? []
+    const appleMailSourceId = 'applemail'
+    if (!sources.find((s) => s.id === appleMailSourceId)) {
+      sources.push({
+        id: appleMailSourceId,
+        kind: 'applemail',
+        ...(appleMailPath ? { path: appleMailPath } : {}),
+      })
+      saveRipmailConfig(home, { ...config, sources })
+      brainLogger.info('[onboarding/setup-mail] apple mail source registered in config.json')
+    }
+
     if (platform() === 'darwin') {
-      const calCmd = `${rm} sources add --kind appleCalendar --id apple-calendar --json`
-      try {
-        await execRipmailAsync(calCmd, { timeout: 60000 })
-        brainLogger.info('[onboarding/setup-mail] apple-calendar source ok')
-      } catch (calErr) {
-        const calMsg = calErr instanceof Error ? calErr.message : String(calErr)
-        if (/already exists/i.test(calMsg)) {
-          brainLogger.info('[onboarding/setup-mail] apple-calendar source already present')
-        } else {
-          brainLogger.warn({ err: calErr }, `[onboarding/setup-mail] apple-calendar source add failed ${calMsg}`)
+      const db = openRipmailDb(home)
+      const existing = db.prepare(`SELECT id FROM sources WHERE id = 'apple-calendar'`).get()
+      if (!existing) {
+        db.prepare(`INSERT INTO sources (id, kind, label, include_in_default) VALUES ('apple-calendar', 'appleCalendar', 'Apple Calendar', 1)`).run()
+        const calSources = config.sources ?? []
+        if (!calSources.find((s) => s.id === 'apple-calendar')) {
+          calSources.push({ id: 'apple-calendar', kind: 'appleCalendar' })
+          saveRipmailConfig(home, { ...config, sources: calSources })
         }
+        brainLogger.info('[onboarding/setup-mail] apple-calendar source ok')
+      } else {
+        brainLogger.info('[onboarding/setup-mail] apple-calendar source already present')
       }
     }
     brainLogger.info('[onboarding/setup-mail] ok')

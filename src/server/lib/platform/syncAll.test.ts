@@ -10,8 +10,7 @@ vi.mock('@server/ripmail/sync/index.js', () => ({
 }))
 
 import { ripmailRefreshEnv, syncInboxRipmailOnboarding } from './syncAll.js'
-import { ripmailHomeForBrain } from './brainHome.js'
-import { ripmailProcessEnv } from '@server/lib/ripmail/ripmailRun.js'
+import { ripmailHomeForBrain, ripmailProcessEnv } from './brainHome.js'
 
 let brainHome: string
 

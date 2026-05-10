@@ -1,4 +1,3 @@
-import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailRun.js'
 import { prepareWikiSupervisorShutdown } from '@server/agent/yourWikiSupervisor.js'
 import { stopTunnel } from '@server/lib/platform/tunnelManager.js'
 import { restoreStdinForShell } from '@server/lib/platform/restoreStdinForShell.js'
@@ -32,7 +31,6 @@ export function registerPeriodicSyncAndShutdown(
     stopScheduledRipmail()
     stopTunnel()
     prepareWikiSupervisorShutdown()
-    terminateAllTrackedRipmailChildren('SIGTERM')
     try {
       if (vite !== undefined) {
         await Promise.race([
@@ -50,7 +48,6 @@ export function registerPeriodicSyncAndShutdown(
     }
     server.closeAllConnections?.()
     await new Promise((r) => setTimeout(r, RIPMAIL_SHUTDOWN_GRACE_MS))
-    terminateAllTrackedRipmailChildren('SIGKILL')
     server.close(() => {
       restoreStdinForShell()
       process.exit(0)

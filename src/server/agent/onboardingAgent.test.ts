@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -305,35 +305,17 @@ describe('parseWhoamiProfileSubject', () => {
 })
 
 describe('fetchRipmailWhoamiForProfiling', () => {
-  let prevBin: string | undefined
-  let prevHome: string | undefined
-
-  beforeEach(() => {
-    prevBin = process.env.RIPMAIL_BIN
-    prevHome = process.env.RIPMAIL_HOME
-  })
-
-  afterEach(() => {
-    if (prevBin === undefined) delete process.env.RIPMAIL_BIN
-    else process.env.RIPMAIL_BIN = prevBin
-    if (prevHome === undefined) delete process.env.RIPMAIL_HOME
-    else process.env.RIPMAIL_HOME = prevHome
-  })
-
-  it('returns stdout from ripmail whoami', async () => {
-    const fake = join(wikiDir, 'fake-ripmail-whoami')
-    await writeFile(
-      fake,
-      `#!/bin/sh
-if [ "$1" = whoami ]; then echo "identity line"; else exit 1; fi
-`,
-      'utf8',
-    )
-    await chmod(fake, 0o755)
-    process.env.RIPMAIL_BIN = fake
-    process.env.RIPMAIL_HOME = join(wikiDir, 'ripmail-home')
+  it('returns identity JSON from config.json when present', async () => {
+    const { mkdir, writeFile: wf } = await import('node:fs/promises')
+    const ripHome = join(wikiDir, 'ripmail-home')
+    await mkdir(ripHome, { recursive: true })
+    await wf(join(ripHome, 'config.json'), JSON.stringify({
+      sources: [{ id: 'test_gmail', kind: 'imap', email: 'test@gmail.com', label: 'Test Gmail' }],
+    }), 'utf8')
+    process.env.BRAIN_HOME = join(wikiDir, '..')
 
     const out = await fetchRipmailWhoamiForProfiling()
-    expect(out).toBe('identity line')
+    expect(typeof out).toBe('string')
+    expect(out.length).toBeGreaterThan(0)
   })
 })

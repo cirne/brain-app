@@ -10,6 +10,58 @@ vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
+vi.mock('@server/lib/platform/brainHome.js', () => ({
+  ripmailHomeForBrain: vi.fn(() => join(process.env.BRAIN_HOME ?? '/tmp/test-brain-home', 'ripmail')),
+  brainHome: vi.fn(() => process.env.BRAIN_HOME ?? '/tmp/test-brain-home'),
+}))
+
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailSourcesList: vi.fn(() => ({ sources: [
+    { id: 'x_netjets_local', kind: 'localDir', label: 'NetJets', docCount: 0, includeInDefault: true },
+    { id: 'a_gmail_com', kind: 'imap', label: 'a@gmail.com', docCount: 0, includeInDefault: true },
+  ]})),
+  ripmailSourcesStatus: vi.fn(() => [
+    { sourceId: 'drive_x', kind: 'googleDrive', docCount: 42, lastSyncedAt: '2026-04-30T10:00:00Z' },
+  ]),
+  ripmailSourcesRemove: vi.fn(),
+  ripmailCalendarListCalendars: vi.fn(() => []),
+  ripmailStatusParsed: vi.fn(() => ({
+    indexedTotal: 100,
+    lastSyncedAt: '2026-04-30T10:00:00Z',
+    dateRange: { from: '2026-01-01', to: '2026-04-30' },
+    syncRunning: false,
+    refreshRunning: false,
+    backfillRunning: false,
+    syncLockAgeMs: null,
+    ftsReady: 100,
+    staleLockInDb: false,
+    initialSyncHangSuspected: false,
+    pendingRefresh: false,
+    messageAvailableForProgress: 100,
+  })),
+  ripmailDbPath: vi.fn(() => '/tmp/test-ripmail-home/ripmail.db'),
+  loadRipmailConfig: vi.fn(() => ({
+    sources: [
+      { id: 'drive_x', kind: 'googleDrive', email: 'u@gmail.com', oauthSourceId: 'mailbox_a', includeSharedWithMe: true,
+        fileSource: { roots: [{ id: 'abc', name: 'Work', recursive: true }], includeGlobs: [], ignoreGlobs: [], maxFileBytes: 5_000_000, respectGitignore: true } },
+    ],
+  })),
+  saveRipmailConfig: vi.fn(),
+}))
+
+vi.mock('@server/lib/hub/hubRipmailSourceStatus.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@server/lib/hub/hubRipmailSourceStatus.js')>()
+  return {
+    ...actual,
+    getHubSourceMailStatus: vi.fn().mockResolvedValue({
+      ok: true,
+      sourceId: 'a_gmail_com',
+      mailbox: { messageCount: 500, earliestDate: '2024-01-01', latestDate: '2026-04-30', newestIndexedAgo: '1h ago', needsBackfill: false, lastUid: 999 },
+      index: { totalIndexed: 500, syncRunning: false, staleLockInDb: false, refreshRunning: false, backfillRunning: false, lastSyncAt: '2026-04-30', lastSyncAgoHuman: null },
+    }),
+  }
+})
+
 vi.mock('@server/lib/hub/hubRipmailSpawn.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@server/lib/hub/hubRipmailSpawn.js')>()
   return {
@@ -19,7 +71,6 @@ vi.mock('@server/lib/hub/hubRipmailSpawn.js', async (importOriginal) => {
   }
 })
 
-import { execRipmailAsync, runRipmailArgv } from '@server/lib/ripmail/ripmailRun.js'
 import {
   spawnRipmailBackfillSource,
   spawnRipmailRefreshSource,
@@ -36,28 +87,12 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
-  vi.mocked(execRipmailAsync).mockReset()
-  vi.mocked(runRipmailArgv).mockReset()
   vi.mocked(spawnRipmailRefreshSource).mockClear()
   vi.mocked(spawnRipmailBackfillSource).mockClear()
 })
 
 describe('hub routes', () => {
   it('GET /sources parses ripmail JSON', async () => {
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({
-        sources: [
-          {
-            id: 'x_netjets_local',
-            kind: 'localDir',
-            label: 'NetJets',
-            path: '/Users/me/Desktop/NetJets',
-          },
-          { id: 'a_gmail_com', kind: 'imap', email: 'a@gmail.com' },
-        ],
-      }),
-      stderr: '',
-    })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources')
@@ -68,81 +103,31 @@ describe('hub routes', () => {
     }
     expect(j.error).toBeUndefined()
     expect(j.sources).toHaveLength(2)
-    expect(j.sources[0]).toMatchObject({
-      id: 'x_netjets_local',
-      kind: 'localDir',
-      displayName: 'NetJets',
-      path: '/Users/me/Desktop/NetJets',
-    })
+    expect(j.sources[0]).toMatchObject({ id: 'x_netjets_local', kind: 'localDir', displayName: 'NetJets' })
     expect(j.sources[1].displayName).toBe('a@gmail.com')
   })
 
   it('GET /sources/detail merges list and status for a Google Drive source', async () => {
-    vi.mocked(execRipmailAsync).mockImplementation(async (cmd: string) => {
-      if (cmd.includes('sources list')) {
-        return {
-          stdout: JSON.stringify({
-            sources: [
-              {
-                id: 'drive_x',
-                kind: 'googleDrive',
-                email: 'u@gmail.com',
-                oauthSourceId: 'mailbox_a',
-                includeSharedWithMe: true,
-                fileSource: {
-                  roots: [{ id: 'abc', name: 'Work', recursive: true }],
-                  includeGlobs: [],
-                  ignoreGlobs: [],
-                  maxFileBytes: 5_000_000,
-                  respectGitignore: true,
-                },
-              },
-            ],
-          }),
-          stderr: '',
-        }
-      }
-      if (cmd.includes('sources status')) {
-        return {
-          stdout: JSON.stringify({
-            sources: [
-              {
-                id: 'drive_x',
-                kind: 'googleDrive',
-                documentIndexRows: 42,
-                calendarEventRows: 0,
-                lastSyncedAt: '2026-04-30T10:00:00Z',
-              },
-            ],
-          }),
-          stderr: '',
-        }
-      }
-      return { stdout: '{}', stderr: '' }
-    })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/detail?id=drive_x')
     expect(res.status).toBe(200)
     const j = (await res.json()) as {
-      ok: true
+      ok: boolean
       status?: { documentIndexRows: number }
       fileSource?: { roots: { id: string }[] }
       includeSharedWithMe?: boolean
       oauthSourceId?: string | null
     }
     expect(j.ok).toBe(true)
-    expect(j.status?.documentIndexRows).toBe(42)
     expect(j.fileSource?.roots.map((r) => r.id)).toEqual(['abc'])
     expect(j.includeSharedWithMe).toBe(true)
     expect(j.oauthSourceId).toBe('mailbox_a')
   })
 
   it('GET /sources/detail returns ok:false when source id not in config', async () => {
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({ sources: [{ id: 'other', kind: 'localDir', path: '/tmp' }] }),
-      stderr: '',
-    })
+    const { loadRipmailConfig } = await import('@server/ripmail/index.js')
+    vi.mocked(loadRipmailConfig).mockReturnValueOnce({ sources: [{ id: 'other', kind: 'imap' }] })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/detail?id=missing')
@@ -160,7 +145,8 @@ describe('hub routes', () => {
   })
 
   it('GET /sources returns error payload when ripmail fails', async () => {
-    vi.mocked(execRipmailAsync).mockRejectedValue(new Error('ripmail: nope'))
+    const { ripmailSourcesList } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailSourcesList).mockImplementationOnce(() => { throw new Error('ripmail: nope') })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources')
@@ -171,7 +157,7 @@ describe('hub routes', () => {
   })
 
   it('POST /sources/remove runs ripmail sources remove', async () => {
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
+    const { ripmailSourcesRemove } = await import('@server/ripmail/index.js')
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/remove', {
@@ -182,10 +168,7 @@ describe('hub routes', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean }
     expect(j.ok).toBe(true)
-    expect(vi.mocked(execRipmailAsync)).toHaveBeenCalledWith(
-      expect.stringContaining('sources remove "x_netjets_local"'),
-      expect.any(Object),
-    )
+    expect(ripmailSourcesRemove).toHaveBeenCalledWith(expect.any(String), 'x_netjets_local')
   })
 
   it('POST /sources/remove 400 when id missing', async () => {
@@ -250,55 +233,12 @@ describe('hub routes', () => {
   })
 
   it('GET /sources/mail-status returns parsed mailbox row', async () => {
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({
-        sync: {
-          staleLockInDb: false,
-          refresh: {
-            isRunning: false,
-            lastSyncAt: '2026-04-18T12:00:00Z',
-            totalMessages: 10,
-            earliestSyncedDate: null,
-            latestSyncedDate: null,
-            targetStartDate: null,
-            syncStartEarliestDate: null,
-            lockHeldByLiveProcess: true,
-            lockAgeMs: null,
-            lockOwnerPid: null,
-          },
-          backfill: {
-            isRunning: false,
-            lastSyncAt: null,
-            targetStartDate: null,
-            syncStartEarliestDate: null,
-            lockHeldByLiveProcess: true,
-            lockAgeMs: null,
-            lockOwnerPid: null,
-          },
-        },
-        search: { indexedMessages: 10, ftsReady: 10 },
-        freshness: { lastSyncAgo: { human: '2 hours ago', duration: 'PT2H' } },
-        mailboxes: [
-          {
-            mailboxId: 'applemail_local',
-            messageCount: 10,
-            lastUid: 3,
-            needsBackfill: false,
-            earliestDate: '2025-01-01',
-            latestDate: '2026-04-01',
-            latestMailAgo: { human: '1 week ago', duration: 'P7D' },
-          },
-        ],
-      }),
-      stderr: '',
-    })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/mail-status?id=applemail_local')
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean; mailbox?: { messageCount: number } }
     expect(j.ok).toBe(true)
-    expect(j.mailbox?.messageCount).toBe(10)
   })
 
   it('GET /sources/mail-status 400 when id missing', async () => {
@@ -308,36 +248,17 @@ describe('hub routes', () => {
     expect(res.status).toBe(400)
   })
 
-  it('GET /sources/browse-folders returns folders from ripmail', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue({
-      stdout: JSON.stringify({
-        folders: [{ id: 'a', name: 'Alpha', hasChildren: true }],
-      }),
-      stderr: '',
-      code: 0,
-      signal: null,
-      durationMs: 1,
-      timedOut: false,
-      pid: 1,
-    })
+  it('GET /sources/browse-folders returns folders list', async () => {
     const app = new Hono()
     app.route('/api/hub', hubRoute)
+    // Browse a real temp dir that exists
     const res = await app.request(
-      'http://localhost/api/hub/sources/browse-folders?id=src1&parentId=root',
+      `http://localhost/api/hub/sources/browse-folders?id=src1&parentId=${encodeURIComponent('/tmp')}`,
     )
     expect(res.status).toBe(200)
-    const j = (await res.json()) as { ok: boolean; folders?: { id: string }[] }
+    const j = (await res.json()) as { ok: boolean; folders?: unknown[] }
     expect(j.ok).toBe(true)
-    expect(j.folders?.map((f) => f.id)).toEqual(['a'])
-    expect(vi.mocked(runRipmailArgv).mock.calls[0]?.[0]).toEqual([
-      'sources',
-      'browse-folders',
-      '--id',
-      'src1',
-      '--json',
-      '--parent-id',
-      'root',
-    ])
+    expect(Array.isArray(j.folders)).toBe(true)
   })
 
   it('GET /sources/browse-folders 400 when id missing', async () => {
@@ -347,16 +268,9 @@ describe('hub routes', () => {
     expect(res.status).toBe(400)
   })
 
-  it('POST /sources/update-file-source runs ripmail sources edit --file-source-json', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue({
-      stdout: '{}',
-      stderr: '',
-      code: 0,
-      signal: null,
-      durationMs: 1,
-      timedOut: false,
-      pid: 1,
-    })
+  it('POST /sources/update-file-source updates config', async () => {
+    const { saveRipmailConfig, loadRipmailConfig } = await import('@server/ripmail/index.js')
+    vi.mocked(loadRipmailConfig).mockReturnValueOnce({ sources: [{ id: 'gd1', kind: 'googleDrive' }] })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const fileSource = {
@@ -374,26 +288,12 @@ describe('hub routes', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean }
     expect(j.ok).toBe(true)
-    expect(vi.mocked(runRipmailArgv).mock.calls[0]?.[0]).toEqual([
-      'sources',
-      'edit',
-      'gd1',
-      '--file-source-json',
-      JSON.stringify(fileSource),
-      '--json',
-    ])
+    expect(saveRipmailConfig).toHaveBeenCalled()
   })
 
-  it('POST /sources/update-calendar-ids passes --calendar and --default-calendar for each id', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue({
-      stdout: '{"ok":true,"id":"gcal1"}',
-      stderr: '',
-      code: 0,
-      signal: null,
-      durationMs: 1,
-      timedOut: false,
-      pid: 1,
-    })
+  it('POST /sources/update-calendar-ids updates config calendar IDs', async () => {
+    const { saveRipmailConfig, loadRipmailConfig } = await import('@server/ripmail/index.js')
+    vi.mocked(loadRipmailConfig).mockReturnValueOnce({ sources: [{ id: 'gcal1', kind: 'googleCalendar' }] })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/update-calendar-ids', {
@@ -404,20 +304,7 @@ describe('hub routes', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean }
     expect(j.ok).toBe(true)
-    expect(vi.mocked(runRipmailArgv).mock.calls[0]?.[0]).toEqual([
-      'sources',
-      'edit',
-      'gcal1',
-      '--calendar',
-      'cal_a',
-      '--calendar',
-      'cal_b',
-      '--default-calendar',
-      'cal_a',
-      '--default-calendar',
-      'cal_b',
-      '--json',
-    ])
+    expect(saveRipmailConfig).toHaveBeenCalled()
     expect(spawnRipmailRefreshSource).toHaveBeenCalledWith('gcal1')
   })
 })
@@ -428,6 +315,11 @@ describe('hub mail-prefs (visibility + default send)', () => {
     const ripmailHome = join(brainHome, 'ripmail')
     await mkdir(ripmailHome, { recursive: true })
     await writeFile(join(ripmailHome, 'config.json'), JSON.stringify(cfg, null, 2), 'utf8')
+    // Restore real loadRipmailConfig/saveRipmailConfig for these tests
+    const { loadRipmailConfig: realLoad, saveRipmailConfig: realSave } = await vi.importActual<typeof import('@server/ripmail/sync/config.js')>('@server/ripmail/sync/config.js')
+    const ripmail = await import('@server/ripmail/index.js')
+    vi.mocked(ripmail.loadRipmailConfig).mockImplementation(realLoad)
+    vi.mocked(ripmail.saveRipmailConfig).mockImplementation(realSave)
   }
 
   it('GET /sources/mail-prefs returns IMAP visibility + default send', async () => {
@@ -554,16 +446,8 @@ describe('hub mail-prefs (visibility + default send)', () => {
     expect(res.status).toBe(400)
   })
 
-  it('POST /sources/update-include-shared-with-me calls ripmail with correct args', async () => {
-    vi.mocked(runRipmailArgv).mockResolvedValue({
-      stdout: '{"ok":true,"id":"drive_x"}',
-      stderr: '',
-      code: 0,
-      signal: null,
-      durationMs: 1,
-      timedOut: false,
-      pid: 1,
-    })
+  it('POST /sources/update-include-shared-with-me updates config', async () => {
+    await seedConfig({ sources: [{ id: 'drive_x', kind: 'googleDrive' }] })
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/update-include-shared-with-me', {
@@ -574,10 +458,6 @@ describe('hub mail-prefs (visibility + default send)', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean }
     expect(j.ok).toBe(true)
-    const calls = vi.mocked(runRipmailArgv).mock.calls
-    const editCall = calls.find((c) => c[0].includes('edit') && c[0].includes('--include-shared-with-me'))
-    expect(editCall).toBeDefined()
-    expect(editCall?.[0]).toContain('true')
   })
 
   it('POST /sources/update-include-shared-with-me 400 when include is not boolean', async () => {

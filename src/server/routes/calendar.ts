@@ -7,8 +7,8 @@ import { getCalendarEvents, type CalendarEvent } from '@server/lib/calendar/cale
 import { syncCalendarSourcesRipmail, syncInboxRipmail } from '@server/lib/platform/syncAll.js'
 import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { buildWikiExcerpt } from '@server/lib/wiki/wikiSearchExcerpt.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { ripmailSearch, ripmailWho } from '@server/ripmail/index.js'
 
 const execAsync = promisify(exec)
 
@@ -56,21 +56,15 @@ type PersonHit = { primaryAddress?: string; displayName?: string; name?: string;
 
 async function searchEmails(query: string, limit: number): Promise<EmailHit[]> {
   try {
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} search ${JSON.stringify(query)} --limit ${limit} --json`,
-      { timeout: 10000 },
-    )
-    const data = JSON.parse(stdout)
-    return (data.results ?? []).slice(0, limit).map(
-      (r: { messageId: string; fromName?: string; fromAddress: string; subject: string; date: string; snippet?: string }) => ({
-        type: 'email' as const,
-        id: r.messageId,
-        from: r.fromName || r.fromAddress,
-        subject: r.subject,
-        date: r.date,
-        snippet: r.snippet?.replace(/<[^>]+>/g, '').replace(/\r?\n/g, ' ').trim() ?? '',
-      }),
-    )
+    const data = ripmailSearch(ripmailHomeForBrain(), { query, limit, includeAll: false })
+    return (data.results ?? []).slice(0, limit).map((r) => ({
+      type: 'email' as const,
+      id: r.messageId,
+      from: r.fromName || r.fromAddress,
+      subject: r.subject,
+      date: r.date,
+      snippet: r.snippet?.replace(/<[^>]+>/g, '').replace(/\r?\n/g, ' ').trim() ?? '',
+    }))
   } catch {
     return []
   }
@@ -184,16 +178,12 @@ async function lookupPeople(emails: string[]): Promise<PersonHit[]> {
   const seen = new Set<string>()
   for (const email of emails.slice(0, 6)) {
     try {
-      const { stdout } = await execRipmailAsync(
-        `${ripmailBin()} who ${JSON.stringify(email)} --limit 3`,
-        { timeout: 8000 },
-      )
-      const data = JSON.parse(stdout)
-      for (const p of data.people ?? []) {
+      const data = ripmailWho(ripmailHomeForBrain(), email, { limit: 3 })
+      for (const p of data.contacts ?? []) {
         const addr = (p.primaryAddress ?? '').toLowerCase()
         if (addr && !seen.has(addr)) {
           seen.add(addr)
-          out.push(p as PersonHit)
+          out.push({ primaryAddress: p.primaryAddress, displayName: p.displayName } as PersonHit)
         }
       }
     } catch { /* ignore */ }

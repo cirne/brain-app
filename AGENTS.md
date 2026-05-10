@@ -58,8 +58,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 | LLM             | @mariozechner/pi-ai (multi-provider: Anthropic, OpenAI, etc.)                            |
 | Chat UI         | Svelte 5 (custom streaming SSE client)                                                   |
 | Wiki / Inbox UI | Svelte 5                                                                                 |
-| Email (agent tools) | `src/server/ripmail/` TypeScript module — in-process `better-sqlite3` (OPP-103 partial) |
-| Email (UI routes) | ripmail binary (`[ripmail/](ripmail/)` crate, subprocess) — pending full port          |
+| Email           | `src/server/ripmail/` TypeScript module — in-process `better-sqlite3` (OPP-103)         |
 | DB              | better-sqlite3 (optional read-only macOS iMessage `chat.db`; ripmail has its own SQLite) |
 
 

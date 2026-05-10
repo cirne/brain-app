@@ -3,7 +3,7 @@
  * Mirrors ripmail/src/config.rs ConfigJson.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export interface ImapConfig {
@@ -77,6 +77,12 @@ function parseEnvValue(content: string, key: string): string | undefined {
     return value
   }
   return undefined
+}
+
+/** Save updated config back to disk. */
+export function saveRipmailConfig(ripmailHome: string, config: RipmailConfig): void {
+  const path = join(ripmailHome, 'config.json')
+  writeFileSync(path, JSON.stringify(config, null, 2), 'utf8')
 }
 
 /** Load Google OAuth tokens for a source. */

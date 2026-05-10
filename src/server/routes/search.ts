@@ -5,8 +5,8 @@ import { join, relative, basename } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { buildWikiExcerpt } from '@server/lib/wiki/wikiSearchExcerpt.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { ripmailSearch } from '@server/ripmail/index.js'
 
 const execAsync = promisify(exec)
 const search = new Hono()
@@ -56,20 +56,18 @@ search.get('/', async (c) => {
         })
       )
     }),
-    execRipmailAsync(`${ripmailBin()} search ${JSON.stringify(q)} --limit 10 --json`, {
-      timeout: 10000,
-    }).then(({ stdout }): EmailResult[] => {
-      const data = JSON.parse(stdout)
-      return (data.results ?? []).slice(0, 10).map((r: { messageId: string; fromName?: string; fromAddress: string; subject: string; date: string; snippet?: string; rank: number }) => ({
-        type: 'email' as const,
-        id: r.messageId,
-        from: r.fromName || r.fromAddress,
-        subject: r.subject,
-        date: r.date,
-        snippet: r.snippet?.replace(/<[^>]+>/g, '').replace(/\r?\n/g, ' ').trim() ?? '',
-        score: r.rank,
-      }))
-    }),
+    Promise.resolve(ripmailSearch(ripmailHomeForBrain(), { query: q, limit: 10, includeAll: false }))
+      .then((data): EmailResult[] =>
+        (data.results ?? []).slice(0, 10).map((r) => ({
+          type: 'email' as const,
+          id: r.messageId,
+          from: r.fromName || r.fromAddress,
+          subject: r.subject,
+          date: r.date,
+          snippet: r.snippet?.replace(/<[^>]+>/g, '').replace(/\r?\n/g, ' ').trim() ?? '',
+          score: r.rank,
+        }))
+      ),
   ])
 
   const wiki = wikiResult.status === 'fulfilled' ? wikiResult.value : []

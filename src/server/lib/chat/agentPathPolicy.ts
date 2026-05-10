@@ -7,8 +7,7 @@ import { homedir } from 'node:os'
 import { normalize, resolve } from 'node:path'
 import { brainHome, ripmailHomeForBrain, wikiContentDir } from '@server/lib/platform/brainHome.js'
 import { dataRoot } from '@server/lib/tenant/dataRoot.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { ripmailSourcesList } from '@server/ripmail/index.js'
 import {
   PathEscapeError,
   isAbsolutePathAllowedUnderRoots,
@@ -66,13 +65,12 @@ export function indexedFolderRootsFromSourcesListJson(parsed: unknown): string[]
   return out
 }
 
-/** Run `ripmail sources list --json` and return indexed folder/file roots (best-effort). */
+/** Return indexed folder/file roots from the in-process TS ripmail module (best-effort). */
 export async function loadRipmailIndexedFolderRoots(): Promise<string[]> {
-  const rm = ripmailBin()
   try {
-    const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 15000 })
-    const j = JSON.parse(stdout) as unknown
-    return indexedFolderRootsFromSourcesListJson(j)
+    const { ripmailHomeForBrain } = await import('@server/lib/platform/brainHome.js')
+    const { sources } = ripmailSourcesList(ripmailHomeForBrain())
+    return indexedFolderRootsFromSourcesListJson({ sources })
   } catch {
     return []
   }

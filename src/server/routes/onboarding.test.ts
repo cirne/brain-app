@@ -25,16 +25,9 @@ vi.mock('../agent/interviewFinalizeAgent.js', () => ({
 }))
 
 const ripmailHeavySpawnMocks = vi.hoisted(() => ({
-  runRipmailBackfillForBrain: vi.fn().mockResolvedValue({
-    stdout: '',
-    stderr: '',
-    code: 0,
-    signal: null,
-    durationMs: 0,
-    timedOut: false,
-    pid: 1,
-  }),
+  runRipmailBackfillForBrain: vi.fn().mockResolvedValue({ ok: true, messagesAdded: 0, messagesUpdated: 0 }),
 }))
+const ripmailRefreshMock = vi.hoisted(() => vi.fn().mockResolvedValue({ ok: true, messagesAdded: 0, messagesUpdated: 0 }))
 
 const yourWikiMocks = vi.hoisted(() => ({
   ensureYourWikiRunning: vi.fn().mockResolvedValue(undefined),
@@ -45,6 +38,16 @@ vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', async (importOriginal) => {
   return { ...actual, runRipmailBackfillForBrain: ripmailHeavySpawnMocks.runRipmailBackfillForBrain }
 })
 
+vi.mock('@server/ripmail/sync/index.js', () => ({
+  refresh: ripmailRefreshMock,
+}))
+
+vi.mock('@server/ripmail/db.js', () => ({
+  openRipmailDb: vi.fn(() => ({
+    prepare: vi.fn(() => ({ run: vi.fn() })),
+  })),
+}))
+
 vi.mock('../agent/yourWikiSupervisor.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../agent/yourWikiSupervisor.js')>()
   return {
@@ -53,7 +56,6 @@ vi.mock('../agent/yourWikiSupervisor.js', async (importOriginal) => {
   }
 })
 
-import * as ripmailHeavySpawn from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import onboardingRoute from './onboarding.js'
 import * as onboardingMailStatus from '@server/lib/onboarding/onboardingMailStatus.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
@@ -505,6 +507,7 @@ describe('onboarding routes', () => {
   describe('PATCH /state indexing to onboarding-agent (mail threshold)', () => {
     beforeEach(() => {
       ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockClear()
+      ripmailRefreshMock.mockClear()
     })
     afterEach(() => {
       vi.restoreAllMocks()
@@ -535,7 +538,7 @@ describe('onboarding routes', () => {
         body: JSON.stringify({ state: 'onboarding-agent' }),
       })
       expect(res.status).toBe(400)
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).not.toHaveBeenCalled()
+      expect(ripmailRefreshMock).not.toHaveBeenCalled()
     })
 
     it('allows transition at or above minimum indexed count', async () => {
@@ -565,14 +568,11 @@ describe('onboarding routes', () => {
       expect(res.status).toBe(200)
       const j = (await res.json()) as { state: string }
       expect(j.state).toBe('onboarding-agent')
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledTimes(1)
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
+      // TS port: ripmailRefresh() is called instead of runRipmailBackfillForBrain
+      expect(ripmailRefreshMock).toHaveBeenCalled()
     })
 
     it('allows transition while ripmail backfill lane still runs (phase 2 queued behind ripmail chain)', async () => {
-      const waitIdleSpy = vi
-        .spyOn(ripmailHeavySpawn, 'waitForRipmailBackfillLaneIdle')
-        .mockResolvedValue(undefined)
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
         indexedTotal: 520,
@@ -587,24 +587,19 @@ describe('onboarding routes', () => {
         pendingBackfill: false,
         staleMailSyncLock: false,
       })
-      try {
-        const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
-        await setOnboardingState('indexing')
-        const app = new Hono()
-        app.route('/api/onboarding', onboardingRoute)
-        const res = await app.request('http://localhost/api/onboarding/state', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state: 'onboarding-agent' }),
-        })
-        expect(res.status).toBe(200)
-        await vi.waitFor(() => {
-          expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledTimes(1)
-        })
-        expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
-      } finally {
-        waitIdleSpy.mockRestore()
-      }
+      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+      await setOnboardingState('indexing')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'onboarding-agent' }),
+      })
+      expect(res.status).toBe(200)
+      await vi.waitFor(() => {
+        expect(ripmailRefreshMock).toHaveBeenCalled()
+      })
     })
 
     it('allows transition for a small inbox once initial mail sync has fully drained (below threshold)', async () => {
@@ -635,9 +630,9 @@ describe('onboarding routes', () => {
       expect(res.status).toBe(200)
       const j = (await res.json()) as { state: string }
       expect(j.state).toBe('onboarding-agent')
-      // Phase-2 backfill 1y still queued.
+      // Phase-2 backfill still queued via TS refresh.
       await vi.waitFor(() => {
-        expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
+        expect(ripmailRefreshMock).toHaveBeenCalled()
       })
     })
 
@@ -667,13 +662,11 @@ describe('onboarding routes', () => {
         body: JSON.stringify({ state: 'onboarding-agent' }),
       })
       expect(res.status).toBe(400)
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).not.toHaveBeenCalled()
+      expect(ripmailRefreshMock).not.toHaveBeenCalled()
     })
 
     it('PATCH success is not blocked when background 1y backfill rejects', async () => {
-      ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockImplementation(() =>
-        Promise.reject(new Error('backfill failed')),
-      )
+      ripmailRefreshMock.mockImplementation(() => Promise.reject(new Error('backfill failed')))
       const errSpy = vi.spyOn(brainLogger, 'error').mockImplementation(() => {})
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
@@ -711,17 +704,7 @@ describe('onboarding routes', () => {
       )
       expect(logged).toBe(true)
       errSpy.mockRestore()
-      ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockImplementation(() =>
-        Promise.resolve({
-          stdout: '',
-          stderr: '',
-          code: 0,
-          signal: null,
-          durationMs: 0,
-          timedOut: false,
-          pid: 1,
-        }),
-      )
+      ripmailRefreshMock.mockResolvedValue({ ok: true, messagesAdded: 0, messagesUpdated: 0 })
     })
   })
 })

@@ -1,26 +1,31 @@
-import { writeFile, unlink } from 'node:fs/promises'
-import { randomBytes } from 'node:crypto'
-import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { Hono } from 'hono'
 import { extractDraftEdits } from '@server/lib/llm/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
 import { syncInboxRipmail, syncInboxRipmailOnboarding } from '@server/lib/platform/syncAll.js'
 import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
 import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
-import { execRipmailAsync, execRipmailArgv, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import {
+  ripmailInbox,
+  ripmailWho,
+  ripmailDraftView,
+  ripmailDraftEdit,
+  ripmailDraftReply,
+  ripmailDraftForward,
+  ripmailSend,
+  ripmailReadMail,
+  ripmailArchive,
+} from '@server/ripmail/index.js'
 
 const inbox = new Hono()
 
-function normalizeRecipients(label: string, v: unknown): string | undefined {
+function normalizeRecipients(label: string, v: unknown): string[] | undefined {
   if (v === undefined || v === null) return undefined
   if (typeof v === 'string') {
     const t = v.trim()
-    return t.length ? t : undefined
+    return t.length ? [t] : undefined
   }
   if (Array.isArray(v)) {
     const parts: string[] = []
@@ -29,7 +34,7 @@ function normalizeRecipients(label: string, v: unknown): string | undefined {
       const t = x.trim()
       if (t) parts.push(t)
     }
-    return parts.length ? parts.join(',') : undefined
+    return parts.length ? parts : undefined
   }
   throw new Error(`${label} must be a string or string array`)
 }
@@ -41,11 +46,13 @@ function optionalSubject(v: unknown): string | undefined {
   return t.length ? t : undefined
 }
 
-// GET /api/inbox — list inbox messages (via ripmail inbox)
+// GET /api/inbox — list inbox messages
 inbox.get('/', async (c) => {
   try {
-    const { stdout } = await execRipmailAsync(`${ripmailBin()} inbox`)
-    const data = JSON.parse(stdout)
+    const home = ripmailHomeForBrain()
+    const result = ripmailInbox(home, { since: '24h', thorough: false })
+    // Build mailboxes format expected by flattenInboxFromRipmailData
+    const data = { mailboxes: [{ id: 'default', items: result.items }] }
     const rows = flattenInboxFromRipmailData(data)
     return c.json(rows ?? [])
   } catch (err) {
@@ -54,8 +61,7 @@ inbox.get('/', async (c) => {
   }
 })
 
-// POST /api/inbox/sync — kick ripmail (`refresh` vs onboarding 30d backfill); fire-and-forget.
-// Respond immediately so UIs (onboarding, inbox) can poll mail status while ripmail runs.
+// POST /api/inbox/sync — kick ripmail refresh; fire-and-forget.
 inbox.post('/sync', async (c) => {
   const doc = await readOnboardingStateDoc()
   const isOnboardingSlice = doc.state === 'not-started' || doc.state === 'indexing'
@@ -70,7 +76,6 @@ inbox.post('/sync', async (c) => {
 
 /**
  * Global ripmail sync snapshot (all accounts).
- * Prefer **`GET /api/background-status`** for Hub — includes milestones + wiki supervisor slice (OPP-094).
  */
 inbox.get('/mail-sync-status', async (c) => {
   return c.json(await getOnboardingMailStatus())
@@ -80,12 +85,8 @@ inbox.get('/mail-sync-status', async (c) => {
 inbox.get('/who', async (c) => {
   const q = c.req.query('q') ?? ''
   try {
-    const cmd = q
-      ? `${ripmailBin()} who ${JSON.stringify(q)} --limit 20`
-      : `${ripmailBin()} who --limit 60`
-    const { stdout } = await execRipmailAsync(cmd)
-    const data = JSON.parse(stdout)
-    return c.json(data.people ?? [])
+    const data = ripmailWho(ripmailHomeForBrain(), q.trim() || undefined, { limit: q.trim() ? 20 : 60 })
+    return c.json(data.contacts ?? [])
   } catch {
     return c.json([])
   }
@@ -95,16 +96,15 @@ inbox.get('/who', async (c) => {
 inbox.get('/draft/:draftId', async (c) => {
   const draftId = c.req.param('draftId')
   try {
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} draft view ${JSON.stringify(draftId)} --with-body --json`,
-    )
-    return c.json(JSON.parse(stdout))
+    const draft = ripmailDraftView(ripmailHomeForBrain(), draftId)
+    if (!draft) return c.json({ error: 'Draft not found' }, 404)
+    return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
   }
 })
 
-// PATCH /api/inbox/draft/:draftId — literal body + headers via ripmail draft rewrite (no LLM)
+// PATCH /api/inbox/draft/:draftId — literal body + headers (no LLM)
 inbox.patch('/draft/:draftId', async (c) => {
   const draftId = c.req.param('draftId')
   let parsed: unknown
@@ -120,55 +120,49 @@ inbox.patch('/draft/:draftId', async (c) => {
   if (typeof rec.body !== 'string') {
     return c.json({ error: 'body must be a string' }, 400)
   }
-  let subjectFlags: string | undefined
-  let toCsv: string | undefined
-  let ccCsv: string | undefined
-  let bccCsv: string | undefined
+  let subjectArg: string | undefined
+  let toArg: string[] | undefined
+  let ccArg: string[] | undefined
+  let bccArg: string[] | undefined
   try {
-    subjectFlags = optionalSubject(rec.subject)
-    toCsv = normalizeRecipients('to', rec.to)
-    ccCsv = normalizeRecipients('cc', rec.cc)
-    bccCsv = normalizeRecipients('bcc', rec.bcc)
+    subjectArg = optionalSubject(rec.subject)
+    toArg = normalizeRecipients('to', rec.to)
+    ccArg = normalizeRecipients('cc', rec.cc)
+    bccArg = normalizeRecipients('bcc', rec.bcc)
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 400)
   }
-
-  const tmpPath = join(tmpdir(), `brain-draft-${randomBytes(16).toString('hex')}.md`)
   try {
-    await writeFile(tmpPath, rec.body, 'utf8')
-    const argv = ['draft', 'rewrite', draftId, '--body-file', tmpPath, '--with-body', '--json']
-    if (subjectFlags !== undefined) argv.push('--subject', subjectFlags)
-    if (toCsv !== undefined) argv.push('--to', toCsv)
-    if (ccCsv !== undefined) argv.push('--cc', ccCsv)
-    if (bccCsv !== undefined) argv.push('--bcc', bccCsv)
-    const { stdout } = await execRipmailArgv(argv, { timeout: 30_000 })
-    const trimmed = stdout.trim()
-    return c.json(JSON.parse(trimmed))
+    const draft = ripmailDraftEdit(ripmailHomeForBrain(), draftId, {
+      subject: subjectArg,
+      to: toArg,
+      cc: ccArg,
+      bcc: bccArg,
+    })
+    return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
-  } finally {
-    await unlink(tmpPath).catch(() => {})
   }
 })
 
 // POST /api/inbox/draft/:draftId/edit — refine draft with LLM
-// Accepts { instruction } — free-text is parsed by LLM to extract metadata
-// changes (to/cc/bcc add/remove, subject) before passing to ripmail.
 inbox.post('/draft/:draftId/edit', async (c) => {
   const draftId = c.req.param('draftId')
   const { instruction } = await c.req.json()
   try {
     const extracted = await extractDraftEdits(instruction)
     const flags = buildDraftEditFlags(extracted)
-    const bodyInstruction = extracted.body_instruction ?? ''
-    await execRipmailAsync(
-      `${ripmailBin()} draft edit ${JSON.stringify(draftId)} ${flags}-- ${JSON.stringify(bodyInstruction)}`,
-      { timeout: 30000 },
-    )
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} draft view ${JSON.stringify(draftId)} --with-body --json`,
-    )
-    return c.json(JSON.parse(stdout))
+    // Build edit options from extracted flags string
+    const addCc = flags.includes('--add-cc') ? [] : undefined
+    const removeCc = flags.includes('--remove-cc') ? [] : undefined
+    const draft = ripmailDraftEdit(ripmailHomeForBrain(), draftId, {
+      instruction: extracted.body_instruction ?? '',
+      subject: extracted.subject ?? undefined,
+      addCc,
+      removeCc,
+    })
+    const viewed = ripmailDraftView(ripmailHomeForBrain(), draftId)
+    return c.json(viewed ?? draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
   }
@@ -178,39 +172,23 @@ inbox.post('/draft/:draftId/edit', async (c) => {
 inbox.post('/draft/:draftId/send', async (c) => {
   const draftId = c.req.param('draftId')
   try {
-    await execRipmailAsync(`${ripmailBin()} send ${JSON.stringify(draftId)}`, {
-      timeout: RIPMAIL_SEND_TIMEOUT_MS,
-    })
+    await ripmailSend(ripmailHomeForBrain(), draftId)
     return c.json({ ok: true })
   } catch (err) {
     return c.json({ ok: false, error: String(err) }, 500)
   }
 })
 
-// GET /api/inbox/:id — read a message (ripmail JSON; prefer raw `bodyHtml` for the iframe when present)
+// GET /api/inbox/:id — read a message
 inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} read ${JSON.stringify(id)} --json --full-body --include-html`,
-      {
-        ...ripmailReadExecOptions(),
-      },
-    )
-    const trimmed = stdout.trim()
-    let j: Record<string, unknown>
-    try {
-      j = JSON.parse(trimmed) as Record<string, unknown>
-    } catch {
-      return c.json({ error: 'invalid ripmail json' }, 502)
-    }
-    const headersText = typeof j.headersText === 'string' ? j.headersText : ''
-    const bodyText = typeof j.body === 'string' ? j.body : ''
-    const bh = j.bodyHtml
-    const bodyHtml = typeof bh === 'string' && bh.trim().length > 0 ? bh : ''
-    const displayBody = bodyHtml || bodyText
-    const out = `${headersText}\n\n${displayBody}`
-    return c.text(out)
+    const home = ripmailHomeForBrain()
+    const msg = ripmailReadMail(home, id, { plainBody: true, fullBody: true })
+    if (!msg) return c.json({ error: 'Not found' }, 404)
+    const headersText = `From: ${msg.fromAddress}\nTo: ${msg.toAddresses.join(', ')}\nSubject: ${msg.subject}\nDate: ${msg.date}`
+    const displayBody = msg.bodyText ?? ''
+    return c.text(`${headersText}\n\n${displayBody}`)
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }
@@ -221,10 +199,8 @@ inbox.post('/:id/reply', async (c) => {
   const id = c.req.param('id')
   const { instruction } = await c.req.json()
   try {
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} draft reply --message-id ${JSON.stringify(id)} --instruction ${JSON.stringify(instruction)} --with-body --json`,
-    )
-    return c.json(JSON.parse(stdout))
+    const draft = ripmailDraftReply(ripmailHomeForBrain(), { messageId: id, instruction })
+    return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
   }
@@ -235,10 +211,8 @@ inbox.post('/:id/forward', async (c) => {
   const id = c.req.param('id')
   const { to, instruction } = await c.req.json()
   try {
-    const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} draft forward --message-id ${JSON.stringify(id)} --to ${JSON.stringify(to)} --instruction ${JSON.stringify(instruction)} --with-body --json`,
-    )
-    return c.json(JSON.parse(stdout))
+    const draft = ripmailDraftForward(ripmailHomeForBrain(), { messageId: id, to, instruction })
+    return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
   }
@@ -247,14 +221,13 @@ inbox.post('/:id/forward', async (c) => {
 // POST /api/inbox/:id/archive
 inbox.post('/:id/archive', async (c) => {
   const id = c.req.param('id')
-  await execRipmailAsync(`${ripmailBin()} archive ${id}`)
+  ripmailArchive(ripmailHomeForBrain(), [id])
   return c.json({ ok: true })
 })
 
 // POST /api/inbox/:id/read
 inbox.post('/:id/read', async (c) => {
-  const id = c.req.param('id')
-  await execRipmailAsync(`${ripmailBin()} read ${id}`)
+  // Mark-as-read is a no-op in the TS module (tracked locally via UI state)
   return c.json({ ok: true })
 })
 

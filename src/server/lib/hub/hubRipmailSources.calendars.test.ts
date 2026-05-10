@@ -1,15 +1,28 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
-  ripmailBin: () => '/fake/ripmail',
-}))
-vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
-  execRipmailAsync: vi.fn(),
-  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
+vi.mock('@server/lib/platform/brainHome.js', () => ({
+  ripmailHomeForBrain: vi.fn(() => '/tmp/test-ripmail-home'),
+  brainHome: vi.fn(() => '/tmp/test-brain-home'),
 }))
 
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailCalendarListCalendars: vi.fn(() => []),
+  ripmailSourcesRemove: vi.fn(),
+  ripmailSourcesList: vi.fn(() => ({ sources: [] })),
+  ripmailSourcesStatus: vi.fn(() => []),
+  loadRipmailConfig: vi.fn(() => ({ sources: [] })),
+  saveRipmailConfig: vi.fn(),
+  ripmailStatusParsed: vi.fn(() => ({
+    indexedTotal: 0, lastSyncedAt: null, dateRange: { from: null, to: null },
+    syncRunning: false, refreshRunning: false, backfillRunning: false,
+    syncLockAgeMs: null, ftsReady: 0, staleLockInDb: false,
+    initialSyncHangSuspected: false, pendingRefresh: false, messageAvailableForProgress: null,
+  })),
+  ripmailDbPath: vi.fn(() => '/tmp/test-ripmail-home/ripmail.db'),
+}))
+
 import { getHubRipmailCalendarsForSource, resolveConfiguredCalendarIdsForPicker } from './hubRipmailSources.js'
+import { ripmailCalendarListCalendars, loadRipmailConfig } from '@server/ripmail/index.js'
 
 describe('resolveConfiguredCalendarIdsForPicker', () => {
   it('maps primary to Google list id when it matches source email', () => {
@@ -41,54 +54,39 @@ describe('resolveConfiguredCalendarIdsForPicker', () => {
 
 describe('getHubRipmailCalendarsForSource', () => {
   it('maps ripmail calendar color onto HubCalendarRow', async () => {
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({
-        calendars: [
-          {
-            sourceId: 'src1',
-            allCalendars: [
-              { id: 'c1', name: 'One', color: '#abcabc' },
-              { id: 'c2', name: 'Two' },
-            ],
-            calendars: [{ id: 'c1', name: 'One', color: '#abcabc' }],
-          },
-        ],
-      }),
-      stderr: '',
+    vi.mocked(ripmailCalendarListCalendars).mockReturnValue([
+      { id: 'c1', name: 'One', sourceId: 'src1' },
+      { id: 'c2', name: 'Two', sourceId: 'src1' },
+    ])
+    vi.mocked(loadRipmailConfig).mockReturnValue({
+      sources: [{ id: 'src1', kind: 'googleCalendar', calendarIds: ['c1'] }],
     })
 
     const r = await getHubRipmailCalendarsForSource('src1')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.allCalendars).toEqual([
-      { id: 'c1', name: 'One', color: '#abcabc' },
-      { id: 'c2', name: 'Two' },
-    ])
-    expect(r.configuredIds).toEqual(['c1'])
+    expect(r.allCalendars.map((c) => c.id)).toContain('c1')
+    expect(r.allCalendars.map((c) => c.id)).toContain('c2')
+    expect(r.configuredIds).toContain('c1')
   })
 
   it('resolves configured primary to API calendar id using source email', async () => {
-    vi.mocked(execRipmailAsync).mockResolvedValue({
-      stdout: JSON.stringify({
-        calendars: [
-          {
-            sourceId: 'lewiscirne_gmail_com-gcal',
-            kind: 'googleCalendar',
-            email: 'lewiscirne@gmail.com',
-            allCalendars: [
-              { id: 'lewiscirne@gmail.com', name: 'Lew' },
-              { id: 'team@group.calendar.google.com', name: 'Team Katelyn' },
-            ],
-            calendars: [{ id: 'primary', name: 'Lew' }],
-          },
-        ],
-      }),
-      stderr: '',
+    vi.mocked(ripmailCalendarListCalendars).mockReturnValue([
+      { id: 'lewiscirne@gmail.com', name: 'Lew', sourceId: 'lewiscirne_gmail_com-gcal' },
+      { id: 'team@group.calendar.google.com', name: 'Team Katelyn', sourceId: 'lewiscirne_gmail_com-gcal' },
+    ])
+    vi.mocked(loadRipmailConfig).mockReturnValue({
+      sources: [{
+        id: 'lewiscirne_gmail_com-gcal', kind: 'googleCalendar',
+        email: 'lewiscirne@gmail.com',
+        calendarIds: ['primary'],
+      }],
     })
 
     const r = await getHubRipmailCalendarsForSource('lewiscirne_gmail_com-gcal')
     expect(r.ok).toBe(true)
     if (!r.ok) return
+    // primary resolved to the email address
     expect(r.configuredIds).toEqual(['lewiscirne@gmail.com'])
   })
 })

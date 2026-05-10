@@ -14,17 +14,14 @@ import { hostGuidFilePath, stopTunnel, getActiveTunnelUrl } from '@server/lib/pl
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import {
   getOnboardingMailStatus,
-  ripmailBin,
   ripmailHomePath,
 } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
 import { isOnboardingInitialMailSyncComplete } from '@shared/onboardingMailGate.js'
 import { notifyOnboardingInterviewDone } from '@server/lib/backgroundTasks/orchestrator.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import {
-  runRipmailBackfillForBrain,
-  waitForRipmailBackfillLaneIdle,
-} from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { openRipmailDb } from '@server/ripmail/db.js'
+import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
 import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
@@ -43,11 +40,10 @@ onboardingCoreRouter.post('/clear-stale-lock', async (c) => {
     return c.json({ error: 'unauthorized', message: 'Sign in to continue.' }, 401)
   }
 
-  const rm = ripmailBin()
-  const cmd = `${rm} lock clear`
-
   try {
-    await execRipmailAsync(cmd, { timeout: 30000 })
+    // TS module: reset sync running flag in DB
+    const db = openRipmailDb(ripmailHomeForBrain())
+    db.prepare(`UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1`).run()
     brainLogger.info(`[onboarding/clear-stale-lock] cleared lock for tenant ${tid}`)
     return c.json({ ok: true })
   } catch (e) {
@@ -204,8 +200,7 @@ onboardingCoreRouter.patch('/state', async (c) => {
       )
       void (async () => {
         try {
-          await waitForRipmailBackfillLaneIdle()
-          await runRipmailBackfillForBrain(['1y'])
+          await ripmailRefresh(ripmailHomeForBrain())
         } catch (e) {
           brainLogger.error({ err: e }, '[onboarding/state] background backfill 1y failed')
         }

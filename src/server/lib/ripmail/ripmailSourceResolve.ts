@@ -4,8 +4,8 @@
  * inferred emails, which ripmail would reject unless we normalize to the configured source id.
  */
 
-import { ripmailBin } from './ripmailBin.js'
-import { execRipmailAsync } from './ripmailRun.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { loadRipmailConfig } from '@server/ripmail/sync/config.js'
 
 export type RipmailSourceListRow = {
   id: string
@@ -48,15 +48,19 @@ export function normalizeRipmailSourceSpecifier(spec: string, sources: RipmailSo
   return s
 }
 
-/** Load `ripmail sources list --json` and normalize `spec` for `--source` (search, read, etc.). */
+/** Load sources from config.json and normalize `spec` to a configured source id. */
 export async function resolveRipmailSourceForCli(spec: string | undefined): Promise<string | undefined> {
   if (!spec?.trim()) return undefined
   const s = spec.trim()
-  const rm = ripmailBin()
   try {
-    const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 15000 })
-    const j = JSON.parse(stdout) as { sources?: RipmailSourceListRow[] }
-    return normalizeRipmailSourceSpecifier(s, j.sources ?? [])
+    const config = loadRipmailConfig(ripmailHomeForBrain())
+    const sources: RipmailSourceListRow[] = (config.sources ?? []).map((src) => ({
+      id: src.id,
+      kind: src.kind,
+      email: src.email,
+      imap: src.imap ? { aliases: [] } : null,
+    }))
+    return normalizeRipmailSourceSpecifier(s, sources)
   } catch {
     return s
   }

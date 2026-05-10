@@ -1,5 +1,6 @@
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { existsSync } from 'node:fs'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { ripmailStatusParsed, ripmailDbPath } from '@server/ripmail/index.js'
 import { parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
 
 export type HubSourceMailStatusOk = {
@@ -140,13 +141,42 @@ export async function getHubSourceMailStatus(sourceId: string): Promise<HubSourc
   if (!id) {
     return { ok: false, sourceId: '', error: 'Source id required' }
   }
+  const home = ripmailHomeForBrain()
+  if (!existsSync(ripmailDbPath(home))) {
+    return { ok: false, sourceId: id, error: 'ripmail DB not found' }
+  }
   try {
-    const { stdout } = await execRipmailAsync(`${ripmailBin()} status --json`, { timeout: 12_000 })
-    const parsed = parseHubSourceMailStatusFromStdout(stdout, id)
-    if (!parsed) {
-      return { ok: false, sourceId: id, error: 'Could not parse ripmail status' }
+    const parsed = ripmailStatusParsed(home)
+    // Build a Rust-compatible stdout to reuse existing parsing logic
+    const stdout = JSON.stringify({
+      sync: {
+        refresh: {
+          isRunning: parsed.refreshRunning,
+          lastSyncAt: parsed.lastSyncedAt,
+          totalMessages: parsed.messageAvailableForProgress ?? 0,
+          earliestSyncedDate: parsed.dateRange.from,
+          latestSyncedDate: parsed.dateRange.to,
+          lockAgeMs: parsed.syncLockAgeMs,
+          lockHeldByLiveProcess: parsed.refreshRunning,
+        },
+        backfill: {
+          isRunning: parsed.backfillRunning,
+          lockHeldByLiveProcess: false,
+        },
+        staleLockInDb: parsed.staleLockInDb,
+      },
+      search: {
+        indexedMessages: parsed.indexedTotal ?? 0,
+        ftsReady: parsed.ftsReady ?? 0,
+      },
+      mailboxes: [{ mailboxId: id, messageCount: parsed.indexedTotal ?? 0 }],
+      freshness: {},
+    })
+    const result = parseHubSourceMailStatusFromStdout(stdout, id)
+    if (!result) {
+      return { ok: false, sourceId: id, error: 'Could not build mail status' }
     }
-    return parsed
+    return result
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return { ok: false, sourceId: id, error: msg }

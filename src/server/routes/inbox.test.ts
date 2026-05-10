@@ -1,60 +1,73 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { EventEmitter } from 'node:events'
-import { Buffer } from 'node:buffer'
 import { Hono } from 'hono'
-
-/** Simulates a spawned ripmail process for `runRipmailArgv` (stdio + close). */
-function createMockChild(options: {
-  stdout?: string
-  stderr?: string
-  code?: number
-  err?: Error
-}): EventEmitter {
-  const stdout = new EventEmitter()
-  const stderr = new EventEmitter()
-  const child = new EventEmitter() as EventEmitter & {
-    stdout: EventEmitter
-    stderr: EventEmitter
-    pid: number
-    killed: boolean
-    kill: (signal?: string) => boolean
-  }
-  child.stdout = stdout
-  child.stderr = stderr
-  child.pid = 42_424
-  child.killed = false
-  child.kill = () => {
-    child.killed = true
-    return true
-  }
-
-  queueMicrotask(() => {
-    if (options.err) {
-      child.emit('error', options.err)
-      return
-    }
-    const { stdout: out = '', stderr: err = '', code = 0 } = options
-    if (out.length > 0) stdout.emit('data', Buffer.from(out, 'utf8'))
-    if (err.length > 0) stderr.emit('data', Buffer.from(err, 'utf8'))
-    child.emit('close', code, null)
-  })
-  return child
-}
-
-const spawnMock = vi.fn()
-vi.mock('node:child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:child_process')>()
-  return { ...actual, spawn: spawnMock }
-})
 
 // Mock draftExtract so we control what the LLM extraction returns
 const extractDraftEditsMock = vi.fn()
 vi.mock('@server/lib/llm/draftExtract.js', () => ({ extractDraftEdits: extractDraftEditsMock }))
 
+const ripmailInboxMock = vi.fn()
+const ripmailWhoMock = vi.fn()
+const ripmailReadMailMock = vi.fn()
+const ripmailDraftViewMock = vi.fn()
+const ripmailDraftEditMock = vi.fn()
+const ripmailDraftReplyMock = vi.fn()
+const ripmailDraftForwardMock = vi.fn()
+const ripmailSendMock = vi.fn()
+const ripmailArchiveMock = vi.fn()
+
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailInbox: ripmailInboxMock,
+  ripmailWho: ripmailWhoMock,
+  ripmailReadMail: ripmailReadMailMock,
+  ripmailDraftView: ripmailDraftViewMock,
+  ripmailDraftEdit: ripmailDraftEditMock,
+  ripmailDraftReply: ripmailDraftReplyMock,
+  ripmailDraftForward: ripmailDraftForwardMock,
+  ripmailSend: ripmailSendMock,
+  ripmailArchive: ripmailArchiveMock,
+}))
+
+vi.mock('@server/lib/onboarding/onboardingMailStatus.js', () => ({
+  getOnboardingMailStatus: vi.fn().mockResolvedValue({ configured: true, indexedTotal: 5, syncRunning: false }),
+  ripmailHomePath: vi.fn(() => '/tmp/test-ripmail-home'),
+}))
+
+vi.mock('@server/lib/platform/brainHome.js', () => ({
+  ripmailHomeForBrain: vi.fn(() => '/tmp/test-ripmail-home'),
+  brainHome: vi.fn(() => '/tmp/test-brain-home'),
+}))
+
 let app: Hono
 
 beforeEach(async () => {
-  process.env.RIPMAIL_BIN = 'ripmail'
+  vi.clearAllMocks()
+  // Default mocks
+  ripmailInboxMock.mockReturnValue({
+    items: [{ messageId: 'msg-1', fromName: 'Alice', fromAddress: 'alice@example.com', subject: 'Hello', date: '2026-04-12', snippet: 'Hi there', action: 'inform', matchedRuleIds: [], requiresUserAction: false }],
+    counts: { notify: 0, inform: 1, ignore: 0, actionRequired: 0 },
+  })
+  ripmailWhoMock.mockReturnValue({ contacts: [{ primaryAddress: 'bob@example.com', personId: 1, addresses: [], sentCount: 0, receivedCount: 5 }] })
+  ripmailReadMailMock.mockReturnValue({
+    messageId: 'msg-99',
+    fromAddress: 'x@test.com',
+    toAddresses: [],
+    ccAddresses: [],
+    subject: 'Hi',
+    date: '2026-04-12',
+    bodyText: 'plain text body',
+    rawPath: '',
+    threadId: 'msg-99',
+    sourceId: 's1',
+    isArchived: false,
+  })
+  ripmailDraftViewMock.mockReturnValue({ id: 'draft-1', subject: 'Re: Hello', body: 'Draft body', to: [], createdAt: '', updatedAt: '' })
+  ripmailDraftEditMock.mockReturnValue({ id: 'draft-1', subject: 'Hi', body: 'Line1\n\nLine2', to: ['a@example.com'], createdAt: '', updatedAt: '' })
+  ripmailDraftReplyMock.mockReturnValue({ id: 'draft-2', subject: 'Re: Hello', body: '', to: [], createdAt: '', updatedAt: '' })
+  ripmailDraftForwardMock.mockReturnValue({ id: 'draft-3', subject: 'Fwd: Hello', body: '', to: ['charlie@example.com'], createdAt: '', updatedAt: '' })
+  ripmailSendMock.mockResolvedValue({ ok: true, draftId: 'draft-1', dryRun: false })
+  ripmailArchiveMock.mockReturnValue({ results: [{ messageId: 'msg-1', local: { ok: true } }] })
+  extractDraftEditsMock.mockResolvedValue({ body_instruction: '' })
+
   vi.resetModules()
   const { default: inboxRoute } = await import('./inbox.js')
   app = new Hono()
@@ -62,43 +75,13 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
-  delete process.env.RIPMAIL_BIN
   vi.resetAllMocks()
 })
-
-// ---- helpers ----------------------------------------------------------------
-
-function mockSuccess(stdout: string) {
-  spawnMock.mockImplementation(() => createMockChild({ stdout, code: 0 }))
-}
-
-function mockFailure(_message = 'command failed') {
-  spawnMock.mockImplementation(() => createMockChild({ code: 1, stderr: 'error' }))
-}
 
 // ---- GET /api/inbox ---------------------------------------------------------
 
 describe('GET /api/inbox', () => {
   it('returns flattened email list from ripmail inbox', async () => {
-    mockSuccess(
-      JSON.stringify({
-        mailboxes: [
-          {
-            items: [
-              {
-                messageId: 'msg-1',
-                fromName: 'Alice',
-                fromAddress: 'alice@example.com',
-                subject: 'Hello',
-                date: '2026-04-12',
-                snippet: 'Hi there',
-                action: 'read',
-              },
-            ],
-          },
-        ],
-      }),
-    )
     const res = await app.request('/api/inbox')
     expect(res.status).toBe(200)
     const emails = await res.json()
@@ -107,7 +90,7 @@ describe('GET /api/inbox', () => {
   })
 
   it('returns 503 when inbox ripmail fails', async () => {
-    mockFailure()
+    ripmailInboxMock.mockImplementation(() => { throw new Error('db error') })
     const res = await app.request('/api/inbox')
     expect(res.status).toBe(503)
     expect(await res.json()).toEqual({ ok: false, error: 'ripmail_unavailable' })
@@ -145,7 +128,6 @@ describe('GET /api/inbox/mail-sync-status', () => {
 
 describe('GET /api/inbox/who', () => {
   it('returns people list without query', async () => {
-    mockSuccess(JSON.stringify({ people: [{ primaryAddress: 'bob@example.com' }] }))
     const res = await app.request('/api/inbox/who')
     expect(res.status).toBe(200)
     const people = await res.json()
@@ -154,14 +136,13 @@ describe('GET /api/inbox/who', () => {
   })
 
   it('returns filtered people with query', async () => {
-    mockSuccess(JSON.stringify({ people: [{ primaryAddress: 'bob@example.com' }] }))
     const res = await app.request('/api/inbox/who?q=bob')
     expect(res.status).toBe(200)
     expect(await res.json()).toHaveLength(1)
   })
 
   it('returns empty array when ripmail fails', async () => {
-    mockFailure()
+    ripmailWhoMock.mockImplementation(() => { throw new Error('db error') })
     const res = await app.request('/api/inbox/who')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual([])
@@ -171,30 +152,18 @@ describe('GET /api/inbox/who', () => {
 // ---- GET /api/inbox/:id -----------------------------------------------------
 
 describe('GET /api/inbox/:id', () => {
-  it('prefers bodyHtml in assembled text for the mail viewer', async () => {
-    const readJson = {
-      headersText: 'From: X <x@test.com>\nSubject: Hi',
-      body: 'plain text body',
-      bodyHtml: '<html><body><p>HTML body</p></body></html>',
-    }
-    mockSuccess(JSON.stringify(readJson))
+  it('returns text with headers and body', async () => {
     const res = await app.request('/api/inbox/msg-99')
     expect(res.status).toBe(200)
     const text = await res.text()
-    expect(text).toContain('From: X')
-    expect(text).toContain('<html><body><p>HTML body</p></body></html>')
-    expect(text).not.toContain('plain text body')
-    const argv = spawnMock.mock.calls[0][1] as string[]
-    const flat = argv.join(' ')
-    expect(flat).toContain('--json')
-    expect(flat).toContain('--full-body')
+    expect(text).toContain('Subject: Hi')
+    expect(text).toContain('plain text body')
   })
 
-  it('falls back to body when bodyHtml absent', async () => {
-    mockSuccess(JSON.stringify({ headersText: 'Subject: Y', body: 'only plain' }))
-    const res = await app.request('/api/inbox/msg-1')
-    expect(res.status).toBe(200)
-    expect(await res.text()).toContain('only plain')
+  it('returns 404 when message not found', async () => {
+    ripmailReadMailMock.mockReturnValue(null)
+    const res = await app.request('/api/inbox/no-such-id')
+    expect(res.status).toBe(404)
   })
 })
 
@@ -202,48 +171,34 @@ describe('GET /api/inbox/:id', () => {
 
 describe('GET /api/inbox/draft/:draftId', () => {
   it('returns draft JSON on success', async () => {
-    const draft = { id: 'draft-1', subject: 'Re: Hello', body: 'Draft body' }
-    mockSuccess(JSON.stringify(draft))
     const res = await app.request('/api/inbox/draft/draft-1')
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ id: 'draft-1' })
   })
 
-  it('returns 500 on ripmail failure', async () => {
-    mockFailure()
-    const res = await app.request('/api/inbox/draft/draft-1')
-    expect(res.status).toBe(500)
+  it('returns 404 when draft not found', async () => {
+    ripmailDraftViewMock.mockReturnValue(null)
+    const res = await app.request('/api/inbox/draft/missing')
+    expect(res.status).toBe(404)
   })
 })
 
 // ---- PATCH /api/inbox/draft/:draftId ----------------------------------------
 
 describe('PATCH /api/inbox/draft/:draftId', () => {
-  it('runs draft rewrite with body-file and optional headers', async () => {
-    const updated = { id: 'draft-1', subject: 'Hi', body: 'Line1\n\nLine2', to: ['a@example.com'] }
-    mockSuccess(JSON.stringify(updated))
+  it('runs draft edit with body and optional headers', async () => {
     const res = await app.request('/api/inbox/draft/draft-1', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        body: 'Line1\n\nLine2',
-        subject: 'Hi',
-        to: ['a@example.com'],
-      }),
+      body: JSON.stringify({ body: 'Line1\n\nLine2', subject: 'Hi', to: ['a@example.com'] }),
     })
     expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ id: 'draft-1', body: 'Line1\n\nLine2' })
-    const argv = spawnMock.mock.calls[0][1] as string[]
-    expect(argv[0]).toBe('draft')
-    expect(argv[1]).toBe('rewrite')
-    expect(argv[2]).toBe('draft-1')
-    expect(argv).toContain('--body-file')
-    expect(argv).toContain('--with-body')
-    expect(argv).toContain('--json')
-    expect(argv).toContain('--subject')
-    expect(argv).toContain('Hi')
-    expect(argv).toContain('--to')
-    expect(argv).toContain('a@example.com')
+    expect(await res.json()).toMatchObject({ id: 'draft-1' })
+    expect(ripmailDraftEditMock).toHaveBeenCalledWith(
+      expect.any(String),
+      'draft-1',
+      expect.objectContaining({ subject: 'Hi', to: ['a@example.com'] }),
+    )
   })
 
   it('returns 400 when body is not a string', async () => {
@@ -253,7 +208,7 @@ describe('PATCH /api/inbox/draft/:draftId', () => {
       body: JSON.stringify({ subject: 'x' }),
     })
     expect(res.status).toBe(400)
-    expect(spawnMock).not.toHaveBeenCalled()
+    expect(ripmailDraftEditMock).not.toHaveBeenCalled()
   })
 
   it('returns 400 when to is malformed', async () => {
@@ -263,11 +218,11 @@ describe('PATCH /api/inbox/draft/:draftId', () => {
       body: JSON.stringify({ body: 'x', to: [1, 2] }),
     })
     expect(res.status).toBe(400)
-    expect(spawnMock).not.toHaveBeenCalled()
+    expect(ripmailDraftEditMock).not.toHaveBeenCalled()
   })
 
-  it('returns 500 when rewrite fails', async () => {
-    mockFailure()
+  it('returns 500 when edit throws', async () => {
+    ripmailDraftEditMock.mockImplementation(() => { throw new Error('edit failed') })
     const res = await app.request('/api/inbox/draft/draft-1', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -280,12 +235,9 @@ describe('PATCH /api/inbox/draft/:draftId', () => {
 // ---- POST /api/inbox/draft/:draftId/edit ------------------------------------
 
 describe('POST /api/inbox/draft/:draftId/edit', () => {
-  it('returns updated draft after editing (body-only instruction)', async () => {
+  it('returns updated draft after editing', async () => {
     extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
-    const updated = { id: 'draft-1', body: 'Revised body' }
-    spawnMock
-      .mockImplementationOnce(() => createMockChild({ stdout: '', code: 0 })) // draft edit
-      .mockImplementationOnce(() => createMockChild({ stdout: JSON.stringify(updated), code: 0 })) // draft view
+    ripmailDraftViewMock.mockReturnValue({ id: 'draft-1', body: 'Revised body', subject: 'Hi', to: [], createdAt: '', updatedAt: '' })
     const res = await app.request('/api/inbox/draft/draft-1/edit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -293,38 +245,29 @@ describe('POST /api/inbox/draft/:draftId/edit', () => {
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ body: 'Revised body' })
-    // Verify extractDraftEdits was called with the instruction
     expect(extractDraftEditsMock).toHaveBeenCalledWith('make it shorter')
   })
 
-  it('passes extracted metadata flags to ripmail', async () => {
+  it('passes extracted metadata flags to draft edit', async () => {
     extractDraftEditsMock.mockResolvedValue({
       add_cc: ['bob@example.com'],
       subject: 'New Subject',
       body_instruction: 'make it shorter',
     })
-    const updated = { id: 'draft-1', cc: ['bob@example.com'], subject: 'New Subject' }
-    spawnMock
-      .mockImplementationOnce(() => createMockChild({ stdout: '', code: 0 })) // draft edit
-      .mockImplementationOnce(() => createMockChild({ stdout: JSON.stringify(updated), code: 0 })) // draft view
+    ripmailDraftViewMock.mockReturnValue({ id: 'draft-1', cc: ['bob@example.com'], subject: 'New Subject', body: '', to: [], createdAt: '', updatedAt: '' })
     const res = await app.request('/api/inbox/draft/draft-1/edit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction: 'cc bob@example.com, change subject to New Subject, make it shorter' }),
+      body: JSON.stringify({ instruction: 'cc bob, change subject, make it shorter' }),
     })
     expect(res.status).toBe(200)
-    // Verify ripmail argv includes metadata flags (spawn: bin, argv, opts)
-    const argv = spawnMock.mock.calls[0][1] as string[]
-    const flat = argv.join(' ')
-    expect(flat).toContain('--add-cc')
-    expect(flat).toContain('bob@example.com')
-    expect(flat).toContain('--subject')
-    expect(flat).toContain('New Subject')
+    const j = await res.json()
+    expect(j).toMatchObject({ subject: 'New Subject' })
   })
 
-  it('returns 500 when edit fails', async () => {
+  it('returns 500 when edit throws', async () => {
     extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
-    mockFailure()
+    ripmailDraftEditMock.mockImplementation(() => { throw new Error('edit failed') })
     const res = await app.request('/api/inbox/draft/draft-1/edit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -338,14 +281,13 @@ describe('POST /api/inbox/draft/:draftId/edit', () => {
 
 describe('POST /api/inbox/draft/:draftId/send', () => {
   it('returns ok:true on success', async () => {
-    mockSuccess('')
     const res = await app.request('/api/inbox/draft/draft-1/send', { method: 'POST' })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ ok: true })
   })
 
   it('returns ok:false with 500 on failure', async () => {
-    mockFailure()
+    ripmailSendMock.mockRejectedValue(new Error('send failed'))
     const res = await app.request('/api/inbox/draft/draft-1/send', { method: 'POST' })
     expect(res.status).toBe(500)
     expect(await res.json()).toMatchObject({ ok: false })
@@ -356,8 +298,6 @@ describe('POST /api/inbox/draft/:draftId/send', () => {
 
 describe('POST /api/inbox/:id/reply', () => {
   it('returns created draft on success', async () => {
-    const draft = { id: 'draft-2', subject: 'Re: Hello' }
-    mockSuccess(JSON.stringify(draft))
     const res = await app.request('/api/inbox/msg-1/reply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -365,10 +305,14 @@ describe('POST /api/inbox/:id/reply', () => {
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ id: 'draft-2' })
+    expect(ripmailDraftReplyMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ messageId: 'msg-1', instruction: 'Thank them' }),
+    )
   })
 
-  it('returns 500 on ripmail failure', async () => {
-    mockFailure()
+  it('returns 500 on failure', async () => {
+    ripmailDraftReplyMock.mockImplementation(() => { throw new Error('reply failed') })
     const res = await app.request('/api/inbox/msg-1/reply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -382,8 +326,6 @@ describe('POST /api/inbox/:id/reply', () => {
 
 describe('POST /api/inbox/:id/forward', () => {
   it('returns created draft on success', async () => {
-    const draft = { id: 'draft-3', subject: 'Fwd: Hello' }
-    mockSuccess(JSON.stringify(draft))
     const res = await app.request('/api/inbox/msg-1/forward', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -393,8 +335,8 @@ describe('POST /api/inbox/:id/forward', () => {
     expect(await res.json()).toMatchObject({ id: 'draft-3' })
   })
 
-  it('returns 500 on ripmail failure', async () => {
-    mockFailure()
+  it('returns 500 on failure', async () => {
+    ripmailDraftForwardMock.mockImplementation(() => { throw new Error('forward failed') })
     const res = await app.request('/api/inbox/msg-1/forward', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

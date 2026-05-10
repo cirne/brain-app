@@ -3,8 +3,8 @@ import Handlebars from 'handlebars'
 import type { Agent } from '@mariozechner/pi-agent-core'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
-import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { loadRipmailConfig, getImapSources } from '@server/ripmail/sync/config.js'
 import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { createOnboardingAgent, formatOnboardingPromptClock, resolveOnboardingSessionTimezone } from './agentFactory.js'
@@ -67,19 +67,27 @@ export function parseWhoamiProfileSubject(raw: string): WhoamiProfileSubject | n
   }
 }
 
-/** Runs `ripmail whoami` with the same env as the rest of the app; result is embedded in the profiling prompt. */
+/** Build whoami-style JSON from config.json sources (replaces `ripmail whoami` subprocess). */
 export async function fetchRipmailWhoamiForProfiling(): Promise<string> {
   try {
-    const { stdout } = await execRipmailAsync(`${ripmailBin()} whoami`, { timeout: 10000 })
-    let s = stdout.trim()
-    if (!s) return '(ripmail whoami produced no output.)'
-    if (s.length > MAX_WHOAMI_PROMPT_CHARS) {
-      s = `${s.slice(0, MAX_WHOAMI_PROMPT_CHARS)}…`
+    const config = loadRipmailConfig(ripmailHomeForBrain())
+    const sources = getImapSources(config)
+    if (sources.length === 0) {
+      return '(no mail sources configured — run setup to add a mailbox)'
     }
-    return s
+    const mailboxes = sources.map((s) => ({
+      email: s.email ?? s.imap?.user ?? '',
+      identity: {},
+      inferred: {
+        primaryEmail: s.email ?? s.imap?.user ?? '',
+        displayNameFromMail: s.label ?? s.email ?? '',
+      },
+    }))
+    const result = JSON.stringify({ mailboxes })
+    return result.length > MAX_WHOAMI_PROMPT_CHARS ? `${result.slice(0, MAX_WHOAMI_PROMPT_CHARS)}…` : result
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return `(Could not run ripmail whoami: ${msg})`
+    return `(Could not load ripmail config: ${msg})`
   }
 }
 

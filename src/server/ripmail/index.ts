@@ -46,7 +46,7 @@ import { search } from './search.js'
 import { readMail, readIndexedFile } from './mailRead.js'
 import { attachmentList, attachmentRead } from './attachments.js'
 import { who } from './who.js'
-import { status } from './status.js'
+import { status, statusParsed } from './status.js'
 import { inbox } from './inbox.js'
 import { rulesList, rulesShow, rulesAdd, rulesEdit, rulesRemove, rulesMove, rulesValidate } from './rules.js'
 import { sourcesList, sourcesStatus, sourcesAddLocalDir, sourcesAddGoogleDrive, sourcesEdit, sourcesRemove } from './sources.js'
@@ -55,6 +55,7 @@ import { calendarRange, calendarListCalendars, calendarCreateEvent, calendarUpda
 import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList } from './draft.js'
 import { send } from './send.js'
 import { refresh } from './sync/index.js'
+export { loadRipmailConfig, saveRipmailConfig } from './sync/config.js'
 import type { SearchOptions, InboxOptions } from './inbox.js'
 
 // Re-export option types
@@ -128,6 +129,12 @@ export function ripmailWho(ripmailHome: string, query?: string, opts?: { limit?:
 export function ripmailStatus(ripmailHome: string) {
   const db = openRipmailDb(ripmailHome)
   return status(db)
+}
+
+/** ParsedRipmailStatus — compatible with parseRipmailStatusJson consumers. */
+export function ripmailStatusParsed(ripmailHome: string) {
+  const db = openRipmailDb(ripmailHome)
+  return statusParsed(db)
 }
 
 /** Run inbox scan (deterministic rules). */

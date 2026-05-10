@@ -2,11 +2,10 @@
  * Read raw files on disk via ripmail (same extraction as CLI `ripmail read <path> --json --full-body`).
  * Not for wiki markdown — use `/api/wiki` for Brain wiki pages.
  */
-import { existsSync, statSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { Hono } from 'hono'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { ripmailReadIndexedFile } from '@server/ripmail/index.js'
 import { assertAgentReadPathAllowed, ripmailReadIdLooksLikeFilesystemPath } from '@server/agent/agentToolPolicy.js'
 import {
   buildReadPathAllowlist,
@@ -48,7 +47,7 @@ function normalizeIndexedRipmailJson(j: Record<string, unknown>, queryId: string
 // GET /api/files/indexed?id=&source= — structured JSON for IndexedFileViewer (ripmail read --json --full-body)
 files.get('/indexed', async c => {
   const rawId = c.req.query('id')
-  const source = c.req.query('source')?.trim()
+  const _source = c.req.query('source')?.trim()
   if (!rawId?.trim()) {
     return c.json({ error: 'missing id' }, 400)
   }
@@ -61,29 +60,15 @@ files.get('/indexed', async c => {
     const msg = e instanceof Error ? e.message : String(e)
     return c.json({ error: msg }, 403)
   }
-  const src = source?.length ? ` --source ${JSON.stringify(source)}` : ''
-  const rm = ripmailBin()
   try {
-    const { stdout, stderr } = await execRipmailAsync(
-      `${rm} read ${JSON.stringify(readArg)} --json --full-body${src}`,
-      {
-        ...ripmailReadExecOptions(),
-      },
+    const result = ripmailReadIndexedFile(ripmailHomeForBrain(), readArg, { fullBody: true })
+    if (!result) {
+      return c.json({ error: 'not an indexed file read (expected googleDrive or localDir)' }, 422)
+    }
+    const normalized = normalizeIndexedRipmailJson(
+      { sourceKind: result.sourceKind, title: result.title, body: result.bodyText, bodyText: result.bodyText, path: result.id },
+      rawId.trim(),
     )
-    if (stderr?.trim()) {
-      console.warn('[api/files/indexed] ripmail stderr:', stderr.slice(0, 500))
-    }
-    const trimmed = stdout.trim()
-    if (!trimmed) {
-      return c.json({ error: 'empty output from ripmail' }, 502)
-    }
-    let parsed: Record<string, unknown>
-    try {
-      parsed = JSON.parse(trimmed) as Record<string, unknown>
-    } catch {
-      return c.json({ error: 'invalid JSON from ripmail', raw: trimmed.slice(0, 200) }, 502)
-    }
-    const normalized = normalizeIndexedRipmailJson(parsed, rawId.trim())
     if (!normalized) {
       return c.json({ error: 'not an indexed file read (expected googleDrive or localDir)' }, 422)
     }
@@ -109,37 +94,12 @@ files.get('/read', async c => {
   if (!existsSync(fullPath)) {
     return c.json({ error: 'Not found' }, 404)
   }
-  let st: ReturnType<typeof statSync>
   try {
-    st = statSync(fullPath)
-  } catch {
-    return c.json({ error: 'Not found' }, 404)
-  }
-  if (!st.isFile()) {
-    return c.json({ error: 'Not a file' }, 400)
-  }
-
-  const rm = ripmailBin()
-  try {
-    const { stdout, stderr } = await execRipmailAsync(
-      `${rm} read ${JSON.stringify(fullPath)} --json --full-body`,
-      {
-        ...ripmailReadExecOptions(),
-      },
-    )
-    if (stderr?.trim()) {
-      console.warn('[api/files/read] ripmail stderr:', stderr.slice(0, 500))
+    const result = ripmailReadIndexedFile(ripmailHomeForBrain(), fullPath, { fullBody: true })
+    if (!result) {
+      return c.json({ error: 'file not found in index' }, 404)
     }
-    const trimmed = stdout.trim()
-    if (!trimmed) {
-      return c.json({ error: 'empty output from ripmail' }, 502)
-    }
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>
-      return c.json(parsed)
-    } catch {
-      return c.json({ error: 'invalid JSON from ripmail', raw: trimmed.slice(0, 200) }, 502)
-    }
+    return c.json({ id: result.id, sourceKind: result.sourceKind, title: result.title, bodyText: result.bodyText })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[api/files/read]', msg)
