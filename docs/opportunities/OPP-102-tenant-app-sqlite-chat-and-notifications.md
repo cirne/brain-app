@@ -1,6 +1,6 @@
 # OPP-102: Tenant app SQLite — chat history, notifications, and shared schema lifecycle
 
-**Status:** Open — **single per-tenant SQLite** for Brain-owned app state (not ripmail index, not global ACL DB).
+**Status:** **Superseded by [OPP-103](OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)** — chat + notification scope absorbed into unified tenant SQLite + ripmail TS port. Original scope (separate app DB alongside ripmail's) no longer the plan.
 
 **See also:** [chat-history-sqlite.md](../architecture/chat-history-sqlite.md) (target schema for sessions — absorbed into this OPP) · [per-tenant-storage-defense.md](../architecture/per-tenant-storage-defense.md) · [data-and-sync.md](../architecture/data-and-sync.md) · [brain-to-brain-access-policy.md § notification](../architecture/brain-to-brain-access-policy.md#notification-inbox-and-human-in-the-loop-prerequisite-for-secure-brain-to-brain) · **[IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md)** · **[IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md)** (consumer of notification rows for async outbound approval — follow-on wiring) · [brain-layout.json](../../shared/brain-layout.json) / [`brainLayout.ts`](../../src/server/lib/brainLayout.ts)
 
