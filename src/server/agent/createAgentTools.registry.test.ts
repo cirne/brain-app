@@ -58,4 +58,14 @@ describe('createAgentTools registry vs ALL_AGENT_TOOL_NAMES', () => {
       }
     }
   })
+
+  it('omits ask_collaborator when BRAIN_B2B_ENABLED is off', async () => {
+    process.env.BRAIN_B2B_ENABLED = '0'
+    vi.resetModules()
+    const { createAgentTools } = await import('./tools.js')
+    const dir = await mkdtemp(join(tmpdir(), 'brain-agent-tools-b2boff-'))
+    await writeFile(join(dir, 'stub.md'), '# stub\n', 'utf-8')
+    const tools = createAgentTools(dir, { includeLocalMessageTools: true })
+    expect(namedTools(tools).includes('ask_collaborator')).toBe(false)
+  })
 })

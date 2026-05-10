@@ -6,11 +6,8 @@
     grant: BrainAccessGrantRow
     displayName?: string
     email?: string | null
-    queryCount: number
-    lastQueryMs: number | null
     removeBusy?: boolean
     onRemove: () => void | Promise<void>
-    onViewActivity: () => void
     onChangePolicy?: () => void
   }
 
@@ -18,26 +15,10 @@
     grant,
     displayName,
     email,
-    queryCount,
-    lastQueryMs,
     removeBusy = false,
     onRemove,
-    onViewActivity,
     onChangePolicy,
   }: Props = $props()
-
-  function formatRelative(ms: number | null): string {
-    if (ms == null) return $t('access.userDetailRow.lastQuery.none')
-    const diffSec = Math.floor((Date.now() - ms) / 1000)
-    if (diffSec < 60) return $t('access.userDetailRow.lastQuery.justNow')
-    const diffMin = Math.floor(diffSec / 60)
-    if (diffMin < 60) return $t('access.userDetailRow.lastQuery.minutesAgo', { count: diffMin })
-    const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return $t('access.userDetailRow.lastQuery.hoursAgo', { count: diffH })
-    const diffD = Math.floor(diffH / 24)
-    if (diffD < 7) return $t('access.userDetailRow.lastQuery.daysAgo', { count: diffD })
-    return new Date(ms).toLocaleDateString()
-  }
 
   const handle = $derived(grant.askerHandle ?? grant.askerId)
 </script>
@@ -60,20 +41,7 @@
         {$t('access.userDetailRow.noEmail')}
       {/if}
     </div>
-    <div class="text-[0.8125rem] text-muted">
-      {$t('access.userDetailRow.querySummary', {
-        count: queryCount,
-        last: formatRelative(lastQueryMs),
-      })}
-    </div>
     <div class="flex flex-wrap gap-x-3 gap-y-1">
-      <button
-        type="button"
-        class="border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-accent underline-offset-2 hover:underline"
-        onclick={() => onViewActivity()}
-      >
-        {$t('access.userDetailRow.actions.viewActivity')}
-      </button>
       {#if onChangePolicy}
         <button
           type="button"

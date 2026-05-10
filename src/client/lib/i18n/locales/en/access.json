@@ -1,7 +1,7 @@
 {
   "brainAccessPage": {
     "title": "Brain to Brain access",
-    "lead": "Map collaborators to a policy; your assistant uses that policy before answering cross-brain questions.",
+    "lead": "Map collaborators to a policy; your assistant follows it when someone connected to you asks questions or when you reply to them.",
     "policiesHeading": "Policies & collaborators",
     "createCustomPolicy": "+ Create custom policy",
     "backToSettings": "← Back to Settings",
@@ -16,24 +16,19 @@
   "policyCard": {
     "ariaOpenPolicy": "Open policy: {{label}}",
     "collaboratorsCount_one": "{{count}} collaborator",
-    "collaboratorsCount_other": "{{count}} collaborators",
-    "recentInboundQueries_one": "{{count}} recent inbound query",
-    "recentInboundQueries_other": "{{count}} recent inbound queries"
+    "collaboratorsCount_other": "{{count}} collaborators"
   },
   "policyDetailPage": {
     "fallbackPolicyLabel": "Policy",
     "policyNotFound": "This policy wasn't found.",
     "policyTextHeading": "Policy text",
-    "ariaTestThisPolicy": "Test this policy",
     "ariaDeletePolicyRemoveCollaboratorsFirst": "Delete policy (remove all collaborators first)",
     "ariaDeletePolicy": "Delete policy",
     "emptyPolicyText": "—",
-    "editGuidance": "This text is guidance for your assistant when someone queries your brain under this policy.",
+    "editGuidance": "This text is guidance for your assistant when people under this policy connect and collaborate with you.",
     "privacyGuidanceLabel": "Privacy guidance",
     "collaboratorsHeading": "Collaborators ({{count}})",
-    "recentActivityHeading": "Recent activity",
     "actions": {
-      "testThisPolicy": "Test this policy",
       "edit": "Edit",
       "deletePolicy": "Delete policy",
       "savePolicy": "Save policy"
@@ -89,58 +84,9 @@
       "indigo": "Indigo"
     }
   },
-  "policyActivityList": {
-    "relative": {
-      "justNow": "Just now",
-      "minutesAgo_one": "{{count}}m ago",
-      "minutesAgo_other": "{{count}}m ago",
-      "hoursAgo_one": "{{count}}h ago",
-      "hoursAgo_other": "{{count}}h ago",
-      "daysAgo_one": "{{count}}d ago",
-      "daysAgo_other": "{{count}}d ago"
-    },
-    "duration": {
-      "milliseconds": "{{count}}ms",
-      "seconds": "{{value}}s"
-    },
-    "status": {
-      "ok": "OK",
-      "filtered": "Filtered",
-      "declined": "Declined",
-      "denied": "Denied",
-      "error": "Error"
-    },
-    "returnedSummary": {
-      "deniedNoGrant": "No answer — access was not granted for this attempt."
-    },
-    "empty": "No activity for this policy yet.",
-    "labels": {
-      "question": "Question",
-      "returnedToCollaborator": "Returned to collaborator",
-      "noAnswerReturned": "No answer returned.",
-      "assistantReplyBeforeSharing": "Assistant reply before sharing",
-      "whatChanged": "What changed"
-    },
-    "actions": {
-      "viewAllActivity": "View all activity ({{count}}) →"
-    }
-  },
   "userDetailRow": {
     "noEmail": "No email on file",
-    "lastQuery": {
-      "none": "—",
-      "justNow": "Just now",
-      "minutesAgo_one": "{{count}}m ago",
-      "minutesAgo_other": "{{count}}m ago",
-      "hoursAgo_one": "{{count}}h ago",
-      "hoursAgo_other": "{{count}}h ago",
-      "daysAgo_one": "{{count}}d ago",
-      "daysAgo_other": "{{count}}d ago"
-    },
-    "querySummary_one": "{{count}} query · Last: {{last}}",
-    "querySummary_other": "{{count}} queries · Last: {{last}}",
     "actions": {
-      "viewActivity": "View activity →",
       "changePolicy": "Change policy…",
       "removeAccessAria": "Remove access for @{{handle}}",
       "removing": "Removing…",
@@ -149,8 +95,7 @@
   },
   "userBubble": {
     "actions": {
-      "viewUserDetails": "View user details",
-      "viewAllLogs": "View all logs",
+      "viewUserDetails": "View collaborator",
       "changePolicy": "Change policy…",
       "removing": "Removing…",
       "removeAccess": "Remove access"
@@ -165,14 +110,13 @@
     }
   },
   "brainQueryPolicyBaselineNote": {
-    "ariaLabel": "Categories Braintunnel always blocks on brain queries",
-    "description": "Braintunnel always prevents the categories below from being shared in brain queries, in addition to your policy. You do not need to repeat them in your own text.",
+    "ariaLabel": "Categories Braintunnel always applies for collaborator mail",
+    "description": "Braintunnel always applies the categories below when drafting replies for collaborators, in addition to your policy. You do not need to repeat them in your own text.",
     "showBaselineList": "Show baseline list"
   },
   "brainAccessBreadcrumbs": {
     "ariaLabel": "Brain access",
-    "fallbackPolicyLabel": "Policy",
-    "testPolicy": "Test policy"
+    "fallbackPolicyLabel": "Policy"
   },
   "addUserDropdown": {
     "aria": {
@@ -188,39 +132,5 @@
       "noMatches": "No matches."
     },
     "noEmail": "No email on file"
-  },
-  "answerPreviewPage": {
-    "errors": {
-      "failedToLoadGrants": "Failed to load grants.",
-      "invalidGrantsResponse": "Invalid grants response.",
-      "savePolicyBeforePreviewing": "Save your policy text before previewing.",
-      "previewRunStatus": "Preview couldn't run. Try again. ({{status}})",
-      "previewRun": "Preview couldn't run. Try again.",
-      "previewRunMessage": "Preview couldn't run. Try again. ({{message}})"
-    },
-    "placeholder": {
-      "withTranscript": "Ask another question to compare responses",
-      "default": "Ask something a collaborator might ask about your vault or mail."
-    },
-    "header": {
-      "title": "Test policy responses",
-      "lead": "Run a sample question to see your assistant's full research (private), the answer collaborators would get, and what was trimmed or withheld.",
-      "previewsNotSaved": "Previews aren’t saved to inbound activity."
-    },
-    "crossBrainPreviewAria": "Cross-brain preview",
-    "emptyPrompt": "Ask a question below to see how this policy filters replies—you'll get the private research pass, the collaborator-facing answer, and a short note on what changed.",
-    "labels": {
-      "question": "Question",
-      "privateResearch": "Private research",
-      "privateResearchDescription": "Internal work with privileged access—not visible to others",
-      "collaboratorSees": "Collaborator sees",
-      "declined": "Declined",
-      "noAnswerShared": "No answer shared.",
-      "onlyYouWhatChanged": "Only you — What changed",
-      "applyingPolicy": "Applying policy…"
-    },
-    "status": {
-      "preparingPreview": "Preparing your preview…"
-    }
   }
 }

@@ -16,19 +16,6 @@ export type BrainAccessGrantRow = {
   updatedAtMs: number
 }
 
-export type BrainAccessLogRow = {
-  id: string
-  ownerId: string
-  askerId: string
-  question: string
-  draftAnswer?: string | null
-  finalAnswer: string | null
-  filterNotes: string | null
-  status: string
-  createdAtMs: number
-  durationMs: number | null
-}
-
 export function normalizePolicyText(s: string): string {
   return s.trim().replace(/\r\n/g, '\n')
 }
@@ -169,29 +156,4 @@ export function grantsMatchingPolicyId(
   return grantedByMe.filter(
     (g) => classifyGrantPolicy(g.privacyPolicy, customPolicies).policyId === policyId,
   )
-}
-
-export function ownerLogEntriesForPolicy(
-  logOwner: BrainAccessLogRow[],
-  grantedByMe: BrainAccessGrantRow[],
-  customPolicies: BrainAccessCustomPolicy[],
-  policyId: string,
-): BrainAccessLogRow[] {
-  const askerIds = new Set(
-    grantsMatchingPolicyId(grantedByMe, customPolicies, policyId).map((g) => g.askerId),
-  )
-  return logOwner.filter((e) => askerIds.has(e.askerId))
-}
-
-export function queryCountForAsker(logOwner: BrainAccessLogRow[], askerId: string): number {
-  return logOwner.filter((e) => e.askerId === askerId).length
-}
-
-export function lastQueryMsForAsker(logOwner: BrainAccessLogRow[], askerId: string): number | null {
-  let max: number | null = null
-  for (const e of logOwner) {
-    if (e.askerId !== askerId) continue
-    if (max === null || e.createdAtMs > max) max = e.createdAtMs
-  }
-  return max
 }

@@ -22,6 +22,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'draft_email',
   'edit_draft',
   'send_draft',
+  'ask_collaborator',
   'find_person',
   'calendar',
   'web_search',
@@ -70,9 +71,9 @@ describe('getToolDefinitionCore', () => {
     expect(getToolDefinitionCore('suggest_reply_options').chat.showInChat).toBe(false)
   })
 
-  it('covers brain-query reject_question tool', () => {
-    const d = getToolDefinitionCore('reject_question')
+  it('shows mark_notification in transcript', () => {
+    const d = getToolDefinitionCore('mark_notification')
     expect(d.chat.showInChat).toBe(true)
-    expect(d.chat.label).toContain('Decline')
+    expect(d.chat.label).toContain('Notification')
   })
 })

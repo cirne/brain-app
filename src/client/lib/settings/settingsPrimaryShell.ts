@@ -6,7 +6,6 @@ export type SettingsPrimaryShell =
   | 'wiki'
   | 'brain-access-list'
   | 'brain-access-policy'
-  | 'brain-access-preview'
 
 export function resolveSettingsPrimaryShell(
   overlay: Overlay | undefined,
@@ -18,7 +17,6 @@ export function resolveSettingsPrimaryShell(
   if (t === 'settings-wiki') return 'wiki'
   if (brainQueryEnabled && t === 'brain-access') return 'brain-access-list'
   if (brainQueryEnabled && t === 'brain-access-policy') return 'brain-access-policy'
-  if (brainQueryEnabled && t === 'brain-access-preview') return 'brain-access-preview'
   return 'home'
 }
 

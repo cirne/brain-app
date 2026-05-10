@@ -20,8 +20,6 @@ import {
   MessageSquare,
   ListChecks,
   CircleCheck,
-  Users,
-  ShieldAlert,
   Bell,
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
@@ -44,6 +42,7 @@ export const TOOL_ICONS = {
   draft_email: Pencil,
   edit_draft: Pencil,
   send_draft: Send,
+  ask_collaborator: Send,
   find_person: UserSearch,
   get_calendar_events: Calendar,
   web_search: Globe,
@@ -62,7 +61,5 @@ export const TOOL_ICONS = {
   archive_emails: Mail,
   suggest_reply_options: ListChecks,
   finish_conversation: CircleCheck,
-  ask_brain: Users,
-  reject_question: ShieldAlert,
   mark_notification: Bell,
 } as unknown as Record<string, Component>

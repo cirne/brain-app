@@ -40,7 +40,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/VISION.md](docs/VISION.md) — product vision and personalization narrative (not positioning/moats)
 - [docs/karpathy-llm-wiki-post.md](docs/karpathy-llm-wiki-post.md) — Karpathy *LLM Wiki* (wiki half of the product idea; [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f))
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
-- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); **onboarding states + mail phases:** [docs/architecture/onboarding-state-machine.md](docs/architecture/onboarding-state-machine.md); archived Rust ripmail snapshot: [docs/architecture/ripmail-rust-snapshot.md](docs/architecture/ripmail-rust-snapshot.md)
+- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); **env inventory:** [docs/architecture/environment-variables.md](docs/architecture/environment-variables.md); **onboarding states + mail phases:** [docs/architecture/onboarding-state-machine.md](docs/architecture/onboarding-state-machine.md); archived Rust ripmail snapshot: [docs/architecture/ripmail-rust-snapshot.md](docs/architecture/ripmail-rust-snapshot.md)
 - [docs/digitalocean.md](docs/digitalocean.md) — DigitalOcean CLI (`doctl`): teams, API tokens, named contexts, BrainTunnel helper script
 - [docs/newrelic.md](docs/newrelic.md) — New Relic account, entity GUIDs, Node agent wiring, custom events (`ToolCall`); NRQL recipes in `.cursor/skills/newrelic/`
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
@@ -64,7 +64,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 
 ## Configuration
 
-Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/architecture/configuration.md](docs/architecture/configuration.md).
+Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/architecture/configuration.md](docs/architecture/configuration.md). **Full inventory + contributor rule (do not add env vars without explicit user request):** [docs/architecture/environment-variables.md](docs/architecture/environment-variables.md).
 
 **DigitalOcean:** optional `DO_TOKEN` in `.env` is for your local `doctl` workflow only (Brain does not consume it). See [docs/digitalocean.md](docs/digitalocean.md).
 

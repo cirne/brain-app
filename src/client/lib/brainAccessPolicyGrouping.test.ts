@@ -6,7 +6,6 @@ import {
   classifyGrantPolicy,
   grantsMatchingPolicyId,
   normalizePolicyText,
-  ownerLogEntriesForPolicy,
 } from './brainAccessPolicyGrouping.js'
 
 const trustedText = templateById('trusted')!.text
@@ -87,46 +86,6 @@ describe('brainAccessPolicyGrouping', () => {
     expect(ids.slice(0, 3)).toEqual(['trusted', 'general', 'minimal-disclosure'])
     expect(ids).toContain('custom:x')
     expect(ids.some((x) => x.startsWith('adhoc:'))).toBe(true)
-  })
-
-  it('ownerLogEntriesForPolicy filters by askers in policy grants', () => {
-    const grants = [
-      {
-        id: 'g1',
-        ownerId: 'o',
-        ownerHandle: 'me',
-        askerId: 'usr_a',
-        privacyPolicy: trustedText,
-        createdAtMs: 1,
-        updatedAtMs: 1,
-      },
-    ]
-    const log = [
-      {
-        id: 'l1',
-        ownerId: 'o',
-        askerId: 'usr_a',
-        question: 'q1',
-        finalAnswer: null,
-        filterNotes: null,
-        status: 'ok',
-        createdAtMs: 100,
-        durationMs: null,
-      },
-      {
-        id: 'l2',
-        ownerId: 'o',
-        askerId: 'usr_b',
-        question: 'q2',
-        finalAnswer: null,
-        filterNotes: null,
-        status: 'ok',
-        createdAtMs: 101,
-        durationMs: null,
-      },
-    ]
-    const filtered = ownerLogEntriesForPolicy(log, grants, [], 'trusted')
-    expect(filtered.map((x) => x.id)).toEqual(['l1'])
   })
 
   it('grantsMatchingPolicyId lists grants for a policy bucket', () => {

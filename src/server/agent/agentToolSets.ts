@@ -26,6 +26,7 @@ export const ALL_AGENT_TOOL_NAMES = [
   'draft_email',
   'edit_draft',
   'send_draft',
+  'ask_collaborator',
   'find_person',
   'calendar',
   'web_search',
@@ -43,7 +44,6 @@ export const ALL_AGENT_TOOL_NAMES = [
   'get_message_thread',
   'search_messages',
   'suggest_reply_options',
-  'ask_brain',
   'mark_notification',
 ] as const
 
@@ -55,7 +55,7 @@ export const TOOL_GROUPS = {
   wikiWrite: ['edit', 'write', 'remember_preference'] as const satisfies readonly AgentToolName[],
   filesSources: ['manage_sources', 'refresh_sources'] as const satisfies readonly AgentToolName[],
   mailCore: ['search_index', 'read_mail_message', 'read_indexed_file', 'read_attachment', 'list_inbox', 'find_person'] as const satisfies readonly AgentToolName[],
-  mailHeavy: ['inbox_rules', 'archive_emails', 'draft_email', 'edit_draft', 'send_draft'] as const satisfies readonly AgentToolName[],
+  mailHeavy: ['inbox_rules', 'archive_emails', 'draft_email', 'edit_draft', 'send_draft', 'ask_collaborator'] as const satisfies readonly AgentToolName[],
   calendar: ['calendar'] as const satisfies readonly AgentToolName[],
   web: ['web_search', 'fetch_page'] as const satisfies readonly AgentToolName[],
   youtube: ['get_youtube_transcript', 'youtube_search'] as const satisfies readonly AgentToolName[],
@@ -70,8 +70,6 @@ export const TOOL_GROUPS = {
   ] as const satisfies readonly AgentToolName[],
   skills: ['load_skill'] as const satisfies readonly AgentToolName[],
   localMessages: ['list_recent_messages', 'get_message_thread'] as const satisfies readonly AgentToolName[],
-  /** Cross-tenant query when peer has granted access (Phase 0 POC). */
-  brainQuery: ['ask_brain'] as const satisfies readonly AgentToolName[],
   /** Hosted iMessage text index (when local chat.db tools are off). */
   hostedMessages: ['search_messages'] as const satisfies readonly AgentToolName[],
 } as const
@@ -86,6 +84,7 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'draft_email',
   'edit_draft',
   'send_draft',
+  'ask_collaborator',
   'calendar',
   'get_youtube_transcript',
   'open',
@@ -97,7 +96,6 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'refresh_sources',
   'load_skill',
   'suggest_reply_options',
-  'ask_brain',
   'mark_notification',
 ]
 
@@ -131,6 +129,7 @@ export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
   'draft_email',
   'edit_draft',
   'send_draft',
+  'ask_collaborator',
   'calendar',
   'get_youtube_transcript',
   'youtube_search',

@@ -22,8 +22,6 @@ export const LLM_AGENT_KINDS = [
   'wiki_cleanup',
   /** One-shot wiki first-draft bootstrap (OPP-095); may write new entity pages once. */
   'wiki_bootstrap',
-  /** Hub policy preview: cross-brain research leg (`POST /api/brain-query/preview/research`). */
-  'brain_query_preview',
 ] as const
 
 export type LlmAgentKind = (typeof LLM_AGENT_KINDS)[number]

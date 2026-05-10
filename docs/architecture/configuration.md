@@ -1,5 +1,7 @@
 # Configuration and environment variables
 
+**Complete variable list (required vs optional) and the rule not to add new env vars without explicit user request:** [environment-variables.md](./environment-variables.md).
+
 Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.env.example). The table below lists variables commonly used across the server, agent, and ripmail.
 
 | Variable | Typical / default | Purpose |

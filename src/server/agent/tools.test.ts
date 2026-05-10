@@ -141,37 +141,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('get_message_thread')
   })
 
-  it('omits ask_brain when BRAIN_B2B_ENABLED is unset', async () => {
-    const prev = process.env.BRAIN_B2B_ENABLED
-    try {
-      delete process.env.BRAIN_B2B_ENABLED
-      vi.resetModules()
-      const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
-      expect(tools.map((t: { name?: string }) => t.name)).not.toContain('ask_brain')
-    } finally {
-      if (prev === undefined) delete process.env.BRAIN_B2B_ENABLED
-      else process.env.BRAIN_B2B_ENABLED = prev
-      vi.resetModules()
-    }
-  })
-
-  it('includes ask_brain when BRAIN_B2B_ENABLED=1', async () => {
-    const prev = process.env.BRAIN_B2B_ENABLED
-    try {
-      process.env.BRAIN_B2B_ENABLED = '1'
-      vi.resetModules()
-      const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
-      expect(tools.map((t: { name?: string }) => t.name)).toContain('ask_brain')
-    } finally {
-      if (prev === undefined) delete process.env.BRAIN_B2B_ENABLED
-      else process.env.BRAIN_B2B_ENABLED = prev
-      vi.resetModules()
-    }
-  })
-
-  it('omitToolNames removes listed tools by name', async () => {
+it('omitToolNames removes listed tools by name', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, {
       includeLocalMessageTools: true,

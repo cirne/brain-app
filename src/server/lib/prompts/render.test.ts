@@ -25,4 +25,15 @@ describe('renderPromptTemplate', () => {
     expect(s).not.toContain('list_recent_messages')
     expect(s).not.toContain('multi-tenant')
   })
+
+  it('includes ask_collaborator bullet when brainCollaborationEnabled', () => {
+    const s = renderPromptTemplate('assistant/base.hbs', {
+      meHint: '',
+      assistantHint: '',
+      includeLocalMessageCapabilities: false,
+      multiTenant: false,
+      brainCollaborationEnabled: true,
+    })
+    expect(s).toContain('ask_collaborator')
+  })
 })

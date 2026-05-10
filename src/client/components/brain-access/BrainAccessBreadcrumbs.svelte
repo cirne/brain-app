@@ -3,13 +3,11 @@
   import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
-    variant: 'list' | 'policy' | 'preview'
-    /** Display name for the policy (policy + preview variants). */
+    variant: 'list' | 'policy'
+    /** Display name for the policy (policy variant). */
     policyLabel?: string
-    /** Navigate to the Brain access list (policy + preview). */
+    /** Navigate to the Brain access list (policy variant). */
     onGoToList?: () => void
-    /** Preview only: open policy detail. */
-    onGoToPolicy?: () => void
     /** When set, prepend “Settings” as the root crumb (unified settings hierarchy). */
     onGoToSettings?: () => void
   }
@@ -18,7 +16,6 @@
     variant,
     policyLabel = '',
     onGoToList,
-    onGoToPolicy,
     onGoToSettings,
   }: Props = $props()
 
@@ -53,26 +50,7 @@
       <li class="flex shrink-0 items-center text-muted" aria-hidden="true">
         <ChevronRight size={14} />
       </li>
-      {#if variant === 'policy'}
-        <li class="min-w-0 truncate font-semibold text-foreground" aria-current="page">{resolvedPolicyLabel}</li>
-      {:else}
-        <li class="min-w-0 shrink">
-          <button
-            type="button"
-            class={crumbClass}
-            onclick={() => onGoToPolicy?.()}
-            disabled={!onGoToPolicy}
-          >
-            {resolvedPolicyLabel}
-          </button>
-        </li>
-        <li class="flex shrink-0 items-center text-muted" aria-hidden="true">
-          <ChevronRight size={14} />
-        </li>
-        <li class="truncate font-semibold text-foreground" aria-current="page">
-          {$t('access.brainAccessBreadcrumbs.testPolicy')}
-        </li>
-      {/if}
+      <li class="min-w-0 truncate font-semibold text-foreground" aria-current="page">{resolvedPolicyLabel}</li>
     {/if}
   </ol>
 </nav>

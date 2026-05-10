@@ -63,6 +63,8 @@ export function createBrainQueryGrant(params: {
       : DEFAULT_BRAIN_QUERY_PRIVACY_POLICY
   const id = newId()
   const now = Date.now()
+  /** One row per (owner, asker); remove prior row so re-invite works after revoke or legacy soft-revoke. */
+  db.prepare(`DELETE FROM brain_query_grants WHERE owner_id = ? AND asker_id = ?`).run(owner_id, asker_id)
   db.prepare(
     `INSERT INTO brain_query_grants (
       id, owner_id, asker_id, privacy_policy, created_at_ms, updated_at_ms, revoked_at_ms
@@ -129,7 +131,7 @@ export function updateBrainQueryGrantPrivacyPolicy(params: {
 }): BrainQueryGrantRow | null {
   const d = params.db ?? getBrainGlobalDb()
   const row = getBrainQueryGrantById(params.grantId, d)
-  if (!row || row.owner_id !== params.ownerId || row.revoked_at_ms != null) return null
+  if (!row || row.owner_id !== params.ownerId) return null
   const text = params.privacyPolicy.trim()
   if (!text) return null
   const now = Date.now()
@@ -139,43 +141,30 @@ export function updateBrainQueryGrantPrivacyPolicy(params: {
   return getBrainQueryGrantById(params.grantId, d)
 }
 
-/** Revoke a grant whose asker matches (incoming access you were given — renounce without owner action). */
-export function revokeBrainQueryGrantAsAsker(params: {
-  grantId: string
-  askerId: string
-  db?: Database.Database
-}): boolean {
-  const d = params.db ?? getBrainGlobalDb()
-  const row = getBrainQueryGrantById(params.grantId, d)
-  if (!row || row.asker_id !== params.askerId || row.revoked_at_ms != null) return false
-  const now = Date.now()
-  d.prepare(`UPDATE brain_query_grants SET revoked_at_ms = ?, updated_at_ms = ? WHERE id = ?`).run(
-    now,
-    now,
-    params.grantId,
-  )
-  return true
-}
-
+/** Remove grant row (owner revoking outbound access). */
 export function revokeBrainQueryGrant(params: {
   grantId: string
   ownerId: string
   db?: Database.Database
 }): boolean {
   const d = params.db ?? getBrainGlobalDb()
-  const row = getBrainQueryGrantById(params.grantId, d)
-  if (!row || row.owner_id !== params.ownerId || row.revoked_at_ms != null) return false
-  const now = Date.now()
-  d.prepare(`UPDATE brain_query_grants SET revoked_at_ms = ?, updated_at_ms = ? WHERE id = ?`).run(
-    now,
-    now,
-    params.grantId,
-  )
-  return true
+  const r = d.prepare(`DELETE FROM brain_query_grants WHERE id = ? AND owner_id = ?`).run(params.grantId, params.ownerId)
+  return (r.changes ?? 0) > 0
+}
+
+/** Remove inbound grant row (asker renouncing access someone granted them). */
+export function revokeBrainQueryGrantAsAsker(params: {
+  grantId: string
+  askerId: string
+  db?: Database.Database
+}): boolean {
+  const d = params.db ?? getBrainGlobalDb()
+  const r = d.prepare(`DELETE FROM brain_query_grants WHERE id = ? AND asker_id = ?`).run(params.grantId, params.askerId)
+  return (r.changes ?? 0) > 0
 }
 
 /**
- * Revoke the owner's grant row and, when one exists, the reciprocal peer→owner grant.
+ * Remove the owner's grant row and, when one exists, the reciprocal peer→owner grant.
  * Keeps Brain-to-Brain pairing unambiguous: removing a collaborator drops both directions.
  */
 export function revokeBrainQueryGrantAndReciprocal(params: {
@@ -186,7 +175,7 @@ export function revokeBrainQueryGrantAndReciprocal(params: {
   const d = params.db ?? getBrainGlobalDb()
   return d.transaction(() => {
     const row = getBrainQueryGrantById(params.grantId, d)
-    if (!row || row.owner_id !== params.ownerId || row.revoked_at_ms != null) {
+    if (!row || row.owner_id !== params.ownerId) {
       return { revoked: false, reciprocalRevoked: false }
     }
     const peerId = row.asker_id

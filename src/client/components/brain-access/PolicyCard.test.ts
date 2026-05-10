@@ -18,7 +18,6 @@ describe('PolicyCard.svelte', () => {
           canonicalText: tpl.text,
           grants: [],
         },
-        policyActivityCount: 0,
         onSettingsNavigate,
         onAddUser: vi.fn(),
         onRemoveGrant: vi.fn(),

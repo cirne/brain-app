@@ -21,15 +21,10 @@
     classifyGrantPolicy,
     grantsMatchingPolicyId,
     normalizePolicyText,
-    lastQueryMsForAsker,
-    ownerLogEntriesForPolicy,
-    queryCountForAsker,
     type BrainAccessGrantRow,
-    type BrainAccessLogRow,
   } from '@client/lib/brainAccessPolicyGrouping.js'
   import { policyCardTone } from './policyColors.js'
   import UserDetailRow from './UserDetailRow.svelte'
-  import PolicyActivityList from './PolicyActivityList.svelte'
   import AddUserDropdown from './AddUserDropdown.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import BrainQueryPolicyBaselineNote from './BrainQueryPolicyBaselineNote.svelte'
@@ -51,7 +46,6 @@
   let loadError = $state<string | null>(null)
   let busy = $state(false)
   let grantedByMe = $state<BrainAccessGrantRow[]>([])
-  let logOwner = $state<BrainAccessLogRow[]>([])
   let customPolicies = $state<BrainAccessCustomPolicy[]>([])
   let profileByHandle = $state<Record<string, { displayName?: string; email?: string | null }>>({})
   let removeBusyId = $state<string | null>(null)
@@ -99,44 +93,6 @@
     }
   }
 
-  function parseLog(json: unknown): BrainAccessLogRow[] {
-    if (!json || typeof json !== 'object') return []
-    const o = json as Record<string, unknown>
-    const entries = o.entries
-    if (!Array.isArray(entries)) return []
-    return entries
-      .map((x): BrainAccessLogRow | null => {
-        if (!x || typeof x !== 'object') return null
-        const r = x as Record<string, unknown>
-        if (
-          typeof r.id !== 'string' ||
-          typeof r.ownerId !== 'string' ||
-          typeof r.askerId !== 'string' ||
-          typeof r.question !== 'string' ||
-          typeof r.status !== 'string' ||
-          typeof r.createdAtMs !== 'number'
-        ) {
-          return null
-        }
-        const draftAnswer = 'draftAnswer' in r ? r.draftAnswer : null
-        return {
-          id: r.id,
-          ownerId: r.ownerId,
-          askerId: r.askerId,
-          question: r.question,
-          draftAnswer: typeof draftAnswer === 'string' ? draftAnswer : null,
-          finalAnswer:
-            typeof r.finalAnswer === 'string' || r.finalAnswer === null ? (r.finalAnswer as string | null) : null,
-          filterNotes:
-            typeof r.filterNotes === 'string' || r.filterNotes === null ? (r.filterNotes as string | null) : null,
-          status: r.status,
-          createdAtMs: r.createdAtMs,
-          durationMs: typeof r.durationMs === 'number' ? r.durationMs : null,
-        }
-      })
-      .filter((x): x is BrainAccessLogRow => x !== null)
-  }
-
   async function hydrateProfiles(grants: BrainAccessGrantRow[]): Promise<void> {
     const handles = [...new Set(grants.map((g) => (g.askerHandle ?? '').trim()).filter(Boolean))]
     const next: Record<string, { displayName?: string; email?: string | null }> = { ...profileByHandle }
@@ -158,10 +114,7 @@
     const customs = loadBrainAccessCustomPolicies()
     customPolicies = customs
     try {
-      const [gRes, loRes] = await Promise.all([
-        fetch('/api/brain-query/grants'),
-        fetch('/api/brain-query/log?role=owner&limit=80'),
-      ])
+      const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
         loadError = (await gRes.text()) || $t('access.policyDetailPage.errors.failedToLoadGrants')
         return
@@ -172,7 +125,6 @@
         return
       }
       grantedByMe = parsed.grantedByMe
-      if (loRes.ok) logOwner = parseLog(await loRes.json())
       const inPolicy = grantsMatchingPolicyId(grantedByMe, customs, props.policyId)
       await hydrateProfiles(inPolicy)
     } catch (e) {
@@ -206,8 +158,6 @@
         })
       : policyCardTone({ kind: 'adhoc', policyId: props.policyId }),
   )
-
-  const policyLog = $derived(ownerLogEntriesForPolicy(logOwner, grantedByMe, customPolicies, props.policyId))
 
   const canonical = $derived.by(() => {
     if (grantsInPolicy.length > 0) {
@@ -442,14 +392,6 @@
           <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              class="rounded-md border border-transparent bg-accent px-2 py-1 text-[0.75rem] font-semibold text-white hover:brightness-105"
-              onclick={() => props.onSettingsNavigate({ type: 'brain-access-preview', policyId: props.policyId })}
-              aria-label={$t('access.policyDetailPage.ariaTestThisPolicy')}
-            >
-              {$t('access.policyDetailPage.actions.testThisPolicy')}
-            </button>
-            <button
-              type="button"
               class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
               disabled={busy}
               onclick={() => {
@@ -545,30 +487,15 @@
           {grant}
           displayName={prof?.displayName}
           email={prof?.email}
-          queryCount={queryCountForAsker(policyLog, grant.askerId)}
-          lastQueryMs={lastQueryMsForAsker(policyLog, grant.askerId)}
           removeBusy={removeBusyId === grant.id}
           onRemove={() => void removeGrant(grant.id)}
           onChangePolicy={() => {
             changeGrantId = grant.id
           }}
-          onViewActivity={() => {
-            document.getElementById('policy-activity-block')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }}
         />
       {/each}
     </section>
 
-    <section id="policy-activity-block" class="flex flex-col gap-2" aria-labelledby="policy-activity-heading">
-      <h2 id="policy-activity-heading" class="m-0 text-[0.9375rem] font-bold">
-        {$t('access.policyDetailPage.recentActivityHeading')}
-      </h2>
-      <PolicyActivityList
-        entries={policyLog}
-        limit={40}
-        resolveAskerHandle={(askerId) => grantsInPolicy.find((g) => g.askerId === askerId)?.askerHandle ?? undefined}
-      />
-    </section>
   {/if}
 
   <button

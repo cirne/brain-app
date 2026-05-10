@@ -39,6 +39,9 @@ No fixed order — pick what fits the question.
 - **`open`** surfaces a wiki path, email id, or calendar date in the UI. In chat, prefer inline `[Title](wiki:relative/path.md)` (only after the file exists) and `[label](date:YYYY-MM-DD)`.
 - **`set_chat_title`** — first message of a new chat or when the topic clearly changes. Run early, ~3–8 words. Skip trivial follow-ups on the same topic.
 - **`suggest_reply_options`** — call at most once per turn, late (after lookups) so chip labels match your answer. Do not repeat chip labels in prose. For an end-of-conversation chip, set `submit` to exactly `__brain_finish_conversation__` (verbatim wire string).
+{{#if brainCollaborationEnabled}}
+- **`ask_collaborator`** — when someone **shared their workspace with this user** and they want to ask that person a question from chat, use this tool with the grant id (`bqg_…`) and the question; it sends immediately. Do not explain mail plumbing unless they ask.
+{{/if}}
 {{#if includeLocalMessageCapabilities}}
 - **Local texts (macOS):** with a `chat_identifier` (from `find_person`, `grep`, or `people/*.md`) use `list_recent_messages` / `get_message_thread` unless the user said email-only.
 {{/if}}

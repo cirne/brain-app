@@ -48,9 +48,6 @@ describe('PolicyDetailPage.svelte', () => {
         if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
           return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [trustedGrant] }), { status: 200 }))
         }
-        if (u.includes('/api/brain-query/log')) {
-          return Promise.resolve(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
-        }
         return Promise.resolve(new Response('not found', { status: 404 }))
       }) as typeof fetch,
     )
@@ -121,9 +118,6 @@ describe('PolicyDetailPage.svelte', () => {
         const body = getCount >= 2 ? [grantAfterSave] : [trustedGrant]
         return Promise.resolve(new Response(JSON.stringify({ grantedByMe: body }), { status: 200 }))
       }
-      if (u.includes('/api/brain-query/log')) {
-        return Promise.resolve(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
-      }
       if (u.includes('/api/brain-query/grants/g1') && init?.method === 'PATCH') {
         return Promise.resolve(new Response('{}', { status: 200 }))
       }
@@ -184,9 +178,6 @@ describe('PolicyDetailPage.svelte', () => {
           const u = reqUrl(input)
           if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
             return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [] }), { status: 200 }))
-          }
-          if (u.includes('/api/brain-query/log')) {
-            return Promise.resolve(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
           }
           return Promise.resolve(new Response('not found', { status: 404 }))
         }) as typeof fetch,
@@ -323,9 +314,6 @@ describe('PolicyDetailPage.svelte', () => {
       const u = reqUrl(input)
       if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
         return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [grantOnCustom] }), { status: 200 }))
-      }
-      if (u.includes('/api/brain-query/log')) {
-        return Promise.resolve(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
       }
       return Promise.resolve(new Response('not found', { status: 404 }))
     })

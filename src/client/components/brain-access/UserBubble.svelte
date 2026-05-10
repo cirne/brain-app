@@ -43,11 +43,6 @@
     })
   }
 
-  function viewLogs(): void {
-    closeMenu()
-    onSettingsNavigate({ type: 'brain-access-policy', policyId: policyIdForDetail })
-  }
-
   $effect(() => {
     if (typeof document === 'undefined' || !menuOpen) return
     const fn = (ev: PointerEvent) => {
@@ -81,9 +76,6 @@
     >
       <button type="button" role="menuitem" class="menu-item" onclick={goDetail}>
         {$t('access.userBubble.actions.viewUserDetails')}
-      </button>
-      <button type="button" role="menuitem" class="menu-item" onclick={viewLogs}>
-        {$t('access.userBubble.actions.viewAllLogs')}
       </button>
       <button type="button" role="menuitem" class="menu-item" onclick={() => { closeMenu(); onChangePolicy() }}>
         {$t('access.userBubble.actions.changePolicy')}

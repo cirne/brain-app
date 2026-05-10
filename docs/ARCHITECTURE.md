@@ -76,7 +76,7 @@ How the unified server behaves, how the client is exercised in tests, and enviro
 | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | HTTP routing, auth, background sync & supervisor model, native ports; SPA routes and overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md) · **[background-sync-and-supervisor-scaling.md](architecture/background-sync-and-supervisor-scaling.md)** · **Onboarding states + mail phases:** [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)   |
 | Web i18n architecture (i18next, JSON namespaces, testing model)          | [architecture/i18n.md](architecture/i18n.md)                               |
-| Environment variables and config surface                                 | [architecture/configuration.md](architecture/configuration.md)             |
+| Environment variables and config surface                                 | **[architecture/environment-variables.md](architecture/environment-variables.md)** (full inventory; contributor rule) · [architecture/configuration.md](architecture/configuration.md) (narrative + table) |
 | Svelte component tests (Vitest, Testing Library)                         | [component-testing.md](component-testing.md)                               |
 | Client UI: latest-wins async / overlapping `fetch`                       | [architecture/client-async-latest.md](architecture/client-async-latest.md) |
 

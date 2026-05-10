@@ -56,6 +56,13 @@ async function resolvePrimaryEmail(home: string): Promise<string | null> {
   return fromConfig ? fromConfig.toLowerCase() : null
 }
 
+/** Primary mailbox for a tenant id (`usr_…`), or null if unknown / not configured. */
+export async function getPrimaryEmailForUserId(userId: string): Promise<string | null> {
+  const id = userId.trim()
+  if (!isValidUserId(id)) return null
+  return resolvePrimaryEmail(tenantHomeDir(id))
+}
+
 /**
  * Search confirmed workspace handles by case-insensitive substring (`query`). Excludes `excludeUserId`
  * (typically the caller's own tenant). Matches anywhere in the handle, but sorts so full-handle prefixes
