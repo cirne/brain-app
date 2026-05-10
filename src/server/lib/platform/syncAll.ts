@@ -10,6 +10,7 @@ import {
   runRipmailRefreshForBrain,
   runRipmailBackfillForBrain,
 } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import { syncMailNotifyNotificationsFromRipmailDbSafe } from '@server/lib/notifications/syncMailNotifyNotifications.js'
 
 export interface SyncComponentResult {
   ok: boolean
@@ -133,6 +134,7 @@ export async function refreshMailAndWait(
       signal,
       ripmailTimeoutSeconds: Math.max(1, Math.ceil(timeoutMs / 1000)),
     })
+    await syncMailNotifyNotificationsFromRipmailDbSafe()
     return { ok: true }
   } catch (e) {
     if (e instanceof RipmailTimeoutError) {

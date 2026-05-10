@@ -1,29 +1,12 @@
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { randomBytes, randomUUID } from 'node:crypto'
+import { mkdir } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import type { ChatMessage, ChatSessionDocV1 } from './chatTypes.js'
 import { chatDataDirResolved } from '@server/lib/platform/brainHome.js'
+import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
+
+type TenantDb = ReturnType<typeof getTenantDb>
 
 export const chatDataDir = () => chatDataDirResolved()
-
-/** Filename: `{createdAtMs}-{uuid}.json` — ms is digits only so lexical sort matches time order. */
-const FILENAME_RE = /^(\d+)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.json$/i
-
-function parseFilename(name: string): { createdAtMs: string; sessionId: string } | null {
-  const m = name.match(FILENAME_RE)
-  if (!m) return null
-  return { createdAtMs: m[1], sessionId: m[2] }
-}
-
-async function safeReaddir(dir: string): Promise<string[]> {
-  try {
-    return await readdir(dir)
-  } catch (e: unknown) {
-    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
-    if (code === 'ENOENT') return []
-    throw e
-  }
-}
 
 export function isChatSessionDocV1(x: unknown): x is ChatSessionDocV1 {
   if (!x || typeof x !== 'object') return false
@@ -45,6 +28,10 @@ function ensureChatMessageId(
   return { ...msg, id }
 }
 
+function msToIso(ms: number): string {
+  return new Date(ms).toISOString()
+}
+
 export async function ensureChatDir(): Promise<string> {
   const dir = chatDataDir()
   await mkdir(dir, { recursive: true })
@@ -52,36 +39,58 @@ export async function ensureChatDir(): Promise<string> {
 }
 
 export async function findFilenameForSession(sessionId: string): Promise<string | null> {
-  const dir = chatDataDir()
-  const names = await safeReaddir(dir)
-  const want = sessionId.toLowerCase()
-  for (const name of names) {
-    const p = parseFilename(name)
-    if (p && p.sessionId.toLowerCase() === want) return name
+  const db = getTenantDb()
+  const row = db
+    .prepare(
+      `SELECT session_id as sessionId, created_at_ms as createdAtMs FROM chat_sessions WHERE lower(session_id) = lower(?)`,
+    )
+    .get(sessionId) as { sessionId: string; createdAtMs: number } | undefined
+  if (!row) return null
+  return `${row.createdAtMs}-${row.sessionId}.json`
+}
+
+function parseMessages(rows: { seq: number; role: string; content_json: string; created_at_ms: number }[]): ChatMessage[] {
+  const out: ChatMessage[] = []
+  for (const r of rows) {
+    try {
+      const parsed = JSON.parse(r.content_json) as ChatMessage
+      out.push(ensureChatMessageId(parsed))
+    } catch {
+      /* skip corrupt row */
+    }
   }
-  return null
+  return out
 }
 
 export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 | null> {
-  const name = await findFilenameForSession(sessionId)
-  if (!name) return null
-  const dir = chatDataDir()
-  let raw: string
-  try {
-    raw = await readFile(join(dir, name), 'utf-8')
-  } catch {
-    return null
+  const db = getTenantDb()
+  const sess = db
+    .prepare(
+      `SELECT session_id, title, created_at_ms, updated_at_ms FROM chat_sessions WHERE lower(session_id) = lower(?)`,
+    )
+    .get(sessionId) as
+    | {
+        session_id: string
+        title: string | null
+        created_at_ms: number
+        updated_at_ms: number
+      }
+    | undefined
+  if (!sess) return null
+  const msgRows = db
+    .prepare(
+      `SELECT seq, role, content_json, created_at_ms FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`,
+    )
+    .all(sess.session_id) as { seq: number; role: string; content_json: string; created_at_ms: number }[]
+  const messages = parseMessages(msgRows)
+  return {
+    version: 1,
+    sessionId: sess.session_id,
+    createdAt: msToIso(sess.created_at_ms),
+    updatedAt: msToIso(sess.updated_at_ms),
+    title: sess.title,
+    messages,
   }
-  let data: unknown
-  try {
-    data = JSON.parse(raw) as unknown
-  } catch {
-    return null
-  }
-  if (!isChatSessionDocV1(data)) return null
-  if (data.sessionId !== sessionId) return null
-  data.messages = data.messages.map((m) => ensureChatMessageId(m as ChatMessage))
-  return data
 }
 
 export type ChatSessionListItem = {
@@ -112,94 +121,98 @@ function previewFromMessages(messages: ChatMessage[]): string | undefined {
   return firstAssistantPreviewLine(messages)
 }
 
+function recomputePreview(db: TenantDb, sessionId: string): string | null {
+  const msgRows = db
+    .prepare(`SELECT content_json FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`)
+    .all(sessionId) as { content_json: string }[]
+  const messages: ChatMessage[] = []
+  for (const r of msgRows) {
+    try {
+      messages.push(ensureChatMessageId(JSON.parse(r.content_json) as ChatMessage))
+    } catch {
+      /* skip */
+    }
+  }
+  const p = previewFromMessages(messages)
+  return p ?? null
+}
+
 /**
  * @param limit — when set to a positive integer, return at most that many sessions (newest first).
  *   Omit or non-positive for no cap (full list).
  */
 export async function listSessions(limit?: number): Promise<ChatSessionListItem[]> {
-  const dir = chatDataDir()
-  const names = (await safeReaddir(dir)).filter(n => n.endsWith('.json'))
-  names.sort((a, b) => {
-    const pa = parseFilename(a)
-    const pb = parseFilename(b)
-    if (!pa) return 1
-    if (!pb) return -1
-    return pb.createdAtMs.localeCompare(pa.createdAtMs)
-  })
-
+  const db = getTenantDb()
   const cap = typeof limit === 'number' && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined
+  const sql =
+    cap !== undefined
+      ? `SELECT session_id, title, preview, created_at_ms, updated_at_ms FROM chat_sessions ORDER BY updated_at_ms DESC LIMIT ?`
+      : `SELECT session_id, title, preview, created_at_ms, updated_at_ms FROM chat_sessions ORDER BY updated_at_ms DESC`
+  const rows =
+    cap !== undefined
+      ? (db.prepare(sql).all(cap) as {
+          session_id: string
+          title: string | null
+          preview: string | null
+          created_at_ms: number
+          updated_at_ms: number
+        }[])
+      : (db.prepare(sql).all() as {
+          session_id: string
+          title: string | null
+          preview: string | null
+          created_at_ms: number
+          updated_at_ms: number
+        }[])
 
-  const items: ChatSessionListItem[] = []
-  for (const name of names) {
-    if (cap !== undefined && items.length >= cap) break
-    try {
-      const raw = await readFile(join(dir, name), 'utf-8')
-      const data = JSON.parse(raw) as unknown
-      if (!isChatSessionDocV1(data)) continue
-      items.push({
-        sessionId: data.sessionId,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        title: data.title,
-        preview: previewFromMessages(data.messages),
-      })
-    } catch {
-      // skip corrupt
+  return rows.map(r => {
+    let preview = r.preview ?? undefined
+    if (preview === undefined || preview === '') {
+      const msgRows = db
+        .prepare(`SELECT content_json FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`)
+        .all(r.session_id) as { content_json: string }[]
+      const messages: ChatMessage[] = []
+      for (const m of msgRows) {
+        try {
+          messages.push(ensureChatMessageId(JSON.parse(m.content_json) as ChatMessage))
+        } catch {
+          /* skip */
+        }
+      }
+      preview = previewFromMessages(messages)
     }
-  }
-  return items
-}
-
-async function atomicWriteJson(filePath: string, doc: ChatSessionDocV1): Promise<void> {
-  const tmp = `${filePath}.${randomBytes(8).toString('hex')}.tmp`
-  await writeFile(tmp, JSON.stringify(doc), 'utf-8')
-  await rename(tmp, filePath)
+    return {
+      sessionId: r.session_id,
+      createdAt: msToIso(r.created_at_ms),
+      updatedAt: msToIso(r.updated_at_ms),
+      title: r.title,
+      preview,
+    }
+  })
 }
 
 /** Create an on-disk session file with no messages so GET /api/chat/sessions lists it immediately. */
 export async function ensureSessionStub(sessionId: string): Promise<void> {
-  const dir = await ensureChatDir()
-  const existingName = await findFilenameForSession(sessionId)
-  if (existingName) return
-  const now = new Date().toISOString()
-  const createdAtMs = Date.now().toString()
-  const fileName = `${createdAtMs}-${sessionId}.json`
-  const doc: ChatSessionDocV1 = {
-    version: 1,
-    sessionId,
-    createdAt: now,
-    updatedAt: now,
-    title: null,
-    messages: [],
-  }
-  await atomicWriteJson(join(dir, fileName), doc)
+  await ensureChatDir()
+  const db = getTenantDb()
+  const now = Date.now()
+  db.prepare(
+    `INSERT OR IGNORE INTO chat_sessions (session_id, title, preview, created_at_ms, updated_at_ms)
+     VALUES (?, NULL, NULL, ?, ?)`,
+  ).run(sessionId, now, now)
 }
 
 /** Persist title as soon as set_chat_title runs (before the turn is saved). */
 export async function patchSessionTitle(sessionId: string, title: string): Promise<void> {
   const t = title.trim().slice(0, 120)
   if (!t) return
-  const dir = await ensureChatDir()
-  const existingName = await findFilenameForSession(sessionId)
-  if (!existingName) return
-  const filePath = join(dir, existingName)
-  let raw: string
-  try {
-    raw = await readFile(filePath, 'utf-8')
-  } catch {
-    return
-  }
-  let data: unknown
-  try {
-    data = JSON.parse(raw) as unknown
-  } catch {
-    return
-  }
-  if (!isChatSessionDocV1(data)) return
-  const now = new Date().toISOString()
-  data.title = t
-  data.updatedAt = now
-  await atomicWriteJson(filePath, data)
+  await ensureChatDir()
+  const db = getTenantDb()
+  const now = Date.now()
+  const r = db
+    .prepare(`UPDATE chat_sessions SET title = ?, updated_at_ms = ? WHERE lower(session_id) = lower(?)`)
+    .run(t, now, sessionId)
+  if (r.changes === 0) return
 }
 
 /**
@@ -214,74 +227,80 @@ export async function appendTurn(params: {
   title?: string | null
 }): Promise<void> {
   const { sessionId, userMessage, assistantMessage } = params
-  const dir = await ensureChatDir()
-  const existingName = await findFilenameForSession(sessionId)
-  const now = new Date().toISOString()
+  await ensureChatDir()
+  const db = getTenantDb()
+  const now = Date.now()
 
-  let doc: ChatSessionDocV1
-  let fileName: string
+  db.transaction(() => {
+    const sess = db
+      .prepare(`SELECT session_id, title, created_at_ms FROM chat_sessions WHERE lower(session_id) = lower(?)`)
+      .get(sessionId) as { session_id: string; title: string | null; created_at_ms: number } | undefined
 
-  if (existingName) {
-    const raw = await readFile(join(dir, existingName), 'utf-8')
-    const data = JSON.parse(raw) as unknown
-    if (!isChatSessionDocV1(data)) throw new Error('Invalid chat session file')
-    doc = data
-    if (userMessage !== null) {
-      doc.messages.push({ role: 'user', content: userMessage, id: randomUUID() })
-    }
-    doc.messages.push(ensureChatMessageId(assistantMessage))
-    doc.updatedAt = now
-    const t = params.title
-    if (typeof t === 'string' && t.trim() !== '') {
-      doc.title = t.trim().slice(0, 120)
-    }
-    fileName = existingName
-  } else {
-    const createdAtMs = Date.now().toString()
-    fileName = `${createdAtMs}-${sessionId}.json`
-    const t = params.title
-    const firstMessages: ChatMessage[] =
-      userMessage !== null
-        ? [
-            { role: 'user', content: userMessage, id: randomUUID() },
-            ensureChatMessageId(assistantMessage),
-          ]
-        : [ensureChatMessageId(assistantMessage)]
-    doc = {
-      version: 1,
-      sessionId,
-      createdAt: now,
-      updatedAt: now,
-      title: typeof t === 'string' && t.trim() !== '' ? t.trim().slice(0, 120) : null,
-      messages: firstMessages,
-    }
-  }
+    const assistant = ensureChatMessageId(assistantMessage)
+    const titleParam = params.title
 
-  await atomicWriteJson(join(dir, fileName), doc)
+    if (sess) {
+      const sid = sess.session_id
+      const maxRow = db.prepare(`SELECT COALESCE(MAX(seq), -1) as m FROM chat_messages WHERE session_id = ?`).get(sid) as {
+        m: number
+      }
+      let nextSeq = maxRow.m + 1
+      if (userMessage !== null) {
+        const userMsg: ChatMessage = { role: 'user', content: userMessage, id: randomUUID() }
+        db.prepare(
+          `INSERT INTO chat_messages (session_id, seq, role, content_json, created_at_ms) VALUES (?, ?, 'user', ?, ?)`,
+        ).run(sid, nextSeq, JSON.stringify(userMsg), now)
+        nextSeq += 1
+      }
+      db.prepare(
+        `INSERT INTO chat_messages (session_id, seq, role, content_json, created_at_ms) VALUES (?, ?, 'assistant', ?, ?)`,
+      ).run(sid, nextSeq, JSON.stringify(assistant), now)
+
+      let title = sess.title
+      if (typeof titleParam === 'string' && titleParam.trim() !== '') {
+        title = titleParam.trim().slice(0, 120)
+      }
+      const previewVal = recomputePreview(db, sid)
+      db.prepare(`UPDATE chat_sessions SET title = ?, preview = ?, updated_at_ms = ? WHERE session_id = ?`).run(
+        title,
+        previewVal,
+        now,
+        sid,
+      )
+    } else {
+      const title =
+        typeof titleParam === 'string' && titleParam.trim() !== '' ? titleParam.trim().slice(0, 120) : null
+      db.prepare(
+        `INSERT INTO chat_sessions (session_id, title, preview, created_at_ms, updated_at_ms)
+         VALUES (?, ?, NULL, ?, ?)`,
+      ).run(sessionId, title, now, now)
+
+      let seq = 0
+      if (userMessage !== null) {
+        const userMsg: ChatMessage = { role: 'user', content: userMessage, id: randomUUID() }
+        db.prepare(
+          `INSERT INTO chat_messages (session_id, seq, role, content_json, created_at_ms) VALUES (?, ?, 'user', ?, ?)`,
+        ).run(sessionId, seq, JSON.stringify(userMsg), now)
+        seq += 1
+      }
+      db.prepare(
+        `INSERT INTO chat_messages (session_id, seq, role, content_json, created_at_ms) VALUES (?, ?, 'assistant', ?, ?)`,
+      ).run(sessionId, seq, JSON.stringify(assistant), now)
+
+      const previewVal = recomputePreview(db, sessionId)
+      db.prepare(`UPDATE chat_sessions SET preview = ? WHERE session_id = ?`).run(previewVal, sessionId)
+    }
+  })()
 }
 
 export async function deleteSessionFile(sessionId: string): Promise<boolean> {
-  const name = await findFilenameForSession(sessionId)
-  if (!name) return false
-  try {
-    await unlink(join(chatDataDir(), name))
-    return true
-  } catch {
-    return false
-  }
+  const db = getTenantDb()
+  const r = db.prepare(`DELETE FROM chat_sessions WHERE lower(session_id) = lower(?)`).run(sessionId)
+  return r.changes > 0
 }
 
-/** Remove all persisted chat session JSON files (`{ms}-{uuid}.json`). Does not remove onboarding.json or other files. */
+/** Remove all persisted chat sessions from tenant SQLite. Does not remove onboarding.json or other files under `chats/`. */
 export async function deleteAllChatSessionFiles(): Promise<void> {
-  const dir = chatDataDir()
-  const names = await safeReaddir(dir)
-  for (const name of names) {
-    if (!parseFilename(name)) continue
-    try {
-      await unlink(join(dir, name))
-    } catch (e: unknown) {
-      const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
-      if (code !== 'ENOENT') throw e
-    }
-  }
+  const db = getTenantDb()
+  db.prepare(`DELETE FROM chat_sessions`).run()
 }

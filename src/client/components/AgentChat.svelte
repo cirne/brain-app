@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount, tick, untrack, type Component, type Snippet } from 'svelte'
   import { type SurfaceContext } from '@client/router.js'
-  import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
+  import type {
+    AgentConversationViewProps,
+    ConversationScrollApi,
+    EmptyChatNotificationsProps,
+  } from '@client/lib/agentConversationViewTypes.js'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import {
     buildChatBody,
@@ -40,8 +44,15 @@
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
   import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
+  import {
+    EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP,
+    EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT,
+    presentationForNotificationRow,
+    type NotificationKickoffHints,
+  } from '@shared/notifications/presentation.js'
   import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
+  import EmptyChatNotificationsStrip from '@components/agent-conversation/EmptyChatNotificationsStrip.svelte'
   import ComposerContextBar from '@components/agent-conversation/ComposerContextBar.svelte'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
@@ -146,6 +157,8 @@
     autoSendInterviewKickoffHidden = false,
     /** Fires whenever the displayed session's hearReplies flag changes (for parent UI like overflow menus). */
     onHearRepliesChange = undefined as ((_on: boolean) => void) | undefined,
+    /** When true (default), empty main chat fetches unread notifications for the strip above empty copy. */
+    showEmptyChatNotifications = true,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -205,6 +218,7 @@
     mobileSlideCoversTranscriptOnly?: boolean
     autoSendInterviewKickoffHidden?: boolean
     onHearRepliesChange?: (_on: boolean) => void
+    showEmptyChatNotifications?: boolean
   } = $props()
 
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
@@ -301,6 +315,8 @@
     if (!id) return false
     return sessions.get(id)?.streaming ?? false
   })
+
+  let emptyChatNotificationsPayload = $state<EmptyChatNotificationsProps | null>(null)
 
   const contextBarFiles = $derived(extractReferencedFiles(messages))
   const conversationTokenTotal = $derived(sumAssistantUsageTotalTokens(messages))
@@ -451,6 +467,10 @@
   })
 
   export function newChat(options?: { skipOverlayClose?: boolean }) {
+    const prev = displayedSessionId
+    if (prev) {
+      sessions = touchSessionImmutable(sessions, prev, { notificationIdMarkReadOnFinish: null })
+    }
     const pk = createPendingSessionKey()
     sessions = setSessionImmutable(sessions, pk, {
       ...emptySession(),
@@ -541,6 +561,7 @@
         chatTitle: doc.title ?? null,
         pendingQueuedMessages: [],
         hearReplies: readHearRepliesPreference(),
+        notificationIdMarkReadOnFinish: null,
         composerResetKey: sid,
       })
       displayedSessionId = sid
@@ -558,6 +579,7 @@
         chatTitle: null,
         pendingQueuedMessages: [],
         hearReplies: readHearRepliesPreference(),
+        notificationIdMarkReadOnFinish: null,
         composerResetKey: pk,
       })
       displayedSessionId = pk
@@ -578,12 +600,17 @@
    * @param interviewKickoffHidden — guided onboarding interview route: no user bubble; server prepends `ripmail whoami` to this message.
    * @param sendOpts.initialBootstrapKickoff — unified bootstrap on main `/api/chat` (empty visible user turn).
    * @param sendOpts.userBubbleText — shown in the user bubble when different from wire `text` (e.g. finish chip label).
+   * @param sendOpts.notificationKickoff — POST-only hints for empty-chat notification strip (not persisted in user bubble).
    */
   async function send(
     text: string,
     forSessionKey?: string,
     interviewKickoffHidden = false,
-    sendOpts?: { userBubbleText?: string; initialBootstrapKickoff?: boolean },
+    sendOpts?: {
+      userBubbleText?: string
+      initialBootstrapKickoff?: boolean
+      notificationKickoff?: NotificationKickoffHints
+    },
   ) {
     const initialBootstrapKickoff = sendOpts?.initialBootstrapKickoff === true
     const id = forSessionKey ?? displayedSessionId
@@ -647,6 +674,7 @@
       userMessageDisplay: sendOpts?.userBubbleText?.trim()
         ? sendOpts.userBubbleText.trim()
         : undefined,
+      notificationKickoff: sendOpts?.notificationKickoff,
     })
 
     if (!hideUserBubble) onUserSendMessage?.()
@@ -720,8 +748,9 @@
           sessions = touchSessionImmutable(sessions, activeKey, { messages: next })
         },
         scrollToBottom: () => conversationEl?.scrollToBottomIfFollowing(),
-        onFinishConversation: () => {
-          if (onAgentFinishConversation) void Promise.resolve(onAgentFinishConversation())
+        onFinishConversation: async () => {
+          await markNotificationReadAfterFinish(activeKey)
+          if (onAgentFinishConversation) await Promise.resolve(onAgentFinishConversation())
           else onUserInitiatedNewChat?.()
         },
       })
@@ -756,6 +785,94 @@
       }
     }
   }
+
+  async function markNotificationReadAfterFinish(sessionKey: string) {
+    const nid = sessions.get(sessionKey)?.notificationIdMarkReadOnFinish?.trim()
+    if (!nid) return
+    try {
+      const res = await fetch(`/api/notifications/${encodeURIComponent(nid)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'read' }),
+      })
+      if (!res.ok) return
+      sessions = touchSessionImmutable(sessions, sessionKey, { notificationIdMarkReadOnFinish: null })
+      await refreshEmptyChatNotifications()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function dismissNotification(id: string) {
+    try {
+      const res = await fetch(`/api/notifications/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'dismissed' }),
+      })
+      if (!res.ok) return
+      const sid = displayedSessionId
+      if (sid) {
+        const cur = sessions.get(sid)
+        if (cur?.notificationIdMarkReadOnFinish === id) {
+          sessions = touchSessionImmutable(sessions, sid, { notificationIdMarkReadOnFinish: null })
+        }
+      }
+      await refreshEmptyChatNotifications()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function refreshEmptyChatNotifications(signal?: AbortSignal) {
+    try {
+      const res = await fetch(
+        `/api/notifications?state=unread&limit=${EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT}`,
+        signal ? { signal } : {},
+      )
+      if (!res.ok) {
+        if (!signal?.aborted) emptyChatNotificationsPayload = null
+        return
+      }
+      const rows = (await res.json()) as Array<{ id: string; sourceKind: string; payload: unknown }>
+      if (signal?.aborted) return
+      const mapped = rows.map((r) =>
+        presentationForNotificationRow({ id: r.id, sourceKind: r.sourceKind, payload: r.payload }),
+      )
+      if (mapped.length === 0) {
+        emptyChatNotificationsPayload = null
+        return
+      }
+      const hasMore = mapped.length > EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP
+      const items = mapped.slice(0, EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP)
+      emptyChatNotificationsPayload = {
+        items,
+        hasMore,
+        onAct: (row) => {
+          const sid = displayedSessionId
+          if (!sid) return
+          sessions = touchSessionImmutable(sessions, sid, { notificationIdMarkReadOnFinish: row.id })
+          void send(row.kickoffUserMessage, undefined, false, { notificationKickoff: row.kickoffHints })
+        },
+        onDismiss: (nid: string) => void dismissNotification(nid),
+      }
+    } catch (e: unknown) {
+      if (signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) return
+      emptyChatNotificationsPayload = null
+    }
+  }
+
+  $effect(() => {
+    const eligible =
+      showEmptyChatNotifications === true && !hideInput && messages.length === 0 && !streaming
+    if (!eligible) {
+      emptyChatNotificationsPayload = null
+      return
+    }
+    const ac = new AbortController()
+    void refreshEmptyChatNotifications(ac.signal)
+    return () => ac.abort()
+  })
 
   /** Empty thread on `/api/chat` while onboarding-agent: assistant opens with merged bootstrap prompt. */
   export async function sendInitialBootstrapKickoff(forSessionKey?: string) {
@@ -793,6 +910,18 @@
 
   /** When true, vertically center the empty transcript and (when shown) the composer. */
   const centerEmptyInPane = $derived(messages.length === 0)
+
+  const showEmptyNotificationStrip = $derived.by(() => {
+    const p = emptyChatNotificationsPayload
+    return (
+      showEmptyChatNotifications &&
+      !hideInput &&
+      messages.length === 0 &&
+      !streaming &&
+      p != null &&
+      (p.items.length > 0 || p.hasMore)
+    )
+  })
 
   let pendingDelete = $state<{ serverId: string | null; label: string } | null>(null)
 
@@ -951,153 +1080,217 @@
     </div>
     {/if}
 
+    {#snippet unifiedComposerStack()}
+      {#if !hideInput}
+        <div
+          class={cn(
+            'composer-stack relative flex shrink-0 flex-col max-md:pb-[env(safe-area-inset-bottom,0px)]',
+            bridgeSlideLayout && 'composer-stack--bridge-dock bg-surface',
+          )}
+        >
+          <div
+            bind:this={contextBarWrapEl}
+            class="context-bar-overlay pointer-events-none absolute inset-x-0 bottom-full z-[2]"
+          >
+            <ComposerContextBar
+              files={contextBarFiles}
+              choices={contextBarChoices}
+              choicesDisabled={streaming}
+              {onOpenWiki}
+              onChoice={(c) =>
+                void send(c.submit, undefined, autoSendInterviewKickoffHidden, {
+                  userBubbleText: isBrainFinishConversationSubmit(c.submit) ? c.label : undefined,
+                })}
+            />
+          </div>
+          <UnifiedChatComposer
+            bind:this={inputEl}
+            voiceEligible={voiceComposerEligible}
+            sessionResetKey={unifiedComposerSessionResetKey}
+            {placeholder}
+            {streaming}
+            queuedMessages={pendingQueuedMessages}
+            {wikiFiles}
+            skills={skillsList}
+            transparentSurround={bridgeSlideLayout}
+            onNewChat={showComposerNewChat && onUserInitiatedNewChat
+              ? () => onUserInitiatedNewChat()
+              : undefined}
+            onSend={send}
+            onStop={stopChat}
+            onDraftChange={onAgentInputDraftChange}
+            onTranscribe={onVoiceTranscribe}
+            onRequestFocusText={() => void focusAgentTextarea(0)}
+            hearReplies={hearRepliesForChatComposer}
+          />
+          {#if centerEmptyInPane && !bridgeSlideLayout}
+            <div class="audio-conv-toggle-row md:hidden flex items-center justify-center pb-3 pt-1">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hearRepliesForChatComposer}
+                aria-label={$t('chat.agentChat.audioConversation')}
+                class={cn(
+                  'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full',
+                  'px-4 py-2 text-md transition-colors duration-150',
+                )}
+                onclick={toggleHearRepliesFromHeader}
+              >
+                <Volume2 size={15} strokeWidth={2} aria-hidden="true" />
+                <span>{$t('chat.agentChat.audioConversation')}</span>
+                <span
+                  class={cn(
+                    'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
+                    hearRepliesForChatComposer ? 'bg-accent' : 'bg-muted/30',
+                  )}
+                  aria-hidden="true"
+                >
+                  <span
+                    class={cn(
+                      'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                      hearRepliesForChatComposer ? 'translate-x-4' : 'translate-x-0',
+                    )}
+                  ></span>
+                </span>
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    {/snippet}
+
     <div
       class={cn(
         'mid-outer box-border flex min-h-0 min-w-0 flex-1 flex-col',
-        centerEmptyInPane && 'mid-outer--empty justify-center',
+        centerEmptyInPane && 'mid-outer--empty justify-start',
         bridgeSlideLayout && 'mid-outer--bridge-slide bg-surface',
       )}
     >
-    <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
-    {#if bridgeSlideLayout}
-      <div class="transcript-slide-stack relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <div
-          class={cn(
-            'mid relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden',
-            centerEmptyInPane && 'flex-[0_1_auto] min-h-0',
-          )}
-          inert={conversationHidden || undefined}
-        >
-          <ConversationView
-            bind:this={conversationEl}
-            {messages}
-            {streaming}
-            toolDisplayMode={toolDisplayMode}
-            {onOpenWiki}
-            {onOpenFile}
-            {onOpenIndexedFile}
-            {onOpenEmail}
-            {onOpenDraft}
-            {onOpenFullInbox}
-            {onOpenMessageThread}
-            {onSwitchToCalendar}
-            {onOpenMailSearchResults}
-            {onOpenWikiAbout}
-            streamingWrite={streamingWritePreview}
-            {multiTenant}
-          />
+      {#if showEmptyNotificationStrip && emptyChatNotificationsPayload}
+        <div class="shrink-0 px-[length:var(--chat-transcript-px)] pb-1">
+          <EmptyChatNotificationsStrip notifications={emptyChatNotificationsPayload} />
         </div>
-        {#if mobileDetail}
-          <div class="mobile-detail-layer mobile-detail-layer--over-transcript absolute inset-0 z-10 flex min-h-0 flex-col">
-            {@render mobileDetail()}
-          </div>
-        {/if}
-      </div>
-    {:else}
-      <div
-        class={cn(
-          'mid relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden',
-          centerEmptyInPane && 'flex-[0_1_auto] min-h-0',
-        )}
-        inert={conversationHidden || undefined}
-      >
-        <ConversationView
-          bind:this={conversationEl}
-          {messages}
-          {streaming}
-          toolDisplayMode={toolDisplayMode}
-          {onOpenWiki}
-          {onOpenFile}
-          {onOpenIndexedFile}
-          {onOpenEmail}
-          {onOpenDraft}
-          {onOpenFullInbox}
-          {onOpenMessageThread}
-          {onSwitchToCalendar}
-          {onOpenMailSearchResults}
-          {onOpenWikiAbout}
-          streamingWrite={streamingWritePreview}
-          {multiTenant}
-        />
-      </div>
-    {/if}
+      {/if}
 
-    {#if !hideInput}
-      <div
-        class={cn(
-          'composer-stack relative flex shrink-0 flex-col max-md:pb-[env(safe-area-inset-bottom,0px)]',
-          bridgeSlideLayout && 'composer-stack--bridge-dock bg-surface',
-        )}
-      >
-        <div
-          bind:this={contextBarWrapEl}
-          class="context-bar-overlay pointer-events-none absolute inset-x-0 bottom-full z-[2]"
-        >
-          <ComposerContextBar
-            files={contextBarFiles}
-            choices={contextBarChoices}
-            choicesDisabled={streaming}
-            {onOpenWiki}
-            onChoice={(c) =>
-              void send(c.submit, undefined, autoSendInterviewKickoffHidden, {
-                userBubbleText: isBrainFinishConversationSubmit(c.submit) ? c.label : undefined,
-              })}
-          />
-        </div>
-        <UnifiedChatComposer
-          bind:this={inputEl}
-          voiceEligible={voiceComposerEligible}
-          sessionResetKey={unifiedComposerSessionResetKey}
-          {placeholder}
-          {streaming}
-          queuedMessages={pendingQueuedMessages}
-          {wikiFiles}
-          skills={skillsList}
-          transparentSurround={bridgeSlideLayout}
-          onNewChat={showComposerNewChat && onUserInitiatedNewChat
-            ? () => onUserInitiatedNewChat()
-            : undefined}
-          onSend={send}
-          onStop={stopChat}
-          onDraftChange={onAgentInputDraftChange}
-          onTranscribe={onVoiceTranscribe}
-          onRequestFocusText={() => void focusAgentTextarea(0)}
-          hearReplies={hearRepliesForChatComposer}
-        />
-        {#if centerEmptyInPane && !bridgeSlideLayout}
-          <div class="audio-conv-toggle-row md:hidden flex items-center justify-center pb-3 pt-1">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hearRepliesForChatComposer}
-              aria-label={$t('chat.agentChat.audioConversation')}
-              class={cn(
-                'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full', 
-                'px-4 py-2 text-md transition-colors duration-150'
-              )}
-              onclick={toggleHearRepliesFromHeader}
-            >
-              <Volume2 size={15} strokeWidth={2} aria-hidden="true" />
-              <span>{$t('chat.agentChat.audioConversation')}</span>
-              <span
-                class={cn(
-                  'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-                  hearRepliesForChatComposer ? 'bg-accent' : 'bg-muted/30',
-                )}
-                aria-hidden="true"
+      {#if centerEmptyInPane}
+        <div class="mid-empty-hero flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-5">
+          {#if bridgeSlideLayout}
+            <div class="transcript-slide-stack relative flex w-full flex-none flex-col min-h-0 min-w-0">
+              <div
+                class="mid relative flex min-h-0 w-full flex-none flex-col overflow-x-hidden"
+                inert={conversationHidden || undefined}
               >
-                <span
-                  class={cn(
-                    'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
-                    hearRepliesForChatComposer ? 'translate-x-4' : 'translate-x-0',
-                  )}
-                ></span>
-              </span>
-            </button>
+                <ConversationView
+                  bind:this={conversationEl}
+                  {messages}
+                  {streaming}
+                  toolDisplayMode={toolDisplayMode}
+                  {onOpenWiki}
+                  {onOpenFile}
+                  {onOpenIndexedFile}
+                  {onOpenEmail}
+                  {onOpenDraft}
+                  {onOpenFullInbox}
+                  {onOpenMessageThread}
+                  {onSwitchToCalendar}
+                  {onOpenMailSearchResults}
+                  {onOpenWikiAbout}
+                  streamingWrite={streamingWritePreview}
+                  {multiTenant}
+                />
+              </div>
+              {#if mobileDetail}
+                <div class="mobile-detail-layer mobile-detail-layer--over-transcript absolute inset-0 z-10 flex min-h-0 flex-col">
+                  {@render mobileDetail()}
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <div
+              class="mid relative flex min-h-0 w-full flex-none flex-col overflow-x-hidden"
+              inert={conversationHidden || undefined}
+            >
+              <ConversationView
+                bind:this={conversationEl}
+                {messages}
+                {streaming}
+                toolDisplayMode={toolDisplayMode}
+                {onOpenWiki}
+                {onOpenFile}
+                {onOpenIndexedFile}
+                {onOpenEmail}
+                {onOpenDraft}
+                {onOpenFullInbox}
+                {onOpenMessageThread}
+                {onSwitchToCalendar}
+                {onOpenMailSearchResults}
+                {onOpenWikiAbout}
+                streamingWrite={streamingWritePreview}
+                {multiTenant}
+              />
+            </div>
+          {/if}
+          {@render unifiedComposerStack()}
+        </div>
+      {:else}
+        {#if bridgeSlideLayout}
+          <div class="transcript-slide-stack relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <div
+              class="mid relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden"
+              inert={conversationHidden || undefined}
+            >
+              <ConversationView
+                bind:this={conversationEl}
+                {messages}
+                {streaming}
+                toolDisplayMode={toolDisplayMode}
+                {onOpenWiki}
+                {onOpenFile}
+                {onOpenIndexedFile}
+                {onOpenEmail}
+                {onOpenDraft}
+                {onOpenFullInbox}
+                {onOpenMessageThread}
+                {onSwitchToCalendar}
+                {onOpenMailSearchResults}
+                {onOpenWikiAbout}
+                streamingWrite={streamingWritePreview}
+                {multiTenant}
+              />
+            </div>
+            {#if mobileDetail}
+              <div class="mobile-detail-layer mobile-detail-layer--over-transcript absolute inset-0 z-10 flex min-h-0 flex-col">
+                {@render mobileDetail()}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div
+            class="mid relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden"
+            inert={conversationHidden || undefined}
+          >
+            <ConversationView
+              bind:this={conversationEl}
+              {messages}
+              {streaming}
+              toolDisplayMode={toolDisplayMode}
+              {onOpenWiki}
+              {onOpenFile}
+              {onOpenIndexedFile}
+              {onOpenEmail}
+              {onOpenDraft}
+              {onOpenFullInbox}
+              {onOpenMessageThread}
+              {onSwitchToCalendar}
+              {onOpenMailSearchResults}
+              {onOpenWikiAbout}
+              streamingWrite={streamingWritePreview}
+              {multiTenant}
+            />
           </div>
         {/if}
-      </div>
-    {/if}
+        {@render unifiedComposerStack()}
+      {/if}
 
     </div>
 

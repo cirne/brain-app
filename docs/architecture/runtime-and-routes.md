@@ -13,6 +13,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | Prefix | Role |
 |--------|------|
 | `/api/chat` | Agent chat — SSE (`POST /`), session list/load/delete |
+| `/api/notifications` | App notification rows (`GET` list, `PATCH` state) — tenant SQLite — [chat-history-sqlite.md](./chat-history-sqlite.md) |
 | `/api/wiki` | Wiki CRUD, sync trigger, previews |
 | `/api/files` | Raw filesystem read via ripmail (`GET /read`) for UI preview |
 | `/api/inbox` | Inbox UI data (ripmail-backed) |

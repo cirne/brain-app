@@ -89,6 +89,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('speak')
     expect(names).toContain('load_skill')
     expect(names).toContain('suggest_reply_options')
+    expect(names).toContain('mark_notification')
     expect(names).toContain('search_messages')
     expect(names).toContain('list_recent_messages')
     expect(names).toContain('get_message_thread')

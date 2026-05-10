@@ -4,7 +4,10 @@
     ConversationScrollApi,
   } from '@client/lib/agentConversationViewTypes.js'
 
-  let { messages = [], streaming = false }: AgentConversationViewProps = $props()
+  let {
+    messages = [],
+    streaming = false,
+  }: AgentConversationViewProps = $props()
 
   export const scrollToBottom: ConversationScrollApi['scrollToBottom'] = () => {}
   export const scrollToBottomIfFollowing: ConversationScrollApi['scrollToBottomIfFollowing'] = () => {}

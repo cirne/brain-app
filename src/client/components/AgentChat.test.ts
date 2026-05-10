@@ -107,7 +107,7 @@ describe('AgentChat.svelte', () => {
     const onAgentFinishConversation = vi.fn()
     const onUserInitiatedNewChat = vi.fn()
     mockedConsume.mockImplementation(async (_res, opts) => {
-      opts.onFinishConversation?.()
+      await Promise.resolve(opts.onFinishConversation?.())
       return { sawDone: true, touchedWiki: false, deferredFinishConversation: false }
     })
 
@@ -142,7 +142,7 @@ describe('AgentChat.svelte', () => {
 
     const onUserInitiatedNewChat = vi.fn()
     mockedConsume.mockImplementation(async (_res, opts) => {
-      opts.onFinishConversation?.()
+      await Promise.resolve(opts.onFinishConversation?.())
       return { sawDone: true, touchedWiki: false, deferredFinishConversation: false }
     })
 
@@ -203,6 +203,133 @@ describe('AgentChat.svelte', () => {
     expect(body.message).toBe('Hello agent')
 
     expect(mockedConsume).toHaveBeenCalled()
+  })
+
+  it('empty-chat notification strip POSTs short message and notificationKickoff; PATCH read on finish', async () => {
+    const chatPost = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    const patchNotif = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ ok: true })),
+    )
+
+    stubFetchForAgentChat({
+      extra: [
+        agentChatPostHandler(chatPost),
+        {
+          match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
+          response: () =>
+            jsonResponse([
+              {
+                id: 'n1',
+                sourceKind: 'mail_notify',
+                payload: { messageId: 'mid-a', subject: 'Subj' },
+              },
+            ]),
+        },
+        {
+          match: (u: string, init?: RequestInit) =>
+            u === '/api/notifications/n1' && init?.method === 'PATCH',
+          response: patchNotif,
+        },
+      ],
+    })
+
+    mockedConsume.mockImplementation(async (_res, opts) => {
+      await Promise.resolve(opts.onFinishConversation?.())
+      return { sawDone: true, touchedWiki: false, deferredFinishConversation: false }
+    })
+
+    const { component } = render(AgentChat, {
+      props: {
+        context: { type: 'none' },
+        showEmptyChatNotifications: true,
+      },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('empty-chat-notifications-strip')).toBeInTheDocument()
+    })
+
+    await fireEvent.click(screen.getByTestId('empty-chat-notif-act'))
+
+    await waitFor(() => expect(chatPost).toHaveBeenCalled())
+    const first = chatPost.mock.calls[0] as [string, RequestInit | undefined] | undefined
+    const init = first?.[1]
+    const body = JSON.parse(String(init?.body ?? '{}')) as {
+      message: string
+      notificationKickoff?: Record<string, string>
+    }
+    expect(body.message).toContain('Summarize')
+    expect(body.message).not.toContain('n1')
+    expect(body.message).not.toContain('mid-a')
+    expect(body.notificationKickoff).toEqual({
+      notificationId: 'n1',
+      sourceKind: 'mail_notify',
+      messageId: 'mid-a',
+      subject: 'Subj',
+    })
+
+    await waitFor(() => expect(patchNotif).toHaveBeenCalled())
+    const patchInit = patchNotif.mock.calls[0]?.[1] as RequestInit | undefined
+    expect(JSON.parse(String(patchInit?.body ?? '{}'))).toEqual({ state: 'read' })
+  })
+
+  it('notification strip flow does not PATCH read when finish hook does not run', async () => {
+    const chatPost = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    const patchNotif = vi.fn(() => Promise.resolve(jsonResponse({ ok: true })))
+
+    stubFetchForAgentChat({
+      extra: [
+        agentChatPostHandler(chatPost),
+        {
+          match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
+          response: () =>
+            jsonResponse([
+              {
+                id: 'n1',
+                sourceKind: 'mail_notify',
+                payload: { subject: 'S' },
+              },
+            ]),
+        },
+        {
+          match: (u: string, init?: RequestInit) =>
+            u.startsWith('/api/notifications/') && init?.method === 'PATCH',
+          response: patchNotif,
+        },
+      ],
+    })
+
+    mockedConsume.mockResolvedValue({
+      sawDone: true,
+      touchedWiki: false,
+      deferredFinishConversation: false,
+    })
+
+    const { component } = render(AgentChat, {
+      props: { context: { type: 'none' }, showEmptyChatNotifications: true },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+    await waitFor(() => expect(screen.getByTestId('empty-chat-notifications-strip')).toBeInTheDocument())
+    await fireEvent.click(screen.getByTestId('empty-chat-notif-act'))
+    await waitFor(() => expect(chatPost).toHaveBeenCalled())
+    expect(patchNotif).not.toHaveBeenCalled()
   })
 
   it('fetches wiki paths and skills on mount', async () => {
@@ -947,6 +1074,95 @@ describe('AgentChat.svelte', () => {
       await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
       await fireEvent.click(toggle)
       await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
+    })
+  })
+
+  describe('empty-chat notifications', () => {
+    it('fetches unread strip when thread is empty', async () => {
+      const apiRow = {
+        id: 'nid-1',
+        sourceKind: 'mail_notify',
+        payload: { messageId: 'mid@x', subject: 'Ping' },
+        state: 'unread',
+        idempotencyKey: null,
+        createdAtMs: 1,
+        updatedAtMs: 1,
+      }
+      stubFetchForAgentChat({
+        extra: [
+          {
+            match: (u: string) => u.startsWith('/api/notifications?'),
+            response: () => jsonResponse([apiRow]),
+          },
+        ],
+      })
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await waitFor(() => {
+        expect(screen.getByTestId('empty-chat-notif-act')).toHaveTextContent('Ping')
+      })
+    })
+
+    it('caps rows at three and shows overflow', async () => {
+      const rows = Array.from({ length: 4 }, (_, i) => ({
+        id: `id-${i}`,
+        sourceKind: 'mail_notify',
+        payload: { messageId: `m${i}`, subject: `S${i}` },
+        state: 'unread',
+        idempotencyKey: null,
+        createdAtMs: i,
+        updatedAtMs: i,
+      }))
+      stubFetchForAgentChat({
+        extra: [
+          {
+            match: (u: string) => u.startsWith('/api/notifications?'),
+            response: () => jsonResponse(rows),
+          },
+        ],
+      })
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await waitFor(() => {
+        expect(screen.getAllByTestId('empty-chat-notif-act')).toHaveLength(3)
+      })
+      expect(screen.getByTestId('empty-chat-notif-overflow')).toBeInTheDocument()
+    })
+
+    it('dismiss triggers PATCH then refetches empty list', async () => {
+      const apiRow = {
+        id: 'to-dismiss',
+        sourceKind: 'mail_notify',
+        payload: { messageId: 'm', subject: 'X' },
+        state: 'unread',
+        idempotencyKey: null,
+        createdAtMs: 1,
+        updatedAtMs: 1,
+      }
+      let getCount = 0
+      const patchSpy = vi.fn(() => jsonResponse({ ...apiRow, state: 'dismissed' }))
+      stubFetchForAgentChat({
+        extra: [
+          {
+            match: (u: string, init?: RequestInit) =>
+              u.startsWith('/api/notifications?') && (!init?.method || init.method === 'GET'),
+            response: () => {
+              getCount++
+              return jsonResponse(getCount >= 2 ? [] : [apiRow])
+            },
+          },
+          {
+            match: (u: string, init?: RequestInit) =>
+              init?.method === 'PATCH' && u.includes('/api/notifications/to-dismiss'),
+            response: patchSpy,
+          },
+        ],
+      })
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await waitFor(() => expect(screen.getByTestId('empty-chat-notif-dismiss')).toBeInTheDocument())
+      await fireEvent.click(screen.getByTestId('empty-chat-notif-dismiss'))
+      await waitFor(() => expect(patchSpy).toHaveBeenCalledTimes(1))
+      await waitFor(() => {
+        expect(screen.queryByTestId('empty-chat-notifications-strip')).not.toBeInTheDocument()
+      })
     })
   })
 

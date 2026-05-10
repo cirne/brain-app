@@ -12,6 +12,10 @@ export type SessionState = {
   /** POST /api/chat `hearReplies` when the user turned on “Read answers aloud” (OpenAI TTS; requires OPENAI_API_KEY on the server). */
   hearReplies: boolean
   /**
+   * Empty-chat strip: PATCH notification `read` when `finish_conversation` succeeds for this session.
+   */
+  notificationIdMarkReadOnFinish: string | null
+  /**
    * Stable id for UnifiedChatComposer `sessionResetKey`: survives pending → server map key migration
    * so voice mode is not cleared when `displayedSessionId` changes after the first SSE `session` event.
    */
@@ -27,6 +31,7 @@ export function emptySession(): SessionState {
     chatTitle: null,
     pendingQueuedMessages: [],
     hearReplies: false,
+    notificationIdMarkReadOnFinish: null,
     composerResetKey: '',
   }
 }
@@ -89,6 +94,8 @@ export function migratePendingToServer(
         ...(merged.pendingQueuedMessages ?? []),
         ...(existing.pendingQueuedMessages ?? []),
       ],
+      notificationIdMarkReadOnFinish:
+        merged.notificationIdMarkReadOnFinish ?? existing.notificationIdMarkReadOnFinish ?? null,
     })
   } else {
     next.set(serverId, merged)

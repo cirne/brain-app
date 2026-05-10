@@ -3,6 +3,8 @@ import { Agent as AgentCtor } from '@mariozechner/pi-agent-core'
 import type { KnownProvider } from '@mariozechner/pi-ai'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
 import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.js'
 import { createAgentTools } from '@server/agent/tools.js'
 import { buildDateContext } from '@server/agent/agentFactory.js'
@@ -17,6 +19,14 @@ import { createRejectQuestionTool, REJECT_QUESTION_TOOL_NAME } from './rejectQue
 import { getActiveBrainQueryGrant } from './brainQueryGrantsRepo.js'
 import { insertBrainQueryLog, type BrainQueryLogStatus } from './brainQueryLogRepo.js'
 import type Database from 'better-sqlite3'
+
+const INBOUND_QUESTION_PREVIEW_MAX = 120
+
+function brainQueryQuestionPreview(q: string): string {
+  const t = q.trim()
+  if (t.length <= INBOUND_QUESTION_PREVIEW_MAX) return t
+  return `${t.slice(0, INBOUND_QUESTION_PREVIEW_MAX - 1)}…`
+}
 
 /** Read-only tools for answering another user's natural-language query from their vault. */
 export const BRAIN_QUERY_RESEARCH_TOOL_NAMES = [
@@ -554,6 +564,24 @@ export async function runBrainQuery(params: {
     durationMs,
     db,
   })
+
+  if (inner.status === 'ok' || inner.status === 'filter_blocked' || inner.status === 'early_rejected') {
+    try {
+      await createNotificationForTenant(params.ownerId, {
+        sourceKind: 'brain_query_inbound',
+        idempotencyKey: `brain_query_inbound:${row.id}`,
+        payload: {
+          logId: row.id,
+          askerId: params.askerId,
+          questionPreview: brainQueryQuestionPreview(question),
+          status: inner.status,
+          deliveryMode: 'auto_sent',
+        },
+      })
+    } catch (e: unknown) {
+      brainLogger.warn({ err: e }, '[brain-query] owner inbound notification failed')
+    }
+  }
 
   if (inner.status === 'early_rejected') {
     return {

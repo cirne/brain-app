@@ -6,7 +6,7 @@
 
 ## Current design
 
-`getOrCreateSession(sessionId)` in `src/server/agent/assistantAgent.ts` keeps live `Agent` instances in a `Map<string, Agent>`. On first access for a `sessionId`, it hydrates the agent from the persisted JSON chat file (up to `HYDRATION_MAX_CHAT_MESSAGES` rows). Subsequent requests for the same session reuse the live agent.
+`getOrCreateSession(sessionId)` in `src/server/agent/assistantAgent.ts` keeps live `Agent` instances in a `Map<string, Agent>`. On first access for a `sessionId`, it hydrates the agent from **tenant SQLite** chat rows (up to `HYDRATION_MAX_CHAT_MESSAGES` messages). Subsequent requests for the same session reuse the live agent.
 
 This works well for a single-process, single-user deployment:
 - Hot sessions stay warm in memory (fast; no disk round-trip per turn).

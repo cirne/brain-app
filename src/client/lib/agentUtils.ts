@@ -1,4 +1,5 @@
 import { REJECT_QUESTION_TOOL_NAME } from '@shared/brainQueryReject.js'
+import type { NotificationKickoffHints } from '@shared/notifications/presentation.js'
 import { contextToString, type SurfaceContext } from '../router.js'
 
 /** Keep in sync with `src/server/lib/llmUsage.ts` `LlmUsageSnapshot`. */
@@ -252,11 +253,12 @@ export function buildChatBody(opts: {
   interviewKickoff?: boolean
   /** When true, server may inject read-aloud context; assistant uses `speak` (OpenAI TTS on the server). */
   hearReplies?: boolean
-  /**
-   * Human-readable user line for persistence when `message` is a wire token (e.g. finish chip).
-   * Omit when the visible bubble matches `message`.
-   */
+  /** Optional text shown in the user bubble; may differ from `message` (e.g. notification strip summary vs full model context). */
   userMessageDisplay?: string
+  /**
+   * Structured notification strip kickoff (POST `notificationKickoff`); not shown in the user bubble.
+   */
+  notificationKickoff?: NotificationKickoffHints
 }): Record<string, unknown> {
   const body: Record<string, unknown> = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -274,6 +276,8 @@ export function buildChatBody(opts: {
 
   const display = opts.userMessageDisplay?.trim()
   if (display) body.userMessageDisplay = display
+
+  if (opts.notificationKickoff) body.notificationKickoff = opts.notificationKickoff
 
   if (opts.isFirstMessage) {
     const parts: string[] = []

@@ -1,8 +1,8 @@
 # Anticipatory assistant brief — prioritized queue, notification infrastructure, and async approvals
 
-**Status:** Backlog — **persistence + chat migration:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant app SQLite: notification rows, chat history off JSON); **full brief/approval UX** still unscheduled in its own OPP  
+**Status:** Backlog — **SQLite persistence shipped (2026-05)** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (`var/brain-tenant.sqlite`: chat + **`notifications`**, mail **`notify`** mirror); **full brief/approval UX + brain-query enqueue** still unscheduled in their own OPPs  
 **Index:** [IDEAS.md](../IDEAS.md)  
-**Relates to:** [VISION.md](../VISION.md), [STRATEGY.md](../STRATEGY.md), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (brain-to-brain — **this idea is a prerequisite** for human-in-the-loop and async secure usability), [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (notification § + **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), [chat-history-sqlite.md](../architecture/chat-history-sqlite.md) (session schema — implemented via OPP-102), [IDEA-onboarding-insight-gallery](IDEA-onboarding-insight-gallery.md) (showcase vs standing queue), [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (collaboration events), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md); empty chat surfaces such as [`ConversationEmptyState.svelte`](../../src/client/components/agent-conversation/ConversationEmptyState.svelte)
+**Relates to:** [VISION.md](../VISION.md), [STRATEGY.md](../STRATEGY.md), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (brain-to-brain — **this idea is a prerequisite** for human-in-the-loop and async secure usability), [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (notification §; persistence **[shipped — OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), [chat-history-sqlite.md](../architecture/chat-history-sqlite.md), [IDEA-onboarding-insight-gallery](IDEA-onboarding-insight-gallery.md) (showcase vs standing queue), [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (collaboration events), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md); empty chat surfaces such as [`ConversationEmptyState.svelte`](../../src/client/components/agent-conversation/ConversationEmptyState.svelte)
 
 ---
 
@@ -103,7 +103,7 @@ These are **illustrative**; implementation would enforce caps, merging, and fres
 - **Human-in-the-loop** release of outbound content without treating **audit logs** as the only review surface.
 - **Bidirectional visibility** (asker and answerer) surfaced through **consistent notification semantics**, not ad hoc email.
 
-**This idea is the required product capability** that ties those strands together: a **notification + inbox + brief** layer that brain-query (and future bilateral flows) plug into. See [brain-to-brain-access-policy.md — notification / human-in-the-loop §](../architecture/brain-to-brain-access-policy.md#notification-inbox-and-human-in-the-loop-prerequisite-for-secure-brain-to-brain). **Tenant-side persistence** for notification rows (and shared app SQLite with chat) is **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — see [§ Next step toward shipping](#next-step-toward-shipping).
+**This idea is the required product capability** that ties those strands together: a **notification + inbox + brief** layer that brain-query (and future bilateral flows) plug into. See [brain-to-brain-access-policy.md — notification / human-in-the-loop §](../architecture/brain-to-brain-access-policy.md#notification-inbox-and-human-in-the-loop-prerequisite-for-secure-brain-to-brain). **`notifications` + chat in `var/brain-tenant.sqlite`** **shipped** under **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — see [§ Next steps](#next-steps-after-persistence).
 
 ---
 
@@ -135,21 +135,21 @@ They can share infrastructure (signals from mail/wiki/calendar) but differ in **
 3. **Multi-device / hosted:** Dedup and read/unread semantics across tabs and desktop; **brain-query** delivery when owner offline.
 4. **Collaboration specifics:** Notification when another user edits a shared path — granularity (file vs subtree) and permission awareness.
 5. **Calendar depth:** Only “soon” reminders vs proactive “prep pack” requiring extra tokens.
-6. **Mail semantics:** Formalize “notify” (inbox rule, Gmail flag, Brain tag) vs inferred obligation detection — merging rules when both fire. **Ripmail vs app notification store:** see open question A/B/C in **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**.
+6. **Mail semantics:** Formalize “notify” (inbox rule, Gmail flag, Brain tag) vs inferred obligation detection — merging rules when both fire. **Implemented stance:** ripmail authoritative; **`notify`** mirrored into app **`notifications`** — **[archived OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (decision table).
 7. **Brain-query semantics:** When is a **draft** visible to the owner vs only **final**? How do **filter_blocked** and **early_rejected** appear in the inbox for asker vs answerer?
 8. **Evaluation:** Fixtures for brief ranking and copy safety (beyond retrieval evals); **golden cases** for approval UX (no draft leak in list previews).
 
 ---
 
-## Next step toward shipping
+## Next steps after persistence
 
-**Persistence foundation:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — per-tenant **Brain app SQLite** (versioned schema, early-dev wipe on bump) holding **chat** migration off JSON and **notification/brief** rows; open question there on **mail `notify`** vs ripmail as single source of truth.
+**Shipped:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — **`var/brain-tenant.sqlite`** with **`TENANT_SCHEMA_VERSION`** (early-dev wipe on bump): **chat** tables + **`notifications`**; mail **`notify`** mirrored from ripmail (**`source_kind = mail_notify`**).
 
-When the model and MVP sources are pinned, additional OPPs may cover:
+When the product model and MVP sources are pinned, additional OPPs may cover:
 
 - **Schema + lifecycle:** Notification/brief item CRUD, snooze, idempotency keys per source event; **brain-query pending outbound** state machine (draft → approved → delivered / denied).
 - **Client:** Empty chat rendering, dismissal affordances, deep-link starter prompts; **approval sheet** for brain-query drafts.
 - **Signals:** Thin adapters from ripmail flags, collaborator events, wiki change digest, calendar window, **`brain_query_log`** / dedicated queue for pending approvals.
 - **Brain-query server:** Per-grant **delivery mode** (auto vs require approval) and hooks to **enqueue** items instead of immediate `POST` response when approval is required.
 
-Until then this file anchors **executive briefing + notification infrastructure + async brain-query approvals** as one conceptual package—the **central metaphor** for prioritized, cross-domain assistant alerts and **trustworthy** cross-brain collaboration.
+Until those ship, this file anchors **executive briefing + notification infrastructure + async brain-query approvals** as one conceptual package—the **central metaphor** for prioritized, cross-domain assistant alerts and **trustworthy** cross-brain collaboration.

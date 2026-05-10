@@ -4,14 +4,14 @@
 
 ## Summary
 
-Give users **visibility into model consumption**: token counts (input, cached input, output, optional cache write) and, where pricing data exists, **estimated cost**—broken down **per assistant reply**, **per conversation**, and **per identity** in multi-tenant hosted mode. The same accounting must cover **interactive chat** and **background agents** that **build out and lint the wiki** (expansion / cleanup laps and the Your Wiki supervisor), so users see the full picture—not only messages they typed. Persist accounting in the **same durable tree as chat history** (`$BRAIN_HOME` / tenant home under `BRAIN_DATA_ROOT`), not in ripmail’s SQLite.
+Give users **visibility into model consumption**: token counts (input, cached input, output, optional cache write) and, where pricing data exists, **estimated cost**—broken down **per assistant reply**, **per conversation**, and **per identity** in multi-tenant hosted mode. The same accounting must cover **interactive chat** and **background agents** that **build out and lint the wiki** (expansion / cleanup laps and the Your Wiki supervisor), so users see the full picture—not only messages they typed. Persist accounting in the **same durable tenant home** as chat history (**`var/brain-tenant.sqlite`** for messages + optional **`var/`** rollups), not in ripmail’s SQLite.
 
 ## Problem
 
 1. **Opaque spend:** Agent chat can trigger **multiple provider API calls per user message** (tool rounds). Users and operators cannot see what drove usage or cost.
 2. **Silent background usage:** **Wiki expansion** and **cleanup / lint** runs use the same LLM stack as chat ([`wikiExpansionRunner.ts`](../../src/server/agent/wikiExpansionRunner.ts) — `runEnrichInvocation`, `runCleanupInvocation`) and the **Your Wiki supervisor** loops those passes ([`yourWikiSupervisor.ts`](../../src/server/agent/yourWikiSupervisor.ts), [OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md)). Activity is visible in Brain Hub as **`BackgroundRunDoc`** JSON under `background/runs/` ([`backgroundAgentStore.ts`](../../src/server/lib/backgroundAgentStore.ts)), but **token totals are not**—so users can underestimate spend when the wiki runs unattended.
 3. **Hosted economics:** Multi-tenant deployments need **per-tenant rollups** for fairness, limits, and support without coupling to mail index storage.
-4. **No shared app DB today:** Chat is **JSON session files** under `chats/` ([`chatStorage.ts`](../../src/server/lib/chatStorage.ts), [`chatTypes.ts`](../../src/server/lib/chatTypes.ts)). Usage should follow that pattern until the SQLite migration is done ([`chat-history-sqlite.md`](../architecture/chat-history-sqlite.md)).
+4. **Shared app DB:** Chat is **`chat_sessions` / `chat_messages`** in **`var/brain-tenant.sqlite`** ([`chatStorage.ts`](../../src/server/lib/chat/chatStorage.ts), [`chatTypes.ts`](../../src/server/lib/chat/chatTypes.ts)). Usage belongs on persisted assistant rows (or sidecar **`var/`** rollups) per [chat-history-sqlite.md](../architecture/chat-history-sqlite.md).
 
 ## Goals
 
@@ -48,7 +48,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 
 **Preferred (single source of truth with history):**
 
-- Extend **`ChatMessage`** (server [`chatTypes.ts`](../../src/server/lib/chatTypes.ts) + client mirror) with optional metadata on **assistant** messages, e.g. `usage?: { input, output, cacheRead, cacheWrite, totalTokens }` and optionally `model` / `provider`. Keep blobs small; **recompute `cost` in UI** from current model table if needed, or store a snapshot when emitted.
+- Extend **`ChatMessage`** (server [`chatTypes.ts`](../../src/server/lib/chat/chatTypes.ts) + client mirror) with optional metadata on **assistant** messages, e.g. `usage?: { input, output, cacheRead, cacheWrite, totalTokens }` and optionally `model` / `provider`. Keep blobs small; **recompute `cost` in UI** from current model table if needed, or store a snapshot when emitted.
 
 **Optional (fast rollups):**
 
@@ -79,7 +79,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 ## References
 
 - [`docs/architecture/pi-agent-stack.md`](../architecture/pi-agent-stack.md) — Pi packages, `Agent` options, where `usage` comes from (pi-ai on assistant messages; multi-completion runs)
-- [`docs/architecture/data-and-sync.md`](../architecture/data-and-sync.md) — `chats/` layout, `BRAIN_HOME`, multi-tenant roots
+- [`docs/architecture/data-and-sync.md`](../architecture/data-and-sync.md) — **`var/brain-tenant.sqlite`**, `chats/` (onboarding only), `BRAIN_HOME`, multi-tenant roots
 - [`docs/architecture/agent-chat.md`](../architecture/agent-chat.md) — chat pipeline overview
 - [`src/server/routes/chat.ts`](../../src/server/routes/chat.ts) — `appendTurn` / SSE entry
 - [`src/server/lib/streamAgentSse.ts`](../../src/server/lib/streamAgentSse.ts) — agent events → SSE + persistence

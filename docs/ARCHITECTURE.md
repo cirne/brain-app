@@ -14,7 +14,7 @@ Personal assistant web app: **Chat** (agent), **Wiki** (markdown vault), **Inbox
 Browser (Svelte 5)
   ↔  HTTP + SSE
 Hono (Node 22)
-  ├── /api/chat, /api/wiki (+ `/api/wiki/shared/…` for cross-tenant read shares), `/api/wiki-shares`, /api/files, /api/inbox, /api/calendar, /api/search, …
+  ├── /api/chat, /api/notifications, /api/wiki (+ `/api/wiki/shared/…` for cross-tenant read shares), `/api/wiki-shares`, /api/files, /api/inbox, /api/calendar, /api/search, …
   ├── /api/skills, /api/onboarding
   ├── /api/imessage  (+ /api/messages alias)  — macOS, when chat.db readable
   └── /api/dev  — development only
@@ -90,7 +90,7 @@ Chat transport, tooling surface, Pi integration, metering hooks, and local model
 
 | Topic                                                    | Doc                                                                                                                             |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Agent sessions, chat JSON persistence, SSE, tool catalog | [architecture/agent-chat.md](architecture/agent-chat.md)                                                                        |
+| Agent sessions, chat + SQLite persistence (`var/brain-tenant.sqlite`), SSE, tool catalog | [architecture/agent-chat.md](architecture/agent-chat.md)                                                                        |
 | Quick replies (chips / suggestions UI)                   | [architecture/chat-suggestions.md](architecture/chat-suggestions.md)                                                            |
 | Pi stack (`pi-agent-core` / `pi-ai`, options, metering)  | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md) |
 | Local MLX LLM (Apple Silicon, `mlx_lm.server`, Qwen 3.6) | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md)                                                                  |
@@ -126,7 +126,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 | Topic                                                                   | Doc                                                                        |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Chat history as JSON files; SQLite direction (perf and search ceilings) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
+| Chat + app notifications: tenant SQLite (`var/brain-tenant.sqlite`); mail index still ripmail (until [OPP-103](opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
 | Preferences scattered across JSON + `localStorage`                      | [architecture/preferences-store.md](architecture/preferences-store.md)     |
 
 
@@ -152,7 +152,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 ## Principles (short)
 
-- **Single user, single process** — no separate API server; sessions are in-memory with chat history persisted under `$BRAIN_HOME` (see [chat-history-sqlite.md](architecture/chat-history-sqlite.md) for the planned SQLite migration).
+- **Single user, single process** — no separate API server; sessions are in-memory with chat history persisted in **`var/brain-tenant.sqlite`** per tenant (see [chat-history-sqlite.md](architecture/chat-history-sqlite.md)); **`chats/`** retains onboarding JSON only.
 - **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
   - **Bootstrap then maintenance** — after enough indexed mail, a **one-shot wiki bootstrap** may create bounded first-draft stubs ([OPP-095](opportunities/OPP-095-wiki-first-draft-bootstrap.md)); the **Your Wiki** supervisor then runs deepen-only laps ([architecture/background-task-orchestration.md](architecture/background-task-orchestration.md)).
   - **Email and index via ripmail** — subprocess CLI, `RIPMAIL_HOME` under Brain by default.

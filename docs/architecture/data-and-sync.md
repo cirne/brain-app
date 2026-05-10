@@ -4,18 +4,18 @@
 
 Single root for durable data. Default in dev: `./data` under the repo unless `BRAIN_HOME` or bundled defaults apply. Layout: [`shared/brain-layout.json`](../../shared/brain-layout.json) + helpers in [`brainLayout.ts`](../../src/server/lib/brainLayout.ts) / [`brainHome.ts`](../../src/server/lib/brainHome.ts).
 
-**Bundled macOS (OPP-024):** `BRAIN_HOME` is `~/Library/Application Support/Brain` (local: ripmail, chats, skills, cache, `var/`). The wiki vault is **`$BRAIN_WIKI_ROOT/wiki`**, default **`~/Documents/Brain/wiki`**, so markdown can sync with Desktop & Documents → iCloud. `BRAIN_WIKI_ROOT` is set by the Tauri launcher.
+**Bundled macOS (OPP-024):** `BRAIN_HOME` is `~/Library/Application Support/Brain` (local: onboarding under `chats/`, skills, **tenant SQLite** + logs in `var/`, ripmail, cache). The wiki vault is **`$BRAIN_WIKI_ROOT/wiki`**, default **`~/Documents/Brain/wiki`**, so markdown can sync with Desktop & Documents → iCloud. `BRAIN_WIKI_ROOT` is set by the Tauri launcher.
 
 Typical directories under `BRAIN_HOME`:
 
 | Key | Purpose |
 |-----|---------|
 | `wiki/` | Markdown wiki pages (dev / non-macOS; **not** used for wiki content on bundled macOS — see above) |
-| `chats/` | Persisted chat session JSON files |
+| `chats/` | **`onboarding.json`** + **`onboarding/`** adjuncts only — **not** chat transcripts; sessions live in **`var/brain-tenant.sqlite`** |
 | `skills/` | User slash skills (seeded defaults on first run) |
 | `ripmail/` | Ripmail config + SQLite index when `RIPMAIL_HOME` is not overridden |
 | `cache/` | `wiki-dir-icons.json` and other small JSON caches |
-| `var/` | `wiki-edits.jsonl` (agent wiki edit log) |
+| `var/` | `brain-tenant.sqlite` (chat + notifications — [chat-history-sqlite.md](./chat-history-sqlite.md)), `wiki-edits.jsonl` (agent wiki edit log), other small JSON |
 
 Onboarding machine state **`onboarding.json`** lives at **`chats/onboarding.json`** (root of the chats dir, `chatDataDir()`). Adjunct files may use **`chats/onboarding/`** (e.g. wiki buildout state). **`var/`** is not used for onboarding. **Persisted states, transitions, and first-time mail sync phases:** [onboarding-state-machine.md](./onboarding-state-machine.md).
 

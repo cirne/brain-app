@@ -164,8 +164,8 @@
 
 <div
   class={cn(
-    'conversation-shell relative flex min-w-0 flex-1 flex-col overflow-x-hidden',
-    messages.length === 0 ? 'min-h-[auto] flex-[0_1_auto]' : 'min-h-0',
+    'conversation-shell relative flex min-w-0 flex-col overflow-x-hidden',
+    messages.length === 0 ? 'w-full flex-none' : 'min-h-0 flex-1',
   )}
   data-conversation-state={messages.length === 0 ? 'empty' : 'active'}
 >
@@ -174,9 +174,7 @@
   <div
     class={cn(
       'conversation chat-transcript-scroll min-w-0 overflow-x-hidden pb-[var(--composer-context-overlap-pad,0)]',
-      messages.length === 0
-        ? 'min-h-[auto] max-h-none flex-[0_1_auto] overflow-y-clip'
-        : 'min-h-0 flex-1 overflow-y-auto',
+      messages.length === 0 ? 'flex flex-col overflow-y-visible' : 'min-h-0 flex-1 overflow-y-auto',
     )}
     {@attach captureMessagesEl}
     onscroll={syncFollowFromScroll}

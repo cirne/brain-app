@@ -95,7 +95,7 @@ export type ConsumeAgentChatStreamOptions = {
    * After `finish_conversation` tool completes successfully: main chat starts a new thread;
    * embedded panel chats (e.g. Hub add-folders) close the panel.
    */
-  onFinishConversation?: () => void
+  onFinishConversation?: () => void | Promise<void>
 }
 
 /**
@@ -413,7 +413,7 @@ export async function consumeAgentChatStream(
   } finally {
     if (pendingFinishConversation) {
       try {
-        onFinishConversation?.()
+        await Promise.resolve(onFinishConversation?.())
       } catch {
         /* user hook must not mask stream teardown */
       }

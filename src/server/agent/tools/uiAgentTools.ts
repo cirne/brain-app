@@ -7,6 +7,7 @@ import { composeFeedbackIssueMarkdown } from '@server/lib/feedback/feedbackCompo
 import { submitFeedbackMarkdown } from '@server/lib/feedback/feedbackIssues.js'
 import { applySkillPlaceholders, readSkillMarkdown } from '@server/lib/llm/slashSkill.js'
 import { tryGetSkillRequestContext } from '@server/lib/llm/skillRequestContext.js'
+import { patchNotificationState } from '@server/lib/notifications/notificationsRepo.js'
 import { appendWikiEditRecord, resolveSafeWikiPath } from '../agentToolPolicy.js'
 import {
   BRAIN_FINISH_CONVERSATION_SUBMIT,
@@ -497,6 +498,40 @@ Returns the saved text; treat it as active for this session too.`,
     },
   })
 
+  const markNotification = defineTool({
+    name: 'mark_notification',
+    label: 'Mark notification done',
+    description:
+      'For **explicit** user requests (e.g. they want a notification cleared or marked handled before leaving chat). ' +
+      'The app normally marks empty-chat queue items when the user **finishes the chat**—do **not** use this tool as a default “wrap-up” after summarizing a notification. ' +
+      '**read** = user considers it handled; **dismissed** = clear without further action.',
+    parameters: Type.Object({
+      notification_id: Type.String({ description: 'Notification id from the notification row' }),
+      state: Type.Union([Type.Literal('read'), Type.Literal('dismissed')], {
+        description: 'read = handled; dismissed = cleared without acting',
+      }),
+    }),
+    async execute(_toolCallId: string, params: { notification_id: string; state: 'read' | 'dismissed' }) {
+      const id = params.notification_id?.trim() ?? ''
+      if (!id) {
+        return {
+          content: [{ type: 'text' as const, text: 'notification_id is required.' }],
+          details: { error: 'missing_id' } as Record<string, unknown>,
+        }
+      }
+      const row = patchNotificationState(id, params.state)
+      if (!row) {
+        return {
+          content: [{ type: 'text' as const, text: `No notification found for id ${id}.` }],
+          details: { not_found: true as const },
+        }
+      }
+      return {
+        content: [{ type: 'text' as const, text: `Notification ${id} marked ${params.state}.` }],
+        details: { ok: true as const, state: row.state },
+      }
+    },
+  })
 
   return {
     finishConversation,
@@ -507,5 +542,6 @@ Returns the saved text; treat it as active for this session too.`,
     rememberPreference,
     loadSkill,
     suggestReplyOptions,
+    markNotification,
   }
 }

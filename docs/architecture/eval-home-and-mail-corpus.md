@@ -40,6 +40,8 @@ data/
     ripmail/
     wiki/
     chats/
+    var/
+      brain-tenant.sqlite
     ...
   usr_enrondemo00000000002/        # Lay (demo)
   usr_enrondemo00000000003/        # Skilling (demo)

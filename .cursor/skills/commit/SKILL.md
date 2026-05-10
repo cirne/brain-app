@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Guides pre-commit verification, scoped lint/tests per package (Node app, ripmail, desktop/Tauri), test coverage expectations, then commit with an integration-safe push or merge path (single checkout or Git worktree). Use when the user invokes /commit, asks to commit, push, prepare a commit, or finish a change with git.
+description: Guides pre-commit verification, scoped lint/tests per package (Node app, ripmail, desktop/Tauri), i18n/copy checks for UI changes, test coverage expectations, then commit with an integration-safe push or merge path (single checkout or Git worktree). Use when the user invokes /commit, asks to commit, push, prepare a commit, or finish a change with git.
 ---
 
 # Commit workflow (brain-app)
@@ -47,6 +47,16 @@ For **each** package that changed:
 - Rust: tests in the relevant crate (`ripmail/`, `desktop/`).
 
 Docs-only or comment-only edits: skip new tests unless they document behavior that should be tested elsewhere.
+
+## 2b. i18n & copy (UI changes)
+
+When the diff touches **user-visible UI** (typically `src/client/**/*.svelte`, or client code that renders labels, buttons, empty states, errors, or banners):
+
+- **Internationalization**: User-facing strings belong in locale JSON, wired through the client i18n layer (e.g. `t` from [`@client/lib/i18n/index.js`](../../../src/client/lib/i18n/index.js)). Do not leave new product copy as hard-coded literals in components unless the codebase already documents an exception (e.g. purely technical/debug surfaces).
+- **Where strings live**: English source files are under [`src/client/lib/i18n/locales/en/`](../../../src/client/lib/i18n/locales/en/) (`common.json`, `chat.json`, `nav.json`, `inbox.json`, etc.). Pick the existing module that matches the feature; add keys alongside similar strings and keep structure consistent with that file.
+- **Copy quality**: Wording must follow **[`docs/COPY_STYLE_GUIDE.md`](../../../docs/COPY_STYLE_GUIDE.md)**—voice/tone, no-plumbing rule, **Braintunnel** as the product name in UI, **vault** vs **wiki**, and desktop vs hosted accuracy.
+
+**Skip this subsection** when the change is server-only, Rust-only, scripts-only, or otherwise does not add or alter user-visible copy.
 
 ## 3. Commands (scoped)
 
@@ -125,6 +135,7 @@ git worktree remove /path/to/worktree   # or: git worktree remove --force ... if
 - [ ] `nvm use` at this checkout root before npm/node (see above)
 - [ ] Changed packages identified
 - [ ] Tests added/updated per package (incl. regression tests for bug fixes)
+- [ ] UI changes: i18n keys in `src/client/lib/i18n/locales/en/*.json`, copy matches `docs/COPY_STYLE_GUIDE.md`
 - [ ] Scoped lint/tests (or full ci) all green
 - [ ] Commit message; branch-aware integration (fetch + rebase/merge onto upstream if not main; push branch or main per workflow)
 ```

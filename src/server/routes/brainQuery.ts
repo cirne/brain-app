@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
 import { getTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { isValidUserId, readHandleMeta } from '@server/lib/tenant/handleMeta.js'
@@ -33,6 +35,14 @@ import {
   previewBrainQueryPrivacyFilter,
   runBrainQuery,
 } from '@server/lib/brainQuery/runBrainQuery.js'
+
+const GRANT_POLICY_PREVIEW_MAX = 200
+
+function grantPrivacyPolicyPreview(policy: string): string {
+  const t = policy.trim()
+  if (t.length <= GRANT_POLICY_PREVIEW_MAX) return t
+  return `${t.slice(0, GRANT_POLICY_PREVIEW_MAX - 1)}…`
+}
 
 export type BrainQueryGrantApi = {
   id: string
@@ -365,6 +375,21 @@ brainQuery.post('/grants', async (c) => {
       ...(privacyPolicy !== undefined ? { privacyPolicy } : {}),
     })
     const api = await toApiGrant(row)
+    try {
+      await createNotificationForTenant(resolved.askerId, {
+        sourceKind: 'brain_query_grant_received',
+        idempotencyKey: `brain_query_grant:${row.id}`,
+        payload: {
+          grantId: row.id,
+          ownerId: ctx.tenantUserId,
+          ownerHandle: api.ownerHandle,
+          privacyPolicyPreview: grantPrivacyPolicyPreview(row.privacy_policy),
+          createdAtMs: row.created_at_ms,
+        },
+      })
+    } catch (e: unknown) {
+      brainLogger.warn({ err: e }, '[brain-query] notify asker for new grant failed')
+    }
     return c.json(api)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'create_failed'

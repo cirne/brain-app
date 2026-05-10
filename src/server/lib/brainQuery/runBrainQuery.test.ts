@@ -5,6 +5,10 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { REJECT_QUESTION_TOOL_NAME } from '@shared/brainQueryReject.js'
+import { listNotifications } from '@server/lib/notifications/notificationsRepo.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
+import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import {
   createBrainQueryGrant,
@@ -80,6 +84,7 @@ describe('runBrainQuery', () => {
   const askerId = 'usr_aaaaaaaaaaaaaaaaaaaa'
 
   beforeEach(async () => {
+    closeTenantDbForTests()
     const dir = join(tmpdir(), `bqr-${Date.now()}`)
     await mkdir(dir, { recursive: true })
     tmp = dir
@@ -93,6 +98,7 @@ describe('runBrainQuery', () => {
 
   afterEach(async () => {
     closeBrainGlobalDbForTests()
+    closeTenantDbForTests()
     if (prevRoot !== undefined) process.env.BRAIN_DATA_ROOT = prevRoot
     else delete process.env.BRAIN_DATA_ROOT
     if (prevGlobal !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevGlobal
@@ -112,6 +118,12 @@ describe('runBrainQuery', () => {
     }
     const log = getBrainQueryLogById(out.logId)
     expect(log?.status).toBe('denied_no_grant')
+
+    const ownerNotifs = await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: ownerId, homeDir: tenantHomeDir(ownerId) },
+      async () => listNotifications({}),
+    )
+    expect(ownerNotifs).toHaveLength(0)
   })
 
   it('happy path with injected agent port', async () => {
@@ -143,6 +155,19 @@ describe('runBrainQuery', () => {
     const log = getBrainQueryLogById(out.logId)
     expect(log?.status).toBe('ok')
     expect(log?.draft_answer).toContain('47,500')
+
+    const ownerNotifs = await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: ownerId, homeDir: ensureTenantHomeDir(ownerId) },
+      async () => listNotifications({}),
+    )
+    expect(ownerNotifs).toHaveLength(1)
+    expect(ownerNotifs[0].sourceKind).toBe('brain_query_inbound')
+    expect(ownerNotifs[0].idempotencyKey).toBe(`brain_query_inbound:${out.logId}`)
+    const pl = ownerNotifs[0].payload as Record<string, unknown>
+    expect(pl.status).toBe('ok')
+    expect(pl.deliveryMode).toBe('auto_sent')
+    expect(pl.questionPreview).toBe('construction billing?')
+    expect(pl.askerId).toBe(askerId)
   })
 
   it('filter_blocked when blocked true', async () => {
@@ -172,6 +197,13 @@ describe('runBrainQuery', () => {
     const log = getBrainQueryLogById(out.logId)
     expect(log?.status).toBe('filter_blocked')
     expect(log?.final_answer).toContain('cannot')
+
+    const ownerNotifs = await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: ownerId, homeDir: ensureTenantHomeDir(ownerId) },
+      async () => listNotifications({}),
+    )
+    expect(ownerNotifs).toHaveLength(1)
+    expect((ownerNotifs[0].payload as { status?: string }).status).toBe('filter_blocked')
   })
 
   it('early_rejected when research transcript contains reject_question result', async () => {
@@ -218,6 +250,13 @@ describe('runBrainQuery', () => {
     expect(log?.status).toBe('early_rejected')
     expect(log?.final_answer).toContain('open-ended')
     expect(log?.filter_notes).toContain('early_rejection')
+
+    const ownerNotifs = await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: ownerId, homeDir: ensureTenantHomeDir(ownerId) },
+      async () => listNotifications({}),
+    )
+    expect(ownerNotifs).toHaveLength(1)
+    expect((ownerNotifs[0].payload as { status?: string }).status).toBe('early_rejected')
   })
 })
 

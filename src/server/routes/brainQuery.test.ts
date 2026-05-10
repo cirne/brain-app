@@ -13,6 +13,8 @@ import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
+import { listNotifications } from '@server/lib/notifications/notificationsRepo.js'
+import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 import * as runBrainQueryMod from '@server/lib/brainQuery/runBrainQuery.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 
@@ -44,6 +46,7 @@ describe('/api/brain-query', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    closeTenantDbForTests()
     delete process.env.BRAIN_HOME
     root = await mkdtemp(join(tmpdir(), 'bq-api-'))
     process.env.BRAIN_DATA_ROOT = root
@@ -54,6 +57,7 @@ describe('/api/brain-query', () => {
 
   afterEach(async () => {
     closeBrainGlobalDbForTests()
+    closeTenantDbForTests()
     delete process.env.BRAIN_GLOBAL_SQLITE_PATH
     delete process.env.BRAIN_DATA_ROOT
     if (prevRoot !== undefined) process.env.BRAIN_DATA_ROOT = prevRoot
@@ -191,8 +195,21 @@ describe('/api/brain-query', () => {
       body: JSON.stringify({ askerHandle: '@peer-q', privacyPolicy: 'Be brief.' }),
     })
     expect(post.status).toBe(200)
-    const row = (await post.json()) as { id: string; askerId: string }
+    const row = (await post.json()) as { id: string; askerId: string; ownerHandle: string }
     expect(row.askerId).toBe(askerId)
+
+    const askerNotifs = await runWithTenantContextAsync(
+      { tenantUserId: askerId, workspaceHandle: 'peer-q', homeDir: tenantHomeDir(askerId) },
+      async () => listNotifications({}),
+    )
+    expect(askerNotifs).toHaveLength(1)
+    expect(askerNotifs[0].sourceKind).toBe('brain_query_grant_received')
+    expect(askerNotifs[0].idempotencyKey).toBe(`brain_query_grant:${row.id}`)
+    const p = askerNotifs[0].payload as Record<string, unknown>
+    expect(p.grantId).toBe(row.id)
+    expect(p.ownerId).toBe(ownerId)
+    expect(p.ownerHandle).toBe('owner-q')
+    expect(p.privacyPolicyPreview).toBe('Be brief.')
 
     const getGrants = await app.request('http://localhost/api/brain-query/grants', {
       headers: { cookie: `brain_session=${ownerSid}` },

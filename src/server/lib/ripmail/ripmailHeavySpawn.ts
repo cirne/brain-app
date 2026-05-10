@@ -6,6 +6,7 @@ import {
   runRipmailArgv,
   type RipmailRunResult,
 } from './ripmailRun.js'
+import { syncMailNotifyNotificationsFromRipmailDbSafe } from '@server/lib/notifications/syncMailNotifyNotifications.js'
 
 /** How long to wait for a prior **detached** `ripmail backfill` to release the backfill lane before kicking another. */
 const WAIT_BACKFILL_IDLE_DEFAULT_MS = RIPMAIL_BACKFILL_TIMEOUT_MS
@@ -111,12 +112,14 @@ export async function runRipmailRefreshForBrain(
 ): Promise<RipmailRunResult> {
   const timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS
   const argv = ['refresh', ...extraArgv]
-  return runRipmailHeavyArgv(argv, {
+  const result = await runRipmailHeavyArgv(argv, {
     timeoutMs,
     label: 'refresh',
     signal,
     ripmailTimeoutSeconds: Math.ceil(timeoutMs / 1000),
   })
+  await syncMailNotifyNotificationsFromRipmailDbSafe()
+  return result
 }
 
 export async function runRipmailBackfillForBrain(
@@ -126,10 +129,12 @@ export async function runRipmailBackfillForBrain(
   const timeoutMs = RIPMAIL_BACKFILL_TIMEOUT_MS
   /** Detached default: parent exits quickly (~ms); real work runs in child so UIs can poll `status` for progress. Pair onboarding phase‑2 with {@link waitForRipmailBackfillLaneIdle} so the second backfill is not dropped while phase‑1 still holds the lane. */
   const argv = ['backfill', ...argvTail]
-  return runRipmailHeavyArgv(argv, {
+  const result = await runRipmailHeavyArgv(argv, {
     timeoutMs,
     label: 'backfill',
     signal,
     ripmailTimeoutSeconds: Math.ceil(timeoutMs / 1000),
   })
+  await syncMailNotifyNotificationsFromRipmailDbSafe()
+  return result
 }

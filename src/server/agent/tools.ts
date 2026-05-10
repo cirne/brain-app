@@ -109,6 +109,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     rememberPreference,
     loadSkill,
     suggestReplyOptions,
+    markNotification,
   } = createUiAgentTools(wikiDir)
 
   const { listRecentMessagesTool, getMessageThreadTool, searchMessagesTool } = createLocalMessageTools(wikiDir)
@@ -149,6 +150,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     rememberPreference,
     loadSkill,
     suggestReplyOptions,
+    markNotification,
     ...(askBrain ? [askBrain] : []),
     searchMessagesTool,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),

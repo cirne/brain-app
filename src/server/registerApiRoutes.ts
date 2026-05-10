@@ -15,6 +15,7 @@ import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
 import demoEnronAuthRoute from './routes/demoEnronAuth.js'
 import navRecentsRoute from './routes/navRecents.js'
+import notificationsRoute from './routes/notifications.js'
 import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
 import issuesRoute from './routes/issues.js'
 import hubRoute from './routes/hub.js'
@@ -60,6 +61,7 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/oauth/google', gmailOAuthRoute)
   app.route('/api/auth/demo', demoEnronAuthRoute)
   app.route('/api/nav/recents', navRecentsRoute)
+  app.route('/api/notifications', notificationsRoute)
   app.route('/oauth/google', oauthGoogleBrowserPages)
   if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
     app.route('/api/debug', debugRipmailChildrenRoute)

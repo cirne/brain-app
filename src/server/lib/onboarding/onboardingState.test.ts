@@ -3,6 +3,8 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
+import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
+
 let brainHome: string
 
 beforeEach(async () => {
@@ -13,6 +15,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  closeTenantDbForTests()
   await rm(brainHome, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
 })
@@ -103,9 +106,9 @@ describe('onboardingState', () => {
     await writeFile(join(brainHome, 'future-subdir', 'x.txt'), 'y', 'utf-8')
     await hardResetOnboardingArtifacts()
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
-    expect(await listSessions()).toEqual([])
     const { access, readdir } = await import('node:fs/promises')
     expect(await readdir(brainHome)).toEqual([])
+    expect(await listSessions()).toEqual([])
     await expect(access(join(wikiDirPath(), 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(join(brainHome, 'future-subdir', 'x.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
   })

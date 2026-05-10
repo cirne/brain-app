@@ -2,7 +2,12 @@
   "emptyState": {
     "prompt": "Ask anything about your docs, email, or calendar.",
     "atHint": "Use @ to reference docs in",
-    "yourWiki": "your wiki"
+    "yourWiki": "your wiki",
+    "notificationsHeading": "Notifications",
+    "notificationsOverflow": "At least one more unread notification.",
+    "dismissNotificationAria": "Dismiss notification",
+    "peerSharingSummary": "@{{peerHandle}} is now sharing with you",
+    "peerSharingSummaryAnonymous": "Someone is now sharing with you"
   },
   "agentConversation": {
     "jumpToLatestStreamingAria": "Jump to latest, reply in progress",
@@ -137,6 +142,7 @@
     "listRecentMessages": "Recent messages",
     "getMessageThread": "Conversation",
     "suggestReplyOptions": "Quick replies",
-    "rejectQuestion": "Decline question"
+    "rejectQuestion": "Decline question",
+    "markNotification": "Notification done"
   }
 }

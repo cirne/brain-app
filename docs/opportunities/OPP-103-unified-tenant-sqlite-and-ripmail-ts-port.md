@@ -1,7 +1,7 @@
 # OPP-103: Unified tenant SQLite + port ripmail to TypeScript
 
 **Status:** Open  
-**Supersedes:** [OPP-102](OPP-102-tenant-app-sqlite-chat-and-notifications.md) (tenant app SQLite — chat, notifications) — absorbs that scope into a single consolidated effort.
+**Builds on:** **[archived OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — chat + **`notifications`** already ship in **`var/brain-tenant.sqlite`**; ripmail’s index remains a **second** SQLite under **`ripmail/`**. This OPP **merges** mail into the **same** tenant DB and ports ripmail to TypeScript.
 
 **See also:** [chat-history-sqlite.md](../architecture/chat-history-sqlite.md) · [per-tenant-storage-defense.md](../architecture/per-tenant-storage-defense.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [brain-layout.json](../../shared/brain-layout.json) / [`brainLayout.ts`](../../src/server/lib/brainLayout.ts) · [ripmail ARCHITECTURE.md](../../ripmail/docs/ARCHITECTURE.md)
 
@@ -9,7 +9,7 @@
 
 ## Problem
 
-1. **Two databases per user.** Ripmail owns a SQLite database under `<tenant>/ripmail/`. Brain app state (chat, notifications, future brief items) needs its own queryable store ([OPP-102](OPP-102-tenant-app-sqlite-chat-and-notifications.md)). Two databases means two schema lifecycles, two versioning strategies, no cross-domain joins, and coordination overhead for features that span mail + app state (e.g. unified brief).
+1. **Two databases per user.** Ripmail owns a SQLite database under `<tenant>/ripmail/`. Brain app state (chat + notifications — **[shipped OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**) lives in **`var/brain-tenant.sqlite`**. Two files means two schema lifecycles, two versioning strategies, no cross-domain joins, and coordination overhead for features that span mail + app state (e.g. unified brief).
 
 2. **Subprocess overhead for every mail operation.** Every agent tool call to ripmail spawns a Rust process, serializes arguments as CLI flags, parses JSON stdout, and discards the process. This adds IPC latency (~20–50ms per call), complicates debugging (two languages, two processes), and requires binary discovery (`RIPMAIL_BIN`), build coordination (`cargo build -p ripmail --release`), and bundling into `server-bundle/`.
 
@@ -28,7 +28,7 @@
 A single `better-sqlite3` database file per tenant home (hosted: `$BRAIN_DATA_ROOT/<usr_…>/`; desktop: under `BRAIN_HOME`). Contains **all** tenant-scoped app state:
 
 - **Mail index** — messages, FTS5, contacts, sync state, inbox decisions, drafts (current ripmail schema, adapted for `better-sqlite3`)
-- **Chat** — sessions + messages (per [chat-history-sqlite.md](../architecture/chat-history-sqlite.md)); replaces current JSON-backed `chatStorage`
+- **Chat** — sessions + messages (per [chat-history-sqlite.md](../architecture/chat-history-sqlite.md)); **already** in unified tenant DB today — **`chatStorage`** targets **`var/brain-tenant.sqlite`** ([OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md))
 - **Notifications / brief items** — app-originated notification rows for [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md)
 
 **Schema versioning:** single integer version, stored in-db. Mismatch on startup → **delete and recreate** (no migrations; early-dev rule per [AGENTS.md](../../AGENTS.md)). Mail data is rebuildable from maildir; chat and notifications are expendable in early dev.
@@ -107,14 +107,13 @@ Once reads are verified:
 3. **Draft / send.** TS draft lifecycle (create, edit, rewrite, send) works against existing drafts directory and DB state.
 4. **Archive.** TS archive marks match Rust behavior (local `is_archived`, optional IMAP propagation).
 
-### Phase 3 — Unified DB + app state
+### Phase 3 — Unified DB (ripmail + existing app tables)
 
 Once mail read/write parity is confirmed:
 
-1. **Merge schemas.** Add chat + notification tables to the same DB. Single schema version governs all tables.
-2. **Chat migration.** Move chat from JSON files into DB (parity with current `chatStorage` routes, covered by tests).
-3. **Notification rows.** Basic create/list/patch for brief items (per [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md)).
-4. **Layout update.** Document the unified DB path in `brain-layout.json` / `brainLayout.ts`. One path, not two.
+1. **Merge schemas.** Add ripmail mail tables to **`var/brain-tenant.sqlite`** (or relocate app tables into the mail DB — implementation choice), replacing the separate **`ripmail/*.db`** file. One schema version governs **mail + chat + notifications**.
+2. **Chat + notifications.** Already persisted in tenant SQLite ([**OPP-102**](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)); extend/relocate **only** as needed for unified versioning and FKs.
+3. **Layout update.** Document the single DB path in `brain-layout.json` / `brainLayout.ts`; remove duplicate paths from ops/docs.
 
 ### Phase 4 — Cleanup
 
@@ -140,7 +139,7 @@ Once mail read/write parity is confirmed:
 
 | OPP | Impact |
 |-----|--------|
-| [OPP-102](OPP-102-tenant-app-sqlite-chat-and-notifications.md) | **Superseded.** Chat + notification scope absorbed here. |
+| [OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md) | **Shipped.** Tenant app SQLite (`var/brain-tenant.sqlite`). **This OPP** merges ripmail into that file + TS port. |
 | [OPP-101](OPP-101-ripmail-opentelemetry.md) | **Moot.** Rust OTLP rolled back; TS port uses Node New Relic agent directly. |
 | [OPP-078](OPP-078-code-health-idiomatic-patterns.md) | **Absorbed.** Rust code-health cleanup unnecessary if code is ported. |
 | [OPP-098](OPP-098-google-calendar-incremental-sync.md) | **Carried forward.** Calendar incremental sync logic ports to TS. |

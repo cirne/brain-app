@@ -5,8 +5,8 @@
       "kind": "search",
       "id": "def-otp",
       "action": "notify",
-      "query": "(otp|2fa|verification.{0,120}code|password reset|login code|authenticat)",
-      "description": "OTP / security codes (regex on body/subject)"
+      "query": "(\\botp\\b|\\b2fa\\b|verification.{0,120}code|password reset|login code|\\bauthenticat)",
+      "description": "OTP / security codes (word-bounded otp/2fa; avoids otpToken= tracking noise)"
     },
     {
       "kind": "search",

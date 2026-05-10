@@ -73,6 +73,40 @@ describe('chatSessionStore helpers', () => {
     expect(r.sessions.get(server)?.pendingQueuedMessages).toEqual(['from pending', 'existing'])
   })
 
+  it('migratePendingToServer preserves notificationIdMarkReadOnFinish', () => {
+    const pending = 'pending:n'
+    const server = '66666666-6666-6666-6666-666666666666'
+    let map = new Map()
+    map = setSessionImmutable(map, pending, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'a' }],
+      streaming: true,
+      notificationIdMarkReadOnFinish: 'nid-1',
+    })
+    const r = migratePendingToServer(map, pending, server, pending)
+    expect(r.sessions.get(server)?.notificationIdMarkReadOnFinish).toBe('nid-1')
+  })
+
+  it('migratePendingToServer merges notificationIdMarkReadOnFinish when server slot exists', () => {
+    const pending = 'pending:n2'
+    const server = '77777777-7777-7777-7777-777777777777'
+    let map = new Map()
+    map = setSessionImmutable(map, server, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'old' }],
+      sessionId: server,
+      notificationIdMarkReadOnFinish: null,
+    })
+    map = setSessionImmutable(map, pending, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'new' }],
+      streaming: true,
+      notificationIdMarkReadOnFinish: 'from-pending',
+    })
+    const r = migratePendingToServer(map, pending, server, pending)
+    expect(r.sessions.get(server)?.notificationIdMarkReadOnFinish).toBe('from-pending')
+  })
+
   it('migratePendingToServer leaves displayed id unchanged when viewing another session', () => {
     const pending = 'pending:p'
     const other = '22222222-2222-2222-2222-222222222222'

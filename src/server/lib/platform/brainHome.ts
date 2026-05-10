@@ -43,6 +43,8 @@ export function brainWikiParentRoot(): string {
  */
 export async function wipeBrainHomeContents(): Promise<void> {
   const home = brainHome()
+  const { evictTenantDbForHome } = await import('@server/lib/tenant/tenantSqlite.js')
+  evictTenantDbForHome(home)
   if (existsSync(home)) {
     const entries = await readdir(home, { withFileTypes: true })
     for (const ent of entries) {

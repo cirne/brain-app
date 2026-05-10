@@ -17,19 +17,18 @@
   const atHintParts = $derived($t('chat.emptyState.atHint').split('@'))
 </script>
 
-<div class="box-border flex w-full justify-center pb-2">
-  <div
-    class="max-w-md text-balance text-center text-sm leading-relaxed text-muted"
-  >
+<!-- Notifications render in AgentChat above this hero; keep copy compact so it centers with the composer. -->
+<div class="box-border flex w-full flex-col items-center pb-2">
+  <div class="max-w-md text-balance text-center text-sm leading-relaxed text-muted">
     <p>{$t('chat.emptyState.prompt')}</p>
     <p class="mt-1.5 text-xs opacity-70">
       {#if atHintParts.length === 2}
         {atHintParts[0]}<kbd
-          class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none"
+          class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none shadow-[0_1px_0_color-mix(in_srgb,var(--border)_40%,transparent)]"
         >@</kbd>{atHintParts[1]}
       {:else}
         {$t('chat.emptyState.atHint')} <kbd
-          class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none"
+          class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none shadow-[0_1px_0_color-mix(in_srgb,var(--border)_40%,transparent)]"
         >@</kbd>
       {/if}
       {#if onOpenWikiAbout}

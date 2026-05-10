@@ -21,7 +21,8 @@ This document is the **parity matrix** and **product/engineering decisions** for
 | Prefix | Cloud v1 | Notes |
 |--------|----------|-------|
 | `/api/vault` | **Supported** | Verifier + sessions under `$BRAIN_HOME/var/` per [runtime-and-routes.md](./runtime-and-routes.md). Browsers need **HTTPS** at the edge for meaningful `Secure` cookies. |
-| `/api/chat` | **Supported** | SSE chat; history under `$BRAIN_HOME/chats/`. |
+| `/api/chat` | **Supported** | SSE chat; history in **`var/brain-tenant.sqlite`** (hosted: `$BRAIN_DATA_ROOT/<tenant>/`). |
+| `/api/notifications` | **Supported** | Tenant notification rows (incl. mail **`notify`** mirror); see [chat-history-sqlite.md](./chat-history-sqlite.md). |
 | `/api/skills` | **Supported** | `$BRAIN_HOME/skills/`. |
 | `/api/wiki` | **Supported** | File-backed wiki on volume; see [Wiki storage decision](#wiki-storage-decision-v1-hosted). |
 | `/api/files` | **Supported** | Ripmail-backed reads for UI preview. |

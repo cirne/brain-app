@@ -36,7 +36,7 @@ HTTP surface summary: [`runtime-and-routes.md`](runtime-and-routes.md) (`/api/on
 
 ## Persisted states (onboarding machine)
 
-Stored in **`onboarding.json`** at the root of the tenant **chats** directory (`chatDataDir()` in `chatStorage.ts` / `brainLayoutChatsDir`), alongside chat session files — **not** under `var/`. Adjunct onboarding metadata (e.g. wiki buildout first-run flag, **`wiki-bootstrap.json`** for [OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)) uses **`chats/onboarding/`** via `onboardingDataDir()` in `onboardingState.ts`. Type **`OnboardingMachineState`**:
+Stored in **`onboarding.json`** at the root of the tenant **chats** directory (`chatDataDir()` in [`chatStorage.ts`](../../src/server/lib/chat/chatStorage.ts) / `brainLayoutChatsDir`). **Chat session transcripts** live in **`var/brain-tenant.sqlite`**, not under `chats/`. Adjunct onboarding metadata (e.g. wiki buildout first-run flag, **`wiki-bootstrap.json`** for [OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)) uses **`chats/onboarding/`** via `onboardingDataDir()` in `onboardingState.ts`. Type **`OnboardingMachineState`**:
 
 | State | Meaning |
 | ----- | ------- |

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 
 let brainHome: string
 
@@ -11,6 +12,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  closeTenantDbForTests()
   await rm(brainHome, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
 })
@@ -157,7 +159,7 @@ describe('chatStorage', () => {
     expect(doc?.title).toBe('Later')
   })
 
-  it('deleteAllChatSessionFiles removes session JSON only', async () => {
+  it('deleteAllChatSessionFiles removes chat rows only', async () => {
     const { appendTurn, listSessions, deleteAllChatSessionFiles } = await import('@server/lib/chat/chatStorage.js')
     await mkdir(join(brainHome, 'chats'), { recursive: true })
     await writeFile(join(brainHome, 'chats', 'onboarding.json'), '{"state":"done"}', 'utf-8')

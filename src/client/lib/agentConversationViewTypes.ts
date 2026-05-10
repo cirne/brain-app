@@ -2,6 +2,15 @@ import type { Snippet } from 'svelte'
 import type { ChatMessage } from './agentUtils.js'
 import type { ChatToolDisplayMode } from './chatToolDisplayPreference.js'
 import type { ContentCardPreview } from './cards/contentCards.js'
+import type { NotificationPresentation } from '@shared/notifications/presentation.js'
+
+/** Empty-chat notification strip: mapped rows + handlers (see {@link NotificationPresentation}). */
+export type EmptyChatNotificationsProps = {
+  items: NotificationPresentation[]
+  hasMore: boolean
+  onAct: (_row: NotificationPresentation) => void
+  onDismiss: (_id: string) => void
+}
 
 /**
  * Scroll API exposed by conversation UIs bound to AgentChat (`bind:this`).

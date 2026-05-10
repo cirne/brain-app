@@ -15,6 +15,8 @@ export interface BrainLayout {
     issues: string
   }
   files: {
+    /** Unified per-tenant app SQLite (chat, notifications; future mail index per OPP-103). */
+    tenantSqlite: string
     wikiEditsLog: string
     dirIconsCache: string
     issuesCounter: string
@@ -117,5 +119,12 @@ export function brainLayoutVaultSessionsPath(base: string): string {
 export function brainLayoutNavRecentsPath(base: string): string {
   const L = getBrainLayout()
   const name = L.files.navRecents ?? 'nav-recents.json'
+  return join(base, L.directories.var, name)
+}
+
+/** Per-tenant SQLite (chat, notifications; single schema version). Under `<tenant>/var/`. */
+export function brainLayoutTenantSqlitePath(base: string): string {
+  const L = getBrainLayout()
+  const name = L.files.tenantSqlite ?? 'brain-tenant.sqlite'
   return join(base, L.directories.var, name)
 }

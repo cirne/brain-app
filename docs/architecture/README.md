@@ -30,7 +30,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [local-mlx-llm.md](./local-mlx-llm.md) | **Apple Silicon:** run Qwen (etc.) via `mlx-lm` OpenAI-compatible server; `BRAIN_LLM=mlx-local/mlx-community/...`, `MLX_LOCAL_*` env |
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |
-| [chat-history-sqlite.md](./chat-history-sqlite.md) | Chat history → SQLite: current JSON-file limits, target schema, why now |
+| [chat-history-sqlite.md](./chat-history-sqlite.md) | Chat + notifications in **`var/brain-tenant.sqlite`** (sessions/messages + `notifications`); optional FTS follow-on |
 | [preferences-store.md](./preferences-store.md) | Preferences consolidation: scattered JSON files + localStorage → SQLite table + typed client module |
 | [tailwind-migration.md](./tailwind-migration.md) | Tailwind-first client components; scoped CSS only where justified — [components README](../../src/client/components/README.md) |
 | [calendar-write-path.md](./calendar-write-path.md) | Calendar writes: subprocess limitations; direct Google Calendar API as alternative for mutations |

@@ -30,6 +30,10 @@ import {
   readSkillMarkdown,
 } from '@server/lib/llm/slashSkill.js'
 import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPrompt.js'
+import {
+  mergeNotificationKickoffPromptMessages,
+  parseNotificationKickoffFromBody,
+} from '@server/lib/llm/notificationKickoffPrompt.js'
 import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
 import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
 import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
@@ -128,6 +132,19 @@ chat.post('/', async (c) => {
   const promptMessage = initialBootstrapKickoff
     ? await buildInitialBootstrapKickoffUserMessage()
     : (rawMessage as string)
+
+  let notificationKickoff =
+    !bootstrapMode && !initialBootstrapKickoff
+      ? parseNotificationKickoffFromBody(body)
+      : null
+  if (notificationKickoff) {
+    try {
+      const doc = await loadSession(sessionId)
+      if (doc && doc.messages.length > 0) notificationKickoff = null
+    } catch {
+      /* ignore */
+    }
+  }
 
   let mailCoverageCaveat: string | undefined
   if (!bootstrapMode) {
@@ -245,9 +262,12 @@ chat.post('/', async (c) => {
       openFile: openFileForSkill,
     })
     const skillMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
-    const skillPromptMessages = hearReplies
-      ? [...buildHearRepliesPromptMessages(promptMessage), ...skillMessages]
-      : skillMessages
+    const hearMsgs = hearReplies ? buildHearRepliesPromptMessages(promptMessage) : undefined
+    const skillPromptMessages = notificationKickoff
+      ? [...mergeNotificationKickoffPromptMessages(promptMessage, notificationKickoff, hearMsgs), ...skillMessages]
+      : hearMsgs
+        ? [...hearMsgs, ...skillMessages]
+        : skillMessages
 
     let initialSessionTitle: string | undefined
     try {
@@ -321,7 +341,10 @@ chat.post('/', async (c) => {
     mailCoverageCaveat,
   })
 
-  const mainPromptMessages = hearReplies ? buildHearRepliesPromptMessages(promptMessage) : undefined
+  const hearMain = hearReplies ? buildHearRepliesPromptMessages(promptMessage) : undefined
+  const mainPromptMessages = notificationKickoff
+    ? mergeNotificationKickoffPromptMessages(promptMessage, notificationKickoff, hearMain)
+    : hearMain
 
   return runWithSkillRequestContextAsync(
     { selection: selectionForSkill, openFile: openFileForSkill },

@@ -713,3 +713,49 @@ mod snippet_tests {
         assert!(snip.contains("compass"), "snippet={snip:?}");
     }
 }
+
+#[cfg(test)]
+mod def_otp_defaults_tests {
+    use super::compile_search_regex;
+    use crate::rules::{RulesFile, UserRule, DEFAULT_RULES_JSON};
+
+    fn bundled_def_otp_regex() -> regex::Regex {
+        let file: RulesFile = serde_json::from_str(DEFAULT_RULES_JSON).expect("default rules json");
+        let rule = file
+            .rules
+            .iter()
+            .find(|r| r.id() == "def-otp")
+            .expect("def-otp rule");
+        let query = match rule {
+            UserRule::Search { query, .. } => query,
+        };
+        compile_search_regex(query.trim(), false).expect("def-otp regex")
+    }
+
+    #[test]
+    fn def_otp_does_not_match_otptoken_or_accidental_otp_substrings() {
+        let re = bundled_def_otp_regex();
+        let hay_linkedin =
+            "8 people noticed you\nhttps://linkedin.com/click?eid=x&otpToken=MTMwNDFlZTYxNjI3Y2Vj";
+        assert!(
+            !re.is_match(hay_linkedin),
+            "otpToken= must not satisfy otp token"
+        );
+        let hay_blob = "Promo\nvotpojlXqFzZRIfbI3EBJqmnkaPrqobA5Uu3rD4yKzNJAz2jXJYj6sQ3v969W";
+        assert!(
+            !re.is_match(hay_blob),
+            "random base64-like blobs must not match bare otp trigrams"
+        );
+    }
+
+    #[test]
+    fn def_otp_still_matches_real_security_copy() {
+        let re = bundled_def_otp_regex();
+        assert!(re.is_match("Bank\nYour OTP is 482910"));
+        assert!(re.is_match("Auth\nPlease enable 2FA on your account"));
+        assert!(re.is_match("Reset\npassword reset requested"));
+        assert!(re.is_match("Sign-in\nhere is your login code: 882019"));
+        assert!(re.is_match("Verify\nauthentication required for this device"));
+        assert!(re.is_match("Hello\nEmail verification code: 001122"));
+    }
+}

@@ -9,6 +9,8 @@ import {
   brainLayoutNavRecentsPath,
   brainLayoutWikiDir,
 } from '@server/lib/platform/brainLayout.js'
+import { deleteAllChatSessionFiles } from '@server/lib/chat/chatStorage.js'
+import { deleteAllNotifications } from '@server/lib/notifications/notificationsRepo.js'
 import { setOnboardingStateForce } from '@server/lib/onboarding/onboardingState.js'
 import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
 import { deleteBrainQueryGrantsForTenant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
@@ -60,6 +62,8 @@ export async function executeTenantSoftReset(tenantUserId: string): Promise<void
   deleteBrainQueryLogForTenant(tenantUserId)
 
   await wipeWikiContentAt(brainLayoutWikiDir(home))
+  await deleteAllChatSessionFiles()
+  deleteAllNotifications()
   await wipeTenantChatsDir(home)
   await wipeWikiAdjacentCaches(home)
   await rmTenantSubtree(home, 'your-wiki')

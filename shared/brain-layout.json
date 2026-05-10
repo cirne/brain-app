@@ -10,6 +10,7 @@
     "issues": "issues"
   },
   "files": {
+    "tenantSqlite": "brain-tenant.sqlite",
     "wikiEditsLog": "wiki-edits.jsonl",
     "issuesCounter": "issues-counter.json",
     "dirIconsCache": "wiki-dir-icons.json",

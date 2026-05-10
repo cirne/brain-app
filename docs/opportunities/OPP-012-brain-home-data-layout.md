@@ -21,10 +21,10 @@
 | ------------------ | ---------------------------------------- |
 | `wiki/`            | Markdown wiki                            |
 | `skills/`          | Slash skills                             |
-| `chats/`           | Chat JSON + `onboarding/`                |
+| `chats/`           | **`onboarding.json`** + **`onboarding/`** adjuncts; **not** chat transcripts |
 | `ripmail/`         | Ripmail data (`RIPMAIL_HOME` when unset) |
 | `cache/`           | Calendar JSON, dir-icon cache, etc.      |
-| `var/`             | `wiki-edits.jsonl`                       |
+| `var/`             | **`brain-tenant.sqlite`** (chat + notifications), `wiki-edits.jsonl`, other JSON |
 
 
 **Bundled macOS default:** `~/Library/Application Support/Brain` (see `[desktop/src/brain_paths.rs](../../desktop/src/brain_paths.rs)`).

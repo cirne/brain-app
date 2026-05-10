@@ -12,27 +12,27 @@ Session factory: `[src/server/agent/index.ts](../../src/server/agent/index.ts)`.
 
 `getOrCreateSession(sessionId)` keeps a live `Agent` in a `Map`.
 
-**Hydration:** The first time a `sessionId` is loaded in this process, the server reads the matching JSON from disk (if it exists and has messages) and maps it into `initialState.messages` on the `Agent` (`[persistedChatToAgentMessages.ts](../../src/server/lib/persistedChatToAgentMessages.ts)`). That way, after a **process restart** or when the user opens a **saved chat** and sends a message, the model still sees prior user/assistant turns (including short summaries of past tool results), not only the new line. Message rows are capped (see `HYDRATION_MAX_CHAT_MESSAGES` in that file) to bound context size.
+**Hydration:** The first time a `sessionId` is loaded in this process, the server reads persisted messages from **tenant SQLite** (if the session exists and has messages) and maps them into `initialState.messages` on the `Agent` (`[persistedChatToAgentMessages.ts](../../src/server/lib/persistedChatToAgentMessages.ts)`). That way, after a **process restart** or when the user opens a **saved chat** and sends a message, the model still sees prior user/assistant turns (including short summaries of past tool results), not only the new line. Message rows are capped (see `HYDRATION_MAX_CHAT_MESSAGES` in that file) to bound context size.
 
-While a process is running, the in-memory `Agent` remains the source of truth for new turns; disk is updated as each turn completes (`appendTurn`). Restart still **drops** any in-flight stream, but the next `getOrCreateSession` for an existing session **replays** persisted history from disk as above.
+While a process is running, the in-memory `Agent` remains the source of truth for new turns; **`var/brain-tenant.sqlite`** is updated as each turn completes (`appendTurn`). Restart still **drops** any in-flight stream, but the next `getOrCreateSession` for an existing session **replays** persisted history from SQLite as above.
 
 ## Chat history on disk
 
-Completed turns are stored as **JSON documents** under `$BRAIN_HOME/chats` (see `[shared/brain-layout.json](../../shared/brain-layout.json)`). Implementation: `[chatStorage.ts](../../src/server/lib/chatStorage.ts)`.
+Completed turns are stored in **`var/brain-tenant.sqlite`** per tenant (`files.tenantSqlite` in [`shared/brain-layout.json`](../../shared/brain-layout.json)). Implementation: [`chatStorage.ts`](../../src/server/lib/chat/chatStorage.ts) via [`tenantSqlite.ts`](../../src/server/lib/tenant/tenantSqlite.ts).
 
 - `GET /api/chat/sessions` — list  
-- `GET /api/chat/sessions/:sessionId` — full document  
-- `DELETE /api/chat/:sessionId` — remove file and evict in-memory agent
+- `GET /api/chat/sessions/:sessionId` — full document (messages as JSON-compatible rows)  
+- `DELETE /api/chat/:sessionId` — remove session (+ messages) and evict in-memory agent  
 
 Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
-### Architectural limitations (acceptable for now)
+### Architectural notes
 
-The session list is implemented by **reading `*.json` from the chats directory**, sorting filenames by embedded `createdAtMs` so the **newest sessions come first**, then returning list rows (title, timestamps, preview derived from message text). Optional `limit` on `GET /api/chat/sessions` is **capped at 500** at the HTTP layer; omitting `limit` means the handler asks storage for an **uncapped** list (still bounded by scanning every file on disk).
+The session list reads **`chat_sessions`** ordered by **`updated_at_ms`** (newest first). Optional `limit` on `GET /api/chat/sessions` is **capped at 500** at the HTTP layer. **FTS5** over titles/previews is a documented follow-on ([chat-history-sqlite.md](./chat-history-sqlite.md)).
 
-There is **no server-side search**, **pagination**, or **offset** in the API. The full history UI filters **in the browser** over whatever array the client requested (e.g. up to 500 for the “all chats” view). Sessions **older than the returned window** when a limit is applied are not visible to that client until the API and storage model grow beyond directory scan + JSON files.
+**Mail `notify`** items surface as **`notifications`** rows (mirrored from ripmail after refresh — see [OPP-102 stub](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)); **`GET/PATCH /api/notifications`** and agent tooling (`mark_notification`) cover list/read/dismiss.
 
-A move to **per-user / app-owned SQLite** at the Node layer (same pattern as ripmail’s mail index, but for brain-app data: chat history, preferences, nav recents) is detailed in [chat-history-sqlite.md](./chat-history-sqlite.md). The file-based design is acceptable at current scale; the schema is stable enough to migrate cleanly whenever prioritized.
+**Unifying** chat + mail into a single SQLite file is **[OPP-103](../opportunities/OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)** (ripmail TS port); until then, the mail index stays under **`ripmail/`**.
 
 ## SSE wire format (`POST /api/chat`)
 

@@ -77,6 +77,7 @@ const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }>
   get_message_thread: { key: 'getMessageThread', defaultValue: 'Conversation' },
   suggest_reply_options: { key: 'suggestReplyOptions', defaultValue: 'Quick Replies' },
   reject_question: { key: 'rejectQuestion', defaultValue: 'Decline question' },
+  mark_notification: { key: 'markNotification', defaultValue: 'Notification done' },
 }
 
 function humanizeToolName(name: string): string {

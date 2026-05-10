@@ -44,6 +44,7 @@ export const ALL_AGENT_TOOL_NAMES = [
   'search_messages',
   'suggest_reply_options',
   'ask_brain',
+  'mark_notification',
 ] as const
 
 export type AgentToolName = (typeof ALL_AGENT_TOOL_NAMES)[number]
@@ -65,6 +66,7 @@ export const TOOL_GROUPS = {
     'speak',
     'product_feedback',
     'suggest_reply_options',
+    'mark_notification',
   ] as const satisfies readonly AgentToolName[],
   skills: ['load_skill'] as const satisfies readonly AgentToolName[],
   localMessages: ['list_recent_messages', 'get_message_thread'] as const satisfies readonly AgentToolName[],
@@ -96,6 +98,7 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'load_skill',
   'suggest_reply_options',
   'ask_brain',
+  'mark_notification',
 ]
 
 /**
@@ -144,6 +147,7 @@ export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
   'load_skill',
   'product_feedback',
   'search_messages',
+  'mark_notification',
 ]
 
 /**

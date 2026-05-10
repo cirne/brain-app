@@ -37,6 +37,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'list_recent_messages',
   'get_message_thread',
   'suggest_reply_options',
+  'mark_notification',
 ] as const
 
 describe('getToolDefinitionCore', () => {
