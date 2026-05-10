@@ -54,7 +54,7 @@ Because the TS module runs in-process, **there is no CLI to port**. Arguments be
 | `who(query?, opts)` | limit, source |
 | `rules.*` | exactly the params in `buildInboxRulesCommand` (list, validate, show, add, edit, remove, move, feedback) |
 | `sources.*` | exactly the params in `buildSources*Command` (list, status, add localDir/googleDrive, edit, remove, browseFolders) |
-| `draft.new/reply/forward/edit/view` | to, messageId, instruction, withBody, source; edit recipient flags |
+| `draft.new/reply/forward/edit/view` | to, messageId, subject, body, source; `braintunnelCollaborator` for B2B subject normalization; edit: body replace + recipient flags |
 | `send(draftId, opts)` | dryRun |
 | `archive(messageIds[])` | — |
 | `status()` | — |

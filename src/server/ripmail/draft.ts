@@ -1,13 +1,13 @@
 /**
  * Draft lifecycle — new, reply, forward, edit, view.
- * Drafts are stored as Markdown+YAML files under <ripmail_home>/drafts/.
- * Phase 1: stub implementation (returns meaningful error until Phase 2 sync lands).
- * Phase 2 will implement full LLM compose + SMTP send.
+ * Drafts are stored as JSON under <ripmail_home>/drafts/.
+ * Callers supply final **subject** and **body**; there is no server-side compose LLM in this layer.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { ensureBraintunnelCollaboratorSubject } from '@shared/braintunnelMailMarker.js'
 import type { Draft } from './types.js'
 import type { RipmailDb } from './db.js'
 
@@ -36,32 +36,32 @@ function loadDraft(ripmailHome: string, draftId: string): Draft | null {
 
 export interface NewDraftOptions {
   to: string
-  /** Placeholder body text when `body` is omitted (agent / CLI LLM flows). */
-  instruction?: string
+  subject: string
+  body: string
+  /** When true, `[braintunnel]` prefix is ensured on subject (cross-workspace mail). */
+  braintunnelCollaborator?: boolean
   sourceId?: string
-  withBody?: boolean
-  /** In-process compose: explicit RFC-style fields instead of CLI LLM. */
-  subject?: string
-  body?: string
 }
 
 export interface ReplyDraftOptions {
   messageId: string
-  instruction: string
+  body: string
+  subject?: string
+  braintunnelCollaborator?: boolean
   sourceId?: string
-  withBody?: boolean
 }
 
 export interface ForwardDraftOptions {
   messageId: string
   to: string
-  instruction: string
+  body: string
+  subject?: string
+  braintunnelCollaborator?: boolean
   sourceId?: string
-  withBody?: boolean
 }
 
 export interface EditDraftOptions {
-  instruction?: string
+  body?: string
   subject?: string
   to?: string[]
   cc?: string[]
@@ -75,15 +75,16 @@ export interface EditDraftOptions {
 }
 
 /**
- * Create a new draft. Without explicit `subject`/`body`, uses placeholders from `instruction`.
+ * Create a new draft from explicit RFC-style fields.
  */
 export function draftNew(_db: RipmailDb, ripmailHome: string, opts: NewDraftOptions): Draft {
   const now = new Date().toISOString()
-  const instruction = opts.instruction ?? ''
+  const subject =
+    opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(opts.subject) : opts.subject
   const draft: Draft = {
     id: randomUUID(),
-    subject: opts.subject ?? '(draft — set subject via edit_draft)',
-    body: opts.body ?? `[Draft body — instruction: ${instruction}]`,
+    subject,
+    body: opts.body,
     to: [opts.to],
     sourceId: opts.sourceId,
     createdAt: now,
@@ -101,10 +102,14 @@ export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftO
     .prepare(`SELECT subject, from_address FROM messages WHERE message_id = ?`)
     .get(opts.messageId) as { subject: string; from_address: string } | undefined
   const now = new Date().toISOString()
+  const defaultSubject = original ? `Re: ${original.subject}` : 'Re: (unknown)'
+  const rawSubject = opts.subject ?? defaultSubject
+  const subject =
+    opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(rawSubject) : rawSubject
   const draft: Draft = {
     id: randomUUID(),
-    subject: original ? `Re: ${original.subject}` : 'Re: (unknown)',
-    body: `[Reply draft — instruction: ${opts.instruction}]`,
+    subject,
+    body: opts.body,
     to: original ? [original.from_address] : [],
     inReplyToMessageId: opts.messageId,
     sourceId: opts.sourceId,
@@ -123,10 +128,14 @@ export function draftForward(db: RipmailDb, ripmailHome: string, opts: ForwardDr
     .prepare(`SELECT subject FROM messages WHERE message_id = ?`)
     .get(opts.messageId) as { subject: string } | undefined
   const now = new Date().toISOString()
+  const defaultSubject = original ? `Fwd: ${original.subject}` : 'Fwd: (unknown)'
+  const rawSubject = opts.subject ?? defaultSubject
+  const subject =
+    opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(rawSubject) : rawSubject
   const draft: Draft = {
     id: randomUUID(),
-    subject: original ? `Fwd: ${original.subject}` : 'Fwd: (unknown)',
-    body: `[Forward draft — instruction: ${opts.instruction}]`,
+    subject,
+    body: opts.body,
     to: [opts.to],
     forwardMessageId: opts.messageId,
     sourceId: opts.sourceId,
@@ -166,7 +175,7 @@ export function draftEdit(ripmailHome: string, draftId: string, opts: EditDraftO
     to: applyRecipientEdits(draft.to, opts.to, opts.addTo, opts.removeTo),
     cc: applyRecipientEdits(draft.cc, opts.cc, opts.addCc, opts.removeCc),
     bcc: applyRecipientEdits(draft.bcc, opts.bcc, opts.addBcc, opts.removeBcc),
-    body: opts.instruction ? `[Edited — instruction: ${opts.instruction}]\n\n${draft.body}` : draft.body,
+    body: opts.body !== undefined ? opts.body : draft.body,
     updatedAt: now,
   }
   saveDraft(ripmailHome, updated)

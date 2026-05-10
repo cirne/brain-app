@@ -135,6 +135,29 @@ describe('notification presentation', () => {
     expect(row.kickoffUserMessage).not.toContain('bqg_')
   })
 
+  it('brain_query_question summary uses @handle and includes question in hints', () => {
+    const row = presentationForNotificationRow({
+      id: 'bq1',
+      sourceKind: 'brain_query_question',
+      payload: {
+        grantId: 'bqg_0123456789abcdef0123456789ab',
+        peerUserId: 'usr_asker00000000000001',
+        peerHandle: 'pat',
+        peerPrimaryEmail: 'pat@example.com',
+        question: 'What is the ETA?',
+        subject: 'What is the ETA?',
+      },
+    })
+    expect(row.summaryLine).toContain('@pat asked:')
+    expect(row.summaryLine).toContain('ETA')
+    expect(row.kickoffHints.grantId).toBe('bqg_0123456789abcdef0123456789ab')
+    expect(row.kickoffHints.peerHandle).toBe('pat')
+    expect(row.kickoffHints.peerPrimaryEmail).toBe('pat@example.com')
+    expect(row.kickoffHints.question).toBe('What is the ETA?')
+    expect(row.kickoffUserMessage).toContain('What is the ETA?')
+    expect(row.kickoffUserMessage).not.toContain('read_mail_message')
+  })
+
   it('brain_query_mail summary falls back to email when no handle', () => {
     const row = presentationForNotificationRow({
       id: 'bm2',

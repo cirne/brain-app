@@ -834,10 +834,29 @@
         if (!signal?.aborted) emptyChatNotificationsPayload = null
         return
       }
-      const rows = (await res.json()) as Array<{ id: string; sourceKind: string; payload: unknown }>
+      const rows = (await res.json()) as Array<{
+        id: string
+        sourceKind: string
+        payload: unknown
+        summaryLine?: string
+        kickoffUserMessage?: string
+        kickoffHints?: NotificationKickoffHints
+      }>
       if (signal?.aborted) return
       const mapped = rows.map((r) =>
-        presentationForNotificationRow({ id: r.id, sourceKind: r.sourceKind, payload: r.payload }),
+        r.summaryLine != null &&
+        r.kickoffUserMessage != null &&
+        r.kickoffHints != null &&
+        typeof r.summaryLine === 'string' &&
+        typeof r.kickoffUserMessage === 'string'
+          ? {
+              id: r.id,
+              sourceKind: r.sourceKind,
+              summaryLine: r.summaryLine,
+              kickoffUserMessage: r.kickoffUserMessage,
+              kickoffHints: r.kickoffHints,
+            }
+          : presentationForNotificationRow({ id: r.id, sourceKind: r.sourceKind, payload: r.payload }),
       )
       if (mapped.length === 0) {
         emptyChatNotificationsPayload = null
@@ -862,6 +881,8 @@
     }
   }
 
+  const EMPTY_CHAT_NOTIFICATIONS_POLL_MS = 20_000
+
   $effect(() => {
     const eligible =
       showEmptyChatNotifications === true && !hideInput && messages.length === 0 && !streaming
@@ -871,7 +892,18 @@
     }
     const ac = new AbortController()
     void refreshEmptyChatNotifications(ac.signal)
-    return () => ac.abort()
+    const pollId = setInterval(() => {
+      void refreshEmptyChatNotifications()
+    }, EMPTY_CHAT_NOTIFICATIONS_POLL_MS)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshEmptyChatNotifications()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearInterval(pollId)
+      document.removeEventListener('visibilitychange', onVisibility)
+      ac.abort()
+    }
   })
 
   /** Empty thread on `/api/chat` while onboarding-agent: assistant opens with merged bootstrap prompt. */

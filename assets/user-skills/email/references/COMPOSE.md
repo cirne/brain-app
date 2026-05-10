@@ -30,10 +30,11 @@ Prefer knowing **which `messageId`** applies before **`draft_email`** with `acti
 
 ## Phase 2 — **`draft_email`**
 
-- **`action=new`** — requires **`to`** + **`instruction`** (LLM drafts subject + body).
-- **`action=reply`** — requires **`message_id`** + **`instruction`**.
-- **`action=forward`** — requires **`message_id`**, **`to`**, and **`instruction`**.
+- **`action=new`** — requires **`to`**, **`subject`**, and **`body`** (final outbound text; there is no server-side compose step).
+- **`action=reply`** — requires **`message_id`** and **`body`**; **`subject`** optional (defaults to `Re:` the threaded subject).
+- **`action=forward`** — requires **`message_id`**, **`to`**, and **`body`**; **`subject`** optional (defaults to `Fwd:` the threaded subject).
 - **`from`** — optional; when multiple mailboxes exist, pass the sender email or ripmail **source id** the user names (e.g. “from work”).
+- **`b2b_query: true`** — Braintunnel collaborator mail; the server normalizes **`subject`** so the `[braintunnel]` marker appears after any `Re:` / `Fwd:` chain. **`grant_id`** is opaque routing context — do not put it in **`body`** unless the user asks.
 
 Do not repeat the generated body in your next turn; the UI already shows it.
 
@@ -43,7 +44,7 @@ Do not repeat the generated body in your next turn; the UI already shows it.
 
 Use **`draft_id`** plus:
 
-- **`instruction`** — LLM revises body/tone (and related fields per tool semantics).
+- **`body`** — replaces the entire draft body with final text when revising content.
 - Or structured fields — **`subject`**, **`to`/`cc`/`bcc`**, **`add_*` / `remove_*`** for recipients.
 
 Again: **no full-body paste** in chat unless requested.

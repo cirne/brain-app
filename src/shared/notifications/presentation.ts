@@ -29,6 +29,8 @@ export type NotificationKickoffHints = {
   actionRequired?: boolean
   /** Ask primary email when `peerHandle` is missing (`brain_query_mail`). */
   peerPrimaryEmail?: string
+  /** Full question text for in-app `brain_query_question` notifications (no mail message). */
+  question?: string
 }
 
 export type NotificationPresentation = {
@@ -74,6 +76,9 @@ function hintsFrom(input: NotificationPresentationInput): NotificationKickoffHin
   const peerPrimaryEmail = typeof p.peerPrimaryEmail === 'string' ? p.peerPrimaryEmail.trim() : ''
   if (peerPrimaryEmail) base.peerPrimaryEmail = peerPrimaryEmail
 
+  const questionRaw = typeof p.question === 'string' ? p.question.trim() : ''
+  if (questionRaw) base.question = questionRaw
+
   return base
 }
 
@@ -108,6 +113,31 @@ function brainQueryGrantReceivedPresentation(input: NotificationPresentationInpu
   const kickoffUserMessage = ownerHandle
     ? `**@${ownerHandle}** is sharing with you — you can ask them questions from chat, they answer from their workspace under the policy they set, and you'll get notified when there's a reply.`
     : `Someone is sharing with you — you can ask them questions from chat, they answer from their workspace under the policy they set, and you'll get notified when there's a reply.`
+  return {
+    id: input.id,
+    sourceKind: input.sourceKind,
+    summaryLine,
+    kickoffUserMessage,
+    kickoffHints: hintsFrom(input),
+  }
+}
+
+function brainQueryQuestionPresentation(input: NotificationPresentationInput): NotificationPresentation {
+  const p = input.payload && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
+  const handle = typeof p.peerHandle === 'string' ? p.peerHandle.trim().replace(/^@/, '') : ''
+  const email = typeof p.peerPrimaryEmail === 'string' ? p.peerPrimaryEmail.trim() : ''
+  const atLabel = handle ? `@${handle}` : email || 'Collaborator'
+  const subject =
+    typeof p.subject === 'string' && p.subject.trim()
+      ? p.subject.trim()
+      : typeof p.question === 'string' && p.question.trim()
+        ? truncateOneLine(p.question.trim(), SUMMARY_MAX_CHARS)
+        : '(question)'
+  const summaryLine = truncateOneLine(`${atLabel} asked: ${subject}`, SUMMARY_MAX_CHARS)
+  const kickoffUserMessage =
+    atLabel === 'Collaborator'
+      ? `Someone asked you a question — help them with an answer. Question: ${JSON.stringify(typeof p.question === 'string' ? p.question.trim() : '')}`
+      : `**${atLabel}** asked you a question — help them with an answer. Question: ${JSON.stringify(typeof p.question === 'string' ? p.question.trim() : '')}`
   return {
     id: input.id,
     sourceKind: input.sourceKind,
@@ -160,6 +190,9 @@ export function presentationForNotificationRow(input: NotificationPresentationIn
   }
   if (input.sourceKind === 'brain_query_grant_received') {
     return brainQueryGrantReceivedPresentation(input)
+  }
+  if (input.sourceKind === 'brain_query_question') {
+    return brainQueryQuestionPresentation(input)
   }
   if (input.sourceKind === 'brain_query_mail') {
     return brainQueryMailPresentation(input)

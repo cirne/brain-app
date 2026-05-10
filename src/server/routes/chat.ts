@@ -31,6 +31,7 @@ import {
 } from '@server/lib/llm/slashSkill.js'
 import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPrompt.js'
 import {
+  enrichNotificationKickoffFromDb,
   mergeNotificationKickoffPromptMessages,
   parseNotificationKickoffFromBody,
 } from '@server/lib/llm/notificationKickoffPrompt.js'
@@ -144,6 +145,9 @@ chat.post('/', async (c) => {
     } catch {
       /* ignore */
     }
+  }
+  if (notificationKickoff) {
+    notificationKickoff = enrichNotificationKickoffFromDb(notificationKickoff)
   }
 
   let mailCoverageCaveat: string | undefined

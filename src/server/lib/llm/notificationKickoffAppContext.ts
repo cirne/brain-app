@@ -29,9 +29,9 @@ function brainQueryGrantReceivedAppContext(h: NotificationKickoffHints): string 
     '',
     ...meta,
     '',
-    `**Interaction:** Welcome the connection in plain language (no transport or implementation detail unless they ask). When they want to **send a question** to ${peer ? `**@${peer}**` : 'the sharer'}, use **ask_collaborator** with \`grant_id\` and their question — it composes and **sends immediately** (no separate draft approval step). After a successful send, confirm briefly and set the expectation that they will get a notification when the other person responds.`,
+    `**Interaction:** Welcome the connection in plain language (no transport or implementation detail unless they ask). When they want to **send a question** to ${peer ? `**@${peer}**` : 'the sharer'}, use **ask_collaborator** with their question and **either** \`grant_id\` from above **or** \`peer_handle\` (\`${peer ? `@${peer}` : '@their-handle'}\`) — the server resolves the grant at send time, including on later turns without kickoff metadata. It **delivers immediately** as an in-app notification on their workspace (no separate draft approval step). After success, confirm briefly; they will get notified when the other person responds (by mail).`,
     '',
-    '**If** they say they never get alerts for messages from this connection, you may help them add or verify an **inbox_rules** rule (subject matches `[braintunnel]`, action **notify**). Do not lead with that.',
+    '**If** they rely on email for those replies and say alerts never arrive, you may help them add or verify an **inbox_rules** rule (subject matches `[braintunnel]`, action **notify**). Do not lead with that.',
     '',
     'Do **not** default to telling them to open **Settings**—only mention review/revoke there if they ask about managing access.',
     ...completionSuffix(),
@@ -67,7 +67,45 @@ function brainQueryMailAppContext(h: NotificationKickoffHints): string {
     ...meta,
     policyBlock,
     '',
-    '**Interaction:** Use **read_mail_message** with the message id above. Summarize what they are being asked in plain language. To **draft a reply**, use **draft_email** with **action=reply**, **b2b_query: true**, and **grant_id** when you have it so the thread stays on the collaborator path. Respect the grant policy. Use **send_draft** only after the user has seen the draft and wants it sent (human-in-the-loop).',
+    '**Interaction:** Use **read_mail_message** with the message id above. Summarize what they are being asked in plain language. To **draft a reply**, use **draft_email** with **action=reply**, **body** as the final reply text, **subject** if you want to override the default Re: line, **b2b_query: true**, and **grant_id** when you have it (the server ensures the `[braintunnel]` subject prefix when it is missing). Respect the grant policy. Use **send_draft** only after the user has seen the draft and wants it sent (human-in-the-loop).',
+    ...completionSuffix(),
+    '',
+    'Use normal assistant tools as needed.',
+  ].join('\n')
+}
+
+function brainQueryQuestionAppContext(h: NotificationKickoffHints): string {
+  const meta = [...routingBullets(h)]
+  if (h.grantId) meta.push(`- grant_id (opaque): \`${h.grantId}\``)
+  if (h.peerHandle) meta.push(`- peer_handle: @${h.peerHandle}`)
+  if (h.peerUserId) meta.push(`- peer_user_id (opaque): \`${h.peerUserId}\``)
+  if (h.peerPrimaryEmail) meta.push(`- peer_primary_email (reply **to**): ${JSON.stringify(h.peerPrimaryEmail)}`)
+  const q = h.question?.trim() ?? ''
+  const questionBlock =
+    q.length > 0
+      ? ['', '**Question (in-app; there is no mail message id to read):**', q].join('\n')
+      : ''
+
+  const grant = h.grantId?.trim() ? getBrainQueryGrantById(h.grantId.trim()) : null
+  const policyBlock =
+    grant && grant.privacy_policy.trim().length > 0
+      ? [
+          '',
+          '**Grant policy (instructions for drafting a reply; not a cryptographic guarantee):**',
+          grant.privacy_policy.trim(),
+        ].join('\n')
+      : ''
+
+  return [
+    APP_QUEUE_HEADER,
+    '',
+    'The user opened a notification: someone they have a **shared-brain** connection with asked them a question via **in-app notification** (not an inbound email).',
+    '',
+    ...meta,
+    questionBlock,
+    policyBlock,
+    '',
+    '**Interaction:** The question text is above; summarize it in plain language if useful. To **draft a reply**, use **draft_email** with **action=new**, **to** set exactly to `peer_primary_email`, **subject** and **body** as the final mail the recipient will read (not meta-instructions — there is no separate compose step), **b2b_query: true**, and **grant_id** for routing (the server ensures the `[braintunnel]` subject prefix when it is missing). Use **send_draft** only after the user has seen the draft and wants it sent (human-in-the-loop).',
     ...completionSuffix(),
     '',
     'Use normal assistant tools as needed.',
@@ -120,6 +158,7 @@ type AppContextBuilder = (h: NotificationKickoffHints) => string
 const NOTIFICATION_APP_CONTEXT_BY_KIND: Record<string, AppContextBuilder> = {
   brain_query_grant_received: brainQueryGrantReceivedAppContext,
   brain_query_mail: brainQueryMailAppContext,
+  brain_query_question: brainQueryQuestionAppContext,
 }
 
 export function notificationKickoffAppContextText(h: NotificationKickoffHints): string {

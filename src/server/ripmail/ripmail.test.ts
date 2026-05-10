@@ -469,7 +469,11 @@ describe('draft', () => {
   })
 
   it('creates and views a draft', () => {
-    const d = draftNew(db, tmpHome, { to: 'bob@example.com', instruction: 'Ask about the project' })
+    const d = draftNew(db, tmpHome, {
+      to: 'bob@example.com',
+      subject: 'Quick question',
+      body: 'Ask about the project.',
+    })
     expect(d.id).toBeTruthy()
     const viewed = draftView(tmpHome, d.id)
     expect(viewed?.id).toBe(d.id)
@@ -477,10 +481,20 @@ describe('draft', () => {
   })
 
   it('edits subject and recipient', () => {
-    const d = draftNew(db, tmpHome, { to: 'bob@example.com', instruction: 'Say hello' })
+    const d = draftNew(db, tmpHome, { to: 'bob@example.com', subject: 'Hi', body: 'Say hello.' })
     const edited = draftEdit(tmpHome, d.id, { subject: 'Custom subject', addCc: ['cc@example.com'] })
     expect(edited.subject).toBe('Custom subject')
     expect(edited.cc).toContain('cc@example.com')
+  })
+
+  it('ensures Braintunnel subject marker when braintunnelCollaborator is true', () => {
+    const d = draftNew(db, tmpHome, {
+      to: 'bob@example.com',
+      subject: 'Update',
+      body: 'Hi',
+      braintunnelCollaborator: true,
+    })
+    expect(d.subject).toBe('[braintunnel] Update')
   })
 })
 

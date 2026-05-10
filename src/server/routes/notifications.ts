@@ -6,6 +6,7 @@ import {
   patchNotificationState,
   type NotificationState,
 } from '@server/lib/notifications/notificationsRepo.js'
+import { presentationForNotificationRow } from '@shared/notifications/presentation.js'
 
 const app = new Hono()
 
@@ -25,7 +26,20 @@ app.get('/', (c: Context) => {
     if (Number.isFinite(n) && n > 0) limit = n
   }
   const items = listNotifications({ state, limit })
-  return c.json(items)
+  const enriched = items.map((row) => {
+    const pres = presentationForNotificationRow({
+      id: row.id,
+      sourceKind: row.sourceKind,
+      payload: row.payload,
+    })
+    return {
+      ...row,
+      summaryLine: pres.summaryLine,
+      kickoffUserMessage: pres.kickoffUserMessage,
+      kickoffHints: pres.kickoffHints,
+    }
+  })
+  return c.json(enriched)
 })
 
 /** POST /api/notifications — body: { sourceKind, payload, state?, idempotencyKey?, id? } */

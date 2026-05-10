@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { extractDraftEdits } from '@server/lib/llm/draftExtract.js'
-import { buildDraftEditFlags } from '../agent/tools.js'
+import type { DraftEditExtraction } from '@server/lib/llm/draftExtract.js'
+import { rewriteDraftBody } from '@server/lib/llm/draftBodyRewrite.js'
 import { syncInboxRipmail, syncInboxRipmailOnboarding } from '@server/lib/platform/syncAll.js'
 import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
 import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
@@ -18,8 +19,24 @@ import {
   ripmailReadMail,
   ripmailArchive,
 } from '@server/ripmail/index.js'
+import type { EditDraftOptions } from '@server/ripmail/draft.js'
 
 const inbox = new Hono()
+
+function extractionToRipmailEdit(extracted: DraftEditExtraction): EditDraftOptions {
+  const o: EditDraftOptions = {}
+  if (extracted.subject !== undefined) o.subject = extracted.subject
+  if (extracted.to !== undefined) o.to = extracted.to
+  if (extracted.cc !== undefined) o.cc = extracted.cc
+  if (extracted.bcc !== undefined) o.bcc = extracted.bcc
+  if (extracted.add_to?.length) o.addTo = extracted.add_to
+  if (extracted.add_cc?.length) o.addCc = extracted.add_cc
+  if (extracted.add_bcc?.length) o.addBcc = extracted.add_bcc
+  if (extracted.remove_to?.length) o.removeTo = extracted.remove_to
+  if (extracted.remove_cc?.length) o.removeCc = extracted.remove_cc
+  if (extracted.remove_bcc?.length) o.removeBcc = extracted.remove_bcc
+  return o
+}
 
 function normalizeRecipients(label: string, v: unknown): string[] | undefined {
   if (v === undefined || v === null) return undefined
@@ -134,6 +151,7 @@ inbox.patch('/draft/:draftId', async (c) => {
   }
   try {
     const draft = ripmailDraftEdit(ripmailHomeForBrain(), draftId, {
+      body: rec.body,
       subject: subjectArg,
       to: toArg,
       cc: ccArg,
@@ -145,25 +163,43 @@ inbox.patch('/draft/:draftId', async (c) => {
   }
 })
 
-// POST /api/inbox/draft/:draftId/edit — refine draft with LLM
+// POST /api/inbox/draft/:draftId/edit — structured extraction + optional body rewrite (LLM)
 inbox.post('/draft/:draftId/edit', async (c) => {
   const draftId = c.req.param('draftId')
-  const { instruction } = await c.req.json()
+  let raw: unknown
   try {
+    raw = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid json' }, 400)
+  }
+  const instruction =
+    raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).instruction === 'string'
+      ? (raw as Record<string, string>).instruction
+      : ''
+  const home = ripmailHomeForBrain()
+  try {
+    const current = ripmailDraftView(home, draftId)
+    if (!current) return c.json({ error: 'Draft not found' }, 404)
+
     const extracted = await extractDraftEdits(instruction)
-    const flags = buildDraftEditFlags(extracted)
-    // Build edit options from extracted flags string
-    const addCc = flags.includes('--add-cc') ? [] : undefined
-    const removeCc = flags.includes('--remove-cc') ? [] : undefined
-    const draft = ripmailDraftEdit(ripmailHomeForBrain(), draftId, {
-      instruction: extracted.body_instruction ?? '',
-      subject: extracted.subject ?? undefined,
-      addCc,
-      removeCc,
-    })
-    const viewed = ripmailDraftView(ripmailHomeForBrain(), draftId)
-    return c.json(viewed ?? draft)
+    const opts = extractionToRipmailEdit(extracted)
+    const bodyInstr = extracted.body_instruction?.trim()
+    if (bodyInstr) {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        return c.json({ error: 'draft_body_rewrite_requires_llm' }, 503)
+      }
+      opts.body = await rewriteDraftBody(current.body, bodyInstr)
+    }
+
+    if (Object.keys(opts).length === 0) {
+      return c.json(current)
+    }
+
+    ripmailDraftEdit(home, draftId, opts)
+    const viewed = ripmailDraftView(home, draftId)
+    return c.json(viewed ?? current)
   } catch (err) {
+    brainLogger.error({ err }, '[inbox] draft refine failed')
     return c.json({ error: String(err) }, 500)
   }
 })
@@ -197,9 +233,31 @@ inbox.get('/:id', async (c) => {
 // POST /api/inbox/:id/reply — create reply draft
 inbox.post('/:id/reply', async (c) => {
   const id = c.req.param('id')
-  const { instruction } = await c.req.json()
+  let parsed: unknown
   try {
-    const draft = await ripmailDraftReply(ripmailHomeForBrain(), { messageId: id, instruction })
+    parsed = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid json' }, 400)
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return c.json({ error: 'expected JSON object' }, 400)
+  }
+  const rec = parsed as Record<string, unknown>
+  if (typeof rec.body !== 'string' || !rec.body.trim()) {
+    return c.json({ error: 'body must be a non-empty string' }, 400)
+  }
+  let subjectArg: string | undefined
+  try {
+    subjectArg = optionalSubject(rec.subject)
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 400)
+  }
+  try {
+    const draft = await ripmailDraftReply(ripmailHomeForBrain(), {
+      messageId: id,
+      body: rec.body.trim(),
+      subject: subjectArg,
+    })
     return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
@@ -209,9 +267,35 @@ inbox.post('/:id/reply', async (c) => {
 // POST /api/inbox/:id/forward — create forward draft
 inbox.post('/:id/forward', async (c) => {
   const id = c.req.param('id')
-  const { to, instruction } = await c.req.json()
+  let parsed: unknown
   try {
-    const draft = await ripmailDraftForward(ripmailHomeForBrain(), { messageId: id, to, instruction })
+    parsed = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid json' }, 400)
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return c.json({ error: 'expected JSON object' }, 400)
+  }
+  const rec = parsed as Record<string, unknown>
+  if (typeof rec.body !== 'string' || !rec.body.trim()) {
+    return c.json({ error: 'body must be a non-empty string' }, 400)
+  }
+  if (typeof rec.to !== 'string' || !rec.to.trim()) {
+    return c.json({ error: 'to must be a non-empty string' }, 400)
+  }
+  let subjectArg: string | undefined
+  try {
+    subjectArg = optionalSubject(rec.subject)
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 400)
+  }
+  try {
+    const draft = await ripmailDraftForward(ripmailHomeForBrain(), {
+      messageId: id,
+      to: rec.to.trim(),
+      body: rec.body.trim(),
+      subject: subjectArg,
+    })
     return c.json(draft)
   } catch (err) {
     return c.json({ error: String(err) }, 500)

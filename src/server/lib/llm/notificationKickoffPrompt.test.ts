@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
+  enrichNotificationKickoffFromDb,
   mergeNotificationKickoffPromptMessages,
   notificationKickoffAppContextText,
   parseNotificationKickoffFromBody,
 } from './notificationKickoffPrompt.js'
 import * as brainQueryGrantsRepo from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import * as notificationsRepo from '@server/lib/notifications/notificationsRepo.js'
 
 describe('notificationKickoffPrompt', () => {
   it('parseNotificationKickoffFromBody extracts hints', () => {
@@ -83,6 +85,64 @@ describe('notificationKickoffPrompt', () => {
     })
   })
 
+  it('parseNotificationKickoffFromBody extracts question', () => {
+    expect(
+      parseNotificationKickoffFromBody({
+        notificationKickoff: {
+          notificationId: 'n',
+          sourceKind: 'brain_query_question',
+          question: '  What is the status?  ',
+        },
+      }),
+    ).toEqual({
+      notificationId: 'n',
+      sourceKind: 'brain_query_question',
+      question: 'What is the status?',
+    })
+  })
+
+  it('enrichNotificationKickoffFromDb loads brain_query_question from tenant row', () => {
+    const spy = vi.spyOn(notificationsRepo, 'getNotificationById').mockReturnValue({
+      id: 'n-db',
+      sourceKind: 'brain_query_question',
+      payload: {
+        grantId: 'bqg_0123456789abcdef01234567',
+        peerUserId: 'usr_a',
+        peerHandle: 'pat',
+        peerPrimaryEmail: 'pat@example.com',
+        question: 'What is the ETA for the release?',
+        subject: 'What is the ETA for the release?',
+      },
+      state: 'unread',
+      idempotencyKey: null,
+      createdAtMs: 1,
+      updatedAtMs: 1,
+    })
+    try {
+      const h = enrichNotificationKickoffFromDb({
+        notificationId: 'n-db',
+        sourceKind: 'brain_query_question',
+      })
+      expect(h.question).toBe('What is the ETA for the release?')
+      expect(h.grantId).toBe('bqg_0123456789abcdef01234567')
+      expect(h.peerPrimaryEmail).toBe('pat@example.com')
+      expect(h.peerHandle).toBe('pat')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('enrichNotificationKickoffFromDb is a no-op for other kinds', () => {
+    const spy = vi.spyOn(notificationsRepo, 'getNotificationById')
+    try {
+      const h = { notificationId: 'n1', sourceKind: 'mail_notify' as const, messageId: 'm1' }
+      expect(enrichNotificationKickoffFromDb(h)).toEqual(h)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('notificationKickoffAppContextText for brain_query_grant_received steers to ask_collaborator', () => {
     const t = notificationKickoffAppContextText({
       notificationId: 'n1',
@@ -99,6 +159,38 @@ describe('notificationKickoffPrompt', () => {
     expect(t).toContain('Do **not** default')
     expect(t).not.toContain('Settings → Sharing')
     expect(t).not.toContain('trusted confidant')
+  })
+
+  it('notificationKickoffAppContextText for brain_query_question uses draft_email new not read_mail', () => {
+    const spy = vi.spyOn(brainQueryGrantsRepo, 'getBrainQueryGrantById').mockReturnValue({
+      id: 'bqg_0123456789abcdef01234567',
+      owner_id: 'usr_o',
+      asker_id: 'usr_a',
+      privacy_policy: 'Replies: facts only.',
+      created_at_ms: 0,
+      updated_at_ms: 0,
+      revoked_at_ms: null,
+    })
+    try {
+      const t = notificationKickoffAppContextText({
+        notificationId: 'n1',
+        sourceKind: 'brain_query_question',
+        grantId: 'bqg_0123456789abcdef01234567',
+        peerPrimaryEmail: 'asker@example.com',
+        peerHandle: 'pat',
+        question: 'Ship date for Q2?',
+      })
+      expect(t).toContain('in-app notification')
+      expect(t).toContain('Ship date for Q2?')
+      expect(t).toContain('action=new')
+      expect(t).toContain('b2b_query')
+      expect(t).toContain('send_draft')
+      expect(t).toContain('Grant policy')
+      expect(t).toContain('facts only')
+      expect(t).not.toContain('read_mail_message')
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('notificationKickoffAppContextText for brain_query_mail routes to mail tools', () => {

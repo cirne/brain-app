@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   BRAINTUNNEL_MAIL_SUBJECT_PREFIX,
   assertOptionalBrainQueryGrantId,
-  buildB2bDraftEmailInstruction,
   displaySubjectWithoutBraintunnelMarker,
+  ensureBraintunnelCollaboratorSubject,
   isBraintunnelMailSubject,
   normalizeSubjectForBraintunnelDetection,
 } from './braintunnelMailMarker.js'
@@ -27,12 +27,12 @@ describe('braintunnelMailMarker', () => {
     expect(displaySubjectWithoutBraintunnelMarker('[braintunnel] only')).toBe('only')
   })
 
-  it('buildB2bDraftEmailInstruction prepends subject rule and optional grant note', () => {
-    const out = buildB2bDraftEmailInstruction('Ask about the timeline.', 'bqg_0123456789abcdef01234567')
-    expect(out).toContain(BRAINTUNNEL_MAIL_SUBJECT_PREFIX)
-    expect(out).toContain('Ask about the timeline.')
-    expect(out).toContain('bqg_0123456789abcdef01234567')
-    expect(out).toContain('(Assistant-only grant id')
+  it('ensureBraintunnelCollaboratorSubject prepends marker and preserves Re: chain', () => {
+    expect(ensureBraintunnelCollaboratorSubject('Status update')).toBe('[braintunnel] Status update')
+    expect(ensureBraintunnelCollaboratorSubject('Re: Status')).toBe(`Re: ${BRAINTUNNEL_MAIL_SUBJECT_PREFIX} Status`)
+    expect(ensureBraintunnelCollaboratorSubject('Re: [braintunnel] Already')).toBe('Re: [braintunnel] Already')
+    expect(ensureBraintunnelCollaboratorSubject('')).toBe(BRAINTUNNEL_MAIL_SUBJECT_PREFIX)
+    expect(ensureBraintunnelCollaboratorSubject('   ')).toBe(BRAINTUNNEL_MAIL_SUBJECT_PREFIX)
   })
 
   it('assertOptionalBrainQueryGrantId rejects bad ids', () => {

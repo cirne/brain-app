@@ -123,7 +123,7 @@
 
   let composeMode = $state<'reply' | 'forward' | null>(null)
   let composeEmailId = $state<string | null>(null)
-  let composeInstruction = $state('')
+  let composeBody = $state('')
   let composeTo = $state('')
   let composing = $state(false)
   let composeError = $state<string | null>(null)
@@ -402,7 +402,7 @@
   function startCompose(action: 'reply' | 'forward', email: Email) {
     composeMode = action
     composeEmailId = email.id
-    composeInstruction = ''
+    composeBody = ''
     composeTo = ''
     composeError = null
     if (action === 'forward') loadContacts()
@@ -414,7 +414,7 @@
     if (!id) return
     composeMode = action
     composeEmailId = id
-    composeInstruction = ''
+    composeBody = ''
     composeTo = ''
     composeError = null
     if (action === 'forward') loadContacts()
@@ -439,13 +439,13 @@
   }
 
   async function createDraft() {
-    if (!composeMode || !composeEmailId || !composeInstruction.trim()) return
+    if (!composeMode || !composeEmailId || !composeBody.trim()) return
     if (composeMode === 'forward' && !composeTo.trim()) return
     composing = true
     composeError = null
     try {
       const url = `/api/inbox/${encodeURIComponent(composeEmailId)}/${composeMode}`
-      const body: Record<string, string> = { instruction: composeInstruction }
+      const body: Record<string, string> = { body: composeBody }
       if (composeMode === 'forward') body.to = composeTo.trim()
       const res = await fetch(url, {
         method: 'POST',
@@ -637,10 +637,10 @@
 
           <textarea
             class="compose-textarea min-h-[100px] flex-1 resize-y border border-border bg-surface-3 p-2.5 text-[13px] leading-normal text-foreground [font-family:inherit] focus:border-accent focus:outline-none"
-            bind:value={composeInstruction}
+            bind:value={composeBody}
             placeholder={composeMode === 'reply'
-              ? $t('inbox.inboxPanel.compose.replyInstructionPlaceholder')
-              : $t('inbox.inboxPanel.compose.forwardInstructionPlaceholder')}
+              ? $t('inbox.inboxPanel.compose.replyBodyPlaceholder')
+              : $t('inbox.inboxPanel.compose.forwardBodyPlaceholder')}
             onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) createDraft() }}
           ></textarea>
 
@@ -653,7 +653,7 @@
             <button
               class="draft-btn border border-accent-dim px-3.5 py-1.5 text-[13px] text-accent disabled:cursor-default disabled:opacity-50"
               onclick={createDraft}
-              disabled={composing || !composeInstruction.trim() || (composeMode === 'forward' && !composeTo.trim())}
+              disabled={composing || !composeBody.trim() || (composeMode === 'forward' && !composeTo.trim())}
             >
               {composing
                 ? $t('inbox.inboxPanel.compose.drafting')

@@ -177,8 +177,8 @@
     },
     "compose": {
       "forwardRecipientPlaceholder": "recipient@example.com",
-      "replyInstructionPlaceholder": "Brief instructions for the reply...",
-      "forwardInstructionPlaceholder": "Brief instructions for the forward...",
+      "replyBodyPlaceholder": "Write the reply text (this is saved as your draft)...",
+      "forwardBodyPlaceholder": "Write what to include with the forwarded message...",
       "drafting": "Drafting...",
       "draft": "Draft",
       "errors": {

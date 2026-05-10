@@ -1,68 +1,125 @@
 import { defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
+import { assertOptionalBrainQueryGrantId } from '@shared/braintunnelMailMarker.js'
 import {
-  assertOptionalBrainQueryGrantId,
-  BRAINTUNNEL_MAIL_SUBJECT_PREFIX,
-} from '@shared/braintunnelMailMarker.js'
-import { getBrainQueryGrantById } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
-import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryRun.js'
-import { RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailTimeouts.js'
-import { resolveRipmailSourceForCli } from '@server/lib/ripmail/ripmailSourceResolve.js'
+  getActiveBrainQueryGrant,
+  getBrainQueryGrantById,
+} from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
+import { readHandleMeta, isValidUserId } from '@server/lib/tenant/handleMeta.js'
+import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
-import { getPrimaryEmailForUserId } from '@server/lib/tenant/workspaceHandleDirectory.js'
-import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
-import { ripmailDraftNew, ripmailSend } from '@server/ripmail/index.js'
+import {
+  getPrimaryEmailForUserId,
+  resolveConfirmedHandle,
+} from '@server/lib/tenant/workspaceHandleDirectory.js'
+import {
+  InvalidWorkspaceHandleError,
+  parseWorkspaceHandle,
+} from '@server/lib/tenant/workspaceHandle.js'
 
-function b2bSubjectFromQuestion(question: string): string {
+function summarySubjectFromQuestion(question: string): string {
   const oneLine = question.trim().replace(/\s+/g, ' ')
   const max = 100
-  if (oneLine.length <= max) return `${BRAINTUNNEL_MAIL_SUBJECT_PREFIX} ${oneLine}`
-  return `${BRAINTUNNEL_MAIL_SUBJECT_PREFIX} ${oneLine.slice(0, max)}…`
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>
-  const deadline = new Promise<never>((_, rej) => {
-    timer = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)
-  })
-  return Promise.race([p, deadline]).finally(() => clearTimeout(timer)) as Promise<T>
+  if (oneLine.length <= max) return oneLine
+  return `${oneLine.slice(0, max)}…`
 }
 
 /**
- * Grant-scoped outbound question: in-process draft (B2B subject) + immediate send.
- * Only for tenants who are the **asker** on the grant.
+ * Grant-scoped outbound question: inserts a notification on the grant owner's tenant (no outbound mail).
+ * Only for tenants who are the **asker** on the grant. Replies still go through collaborator mail from the owner.
  */
 export function createAskCollaboratorTool() {
   return defineTool({
     name: 'ask_collaborator',
     label: 'Ask Brain',
     description:
-      'Ask Brain: send a question to someone who **shared their workspace with you** (you are the grant asker). Composes mail with the correct collaborator subject line and **sends immediately** — no separate draft review step. When the user **@mentions** a handle and wants to **ask or message** that person through Braintunnel, use this tool — not **draft_email**. After success, reply briefly (e.g. question sent; they will get a notification when the other person responds).',
+      'Ask Brain: send a question to someone who **shared their workspace with you** (you are the grant asker). Delivers immediately as an **in-app notification** on their Braintunnel workspace — no email for the question. When the user **@mentions** a handle and wants to **ask or message** that person through Braintunnel, use this tool — not **draft_email**. Pass **either** `grant_id` (`bqg_…`) **or** `peer_handle` (`@their-name`) — the server resolves the active grant at send time so you do not need kickoff context on follow-up turns. After success, reply briefly (they will see the notification; you will get a notification when they respond by email).',
     parameters: Type.Object({
-      grant_id: Type.String({
-        description: 'Brain-query grant id (`bqg_…`) where the current user is the asker.',
-      }),
-      question: Type.String({
-        description: 'Natural-language question or message for the other workspace; the tool turns it into a concise email body.',
-      }),
-      from: Type.Optional(
+      grant_id: Type.Optional(
         Type.String({
           description:
-            'Optional sender mailbox (email or ripmail source id), same as **draft_email**; omit for workspace default.',
+            'Brain-query grant id (`bqg_…`) where the current user is the asker. Omit when passing peer_handle or peer_user_id.',
         }),
       ),
+      peer_handle: Type.Optional(
+        Type.String({
+          description:
+            'Their confirmed workspace handle (`cirne` or `@cirne`). Use when the user @mentions who to ask and grant_id is unknown.',
+        }),
+      ),
+      peer_user_id: Type.Optional(
+        Type.String({
+          description:
+            'Opaque collaborator tenant id (`usr_…`) when known; otherwise prefer peer_handle. Must have an active grant from them to this workspace.',
+        }),
+      ),
+      question: Type.String({
+        description: 'Natural-language question or message for the other workspace.',
+      }),
     }),
     async execute(
       _toolCallId: string,
-      params: { grant_id: string; question: string; from?: string },
+      params: { grant_id?: string; peer_handle?: string; peer_user_id?: string; question: string },
     ) {
       const ctx = tryGetTenantContext()
       if (!ctx?.tenantUserId?.trim()) {
         throw new Error('ask_collaborator requires an authenticated workspace session.')
       }
       const tenantId = ctx.tenantUserId.trim()
-      assertOptionalBrainQueryGrantId(params.grant_id)
-      const grant = getBrainQueryGrantById(params.grant_id.trim())
+
+      const resolveGrant = async (): Promise<ReturnType<typeof getBrainQueryGrantById>> => {
+        const gid = params.grant_id?.trim()
+        if (gid) {
+          assertOptionalBrainQueryGrantId(gid)
+          return getBrainQueryGrantById(gid)
+        }
+        const peerUid = params.peer_user_id?.trim()
+        if (peerUid) {
+          if (!isValidUserId(peerUid)) {
+            throw new Error('peer_user_id must be a valid workspace tenant id (usr_…).')
+          }
+          if (peerUid === tenantId) {
+            throw new Error('Cannot send an Ask Brain question to your own workspace.')
+          }
+          const g = getActiveBrainQueryGrant({ ownerId: peerUid, askerId: tenantId })
+          if (!g) {
+            throw new Error(
+              'No active Ask Brain connection from that workspace to yours — they may need to grant access again.',
+            )
+          }
+          return g
+        }
+        const rawHandle = params.peer_handle?.trim()
+        if (!rawHandle) {
+          throw new Error(
+            'Provide grant_id, peer_handle (@their workspace name), or peer_user_id so Ask Brain knows whom to reach.',
+          )
+        }
+        let normalized: string
+        try {
+          normalized = parseWorkspaceHandle(rawHandle)
+        } catch (e) {
+          const msg = e instanceof InvalidWorkspaceHandleError ? e.message : 'Invalid peer_handle.'
+          throw new Error(msg, { cause: e })
+        }
+        const entry = await resolveConfirmedHandle({
+          handle: normalized,
+          excludeUserId: tenantId,
+        })
+        if (!entry) {
+          throw new Error(`No Braintunnel user @${normalized} (confirmed handle).`)
+        }
+        const g = getActiveBrainQueryGrant({ ownerId: entry.userId, askerId: tenantId })
+        if (!g) {
+          throw new Error(
+            `@${entry.handle} has not granted this workspace Ask Brain access (or it was revoked).`,
+          )
+        }
+        return g
+      }
+
+      const grant = await resolveGrant()
       if (!grant) {
         throw new Error('Grant not found.')
       }
@@ -72,37 +129,44 @@ export function createAskCollaboratorTool() {
       if (grant.asker_id !== tenantId) {
         throw new Error('This grant is not yours to send from (wrong workspace).')
       }
-      const to = await getPrimaryEmailForUserId(grant.owner_id)
-      if (!to?.trim()) {
-        throw new Error('The other workspace has no linked mailbox yet; they need to connect mail before you can reach them.')
+      const peerPrimaryEmail = await getPrimaryEmailForUserId(grant.asker_id)
+      if (!peerPrimaryEmail?.trim()) {
+        throw new Error(
+          'Your workspace has no primary mailbox on file; connect mail so your collaborator can reply by email.',
+        )
       }
-      const home = ripmailHomeForBrain()
-      const resolvedFrom = await resolveRipmailSourceForCli(params.from)
-      const subject = b2bSubjectFromQuestion(params.question)
-      const body = params.question.trim()
-      const draft = await ripmailDraftNew(home, {
-        to: to.trim(),
-        sourceId: resolvedFrom?.trim() || undefined,
+      const question = params.question.trim()
+      const subject = summarySubjectFromQuestion(question)
+      const askerHome = tenantHomeDir(tenantId)
+      const askerMeta = await readHandleMeta(askerHome)
+      const payload: Record<string, unknown> = {
+        grantId: grant.id,
+        peerUserId: tenantId,
+        peerPrimaryEmail: peerPrimaryEmail.trim(),
+        question,
         subject,
-        body,
-      })
-      const dry = isEvalRipmailSendDryRun()
-      await withTimeout(
-        ripmailSend(home, draft.id, { dryRun: dry }),
-        RIPMAIL_SEND_TIMEOUT_MS,
-        'ripmail send (ask_collaborator)',
-      )
-      const lines: string[] = []
-      if (dry) {
-        lines.push('[dry run; mail not sent]')
-      } else {
-        lines.push('Question sent to your collaborator.')
       }
-      if (draft.subject) lines.push(`Subject: ${draft.subject}`)
-      lines.push('Acknowledge briefly in chat; the user will get a notification when the other person responds.')
+      if (
+        askerMeta &&
+        typeof askerMeta.confirmedAt === 'string' &&
+        askerMeta.confirmedAt.length > 0 &&
+        typeof askerMeta.handle === 'string' &&
+        askerMeta.handle.trim()
+      ) {
+        payload.peerHandle = askerMeta.handle.trim()
+      }
+      await createNotificationForTenant(grant.owner_id, {
+        sourceKind: 'brain_query_question',
+        payload,
+      })
+      const lines = [
+        'Your question was delivered to their Braintunnel notifications.',
+        `Preview: ${subject}`,
+        'Acknowledge briefly in chat; you will get a notification when they respond.',
+      ]
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
-        details: { ok: true, dryRun: dry, draftId: draft.id, subject: draft.subject },
+        details: { ok: true, subject },
       }
     },
   })

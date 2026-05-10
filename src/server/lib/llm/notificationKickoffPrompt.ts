@@ -1,8 +1,32 @@
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import type { NotificationKickoffHints } from '@shared/notifications/presentation.js'
+import { presentationForNotificationRow } from '@shared/notifications/presentation.js'
+import { getNotificationById } from '@server/lib/notifications/notificationsRepo.js'
 import { notificationKickoffAppContextText } from './notificationKickoffAppContext.js'
 
 export { notificationKickoffAppContextText }
+
+/**
+ * For `brain_query_question`, replace wire hints with the SSOT payload from tenant SQLite
+ * so the agent always sees `question` / `grantId` / peer mail even if the client omitted them.
+ */
+export function enrichNotificationKickoffFromDb(h: NotificationKickoffHints): NotificationKickoffHints {
+  if (h.sourceKind !== 'brain_query_question') return h
+  const nid = h.notificationId?.trim()
+  if (!nid) return h
+  const row = getNotificationById(nid)
+  if (!row || row.sourceKind !== 'brain_query_question') return h
+  const pres = presentationForNotificationRow({
+    id: row.id,
+    sourceKind: row.sourceKind,
+    payload: row.payload,
+  })
+  return {
+    ...pres.kickoffHints,
+    notificationId: h.notificationId,
+    sourceKind: h.sourceKind,
+  }
+}
 
 /** Parse `notificationKickoff` from POST /api/chat JSON. Invalid shapes return null (ignored). */
 export function parseNotificationKickoffFromBody(body: Record<string, unknown>): NotificationKickoffHints | null {
@@ -28,6 +52,8 @@ export function parseNotificationKickoffFromBody(body: Record<string, unknown>):
   if (actionRequired) hints.actionRequired = true
   const peerPrimaryEmail = typeof o.peerPrimaryEmail === 'string' ? o.peerPrimaryEmail.trim() : ''
   if (peerPrimaryEmail) hints.peerPrimaryEmail = peerPrimaryEmail
+  const question = typeof o.question === 'string' ? o.question.trim() : ''
+  if (question) hints.question = question
   return hints
 }
 

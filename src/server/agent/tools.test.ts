@@ -895,12 +895,12 @@ Sel: {{selection}} File: {{open_file}}`,
       const result = await tool.execute('ed-1', {
         draft_id: 'd1',
         add_cc: ['bob@example.com'],
-        instruction: 'make it shorter',
+        body: 'short version',
       })
       expect(ripmailDraftEdit).toHaveBeenCalledWith(
         expect.any(String),
         'd1',
-        expect.objectContaining({ addCc: ['bob@example.com'] }),
+        expect.objectContaining({ addCc: ['bob@example.com'], body: 'short version' }),
       )
       // Mock ripmailDraftView returns { cc: ['cc@example.com'], body: 'body content' }
       expect(result.details.cc).toContain('cc@example.com')
@@ -909,7 +909,7 @@ Sel: {{selection}} File: {{open_file}}`,
       expect((result.details as { body?: string }).body).toBe('body content')
     })
 
-    it('works with metadata-only edit (no body instruction)', async () => {
+    it('works with metadata-only edit (no body)', async () => {
       const { ripmailDraftEdit } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })

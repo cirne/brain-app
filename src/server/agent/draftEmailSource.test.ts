@@ -100,7 +100,8 @@ describe('draft_email source / from parameter (OPP-044 phase 3)', () => {
     await tool.execute('1', {
       action: 'new',
       to: 'bob@example.com',
-      instruction: 'say hi',
+      subject: 'Hello',
+      body: 'say hi',
       from: 'personal@gmail.com',
     })
 
@@ -109,6 +110,8 @@ describe('draft_email source / from parameter (OPP-044 phase 3)', () => {
       expect.any(String),
       expect.objectContaining({
         to: 'bob@example.com',
+        subject: 'Hello',
+        body: 'say hi',
         sourceId: 'personal_gmail_com',
       }),
     )
@@ -123,7 +126,8 @@ describe('draft_email source / from parameter (OPP-044 phase 3)', () => {
     await tool.execute('1', {
       action: 'new',
       to: 'bob@example.com',
-      instruction: 'say hi',
+      subject: 'Hello',
+      body: 'say hi',
     })
 
     // No sourceId should be passed when from is not specified

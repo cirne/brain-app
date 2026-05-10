@@ -195,7 +195,7 @@ export function updateNotificationSourceKindAndPayload(
   return getNotificationById(id)
 }
 
-function getNotificationById(id: string): NotificationRow | null {
+export function getNotificationById(id: string): NotificationRow | null {
   const db = getTenantDb()
   const row = db
     .prepare(
