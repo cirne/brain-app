@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { Mail } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
 
   type DemoUserOption = { key: string; label: string }
@@ -22,7 +23,9 @@
     try {
       const res = await fetch('/api/auth/demo/enron/users', { cache: 'no-store' })
       if (!res.ok) {
-        usersLoadError = `Could not load demo accounts (${res.status}).`
+        usersLoadError = $t('onboarding.enronDemo.errors.loadAccountsWithStatus', {
+          status: res.status,
+        })
         return
       }
       const j = (await res.json()) as { users?: DemoUserOption[] }
@@ -32,7 +35,7 @@
         selectedDemoUser = list[0]!.key
       }
     } catch {
-      usersLoadError = 'Could not load demo accounts.'
+      usersLoadError = $t('onboarding.enronDemo.errors.loadAccounts')
     }
   }
 
@@ -56,7 +59,10 @@
         return
       }
       const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
-      errorMsg = j.message ?? j.error ?? `Request failed (${res.status})`
+      errorMsg =
+        j.message ??
+        j.error ??
+        $t('onboarding.enronDemo.errors.requestFailedWithStatus', { status: res.status })
     } finally {
       busy = false
     }
@@ -75,8 +81,8 @@
         <div class="ob-stacked-hero-lead-icon" aria-hidden="true">
           <Mail size={20} strokeWidth={2} />
         </div>
-        <span class="ob-kicker">Braintunnel demo</span>
-        <h1 id="enron-demo-title" class="ob-headline">Test accounts: Enron</h1>
+        <span class="ob-kicker">{$t('onboarding.enronDemo.kicker')}</span>
+        <h1 id="enron-demo-title" class="ob-headline">{$t('onboarding.enronDemo.title')}</h1>
       </header>
 
       <form
@@ -84,7 +90,7 @@
         onsubmit={onSubmit}
       >
         <fieldset class="flex flex-col gap-2 text-left" disabled={busy}>
-          <legend class="sr-only">Demo mailbox</legend>
+          <legend class="sr-only">{$t('onboarding.enronDemo.demoMailboxLegend')}</legend>
           {#if usersLoadError}
             <p class="text-xs text-danger">{usersLoadError}</p>
           {:else if demoUsers.length > 0}
@@ -106,17 +112,19 @@
               </label>
             {/each}
           {:else}
-            <p class="text-xs text-muted">Loading demo accounts…</p>
+            <p class="text-xs text-muted">{$t('onboarding.enronDemo.loadingAccounts')}</p>
           {/if}
         </fieldset>
 
-        <label class="sr-only" for="enron-demo-secret">Demo password</label>
+        <label class="sr-only" for="enron-demo-secret">
+          {$t('onboarding.enronDemo.demoPasswordLabel')}
+        </label>
         <input
           id="enron-demo-secret"
           name="secret"
           type="password"
           autocomplete="off"
-          placeholder="Demo password"
+          placeholder={$t('onboarding.enronDemo.demoPasswordPlaceholder')}
           class="ob-input w-full"
           bind:value={secret}
           disabled={busy}
@@ -129,27 +137,28 @@
           class="ob-btn-primary w-full"
           disabled={busy || !secret.trim() || demoUsers.length === 0}
         >
-          {busy ? 'Please wait…' : 'Continue'}
+          {busy ? $t('onboarding.enronDemo.pleaseWait') : $t('onboarding.enronDemo.continue')}
         </button>
       </form>
 
       <p class="ob-lead mt-4 text-xs text-muted">
-        Pick a mailbox (Steven Kean, Kenneth Lay, or Jeff Skilling), then enter the shared demo password you were
-        given. Demo mail must be pre-seeded on the server (<code
-          class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]"
-          >npm run brain:seed-enron-demo</code>). Data comes from the public Enron email dataset (roughly 1998–2001). For background, see
+        {$t('onboarding.enronDemo.instructions.pickMailbox')}
+        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+          npm run brain:seed-enron-demo
+        </code>
+        {$t('onboarding.enronDemo.instructions.datasetIntro')}
         <a
           href="https://www.cs.cmu.edu/~enron/"
           target="_blank"
           rel="noopener noreferrer"
           class="underline"
         >
-          Carnegie Mellon’s Enron email dataset
+          {$t('onboarding.enronDemo.instructions.datasetLinkLabel')}
         </a>
-        .
+        {$t('onboarding.enronDemo.instructions.datasetOutro')}
       </p>
       <p class="ob-lead mt-6 text-xs text-muted">
-        <a href="/" class="underline">Back to sign-in</a>
+        <a href="/" class="underline">{$t('onboarding.enronDemo.backToSignIn')}</a>
       </p>
     </div>
   </OnboardingHeroShell>

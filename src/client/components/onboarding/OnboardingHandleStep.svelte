@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { ArrowRight } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import {
     fetchAccountHandle,
@@ -44,7 +45,7 @@
       }
       queueAvailabilityCheck()
     } catch {
-      bootError = 'Could not load your workspace handle. Try reloading the page.'
+      bootError = $t('onboarding.handleStep.errors.loadWorkspaceHandle')
     }
   }
 
@@ -127,9 +128,9 @@
         return
       }
       if (!r.available && r.reason === 'invalid') {
-        availabilityHint = r.message ?? 'Invalid handle.'
+        availabilityHint = r.message ?? $t('onboarding.handleStep.errors.invalidHandle')
       } else if (!r.available && r.reason === 'taken') {
-        availabilityHint = 'That handle is taken. Try another.'
+        availabilityHint = $t('onboarding.handleStep.errors.handleTaken')
       } else {
         availabilityHint = null
       }
@@ -146,11 +147,11 @@
       const check = await checkHandleAvailability(raw)
       if (!check?.available) {
         if (check?.reason === 'invalid') {
-          bootError = check.message ?? 'Invalid handle.'
+          bootError = check.message ?? $t('onboarding.handleStep.errors.invalidHandle')
         } else if (check?.reason === 'taken') {
-          bootError = 'That handle is taken. Try another.'
+          bootError = $t('onboarding.handleStep.errors.handleTaken')
         } else {
-          bootError = 'Could not validate handle. Try again.'
+          bootError = $t('onboarding.handleStep.errors.couldNotValidate')
         }
         return
       }
@@ -176,10 +177,10 @@
   class="onboarding onboarding-wide flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]"
 >
   <OnboardingHeroShell>
-    <span class="ob-kicker">Braintunnel</span>
-    <h1 class="ob-headline">Choose your handle</h1>
+    <span class="ob-kicker">{$t('onboarding.handleStep.kicker')}</span>
+    <h1 class="ob-headline">{$t('onboarding.handleStep.title')}</h1>
     <p class="ob-lead">
-      This is how other Braintunnel users will find and connect with you. Your account has a stable id behind the scenes, so changing this handle later will be possible when we ship that flow.
+      {$t('onboarding.handleStep.lead')}
     </p>
 
     {#if bootError}
@@ -191,7 +192,7 @@
         class="ob-handle-label mb-1.5 block text-xs font-semibold tracking-wider text-[var(--muted)]"
         for="ob-handle-input"
       >
-        Handle
+        {$t('onboarding.handleStep.handleLabel')}
       </label>
       <div
         class="ob-handle-input-row flex items-center gap-[0.15rem] border border-border bg-surface px-2.5 py-1.5"
@@ -229,13 +230,13 @@
         <p
           class="ob-handle-hint ob-muted mt-[0.45rem] text-[0.8125rem] leading-snug text-[var(--muted)]"
         >
-          Checking availability…
+          {$t('onboarding.handleStep.checkingAvailability')}
         </p>
       {:else}
         <p
           class="ob-handle-hint ob-muted mt-[0.45rem] text-[0.8125rem] leading-snug text-[var(--muted)]"
         >
-          Lowercase letters, numbers, hyphens. 3–32 characters.
+          {$t('onboarding.handleStep.rules')}
         </p>
       {/if}
     </div>
@@ -249,9 +250,9 @@
       >
         {#if busy}
           <span class="ob-spinner" aria-hidden="true"></span>
-          Saving…
+          {$t('onboarding.handleStep.saving')}
         {:else}
-          Confirm handle
+          {$t('onboarding.handleStep.confirmHandle')}
           <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
         {/if}
       </button>

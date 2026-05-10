@@ -1,12 +1,227 @@
 {
+  "common": {
+    "working": "Working…",
+    "starting": "Starting…",
+    "moreCount": "{{count}} more",
+    "tryAgain": "Try again"
+  },
+  "mailPreview": {
+    "noSubject": "(No subject)",
+    "readingMessage": "Reading message…"
+  },
+  "workspace": {
+    "loadingSubject": "(loading)",
+    "streamingBusy": {
+      "welcome": "Welcome…",
+      "profiling": "Profiling…",
+      "seedingWiki": "Seeding wiki…",
+      "working": "Working…"
+    }
+  },
   "profiling": {
     "title": "Building your profile",
     "leadDesktop": "Your wiki lives in your vault on this Mac—private to this device, not uploaded, and not available on the web. We use mail stored here to draft a short profile into your local notes.",
     "leadHosted": "We're building your profile by learning from your emails. This will take a few moments."
   },
+  "profilingView": {
+    "peopleHeading": "People",
+    "notesHeading": "Notes",
+    "assistantMessageMeMdAria": "Assistant message, me.md",
+    "writingMeMd": "Writing me.md…"
+  },
   "wikiBuildout": {
     "title": "Setting up your wiki",
     "leadDesktop": "We're creating pages from your profile and mail. Your wiki stays in your vault on this Mac only—not uploaded and not reachable from elsewhere.",
     "leadHosted": "We're creating pages from your profile and mail. Your wiki lives in your vault so the assistant can stay aligned with you."
+  },
+  "seedingView": {
+    "progressHeading": "Progress",
+    "pagesHeading": "Pages"
+  },
+  "enronDemo": {
+    "kicker": "Braintunnel demo",
+    "title": "Test accounts: Enron",
+    "demoMailboxLegend": "Demo mailbox",
+    "loadingAccounts": "Loading demo accounts…",
+    "demoPasswordLabel": "Demo password",
+    "demoPasswordPlaceholder": "Demo password",
+    "pleaseWait": "Please wait…",
+    "continue": "Continue",
+    "instructions": {
+      "pickMailbox": "Pick a mailbox (Steven Kean, Kenneth Lay, or Jeff Skilling), then enter the shared demo password you were given. Demo mail must be pre-seeded on the server (",
+      "datasetIntro": "). Data comes from the public Enron email dataset (roughly 1998–2001). For background, see ",
+      "datasetLinkLabel": "Carnegie Mellon’s Enron email dataset",
+      "datasetOutro": "."
+    },
+    "backToSignIn": "Back to sign-in",
+    "errors": {
+      "loadAccountsWithStatus": "Could not load demo accounts ({{status}}).",
+      "loadAccounts": "Could not load demo accounts.",
+      "requestFailedWithStatus": "Request failed ({{status}})"
+    }
+  },
+  "handleStep": {
+    "kicker": "Braintunnel",
+    "title": "Choose your handle",
+    "lead": "This is how other Braintunnel users will find and connect with you. Your account has a stable id behind the scenes, so changing this handle later will be possible when we ship that flow.",
+    "handleLabel": "Handle",
+    "checkingAvailability": "Checking availability…",
+    "rules": "Lowercase letters, numbers, hyphens. 3–32 characters.",
+    "saving": "Saving…",
+    "confirmHandle": "Confirm handle",
+    "errors": {
+      "loadWorkspaceHandle": "Could not load your workspace handle. Try reloading the page.",
+      "invalidHandle": "Invalid handle.",
+      "handleTaken": "That handle is taken. Try another.",
+      "couldNotValidate": "Could not validate handle. Try again."
+    }
+  },
+  "seedingInterstitial": {
+    "kicker": "Braintunnel",
+    "title": "We're building your wiki",
+    "lead": {
+      "beforeVault": "Your wiki is linked pages in",
+      "vaultHosted": "your vault",
+      "vaultDesktop": "your vault on this Mac",
+      "afterVault": "They give Braintunnel lasting context—people, projects, and what you've already written—so you don't start from zero every chat."
+    },
+    "tips": {
+      "askForPrefix": "Ask for",
+      "askForStrong": "a new page",
+      "askForSuffix": "for a person, project, or idea.",
+      "researchPrefix": "Say",
+      "researchStrong": "\"Research this and add it to the wiki,\"",
+      "researchSuffix": "then edit the page if you like.",
+      "shortNotesStrong": "Short notes are fine",
+      "shortNotesSuffix": "—linking pages matters more than length."
+    },
+    "dwell": {
+      "waiting": "A few more seconds to let the first pages land…",
+      "ready": "You can continue whenever you're ready."
+    },
+    "continueButton": "Continue to Braintunnel",
+    "yourWikiLabel": "Your Wiki",
+    "mobileStatus": {
+      "starting": "Starting…",
+      "enriching": "Enriching pages…",
+      "cleaning": "Cleaning up…"
+    }
+  },
+  "hostedSignIn": {
+    "kicker": "Braintunnel",
+    "title": "Sign in",
+    "lead": "Sign in with Google to open Braintunnel.",
+    "continueWithGoogle": "Continue with Google"
+  },
+  "fullDiskAccess": {
+    "toastPermissionGranted": "Permission granted — restarting…",
+    "checkingPermissions": "Checking permissions…",
+    "kicker": "Privacy",
+    "title": "Allow Full Disk Access",
+    "lead": {
+      "beforeStrong": "macOS needs this permission so Braintunnel can read Mail, Messages, and your files on this Mac—what makes the assistant personal to you.",
+      "strong": "That information stays on your Mac."
+    },
+    "steps": {
+      "openSettingsPrefix": "Click",
+      "openSettingsStrong": "Open System Settings",
+      "openSettingsSuffix": "below.",
+      "enableBraintunnelPrefix": "Turn on",
+      "enableBraintunnelStrong": "Braintunnel",
+      "enableBraintunnelSuffix": "under Full Disk Access.",
+      "returnAndRestart": "Return here — we’ll detect the change and restart the app."
+    },
+    "openSystemSettings": "Open System Settings",
+    "quit": "Quit"
+  },
+  "firstRun": {
+    "kicker": "Braintunnel",
+    "loadingSetup": "Loading setup…",
+    "settingUp": "Setting up…",
+    "openAgain": "Open again",
+    "couldNotStartIndexingTitle": "Couldn’t start indexing",
+    "providers": {
+      "apple": "Apple",
+      "google": "Google"
+    },
+    "guidedSetup": {
+      "continuesPrefix": "Guided setup continues in",
+      "chatLabel": "Chat",
+      "continuesSuffix": ". Mail may keep indexing in the background — the assistant will describe what’s indexed so far."
+    },
+    "intro": {
+      "multiTenant": {
+        "title": "Your assistant",
+        "leadPrefix": "Braintunnel is your assistant for chat, email, and your notes—personalized to you.",
+        "appleAvailable": {
+          "beforeStrong": "Connect",
+          "middleStrong": "or",
+          "afterStrong": "to connect mail and calendar—then add folders later to enrich."
+        },
+        "googleOnly": {
+          "beforeStrong": "Connect",
+          "afterStrong": "to connect mail and calendar—then add folders later to enrich."
+        }
+      },
+      "desktop": {
+        "title": "Your assistant, on your Mac",
+        "lead": {
+          "beforeStrong": "Braintunnel is your local assistant for chat, email, and your notes—personalized to you.",
+          "strong": "Mail, Messages, and your files stay on this Mac",
+          "afterStrongPrefix": "—you’re in control. Connect",
+          "middleStrong": "or",
+          "afterStrongSuffix": "to seed mail and calendar—then add folders later to enrich."
+        }
+      },
+      "googleOnly": {
+        "title": "Your assistant",
+        "lead": {
+          "beforeStrong": "Braintunnel is your assistant for chat, email, and your notes—personalized to you. Connect",
+          "afterStrong": "to seed mail and calendar—then add folders later to enrich."
+        }
+      }
+    },
+    "googleOauthWait": {
+      "copyPrefix": "A browser window should open for Google sign-in (passkeys and 2FA work there). When you are done, return to Braintunnel; we will continue automatically. If the tab did not open, use",
+      "localSafariWarningPrefix": "If Safari warns about",
+      "localSafariWarningSuffix": ", that is your local Braintunnel server over HTTPS."
+    },
+    "providerNotes": {
+      "appleDesktop": "On Apple, Braintunnel indexes Mail from your library and registers your Mac calendars (same source as Calendar.app) for sync. Full Disk Access lets Braintunnel read Mail, Messages, and paths you choose.",
+      "googleTauri": "The Braintunnel app opens Google in your default browser for sign-in (mail + calendar read).",
+      "googleBrowser": "Google sign-in uses this browser (mail + calendar read).",
+      "applePermissions": "macOS may prompt for permissions during setup."
+    },
+    "indexing": {
+      "title": "Getting to Know You.",
+      "lead": {
+        "google": "We’re downloading your Gmail into Braintunnel so we can build your profile. Hang tight.",
+        "apple": "We’re copying your messages from Apple Mail into Braintunnel so we can build your profile. Hang tight.",
+        "generic": "We’re connecting Braintunnel to your email so we can build your profile. Hang tight."
+      },
+      "progress": {
+        "messagesIndexed_one": "{{count}} message indexed",
+        "messagesIndexed_other": "{{count}} messages indexed",
+        "fraction": "{{indexed}} / {{target}}"
+      },
+      "aria": {
+        "preparing": "Preparing to download messages",
+        "readyToContinue_one": "{{count}} message indexed — ready to continue when this screen advances",
+        "readyToContinue_other": "{{count}} messages indexed — ready to continue when this screen advances",
+        "towardContinuing": "{{indexed}} of {{target}} messages toward continuing"
+      },
+      "backfillContinues": "Initial mail sync continues in the background — it won’t block moving forward.",
+      "staleLock": {
+        "ariaLabel": "Mail sync stopped",
+        "stoppedUnexpectedly": "A previous mail sync stopped unexpectedly.",
+        "resuming": "Resuming…",
+        "resumeButton": "Resume mail sync"
+      }
+    },
+    "errors": {
+      "saveProgressTimeout": "Could not save onboarding progress ({{seconds}}s timeout). Check the app is responding, then try again.",
+      "couldNotResumeMailSync": "Could not resume mail sync{{detail}}.",
+      "googleSignInTakingLong": "Sign-in is taking a long time. Use \"Open again\" or finish sign-in in your browser, then return here."
+    }
   }
 }

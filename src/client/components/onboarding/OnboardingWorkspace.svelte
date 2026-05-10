@@ -5,6 +5,7 @@
    */
   import { onMount } from 'svelte'
   import { countSeedEligibleWikiPages } from '@client/lib/onboarding/seedWikiPageCount.js'
+  import { t } from '@client/lib/i18n/index.js'
   import Search from '@components/Search.svelte'
   import AppTopNav from '@components/AppTopNav.svelte'
   import SlideOver from '@components/shell/SlideOver.svelte'
@@ -39,7 +40,7 @@
     onStreamFinished,
     /** Wiki activity for onboarding seed threshold + status bar (seeding endpoint only). */
     onSeedWikiActivity,
-    headerFallbackTitle = 'Chat',
+    headerFallbackTitle = $t('chat.agentChat.headerFallbackTitle'),
     storageKey = ONBOARDING_DEFAULT_CHAT_STORAGE_KEY,
     /** When true, agent tools never auto-open the right detail panel (desktop + mobile). Default: only suppress on mobile, like the main assistant. */
     suppressAgentDetailAutoOpen = false,
@@ -71,6 +72,7 @@
   )
   /** Profiling + interview + seeding: non-default busy labels / stream chrome (composer visibility is separate). */
   const useOnboardingActivity = $derived(isProfiling || isSeedingWiki)
+  const loadingSubjectLabel = $derived($t('onboarding.workspace.loadingSubject'))
 
   const hideComposerForActivity = $derived(onboardingHidesComposerForActivityFlow(chatEndpoint))
 
@@ -300,7 +302,7 @@
     agentContext = {
       type: 'email-draft',
       draftId,
-      subject: subject?.trim() || '(loading)',
+      subject: subject?.trim() || loadingSubjectLabel,
       toLine: '',
       bodyPreview: '',
     }
@@ -345,7 +347,11 @@
     const o = route.overlay
     if (o?.type === 'messages' && o.chat) {
       if (agentContext.type !== 'messages' || agentContext.chat !== o.chat) {
-        agentContext = { type: 'messages', chat: o.chat, displayLabel: '(loading)' }
+        agentContext = {
+          type: 'messages',
+          chat: o.chat,
+          displayLabel: loadingSubjectLabel,
+        }
       }
     }
     if (o?.type === 'email-draft' && o.id) {
@@ -353,7 +359,7 @@
         agentContext = {
           type: 'email-draft',
           draftId: o.id,
-          subject: '(loading)',
+          subject: loadingSubjectLabel,
           toLine: '',
           bodyPreview: '',
         }
@@ -480,12 +486,12 @@
               : AgentConversation}
           streamingBusyLabel={useOnboardingActivity
             ? chatEndpoint === '/api/onboarding/interview'
-              ? 'Welcome…'
+              ? $t('onboarding.workspace.streamingBusy.welcome')
               : isProfiling
-                ? 'Profiling…'
+                ? $t('onboarding.workspace.streamingBusy.profiling')
                 : isSeedingWiki
-                  ? 'Seeding wiki…'
-                  : 'Working…'
+                  ? $t('onboarding.workspace.streamingBusy.seedingWiki')
+                  : $t('onboarding.workspace.streamingBusy.working')
             : ''}
           {chatEndpoint}
           {autoSendMessage}

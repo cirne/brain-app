@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { Snippet } from 'svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { exit, relaunch } from '@tauri-apps/plugin-process'
@@ -19,6 +20,7 @@
   let polling = $state(false)
   let restarting = $state(false)
   let toast = $state<string | null>(null)
+  const restartToastLabel = $derived($t('onboarding.fullDiskAccess.toastPermissionGranted'))
 
   async function probeFda(): Promise<boolean> {
     if (isTauriRuntime()) {
@@ -56,7 +58,7 @@
       const ok = await probeFda()
       if (cancelled || !ok) return
       polling = false
-      toast = 'Permission granted — restarting…'
+      toast = restartToastLabel
       restarting = true
       await new Promise((r) => setTimeout(r, 1000))
       try {
@@ -93,7 +95,9 @@
 </script>
 
 {#if gateApplies && !checked}
-  <div class="fda-loading p-8 text-center text-[0.95rem] text-muted">Checking permissions…</div>
+  <div class="fda-loading p-8 text-center text-[0.95rem] text-muted">
+    {$t('onboarding.fullDiskAccess.checkingPermissions')}
+  </div>
 {:else if showModal}
   <div
     class="fda-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 backdrop-blur-md bg-[color-mix(in_srgb,var(--bg)_88%,transparent)]"
@@ -105,18 +109,28 @@
       class="fda-modal flex max-h-[min(90vh,720px)] flex-col overflow-y-auto bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
     >
       <OnboardingHeroShell>
-        <span class="ob-kicker">Privacy</span>
-        <h1 id="fda-title" class="ob-headline">Allow Full Disk Access</h1>
+        <span class="ob-kicker">{$t('onboarding.fullDiskAccess.kicker')}</span>
+        <h1 id="fda-title" class="ob-headline">
+          {$t('onboarding.fullDiskAccess.title')}
+        </h1>
         <p class="ob-lead">
-          macOS needs this permission so Braintunnel can read Mail, Messages, and your files on this Mac—what makes the
-          assistant personal to you. <strong>That information stays on your Mac.</strong>
+          {$t('onboarding.fullDiskAccess.lead.beforeStrong')}
+          <strong>{$t('onboarding.fullDiskAccess.lead.strong')}</strong>
         </p>
         <ol
           class="fda-steps mx-auto mt-5 max-w-[22rem] list-decimal pl-5 text-left text-[0.9375rem] leading-[1.55] text-muted"
         >
-          <li>Click <strong>Open System Settings</strong> below.</li>
-          <li>Turn on <strong>Braintunnel</strong> under Full Disk Access.</li>
-          <li>Return here — we’ll detect the change and restart the app.</li>
+          <li>
+            {$t('onboarding.fullDiskAccess.steps.openSettingsPrefix')}
+            <strong>{$t('onboarding.fullDiskAccess.steps.openSettingsStrong')}</strong>
+            {$t('onboarding.fullDiskAccess.steps.openSettingsSuffix')}
+          </li>
+          <li>
+            {$t('onboarding.fullDiskAccess.steps.enableBraintunnelPrefix')}
+            <strong>{$t('onboarding.fullDiskAccess.steps.enableBraintunnelStrong')}</strong>
+            {$t('onboarding.fullDiskAccess.steps.enableBraintunnelSuffix')}
+          </li>
+          <li>{$t('onboarding.fullDiskAccess.steps.returnAndRestart')}</li>
         </ol>
         <div class="ob-cta-group">
           <button
@@ -124,14 +138,14 @@
             class="ob-btn-primary ob-btn-block"
             onclick={() => void onOpenSettings()}
           >
-            Open System Settings
+            {$t('onboarding.fullDiskAccess.openSystemSettings')}
           </button>
           <button
             type="button"
             class="fda-btn-secondary cursor-pointer border-none bg-transparent text-[0.9375rem] text-muted underline underline-offset-[3px] hover:text-foreground"
             onclick={() => void onQuit()}
           >
-            Quit
+            {$t('onboarding.fullDiskAccess.quit')}
           </button>
         </div>
       </OnboardingHeroShell>
