@@ -4,12 +4,6 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
-  execRipmailAsync: vi.fn(),
-  runRipmailArgv: vi.fn(),
-  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
-}))
-
 vi.mock('@server/lib/platform/brainHome.js', () => ({
   ripmailHomeForBrain: vi.fn(() => join(process.env.BRAIN_HOME ?? '/tmp/test-brain-home', 'ripmail')),
   brainHome: vi.fn(() => process.env.BRAIN_HOME ?? '/tmp/test-brain-home'),

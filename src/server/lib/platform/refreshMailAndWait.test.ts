@@ -30,7 +30,7 @@ afterEach(async () => {
 })
 
 describe('refreshMailAndWait', () => {
-  it('returns ok:false with timedOut when ripmail hits RipmailTimeoutError', async () => {
+  it('returns ok:false when refresh rejects', async () => {
     ripmailRefreshMock.mockRejectedValueOnce(new Error('sync timed out'))
     const r = await refreshMailAndWait(90_000)
     // TS refresh doesn't distinguish timeout from error — both return ok:false

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
-import { chmodSync } from 'node:fs'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -323,7 +322,7 @@ describe('onboarding routes', () => {
     bootstrapSpy.mockRestore()
   })
 
-  it('POST /setup-mail returns 500 with error when ripmail exits non-zero', async () => {
+  it('POST /setup-mail returns 500 when mail setup persistence fails', async () => {
     if (process.platform === 'win32') {
       return
     }
@@ -331,14 +330,10 @@ describe('onboarding routes', () => {
     if (process.platform !== 'darwin') {
       process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = '1'
     }
-    const script = join(tmpdir(), `fake-ripmail-${Date.now()}.sh`)
-    await writeFile(script, '#!/bin/sh\nexit 1\n')
-    chmodSync(script, 0o755)
-    const prevBin = process.env.RIPMAIL_BIN
-    const prevHome = process.env.RIPMAIL_HOME
-    const fakeHome = await mkdtemp(join(tmpdir(), 'ripmail-home-'))
-    process.env.RIPMAIL_BIN = script
-    process.env.RIPMAIL_HOME = fakeHome
+    const configMod = await import('@server/ripmail/sync/config.js')
+    const spy = vi.spyOn(configMod, 'loadRipmailConfig').mockImplementationOnce(() => {
+      throw new Error('config unavailable')
+    })
     try {
       const app = new Hono()
       app.route('/api/onboarding', onboardingRoute)
@@ -352,14 +347,9 @@ describe('onboarding routes', () => {
       expect(j.ok).toBe(false)
       expect(j.error).toBeTruthy()
     } finally {
+      spy.mockRestore()
       if (prevForce === undefined) delete process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS
       else process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = prevForce
-      if (prevBin === undefined) delete process.env.RIPMAIL_BIN
-      else process.env.RIPMAIL_BIN = prevBin
-      if (prevHome === undefined) delete process.env.RIPMAIL_HOME
-      else process.env.RIPMAIL_HOME = prevHome
-      await rm(script, { force: true })
-      await rm(fakeHome, { recursive: true, force: true })
     }
   })
 

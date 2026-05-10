@@ -4,10 +4,7 @@
  * All operations take a `ripmailHome` path (the per-tenant ripmail directory,
  * e.g. `<BRAIN_DATA_ROOT>/<tenant>/ripmail`) and return typed objects.
  *
- * This module replaces the `execRipmailAsync` subprocess path:
- *   Before: execRipmailAsync(`${bin} search "query" --json`)
- *   After:  import { ripmailSearch } from '@server/ripmail/index.js'
- *           ripmailSearch(ripmailHome, { query: 'query', limit: 20 })
+ * Older Brain code spawned the `ripmail` CLI for mail; `main` uses this module in-process.
  */
 
 export { openRipmailDb, closeRipmailDb, invalidateRipmailDbCache, openMemoryRipmailDb, ripmailDbPath } from './db.js'

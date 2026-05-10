@@ -119,7 +119,7 @@ These support **trace-style** NRQL (`WHERE agentTurnId = '…'`) without OpenTel
 With distributed tracing enabled in [`newrelic.cjs`](../newrelic.cjs), the Node agent also records **`startSegment` spans**:
 
 - **Agent tools:** `ai.tool/<tool_name>` opened on `tool_execution_start` and closed on `tool_execution_end` (`beginToolCallSegment` / `endToolCallSegmentBridge` in [`newRelicHelper.ts`](../src/server/lib/observability/newRelicHelper.ts), wired from [`streamAgentSseHandlers.ts`](../src/server/lib/chat/streamAgentSseHandlers.ts) for chat SSE and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts) for wiki runs).
-- **Mail CLI subprocesses (when used):** `ripmail.cli/<label-or-subcommand>` for the lifetime of [`runRipmailArgv`](../src/server/lib/ripmail/ripmailRun.ts), via [`withRipmailCliObservation`](../src/server/lib/observability/newRelicHelper.ts). These are **Node `startSegment` spans** on the current transaction, not separate APM applications.
+- **`withRipmailCliObservation`** in [`newRelicHelper.ts`](../src/server/lib/observability/newRelicHelper.ts) can wrap **`ripmail.cli/<label-or-subcommand>`** segments if code explicitly uses it. Server mail (`src/server/ripmail/`) runs **in-process** and does not spawn a `ripmail` CLI by default.
 
 **Chat SSE caveat:** Synthetic post-turn UI (for example [`streamAgentSse.ts`](../src/server/lib/chat/streamAgentSse.ts) suggest-repair `tool_start` / `tool_end` without `tool_execution_*`) does not open `ai.tool/…` segments today.
 

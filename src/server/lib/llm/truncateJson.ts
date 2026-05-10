@@ -78,12 +78,12 @@ export function truncateJsonResult(text: string, maxChars: number): string {
 }
 
 /**
- * Every agent tool that reads indexed mail/calendar via `@server/ripmail` (legacy note: some paths historically used `execRipmailAsync`).
+ * Every agent tool that reads indexed mail/calendar via `@server/ripmail`.
  * The Node SSE layer must not truncate these results — size and shape are ripmail's responsibility.
  *
- * Keep in sync with `src/server/agent/tools.ts` (any `defineTool` that shells out to ripmail).
+ * Keep in sync with `src/server/agent/tools.ts` (mail/calendar tool surface).
  */
-const RIPMAIL_SUBPROCESS_TOOLS_PASS_THROUGH = new Set([
+const RIPMAIL_INDEXED_MAIL_TOOLS_PASS_THROUGH = new Set([
   'search_index',
   'list_inbox',
   'read_mail_message',
@@ -105,6 +105,6 @@ const RIPMAIL_SUBPROCESS_TOOLS_PASS_THROUGH = new Set([
  * Ripmail-backed tools pass through unchanged; others use {@link truncateJsonResult}.
  */
 export function toolResultForSse(toolName: string, resultText: string, maxChars: number): string {
-  if (RIPMAIL_SUBPROCESS_TOOLS_PASS_THROUGH.has(toolName)) return resultText
+  if (RIPMAIL_INDEXED_MAIL_TOOLS_PASS_THROUGH.has(toolName)) return resultText
   return truncateJsonResult(resultText, maxChars)
 }

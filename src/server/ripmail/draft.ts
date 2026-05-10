@@ -36,9 +36,13 @@ function loadDraft(ripmailHome: string, draftId: string): Draft | null {
 
 export interface NewDraftOptions {
   to: string
-  instruction: string
+  /** Placeholder body text when `body` is omitted (agent / CLI LLM flows). */
+  instruction?: string
   sourceId?: string
   withBody?: boolean
+  /** In-process compose: explicit RFC-style fields instead of CLI LLM. */
+  subject?: string
+  body?: string
 }
 
 export interface ReplyDraftOptions {
@@ -71,14 +75,15 @@ export interface EditDraftOptions {
 }
 
 /**
- * Create a new draft. Body is generated as a placeholder until LLM compose is wired (Phase 2).
+ * Create a new draft. Without explicit `subject`/`body`, uses placeholders from `instruction`.
  */
 export function draftNew(_db: RipmailDb, ripmailHome: string, opts: NewDraftOptions): Draft {
   const now = new Date().toISOString()
+  const instruction = opts.instruction ?? ''
   const draft: Draft = {
     id: randomUUID(),
-    subject: '(draft — set subject via edit_draft)',
-    body: `[Draft body — instruction: ${opts.instruction}]`,
+    subject: opts.subject ?? '(draft — set subject via edit_draft)',
+    body: opts.body ?? `[Draft body — instruction: ${instruction}]`,
     to: [opts.to],
     sourceId: opts.sourceId,
     createdAt: now,

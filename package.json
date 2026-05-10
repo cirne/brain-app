@@ -39,7 +39,8 @@
     "test:e2e:enron": "vitest run -c vitest.enron-e2e.config.ts",
     "test:e2e:playwright": "playwright test",
     "issues:list": "node scripts/issues-http.mjs list",
-    "issues:fetch": "node scripts/issues-http.mjs fetch"
+    "issues:fetch": "node scripts/issues-http.mjs fetch",
+    "ripmail": "ripmail"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.1",

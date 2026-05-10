@@ -24,7 +24,7 @@ How **incremental mail index refresh** and the **Your Wiki** supervisor relate t
 | Agent tools (e.g. `refresh_sources`) | Request tenant | Same in-process **`@server/ripmail`** stack as other mail routes. |
 | `npm run …` / **`sync-cli`** | Process default tenant / `BRAIN_HOME` resolution | Calls **`runFullSync()`** ([`sync-cli.ts`](../../src/server/sync-cli.ts)). |
 
-Implementation detail: handlers await **`ripmailRefresh`** via **`syncInboxRipmail`** / **`refreshMailAndWait`** in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts) (in-process; **`RipmailTimeoutError`** preserves the supervisor timeout contract from the old subprocess era).
+Implementation detail: handlers await **`ripmailRefresh`** via **`syncInboxRipmail`** / **`refreshMailAndWait`** in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts) (in-process TypeScript).
 
 ---
 

@@ -58,9 +58,9 @@ These have test coverage in `src/server/lib/tenant/resolveTenantSafePath.test.ts
 
 Read-only sharing is enforced in **`wiki_shares`** ([`brain-global.sqlite`](architecture/data-and-sync.md)). Grantees see allowed owner paths via **app-managed symlinks** under each grantee’s **`wikis/@handle/…`**. **Revoke** removes those links before committing `revoked_at_ms` (or returns **500** with `revoke_projection_failed` if removal fails, leaving the share active). **`removeWikiShareProjectionForShare`** only **`unlink`**s paths where **`lstat(…).isSymbolicLink()`** is true. **`ensureSymlinkAt`** refuses to **`rm`**/`symlink` when a parent under `wikis/@peer/` is already a symlink (file rows use **`wsh_*`** fallback instead) so creation cannot delete owner content — see [wiki-share-acl-and-projection-sync.md](architecture/wiki-share-acl-and-projection-sync.md).
 
-### Subprocess invocation (ripmail)
+### Mail indexing and send (`src/server/ripmail/`)
 
-`ripmail` is invoked via `**spawn` with an explicit argv array** (no shell). The `execRipmailAsync` wrapper tokenizes the string tail after the binary path, then passes to `runRipmailArgv` which calls `spawn(bin, argv, { stdio: ... })`. This prevents shell injection via user-supplied arguments to ripmail.
+**In-process TypeScript:** Sync, search, drafts, and outbound send run inside the Node server (`better-sqlite3`, nodemailer / Gmail API). There is **no** `ripmail` executable subprocess in normal server paths.
 
 **Exception:** several routes still use `exec` via the Node `child_process` `exec` API (which uses a shell):
 
@@ -108,7 +108,7 @@ A client-supplied `context` string or `context.files` list (each file path valid
 
 ### Logging
 
-Hono request logger (`hono/logger`) runs on all non-quiet routes, printing method, path, and status to stdout/container logs. `ripmail` spawn/close events are logged as structured JSON to stdout. **Request body content and email/wiki content are not logged.** Error messages from ripmail (`stderr` up to 500 chars) can appear in logs on failures. No structured secrets-scrubbing middleware exists.
+Hono request logger (`hono/logger`) runs on all non-quiet routes, printing method, path, and status to stdout/container logs. **Request body content and email/wiki content are not logged.** Mail sync log volume depends on `src/server/ripmail` and IMAP providers. No structured secrets-scrubbing middleware exists.
 
 ### Hosted staging — operator and network access
 
@@ -134,7 +134,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 
 **Mitigations to address:**
 
-- Replace all `exec(grep …)` calls with `spawn(['grep', '-r', '--include=*.md', q, dir], …)` (argv array, no shell). This is the same no-shell pattern already used for `ripmail`.
+- Replace all `exec(grep …)` calls with `spawn(['grep', '-r', '--include=*.md', q, dir], …)` (argv array, no shell). In-process mail already avoids a ripmail CLI subprocess.
 - Alternatively, use a JS-native search (e.g. a recursive `readdir`+`includes` or a bundled ripgrep binding) — eliminates subprocess entirely.
 
 ### P2 — Session tokens stored plaintext on block volume
@@ -216,30 +216,19 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Add IP-based rate limiting on vault and OAuth endpoints (Hono middleware or Cloudflare WAF rules).
 - Add per-session LLM usage budget enforcement (see also [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md)).
 
-### P10 — Inbox route passes message IDs to ripmail without quoting
+### P10 — (archived) Inbox archive used unquoted argv tokenization
 
-**What:** `POST /api/inbox/:id/archive` and `POST /api/inbox/:id/read` interpolate the URL parameter `id` directly into the ripmail command string without `JSON.stringify`:
+**Was:** Older Brain builds interpolated message ids into a ripmail CLI string.
 
-```ts
-await execRipmailAsync(`${ripmailBin()} archive ${id}`)
-```
+**Now:** Inbox archive/read routes use in-process `@server/ripmail` APIs (`ripmailArchive`, etc.). No CLI tokenization.
 
-`execRipmailAsync` tokenizes on whitespace — a space-containing ID (unusual but possible for some message formats) would split into multiple argv tokens, potentially causing unexpected ripmail behavior or misrouting. This is not a shell injection (no shell is involved) but is inconsistent with how all other ripmail call sites in the same file quote parameters.
+### P11 — Mail send failure logs
 
-**File:** `src/server/routes/inbox.ts:157–168`.
-
-**Fix:** Wrap `id` with `JSON.stringify` to match the rest of the codebase: `${ripmailBin()} archive ${JSON.stringify(id)}`.
-
-### P11 — Ripmail failure logs may contain sensitive mail / IMAP content
-
-**What:** When a ripmail subprocess fails or times out, `ripmailRun.ts` logs up to 6,000 chars of stdout and stderr to `console.log` as structured JSON (`stdoutTail`, `stderrTail`). On a send failure, SMTP transcripts and message content can appear in these tails. All container stdout goes to Docker logs (docker logging driver), which on this host goes to disk or forwarding — whatever is configured.
-
-**File:** `src/server/lib/ripmail/ripmailRun.ts:239–241`.
+**What:** Send failures can surface provider or SMTP error text via `brainLogger` / thrown `Error` messages. Treat container logs as sensitive when debugging delivery issues.
 
 **Mitigations to address:**
 
-- Cap log tails more aggressively on production, or log only the last line (progress markers) rather than raw output.
-- Avoid logging full `stdoutTail` for `send` failures (which is when body content is most likely to appear in stderr).
+- Cap structured log detail in production where practical.
 - Ensure Docker logging driver is not forwarding to any unintended destination.
 
 ### P12 — Error responses disclose internal details to authenticated clients

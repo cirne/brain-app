@@ -83,6 +83,7 @@ nvm use          # must match .nvmrc before npm/node (see “Node.js (nvm)” ab
 npm install
 npm run dev      # BRAIN_DATA_ROOT=./data; Hono + Vite HMR on single port 3000 (see docs/google-oauth.md)
 npm run dev:clean  # delete ./data (all tenants + `.global/`) — full local wipe
+npm run ripmail -- <subcommand>  # manual ripmail CLI (server mail is in-process; requires `ripmail` on PATH)
 ```
 
 Single server: Vite runs as middleware inside Hono. API requests go to Hono routes; everything else goes to Vite for HMR.
@@ -116,7 +117,7 @@ cargo test                     # standard cargo test (runs integration test bina
 
 Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS for desktop builds.
 
-**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server uses a **computed** mail home per tenant. Mail indexing and sync run **in-process** in **`src/server/ripmail/`**. Optional **`RIPMAIL_BIN`** is only for legacy subprocess helpers used in some tests (`src/server/lib/ripmail/ripmailRun.ts`).
+**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server uses a **computed** mail home per tenant. Mail indexing and sync run **in-process** in **`src/server/ripmail/`**.
 
 `tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
 

@@ -12,7 +12,7 @@ import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
 import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 
-/** Simulates a spawned ripmail process for `runRipmailArgv` (stdio + close). */
+/** Simulates IMAP/child behavior for inbox route tests. */
 function createMockChild(options: {
   stdout?: string
   stderr?: string
@@ -66,7 +66,6 @@ describe('inbox route authentication (BUG-030)', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT
 
   beforeEach(async () => {
-    process.env.RIPMAIL_BIN = 'ripmail'
     brainRoot = await mkdtemp(join(tmpdir(), 'inbox-auth-'))
     process.env.BRAIN_DATA_ROOT = brainRoot
     delete process.env.BRAIN_HOME
@@ -89,7 +88,6 @@ describe('inbox route authentication (BUG-030)', () => {
   })
 
   afterEach(async () => {
-    delete process.env.RIPMAIL_BIN
     if (prevRoot === undefined) delete process.env.BRAIN_DATA_ROOT
     else process.env.BRAIN_DATA_ROOT = prevRoot
     vi.resetAllMocks()
@@ -140,7 +138,7 @@ describe('inbox route authentication (BUG-030)', () => {
     spawnMock.mockImplementation(() => createMockChild({ stdout: JSON.stringify(agentReadJson), code: 0 }))
 
     // Agent tools run server-side with context already established
-    // (In real code, POST /api/chat establishes context via middleware, then tools use execRipmailAsync)
+    // (In real code, POST /api/chat establishes context via middleware; mail tools use @server/ripmail in-process.)
     // Simulating what happens during a chat request:
     const agentWorked = await runWithTenantContextAsync(
       { tenantUserId: TENANT_ID, workspaceHandle: TENANT_ID, homeDir: tenantHomeDir(TENANT_ID) },

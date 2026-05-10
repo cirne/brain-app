@@ -1,14 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+/** Stable fake ripmail home for unit tests (no filesystem required — mocks own I/O). */
+const mockRipmailHome = vi.hoisted(() => ({
+  path: '/tmp/brain-ask-collaborator-tool-test-ripmail',
+}))
+
+vi.mock('@server/lib/platform/brainHome.js', async (importOriginal) => {
+  const a = await importOriginal<typeof import('@server/lib/platform/brainHome.js')>()
+  return {
+    ...a,
+    ripmailHomeForBrain: () => mockRipmailHome.path,
+  }
+})
+
 const {
   mockGetBrainQueryGrantById,
   mockGetPrimaryEmail,
-  mockExec,
+  mockDraftNew,
+  mockSend,
   mockTryGetTenantContext,
 } = vi.hoisted(() => ({
   mockGetBrainQueryGrantById: vi.fn(),
   mockGetPrimaryEmail: vi.fn(),
-  mockExec: vi.fn(),
+  mockDraftNew: vi.fn(() => ({
+    id: 'dr_1',
+    subject: '[braintunnel] What is the status?',
+    body: 'What is the status?',
+    to: ['owner@test.dev'],
+    createdAt: '',
+    updatedAt: '',
+  })),
+  mockSend: vi.fn().mockResolvedValue({ ok: true, draftId: 'dr_1', dryRun: false }),
   mockTryGetTenantContext: vi.fn(() => ({ tenantUserId: 'usr_asker00000000000001' })),
 }))
 
@@ -24,14 +46,14 @@ vi.mock('@server/lib/tenant/workspaceHandleDirectory.js', () => ({
   getPrimaryEmailForUserId: mockGetPrimaryEmail,
 }))
 
-vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
-  execRipmailAsync: mockExec,
-  RIPMAIL_SEND_TIMEOUT_MS: 120000,
-}))
-
-vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
-  ripmailBin: () => '/bin/ripmail',
-}))
+vi.mock('@server/ripmail/index.js', async (importOriginal) => {
+  const a = await importOriginal<typeof import('@server/ripmail/index.js')>()
+  return {
+    ...a,
+    ripmailDraftNew: mockDraftNew,
+    ripmailSend: mockSend,
+  }
+})
 
 vi.mock('@server/lib/ripmail/evalRipmailSendDryRun.js', () => ({
   isEvalRipmailSendDryRun: () => false,
@@ -66,9 +88,15 @@ describe('ask_collaborator tool', () => {
       revoked_at_ms: null,
     })
     mockGetPrimaryEmail.mockResolvedValue('owner@test.dev')
-    mockExec
-      .mockResolvedValueOnce({ stdout: JSON.stringify({ id: 'dr_1', subject: '[braintunnel] Hello' }) })
-      .mockResolvedValueOnce({ stdout: '' })
+    mockDraftNew.mockReturnValue({
+      id: 'dr_1',
+      subject: '[braintunnel] What is the status?',
+      body: 'What is the status?',
+      to: ['owner@test.dev'],
+      createdAt: '',
+      updatedAt: '',
+    })
+    mockSend.mockResolvedValue({ ok: true, draftId: 'dr_1', dryRun: false })
   })
 
   it('drafts and sends for the grant asker', async () => {
@@ -77,13 +105,17 @@ describe('ask_collaborator tool', () => {
       grant_id: 'bqg_0123456789abcdef01234567',
       question: 'What is the status?',
     })
-    expect(mockExec).toHaveBeenCalledTimes(2)
-    const first = mockExec.mock.calls[0]?.[0] as string
-    expect(first).toContain('draft new')
-    expect(first).toContain('owner@test.dev')
-    const second = mockExec.mock.calls[1]?.[0] as string
-    expect(second).toContain('send')
-    expect(second).toContain('dr_1')
+    expect(mockDraftNew).toHaveBeenCalledTimes(1)
+    expect(mockDraftNew).toHaveBeenCalledWith(
+      mockRipmailHome.path,
+      expect.objectContaining({
+        to: 'owner@test.dev',
+        subject: expect.stringContaining('[braintunnel]'),
+        body: 'What is the status?',
+      }),
+    )
+    expect(mockSend).toHaveBeenCalledTimes(1)
+    expect(mockSend).toHaveBeenCalledWith(mockRipmailHome.path, 'dr_1', { dryRun: false })
     expect(r.content[0]?.text).toContain('Question sent')
   })
 

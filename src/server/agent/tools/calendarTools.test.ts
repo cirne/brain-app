@@ -9,11 +9,6 @@ vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
   ripmailBin: () => '/bin/false',
 }))
 
-vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
-  execRipmailAsync: vi.fn(),
-  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
-}))
-
 vi.mock('@server/ripmail/index.js', () => ({
   ripmailCalendarListCalendars: vi.fn(() => []),
   ripmailCalendarRange: vi.fn(() => ({ events: [], sourcesConfigured: false })),

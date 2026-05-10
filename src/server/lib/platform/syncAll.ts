@@ -1,13 +1,9 @@
 import process from 'node:process'
 import { formatExecError } from './execError.js'
-import { ripmailHomeForBrain } from './brainHome.js'
+import { ripmailHomeForBrain, ripmailProcessEnv } from './brainHome.js'
 import { getHubRipmailSourcesList } from '@server/lib/hub/hubRipmailSources.js'
 import { ensureGoogleOAuthImapSiblingSources } from './googleOAuth.js'
-import {
-  RipmailTimeoutError,
-  RIPMAIL_REFRESH_TIMEOUT_MS,
-  ripmailProcessEnv,
-} from '@server/lib/ripmail/ripmailRun.js'
+import { RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailTimeouts.js'
 import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
 import { syncMailNotifyNotificationsFromRipmailDbSafe } from '@server/lib/notifications/syncMailNotifyNotifications.js'
 
@@ -117,9 +113,8 @@ export async function runFullSync(inboxSignal?: AbortSignal): Promise<FullSyncRe
 }
 
 /**
- * Run **`refresh`** and **wait** for it to complete. Callers pass **`timeoutMs`** (e.g. wiki lap —
- * ~90s); the TS in-process sync path does not hard-cancel on that deadline today, but the
- * **`RipmailTimeoutError`** branch preserves the supervisor contract where subprocess timeouts did.
+ * Run **`refresh`** and **wait** for it to complete. Callers pass **`timeoutMs`** for API symmetry;
+ * the TS in-process sync path does not hard-cancel on that deadline today.
  */
 export async function refreshMailAndWait(
   _timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,
@@ -135,9 +130,6 @@ export async function refreshMailAndWait(
     await syncMailNotifyNotificationsFromRipmailDbSafe()
     return { ok: true }
   } catch (e) {
-    if (e instanceof RipmailTimeoutError) {
-      return { ok: false, timedOut: true, error: 'refresh timed out' }
-    }
     return { ok: false, error: formatExecError(e) }
   }
 }

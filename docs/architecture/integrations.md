@@ -12,7 +12,7 @@
 
 Mail index **status**, **search**, **read**, **inbox**, **refresh/backfill**, and related routes call **`@server/ripmail`** in-process on the tenant **`ripmail/`** directory. **`GET /api/onboarding/mail`** uses **`ripmailStatusParsed`** (SQLite — no `ripmail status` subprocess).
 
-**Optional `RIPMAIL_BIN`:** only for **`execRipmailArgv`** / subprocess-backed tests and legacy **`ripmail clean`**-style helpers — not used for normal onboarding, Hub polling, or agent mail tools.
+**Manual CLI:** **`npm run ripmail -- <subcommand>`** (requires the `ripmail` binary on `PATH`). Used only for ad-hoc operator work — not by onboarding, Hub polling, or agent mail tools.
 
 ## Unified search (`GET /api/search`)
 

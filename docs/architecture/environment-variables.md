@@ -61,7 +61,6 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 |----------|---------|
 | **`GOOGLE_OAUTH_CLIENT_ID`** / **`GOOGLE_OAUTH_CLIENT_SECRET`** | In-app Gmail OAuth ([`gmailOAuth.ts`](../../src/server/routes/gmailOAuth.ts)). |
 | **`RIPMAIL_GOOGLE_OAUTH_CLIENT_ID`** / **`RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET`** | Ripmail token refresh; Brain maps from `GOOGLE_OAUTH_*` when unset ([`brainHome.ts`](../../src/server/lib/platform/brainHome.ts)). |
-| **`RIPMAIL_BIN`** | Optional path to an external **`ripmail`** executable for **`execRipmailArgv`** / tests ([`ripmailBin.ts`](../../src/server/lib/ripmail/ripmailBin.ts)). **Normal runtime** does not require a binary; mail is in-process in **`src/server/ripmail/`**. |
 | **`RIPMAIL_EMAIL_ADDRESS`** / **`RIPMAIL_IMAP_PASSWORD`** | Non-interactive ripmail setup / validation ([`.env.example`](../../.env.example), [`calendar.ts`](../../src/server/routes/calendar.ts)). |
 | **`RIPMAIL_LLM_PROVIDER`** | Optional ripmail-side LLM provider string; Brain may derive from `BRAIN_LLM` when unset ([`brainHome.ts`](../../src/server/lib/platform/brainHome.ts)). |
 | **`RIPMAIL_HOME`** | **Not a Brain knob for paths** — Brain derives tenant mail directories from layout ([`brain-layout.json`](../../shared/brain-layout.json)). If present in the host env, it is ignored for layout (warned in startup diagnostics). Only subprocess / external-CLI scenarios consult `RIPMAIL_HOME` via [`ripmailProcessEnv`](../../src/server/lib/platform/brainHome.ts). |
@@ -162,11 +161,9 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 | **`EVAL_RIPMAIL_SEND_DRY_RUN`** | Ripmail send dry-run for evals ([`evalRipmailSendDryRun.ts`](../../src/server/lib/ripmail/evalRipmailSendDryRun.ts)). |
 | **`EVAL_SUBPROCESS_REPORT_FILE`** | Worker report path ([`runWikiV1.ts`](../../src/server/evals/runWikiV1.ts)). |
 
-### Ripmail subprocess adapters (rare)
+### `ripmailProcessEnv` (operator / external CLI only)
 
-| Variable | Purpose |
-|----------|---------|
-| **`BRAIN_RIPMAIL_SUBPROCESS_LOG`** | `errors` / `off` / `0` → quieter logs for **`execRipmailArgv`** / spawn helpers ([`ripmailRun.ts`](../../src/server/lib/ripmail/ripmailRun.ts)). |
+[`ripmailProcessEnv()`](../../src/server/lib/platform/brainHome.ts) documents computed **`RIPMAIL_HOME`** and related keys for optional **external** `ripmail` CLI use. **Normal API routes** use in-process `@server/ripmail` and do not spawn the binary.
 
 ### Tooling and deploy scripts (not read by the Brain server for core routing)
 
@@ -190,12 +187,6 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 ### Vite client (build-time)
 
 The SPA uses Vite’s built-ins **`import.meta.env.DEV`** and **`import.meta.env.PROD`** (no custom `VITE_*` Brain vars in tree).
-
----
-
-## Injected into rare ripmail subprocesses (do not set manually for Brain)
-
-When **`execRipmailArgv`** (or similar) spawns an external **`ripmail`** binary, the server merges **`ripmailProcessEnv()`** first: computed **`RIPMAIL_HOME`**, optional **`BRAIN_TENANT_USER_ID`** / **`BRAIN_WORKSPACE_HANDLE`**, derived **`RIPMAIL_LLM_PROVIDER`**, **`RIPMAIL_TIMEOUT`**, **`RIPMAIL_SPAWN_LABEL`**, etc. ([`brainHome.ts`](../../src/server/lib/platform/brainHome.ts), [`ripmailRun.ts`](../../src/server/lib/ripmail/ripmailRun.ts)). **Normal mail paths** do not spawn this child.
 
 ---
 

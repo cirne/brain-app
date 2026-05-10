@@ -123,7 +123,7 @@ export function ripmailArgvSegmentToken(argv: string[]): string {
   return 'run'
 }
 
-/** APM/DistributedTracing segment name for one `runRipmailArgv` subprocess (shows under HTTP or parent span). */
+/** APM segment name helper for optional `ripmail.cli/…` spans (e.g. if tooling wraps subprocess work). */
 export function ripmailCliSegmentName(argv: string[], explicitLabel?: string): string {
   const label = explicitLabel?.trim()
   if (label && label.length > 0 && label !== 'ripmail') {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
-import { mkdtemp, writeFile, mkdir, rm, chmod, unlink } from 'node:fs/promises'
+import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
 import { upsertImessageBatch } from '@server/lib/messages/messagesDb.js'
@@ -655,29 +655,14 @@ Sel: {{selection}} File: {{open_file}}`,
   })
 
   describe('find_person tool', () => {
-    let ripmailScript: string
-
     beforeEach(async () => {
-      // Create a fake ripmail binary that outputs contact info when called with "who"
-      ripmailScript = join(wikiDir, 'fake-ripmail')
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh\necho "Alice Example <alice@example.com> (42 emails)"\n`
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-
-      // Add wiki files mentioning the person
+      // Wiki files mentioning the person; ripmail contact lookup is mocked at module scope.
       await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice\nAlice is a great collaborator.')
         .catch(async () => {
           await mkdir(join(wikiDir, 'people'))
           await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice\nAlice is a great collaborator.')
         })
       await writeFile(join(wikiDir, 'index.md'), '# Home\nMet Alice at the conference.')
-    })
-
-    afterEach(() => {
-      delete process.env.RIPMAIL_BIN
     })
 
     it('lists top contacts when query is empty (ripmail who --limit 60)', async () => {
@@ -728,7 +713,6 @@ Sel: {{selection}} File: {{open_file}}`,
     })
 
     it('matches phone number in wiki regardless of formatting', async () => {
-      await writeFile(ripmailScript, `#!/bin/sh\nexit 0\n`)
       await writeFile(join(wikiDir, 'people', 'bob.md'), '# Bob\nPhone: (650) 248-5571\nBob is great.')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
@@ -816,36 +800,6 @@ Sel: {{selection}} File: {{open_file}}`,
   })
 
   describe('list_inbox tool', () => {
-    let ripmailScript: string
-
-    beforeEach(async () => {
-      ripmailScript = join(wikiDir, 'fake-ripmail-inbox')
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh
-echo "$*" >> "$(dirname "$0")/list-inbox-args.log"
-if [ "$1" = "inbox" ] && [ "$2" = "--thorough" ]; then
-  echo '{"mailboxes":[{"id":"mb1","items":[{"messageId":"mid-hidden","subject":"Filtered","winningRuleId":"noisy-list"}]}]}'
-elif [ "$1" = "inbox" ] && [ -z "$2" ]; then
-  echo '{"mailboxes":[{"id":"mb1","items":[{"messageId":"mid-1","subject":"Hello","action":"inform"}]}]}'
-else
-  exit 1
-fi
-`
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-    })
-
-    afterEach(async () => {
-      delete process.env.RIPMAIL_BIN
-      try {
-        await unlink(join(wikiDir, 'list-inbox-args.log'))
-      } catch {
-        /* ignore */
-      }
-    })
-
     it('runs ripmail inbox and returns JSON in content and details', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
@@ -875,28 +829,6 @@ fi
   })
 
   describe('inbox_rules tool', () => {
-    let ripmailScript: string
-
-    beforeEach(async () => {
-      ripmailScript = join(wikiDir, 'fake-ripmail-rules')
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh
-if [ "$1" = "rules" ]; then
-  echo '{"stub":"rules","op":"'$2'"}'
-else
-  exit 1
-fi
-`
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-    })
-
-    afterEach(() => {
-      delete process.env.RIPMAIL_BIN
-    })
-
     it('runs ripmail rules list and parses JSON details', async () => {
       const { ripmailRulesList } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
@@ -912,25 +844,6 @@ fi
   })
 
   describe('archive_emails tool', () => {
-    let ripmailScript: string
-
-    beforeEach(async () => {
-      ripmailScript = join(wikiDir, 'fake-ripmail-archive')
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh
-echo "$@" >> ${join(wikiDir, 'ripmail-archive.log')}
-printf '{"results":[{"messageId":"%s","local":{"ok":true,"isArchived":true},"providerMutation":{"attempted":false,"ok":false,"error":null}}]}\\n' "$2"
-`
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-    })
-
-    afterEach(() => {
-      delete process.env.RIPMAIL_BIN
-    })
-
     it('runs ripmail archive for each message id', async () => {
       const { ripmailArchive } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
@@ -950,28 +863,6 @@ printf '{"results":[{"messageId":"%s","local":{"ok":true,"isArchived":true},"pro
   // "Archived N" anyway — the user saw "30 archived" but the next list_inbox showed the
   // same 30 rows. The tool must reflect actual local archive success per message.
   describe('archive_emails tool — unresolved ids', () => {
-    let ripmailScript: string
-
-    beforeEach(async () => {
-      ripmailScript = join(wikiDir, 'fake-ripmail-archive-noop')
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh
-if [ "$1" = "archive" ]; then
-  printf '{"results":[{"messageId":"%s","local":{"ok":false,"isArchived":true},"providerMutation":{"attempted":false,"ok":false,"error":null}}]}\\n' "$2"
-  exit 0
-fi
-exit 1
-`
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-    })
-
-    afterEach(() => {
-      delete process.env.RIPMAIL_BIN
-    })
-
     it('does not claim success when ripmail reports local.ok=false for every id', async () => {
       const { ripmailArchive } = await import('@server/ripmail/index.js')
       vi.mocked(ripmailArchive).mockReturnValueOnce({
@@ -996,29 +887,6 @@ exit 1
   })
 
   describe('edit_draft tool metadata params', () => {
-    let ripmailScript: string
-
-    beforeEach(async () => {
-      ripmailScript = join(wikiDir, 'fake-ripmail-draft')
-      // Fake ripmail that records the command and returns a draft
-      await writeFile(
-        ripmailScript,
-        `#!/bin/sh
-if echo "$@" | grep -q "draft view"; then
-  echo '{"id":"d1","to":["a@x.com","b@x.com"],"cc":["c@x.com"],"subject":"Updated","body":"Hello"}'
-else
-  echo "$@" >> ${join(wikiDir, 'ripmail-calls.log')}
-fi
-`
-      )
-      await chmod(ripmailScript, 0o755)
-      process.env.RIPMAIL_BIN = ripmailScript
-    })
-
-    afterEach(() => {
-      delete process.env.RIPMAIL_BIN
-    })
-
     it('passes add_cc flags to ripmail', async () => {
       const { ripmailDraftEdit } = await import('@server/ripmail/index.js')
       const { createAgentTools } = await import('./tools.js')
