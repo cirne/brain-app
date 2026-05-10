@@ -2,7 +2,147 @@
   "calendarPicker": {
     "hint": "Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar. Changes save as soon as you toggle a calendar.",
     "empty": "No calendars found yet. Try refreshing once your calendar account has connected.",
-    "loading": "Loading calendars…"
+    "loading": "Loading calendars…",
+    "errors": {
+      "load": "Could not load calendars",
+      "save": "Could not save"
+    },
+    "minSelectedTitle": "At least {{count}} calendar(s) must stay selected"
+  },
+  "hubConnectorCalendarSection": {
+    "heading": "Calendars",
+    "errors": {
+      "loadCalendars": "Could not load calendars",
+      "saveCalendars": "Could not save"
+    }
+  },
+  "hubConnectorSourcePanel": {
+    "errors": {
+      "updateVisibility": "Could not update visibility",
+      "updateDefaultSendMailbox": "Could not update default send mailbox",
+      "loadStatus": "Could not load status",
+      "loadSourceDetail": "Could not load source detail",
+      "noSourceSelected": "No source selected",
+      "loadSources": "Could not load sources",
+      "sourceNoLongerIndexed": "This source is no longer in the index.",
+      "loadSource": "Could not load source",
+      "removeSource": "Could not remove source",
+      "startRefresh": "Could not start refresh",
+      "startBackfill": "Could not start backfill"
+    },
+    "confirmRemoveSource": {
+      "body": "Remove “{{name}}” from the search index?\n\nNothing is deleted on disk. Braintunnel will stop searching this source."
+    },
+    "refresh": {
+      "driveBlockedTitle": "Add at least one Drive folder in the list below before syncing"
+    },
+    "actions": {
+      "removing": "Removing…",
+      "removeFromIndex": "Remove from index"
+    }
+  },
+  "hubConnectorDriveSection": {
+    "heading": "Folders",
+    "emptyHint": "Choose which Drive folders Braintunnel indexes. Braintunnel requires at least one folder.",
+    "errors": {
+      "saveFailed": "Save failed",
+      "updateSharedWithMe": "Could not update Shared with me",
+      "listFolders": "Could not list folders",
+      "suggestionsFailed": "Suggestions failed"
+    },
+    "actions": {
+      "analyzingDrive": "Analyzing your Drive…",
+      "suggestFoldersWithAi": "Suggest folders with AI",
+      "browseFolders": "Browse folders",
+      "addFolder": "Add folder",
+      "analyzing": "Analyzing…",
+      "suggest": "Suggest"
+    },
+    "folderCard": {
+      "includeSubfoldersTitle": "Include subfolders",
+      "subfolders": "Subfolders",
+      "removeAria": "Remove {{name}}"
+    },
+    "suggestions": {
+      "fallbackSkipSummary": "Applying also adds skips for temporary files, Office lock files, unfinished downloads, backups, archives, and common audio and video.",
+      "title": "Suggested folders",
+      "dismissAria": "Dismiss suggestions",
+      "empty": "No folders found in your Drive to suggest.",
+      "itemAlreadyAddedAria": "{{name}}, already in your folders",
+      "deselectAria": "Deselect {{name}}",
+      "selectAria": "Select {{name}}",
+      "technicalPatternsOptional": "Technical patterns (optional)",
+      "technicalPatternsNote": {
+        "beforeStrong": "These are merged into ",
+        "strong": "Ignore patterns",
+        "afterStrong": " under Advanced when you apply."
+      },
+      "skipsAlreadyPresent": "Suggested file skips are already in your ignore list.",
+      "apply": {
+        "saving": "Applying…",
+        "foldersAndSkips_one": "Apply · {{count}} folder and file skips",
+        "foldersAndSkips_other": "Apply · {{count}} folders and file skips",
+        "foldersOnly_one": "Apply {{count}} folder",
+        "foldersOnly_other": "Apply {{count}} folders",
+        "fileSkips": "Apply file skips"
+      }
+    },
+    "browser": {
+      "root": "My Drive",
+      "closeAria": "Close folder browser",
+      "noSubfolders": "No subfolders here.",
+      "added": "Added",
+      "add": "Add",
+      "up": "← Up"
+    },
+    "advanced": {
+      "title": "Advanced",
+      "sharedWithMe": "Shared with me",
+      "ignorePatterns": "Ignore patterns (one per line)",
+      "ignorePatternsPlaceholder": "*.tmp\n~$*\n.DS_Store",
+      "maxFileSizeMb": "Max file size (MB)"
+    }
+  },
+  "calendar": {
+    "actions": {
+      "syncNow": "↻ Sync now"
+    },
+    "empty": {
+      "noData": "No calendar data yet.",
+      "notConfigured": "No calendar configured.",
+      "hintBeforeCode": "Connect Gmail (calendar is included) or add a calendar source under ripmail — see onboarding and ",
+      "hintCode": "ripmail sources",
+      "hintAfterCode": "."
+    },
+    "todayBadge": "today"
+  },
+  "dayEvents": {
+    "allDay": "All day",
+    "aria": {
+      "openInCalendar": "Open {{title}} in calendar",
+      "viewDetails": "View details: {{title}}"
+    }
+  },
+  "calendarEventDetail": {
+    "errors": {
+      "relatedContext": "Could not load related context."
+    },
+    "personFallback": "Contact",
+    "labels": {
+      "when": "When",
+      "where": "Where",
+      "links": "Links",
+      "notes": "Notes"
+    },
+    "related": {
+      "ariaLabel": "Related context",
+      "title": "Related context",
+      "hint": "Related notes and messages from your wiki and inbox.",
+      "contacts": "Contacts",
+      "messages": "Messages",
+      "docs": "Docs",
+      "empty": "No matching contacts or search hits for this title."
+    }
   },
   "brainHubPage": {
     "title": "Activity",

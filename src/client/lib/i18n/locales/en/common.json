@@ -22,7 +22,9 @@
     "copyLink": "Copy link",
     "search": "Search",
     "pause": "Pause",
-    "resume": "Resume"
+    "resume": "Resume",
+    "apply": "Apply",
+    "dismiss": "Dismiss"
   },
   "status": {
     "loading": "Loading…",

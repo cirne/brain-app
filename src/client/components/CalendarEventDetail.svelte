@@ -13,6 +13,7 @@
     extractMeetingIds,
   } from '@client/lib/calendarNotes.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type WikiR = { type: 'wiki'; path: string; excerpt: string }
   type EmailR = {
@@ -99,7 +100,7 @@
         relatedPeople = data.people ?? []
       } catch (e) {
         if (relatedContextLatest.isStale(token) || isAbortError(e)) return
-        relatedError = 'Could not load related context.'
+        relatedError = $t('hub.calendarEventDetail.errors.relatedContext')
       } finally {
         if (!relatedContextLatest.isStale(token)) relatedLoading = false
       }
@@ -122,7 +123,7 @@
     const n = p.displayName ?? p.name
     const a = p.primaryAddress
     if (n && a) return `${n} · ${a}`
-    return n ?? a ?? 'Contact'
+    return n ?? a ?? $t('hub.calendarEventDetail.personFallback')
   }
 
   /** Card-like related-row button shared between people, messages, and wiki blocks. */
@@ -142,12 +143,16 @@
 
   <dl class="ced-dl m-0 flex flex-col gap-[14px]">
     <div class="ced-row m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
-      <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">When</dt>
+      <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">
+        {$t('hub.calendarEventDetail.labels.when')}
+      </dt>
       <dd class="m-0 text-sm leading-snug text-foreground">{formatCalendarEventWhen(event)}</dd>
     </div>
     {#if event.location?.trim()}
       <div class="ced-row m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
-        <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">Where</dt>
+        <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">
+          {$t('hub.calendarEventDetail.labels.where')}
+        </dt>
         <dd class="m-0 text-sm leading-snug text-foreground">
           {#if locationIsUrl}
             <a
@@ -164,7 +169,9 @@
     {/if}
     {#if linkUrls.length > 0}
       <div class="ced-row ced-links-row m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
-        <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">Links</dt>
+        <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">
+          {$t('hub.calendarEventDetail.labels.links')}
+        </dt>
         <dd class="m-0 text-sm leading-snug text-foreground">
           <ul class="ced-link-list m-0 pl-[1.1em] text-[13px] [&>li]:my-1">
             {#each linkUrls as href (href)}
@@ -183,7 +190,9 @@
     {/if}
     {#if notesPlain}
       <div class="ced-row ced-notes m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
-        <dt class="m-0 pt-0.5 text-xs font-semibold uppercase tracking-[0.04em] text-muted">Notes</dt>
+        <dt class="m-0 pt-0.5 text-xs font-semibold uppercase tracking-[0.04em] text-muted">
+          {$t('hub.calendarEventDetail.labels.notes')}
+        </dt>
         <dd
           class="ced-desc m-0 whitespace-pre-wrap text-[13px] leading-snug text-muted [word-break:break-word]"
         >{notesPlain}</dd>
@@ -192,18 +201,27 @@
   </dl>
 
   {#if hasRelated}
-    <section class="ced-related mt-[22px] border-t border-border pt-4" aria-label="Related context">
-      <h3 class="ced-related-title m-0 mb-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] text-foreground">Related context</h3>
-      <p class="ced-related-hint m-0 mb-3 text-[11px] leading-tight text-muted">Related notes and messages from your wiki and inbox.</p>
+    <section
+      class="ced-related mt-[22px] border-t border-border pt-4"
+      aria-label={$t('hub.calendarEventDetail.related.ariaLabel')}
+    >
+      <h3 class="ced-related-title m-0 mb-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] text-foreground">
+        {$t('hub.calendarEventDetail.related.title')}
+      </h3>
+      <p class="ced-related-hint m-0 mb-3 text-[11px] leading-tight text-muted">
+        {$t('hub.calendarEventDetail.related.hint')}
+      </p>
 
       {#if relatedLoading}
-        <p class="ced-related-muted m-0 text-xs text-muted">Loading…</p>
+        <p class="ced-related-muted m-0 text-xs text-muted">{$t('common.status.loading')}</p>
       {:else if relatedError}
         <p class="ced-related-err m-0 text-xs text-[#f87171]">{relatedError}</p>
       {:else}
         {#if relatedPeople.length > 0}
           <div class="ced-block mb-3.5 last:mb-0">
-            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Contacts</div>
+            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">
+              {$t('hub.calendarEventDetail.related.contacts')}
+            </div>
             <ul class="ced-mini-list m-0 flex list-none flex-col gap-2 p-0">
               {#each relatedPeople as p, i (p.primaryAddress ?? i)}
                 <li>
@@ -227,7 +245,9 @@
 
         {#if relatedEmails.length > 0}
           <div class="ced-block mb-3.5 last:mb-0">
-            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Messages</div>
+            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">
+              {$t('hub.calendarEventDetail.related.messages')}
+            </div>
             <ul class="ced-mini-list m-0 flex list-none flex-col gap-2 p-0">
               {#each relatedEmails as m (m.id)}
                 <li>
@@ -256,7 +276,9 @@
 
         {#if relatedWiki.length > 0}
           <div class="ced-block mb-3.5 last:mb-0">
-            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Docs</div>
+            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">
+              {$t('hub.calendarEventDetail.related.docs')}
+            </div>
             <ul class="ced-mini-list m-0 flex list-none flex-col gap-2 p-0">
               {#each relatedWiki as w (w.path)}
                 <li>
@@ -283,7 +305,9 @@
         {/if}
 
         {#if !relatedLoading && relatedPeople.length === 0 && relatedEmails.length === 0 && relatedWiki.length === 0}
-          <p class="ced-related-muted m-0 text-xs text-muted">No matching contacts or search hits for this title.</p>
+          <p class="ced-related-muted m-0 text-xs text-muted">
+            {$t('hub.calendarEventDetail.related.empty')}
+          </p>
         {/if}
       {/if}
     </section>

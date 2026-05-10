@@ -8,6 +8,7 @@
   import { getCalendarSlideHeaderCell } from '@client/lib/calendarSlideHeaderContext.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { localYmdFromDate } from '@client/lib/calendarLocalYmd.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   let {
     refreshKey = 0,
@@ -239,17 +240,18 @@
       class="empty-state flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-muted"
     >
       {#if sourcesConfigured}
-        <p class="m-0 text-sm">No calendar data yet.</p>
+        <p class="m-0 text-sm">{$t('hub.calendar.empty.noData')}</p>
         <button
           class="sync-btn cursor-pointer rounded-md border border-border bg-surface-3 px-4 py-1.5 text-[13px] text-foreground hover:border-accent hover:text-accent"
           onclick={() => { void refreshCalendarSources() }}
-        >↻ Sync now</button>
+        >{$t('hub.calendar.actions.syncNow')}</button>
       {:else}
-        <p class="m-0 text-sm">No calendar configured.</p>
+        <p class="m-0 text-sm">{$t('hub.calendar.empty.notConfigured')}</p>
         <p class="hint m-0 max-w-[320px] text-xs leading-[1.5]">
-          Connect Gmail (calendar is included) or add a calendar source under ripmail — see onboarding and <code
+          {$t('hub.calendar.empty.hintBeforeCode')}
+          <code
             class="font-mono text-accent"
-          >ripmail sources</code>.
+          >{$t('hub.calendar.empty.hintCode')}</code>{$t('hub.calendar.empty.hintAfterCode')}
         </p>
       {/if}
     </div>
@@ -279,7 +281,7 @@
             {#if ymd === todayYMD}
               <span
                 class="today-badge bg-accent px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.04em] text-white"
-              >today</span>
+              >{$t('hub.calendar.todayBadge')}</span>
             {/if}
           </div>
           <DayEvents

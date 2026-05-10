@@ -6,6 +6,7 @@
     CalendarPickerCalendar,
     CalendarPickerLoadResult,
   } from '@client/lib/calendar/calendarPickerTypes.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     /** Change this value to trigger a reload (e.g. hub source id). */
@@ -33,11 +34,15 @@
     save,
     fallbackConfiguredIds = null,
     minSelected = 1,
-    hint = 'Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar. Changes save as soon as you toggle a calendar.',
-    emptyMessage = 'No calendars found yet. Try refreshing once your calendar account has connected.',
-    loadingMessage = 'Loading calendars…',
+    hint,
+    emptyMessage,
+    loadingMessage,
     onSaved,
   }: Props = $props()
+
+  const resolvedHint = $derived(hint ?? $t('hub.calendarPicker.hint'))
+  const resolvedEmptyMessage = $derived(emptyMessage ?? $t('hub.calendarPicker.empty'))
+  const resolvedLoadingMessage = $derived(loadingMessage ?? $t('hub.calendarPicker.loading'))
 
   const pickerScope =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -87,7 +92,7 @@
       dirty = false
       saveError = null
     } catch (e) {
-      loadError = e instanceof Error ? e.message : 'Could not load calendars'
+      loadError = e instanceof Error ? e.message : $t('hub.calendarPicker.errors.load')
     } finally {
       loading = false
     }
@@ -107,7 +112,7 @@
       savedAt = Date.now()
       onSaved?.()
     } catch (e) {
-      saveError = e instanceof Error ? e.message : 'Could not save'
+      saveError = e instanceof Error ? e.message : $t('hub.calendarPicker.errors.save')
     } finally {
       saving = false
       if (persistQueued) {
@@ -139,14 +144,14 @@
 
 <div class="cal-picker-root box-border w-full">
   {#if loading && calendars.length === 0}
-    <p class="cal-picker-note m-0 text-[0.8125rem] leading-[1.45] text-muted" role="status">{loadingMessage}</p>
+    <p class="cal-picker-note m-0 text-[0.8125rem] leading-[1.45] text-muted" role="status">{resolvedLoadingMessage}</p>
   {:else if loadError}
     <p class="cal-picker-err mt-[0.35rem] text-[0.8125rem] leading-[1.4] text-danger" role="alert">{loadError}</p>
   {:else if calendars.length === 0}
-    <p class="cal-picker-note m-0 text-[0.8125rem] leading-[1.45] text-muted">{emptyMessage}</p>
+    <p class="cal-picker-note m-0 text-[0.8125rem] leading-[1.45] text-muted">{resolvedEmptyMessage}</p>
   {:else}
-    {#if hint}
-      <p class="cal-picker-hint mb-2 mt-0 text-[0.8125rem] leading-[1.45] text-muted">{hint}</p>
+    {#if resolvedHint}
+      <p class="cal-picker-hint mb-2 mt-0 text-[0.8125rem] leading-[1.45] text-muted">{resolvedHint}</p>
     {/if}
 
     <ul class="cal-picker-list m-0 flex w-full list-none flex-col gap-[0.4rem] p-0" role="list">
@@ -162,7 +167,9 @@
             class="cal-picker-sr-input absolute m-[-1px] h-px w-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]"
             {checked}
             disabled={isLocked}
-            title={isLocked ? `At least ${minSelected} calendar(s) must stay selected` : undefined}
+            title={isLocked
+              ? $t('hub.calendarPicker.minSelectedTitle', { count: minSelected })
+              : undefined}
             onchange={() => toggle(cal.id)}
           />
           <label
@@ -206,9 +213,9 @@
     >
       {#if saving}
         <RefreshCw size={14} aria-hidden="true" class="cal-picker-saving-spin shrink-0" />
-        <span>Saving…</span>
+        <span>{$t('common.status.saving')}</span>
       {:else if savedAt && !dirty && !saveError}
-        <span class="cal-picker-saved">Saved</span>
+        <span class="cal-picker-saved">{$t('common.status.saved')}</span>
       {/if}
     </div>
   {/if}

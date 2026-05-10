@@ -13,6 +13,7 @@
   import HubConnectorIndexSections from '@components/hub-connector/HubConnectorIndexSections.svelte'
   import HubConnectorMailSections from '@components/hub-connector/HubConnectorMailSections.svelte'
   import HubConnectorSourceMeta from '@components/hub-connector/HubConnectorSourceMeta.svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     sourceId: string | undefined
@@ -99,12 +100,12 @@
         includeInDefault?: boolean
       }
       if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not update visibility')
+        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.updateVisibility'))
       }
       includedInDefault = j.includeInDefault === true
       emit({ type: 'hub:sources-changed' })
     } catch (e) {
-      prefsError = e instanceof Error ? e.message : 'Could not update visibility'
+      prefsError = e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.updateVisibility')
     } finally {
       prefsBusy = null
     }
@@ -127,12 +128,16 @@
         defaultSendSource?: string | null
       }
       if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not update default send mailbox')
+        throw new Error(typeof j.error === 'string'
+          ? j.error
+          : $t('hub.hubConnectorSourcePanel.errors.updateDefaultSendMailbox'))
       }
       isDefaultSend = j.defaultSendSource === id
       emit({ type: 'hub:sources-changed' })
     } catch (e) {
-      prefsError = e instanceof Error ? e.message : 'Could not update default send mailbox'
+      prefsError = e instanceof Error
+        ? e.message
+        : $t('hub.hubConnectorSourcePanel.errors.updateDefaultSendMailbox')
     } finally {
       prefsBusy = null
     }
@@ -155,14 +160,14 @@
         mailStatusError =
           typeof (j as { error?: string }).error === 'string'
             ? (j as { error: string }).error
-            : 'Could not load status'
+            : $t('hub.hubConnectorSourcePanel.errors.loadStatus')
         return
       }
       mailStatusError = null
       mailStatus = j
     } catch (e) {
       if (hubSourceMailLatest.isStale(token) || isAbortError(e)) return
-      mailStatusError = e instanceof Error ? e.message : 'Could not load status'
+      mailStatusError = e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.loadStatus')
     } finally {
       if (!hubSourceMailLatest.isStale(token)) mailStatusLoading = false
     }
@@ -234,7 +239,7 @@
         const err =
           typeof (j as { error?: string }).error === 'string'
             ? (j as { error: string }).error
-            : 'Could not load source detail'
+            : $t('hub.hubConnectorSourcePanel.errors.loadSourceDetail')
         sourceDetailError = err
         return
       }
@@ -249,7 +254,9 @@
       maybeClearIndexRefreshPending(next)
     } catch (e) {
       if (hubSourceDetailLatest.isStale(token) || isAbortError(e)) return
-      sourceDetailError = e instanceof Error ? e.message : 'Could not load source detail'
+      sourceDetailError = e instanceof Error
+        ? e.message
+        : $t('hub.hubConnectorSourcePanel.errors.loadSourceDetail')
     } finally {
       const staleFinally = hubSourceDetailLatest.isStale(token)
       if (!staleFinally) {
@@ -288,7 +295,7 @@
       indexRefreshStartedAt = null
     }
     if (!sourceId) {
-      loadError = 'No source selected'
+      loadError = $t('hub.hubConnectorSourcePanel.errors.noSourceSelected')
       return
     }
     try {
@@ -297,12 +304,12 @@
       const j = (await res.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
       if (hubSourceListLatest.isStale(token)) return
       if (!res.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not load sources')
+        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.loadSources'))
       }
       const rows = Array.isArray(j.sources) ? j.sources : []
       const row = rows.find((r) => r.id === sourceId)
       if (!row) {
-        loadError = 'This source is no longer in the index.'
+        loadError = $t('hub.hubConnectorSourcePanel.errors.sourceNoLongerIndexed')
         if (keepExisting) {
           source = null
           sourceDetail = null
@@ -322,18 +329,14 @@
       }
     } catch (e) {
       if (hubSourceListLatest.isStale(token) || isAbortError(e)) return
-      loadError = e instanceof Error ? e.message : 'Could not load source'
+      loadError = e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.loadSource')
     }
   }
 
   async function confirmRemoveSource() {
     if (!source) return
     const name = source.displayName
-    if (
-      !confirm(
-        `Remove “${name}” from the search index?\n\nNothing is deleted on disk. Braintunnel will stop searching this source.`,
-      )
-    ) {
+    if (!confirm($t('hub.hubConnectorSourcePanel.confirmRemoveSource.body', { name }))) {
       return
     }
     removingSource = true
@@ -345,12 +348,12 @@
       })
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
       if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not remove source')
+        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.removeSource'))
       }
       emit({ type: 'hub:sources-changed' })
       onClose()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not remove source')
+      alert(e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.removeSource'))
     } finally {
       removingSource = false
     }
@@ -369,7 +372,7 @@
       })
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
       if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not start refresh')
+        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.startRefresh'))
       }
       if (!isMailSourceKind(source.kind)) {
         indexRefreshPending = true
@@ -392,7 +395,7 @@
       indexRefreshPending = false
       indexRefreshBaseline = null
       indexRefreshStartedAt = null
-      alert(e instanceof Error ? e.message : 'Could not start refresh')
+      alert(e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.startRefresh'))
     } finally {
       sourceSyncAction = null
     }
@@ -410,12 +413,12 @@
       })
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
       if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not start backfill')
+        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.startBackfill'))
       }
       await load()
       await loadMailStatus()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not start backfill')
+      alert(e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.startBackfill'))
     } finally {
       sourceSyncAction = null
     }
@@ -466,7 +469,7 @@
       refreshDisabled: Boolean(sourceSyncAction) || blocked,
       refreshSpinning: Boolean(sourceSyncAction === 'refresh' || (!mail && indexRefreshPending)),
       refreshTitle: blocked
-        ? 'Add at least one Drive folder in the list below before syncing'
+        ? $t('hub.hubConnectorSourcePanel.refresh.driveBlockedTitle')
         : undefined,
     }
     if (!hubSourceHeaderCtrl?.isOwner) {
@@ -535,13 +538,15 @@
           disabled={removingSource}
           onclick={() => void confirmRemoveSource()}
         >
-          {removingSource ? 'Removing…' : 'Remove from index'}
+          {removingSource
+            ? $t('hub.hubConnectorSourcePanel.actions.removing')
+            : $t('hub.hubConnectorSourcePanel.actions.removeFromIndex')}
         </button>
       </div>
     </div>
   {:else}
     <p class="hub-connector-loading m-0 text-[0.9375rem] leading-[1.45] text-muted" role="status">
-      Loading…
+      {$t('common.status.loading')}
     </p>
   {/if}
 </div>

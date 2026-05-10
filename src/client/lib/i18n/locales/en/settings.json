@@ -48,5 +48,44 @@
       "bodyLine1": "This permanently removes your wiki, chats, and profile from Braintunnel, plus the search library Braintunnel built from your mail and other sources. You can't undo it.",
       "bodyLine2": "Your email accounts stay as they are: Braintunnel doesn't change or delete messages at your provider, and you can keep using mail the same way you do today."
     }
+  },
+  "settingsSubpageHeader": {
+    "navAriaLabel": "Settings location",
+    "settingsCrumb": "Settings"
+  },
+  "settingsConnectionsPage": {
+    "title": "Connections",
+    "lead": "Mailboxes, calendars, and folders wired into Braintunnel. Open a row to change indexing, default send, or remove a connection.",
+    "errors": {
+      "loadSources": "Could not load sources."
+    },
+    "empty": {
+      "multiTenant": "No sources yet. Connect mail or add calendars below.",
+      "singleTenant": "No sources yet. Connect mail or add calendars."
+    },
+    "badges": {
+      "defaultSendTitle": "Default mailbox for sending",
+      "defaultSendLabel": "Default send",
+      "hiddenFromSearchTitle": "Excluded from default searches",
+      "hiddenFromSearchLabel": "Hidden from search"
+    },
+    "addAnotherGmail": {
+      "title": "Add another Gmail account",
+      "subtitle": "Search and send from a second mailbox in the same workspace"
+    }
+  },
+  "settingsWikiPage": {
+    "title": "Wiki activity",
+    "lead": "Peek at pages the background job touched recently—or open the full log to see each step.",
+    "pageCountAria": "{{count}} pages",
+    "pageCountLoading": "Page count loading",
+    "pagesLabel": "pages",
+    "openLogTitle": "Open wiki background log",
+    "openLogSubtitle": "Tool steps, timing, and errors",
+    "paused": "Paused",
+    "recentEditsAriaLabel": "Recent wiki edits",
+    "recentEditsLabel": "Recent edits",
+    "noRecentEdits": "No recent edits recorded yet.",
+    "loadingStatus": "Loading wiki status…"
   }
 }
