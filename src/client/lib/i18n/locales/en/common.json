@@ -36,6 +36,13 @@
   "brand": {
     "name": "Braintunnel"
   },
+  "desktopAppUpdate": {
+    "available": "Braintunnel {{version}} is available",
+    "actions": {
+      "installing": "Installing…",
+      "restartToUpdate": "Restart to update"
+    }
+  },
   "home": {
     "sections": {
       "today": "Today",

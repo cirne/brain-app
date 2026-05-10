@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18next from 'i18next'
   import DayEvents from '@components/DayEvents.svelte'
 
   let {
@@ -14,6 +15,15 @@
     onKeep: () => void
     onStartClose: () => void
   } = $props()
+
+  const headingDate = $derived(
+    new Date(`${date}T00:00:00`).toLocaleDateString(i18next.language || undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }),
+  )
 </script>
 
 <div
@@ -24,12 +34,7 @@
   onmouseleave={onStartClose}
 >
   <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted [font-variant:normal]">
-    {new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    })}
+    {headingDate}
   </div>
   <DayEvents {date} />
 </div>

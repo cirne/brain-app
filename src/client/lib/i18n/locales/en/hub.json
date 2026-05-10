@@ -283,5 +283,63 @@
     "errors": {
       "startFailed": "Could not start wiki expansion"
     }
+  },
+  "backgroundAgentPanel": {
+    "status": {
+      "queued": "queued",
+      "running": "running",
+      "paused": "paused",
+      "completed": "completed",
+      "error": "error"
+    },
+    "usage": {
+      "tokens": "{{count}} tok",
+      "runTotalLastPass": "Run total: {{total}} · last pass: {{last}}"
+    },
+    "labels": {
+      "steps": "Steps"
+    },
+    "aria": {
+      "stepsInOrder": "Steps in order, oldest first",
+      "expansionActivityLegacy": "Expansion activity (legacy)",
+      "jumpToLatestActivity": "Jump to latest activity",
+      "pagesCreated": "Pages created",
+      "modelTokenUsageEstimate": "Model token usage estimate"
+    },
+    "empty": {
+      "noActiveWikiExpansion": "No active wiki expansion.",
+      "noStepsYet": "No steps yet. The assistant may be planning; completed work will appear here."
+    },
+    "pausedNotice": "Pausing wiki expansion and maintenance.",
+    "pageCount_one": "{{count}} page",
+    "pageCount_other": "{{count}} pages"
+  },
+  "fileSourceConfigEditor": {
+    "errors": {
+      "couldNotListFolders": "Could not list folders",
+      "saveFailed": "Save failed"
+    },
+    "driveFoldersRequired": "No Drive folders selected - add at least one folder before syncing (entire-Drive sync is disabled).",
+    "aria": {
+      "pickFolder": "Pick folder"
+    },
+    "labels": {
+      "indexedFolders": "Indexed folders",
+      "includeSubfolders": "Include subfolders",
+      "maxFileBytes": "Max file bytes",
+      "respectGitignore": "Respect .gitignore",
+      "includeGlobs": "Include globs (one per line, optional)",
+      "ignoreGlobs": "Ignore globs (one per line)"
+    },
+    "empty": {
+      "noIndexedFolders": "None yet - use \"Add folder...\"."
+    },
+    "actions": {
+      "addFolder": "Add folder...",
+      "removeFolderAria": "Remove folder",
+      "hideIncludeIgnorePatterns": "Hide include / ignore patterns",
+      "editIncludeIgnorePatterns": "Edit include / ignore patterns",
+      "saveFileSourceSettings": "Save file source settings"
+    }
   }
 }

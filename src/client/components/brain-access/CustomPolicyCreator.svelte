@@ -1,5 +1,6 @@
 <script lang="ts">
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
   import { addBrainAccessCustomPolicy } from '@client/lib/brainAccessCustomPolicies.js'
 
@@ -30,8 +31,8 @@
   $effect(() => {
     if (!open) return
     if (templateKey === 'none') return
-    const t = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === templateKey)
-    if (t) body = t.text
+    const template = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === templateKey)
+    if (template) body = template.text
   })
 
   async function confirm(): Promise<void> {
@@ -55,10 +56,10 @@
 
 <ConfirmDialog
   {open}
-  title="Create custom policy"
+  title={$t('access.customPolicyCreator.title')}
   titleId="brain-custom-policy-title"
-  confirmLabel={busy ? 'Saving…' : 'Save policy'}
-  cancelLabel="Cancel"
+  confirmLabel={busy ? $t('common.status.saving') : $t('access.customPolicyCreator.actions.savePolicy')}
+  cancelLabel={$t('common.actions.cancel')}
   panelClass="max-w-[36rem]"
   onDismiss={() => {
     if (!busy) onDismiss()
@@ -67,44 +68,52 @@
 >
   <div class="flex flex-col gap-3 text-[0.8125rem]">
     <label class="flex flex-col gap-1">
-      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">Policy name</span>
+      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
+        {$t('access.customPolicyCreator.fields.policyName.label')}
+      </span>
       <input
         type="text"
         class="rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface px-2 py-1.5 text-foreground"
         bind:value={name}
         disabled={busy}
-        placeholder="e.g. Executive team"
+        placeholder={$t('access.customPolicyCreator.fields.policyName.placeholder')}
       />
     </label>
     <label class="flex flex-col gap-1">
-      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">Start from template</span>
+      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
+        {$t('access.customPolicyCreator.fields.startFromTemplate')}
+      </span>
       <select
         class="rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface px-2 py-1.5 text-foreground"
         bind:value={templateKey}
         disabled={busy}
       >
-        <option value="none">Blank</option>
+        <option value="none">{$t('access.customPolicyCreator.templateOptions.blank')}</option>
         {#each BRAIN_QUERY_POLICY_TEMPLATES as tpl (tpl.id)}
           <option value={tpl.id}>{tpl.label}</option>
         {/each}
       </select>
     </label>
     <label class="flex flex-col gap-1">
-      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">Color accent</span>
+      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
+        {$t('access.customPolicyCreator.fields.colorAccent')}
+      </span>
       <select
         class="rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface px-2 py-1.5 text-foreground"
         bind:value={colorChoice}
         disabled={busy}
       >
-        <option value="0">Amber</option>
-        <option value="1">Orange</option>
-        <option value="2">Pink</option>
-        <option value="3">Teal</option>
-        <option value="4">Indigo</option>
+        <option value="0">{$t('access.customPolicyCreator.colorOptions.amber')}</option>
+        <option value="1">{$t('access.customPolicyCreator.colorOptions.orange')}</option>
+        <option value="2">{$t('access.customPolicyCreator.colorOptions.pink')}</option>
+        <option value="3">{$t('access.customPolicyCreator.colorOptions.teal')}</option>
+        <option value="4">{$t('access.customPolicyCreator.colorOptions.indigo')}</option>
       </select>
     </label>
     <label class="flex flex-col gap-1">
-      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">Privacy guidance</span>
+      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
+        {$t('access.customPolicyCreator.fields.privacyGuidance')}
+      </span>
       <textarea
         class="min-h-[10rem] rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-2 text-[0.8125rem] leading-snug text-foreground"
         bind:value={body}

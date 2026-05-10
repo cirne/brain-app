@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { BrainAccessGrantRow } from '@client/lib/brainAccessPolicyGrouping.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     grant: BrainAccessGrantRow
@@ -26,15 +27,15 @@
   }: Props = $props()
 
   function formatRelative(ms: number | null): string {
-    if (ms == null) return '—'
+    if (ms == null) return $t('access.userDetailRow.lastQuery.none')
     const diffSec = Math.floor((Date.now() - ms) / 1000)
-    if (diffSec < 60) return 'Just now'
+    if (diffSec < 60) return $t('access.userDetailRow.lastQuery.justNow')
     const diffMin = Math.floor(diffSec / 60)
-    if (diffMin < 60) return `${diffMin}m ago`
+    if (diffMin < 60) return $t('access.userDetailRow.lastQuery.minutesAgo', { count: diffMin })
     const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return `${diffH}h ago`
+    if (diffH < 24) return $t('access.userDetailRow.lastQuery.hoursAgo', { count: diffH })
     const diffD = Math.floor(diffH / 24)
-    if (diffD < 7) return `${diffD}d ago`
+    if (diffD < 7) return $t('access.userDetailRow.lastQuery.daysAgo', { count: diffD })
     return new Date(ms).toLocaleDateString()
   }
 
@@ -56,11 +57,14 @@
       {#if email}
         {email}
       {:else}
-        No email on file
+        {$t('access.userDetailRow.noEmail')}
       {/if}
     </div>
     <div class="text-[0.8125rem] text-muted">
-      {queryCount} quer{queryCount === 1 ? 'y' : 'ies'} · Last: {formatRelative(lastQueryMs)}
+      {$t('access.userDetailRow.querySummary', {
+        count: queryCount,
+        last: formatRelative(lastQueryMs),
+      })}
     </div>
     <div class="flex flex-wrap gap-x-3 gap-y-1">
       <button
@@ -68,7 +72,7 @@
         class="border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-accent underline-offset-2 hover:underline"
         onclick={() => onViewActivity()}
       >
-        View activity →
+        {$t('access.userDetailRow.actions.viewActivity')}
       </button>
       {#if onChangePolicy}
         <button
@@ -76,7 +80,7 @@
           class="border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-accent underline-offset-2 hover:underline"
           onclick={() => onChangePolicy()}
         >
-          Change policy…
+          {$t('access.userDetailRow.actions.changePolicy')}
         </button>
       {/if}
     </div>
@@ -85,9 +89,9 @@
     type="button"
     class="rounded-md border border-red-500/35 px-2 py-1 text-[0.75rem] font-semibold text-red-600 hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400"
     disabled={removeBusy}
-    aria-label={`Remove access for @${handle}`}
+    aria-label={$t('access.userDetailRow.actions.removeAccessAria', { handle })}
     onclick={() => void onRemove()}
   >
-    {removeBusy ? 'Removing…' : 'Remove'}
+    {removeBusy ? $t('access.userDetailRow.actions.removing') : $t('access.userDetailRow.actions.remove')}
   </button>
 </div>

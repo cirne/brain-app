@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronRight, FolderPlus, Trash2 } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
 
   export type HubFileSourceRoot = {
     id: string
@@ -90,7 +91,7 @@
       if (parentId) u.searchParams.set('parentId', parentId)
       const res = await fetch(u.toString())
       const j = (await res.json()) as { ok?: boolean; folders?: typeof browserFolders; error?: string }
-      if (!res.ok || !j.ok) throw new Error(j.error || 'Could not list folders')
+      if (!res.ok || !j.ok) throw new Error(j.error || $t('hub.fileSourceConfigEditor.errors.couldNotListFolders'))
       browserFolders = Array.isArray(j.folders) ? j.folders : []
     } catch (e) {
       browserErr = e instanceof Error ? e.message : String(e)
@@ -150,7 +151,7 @@
         body: JSON.stringify({ id: sourceId, fileSource: draft }),
       })
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!res.ok || !j.ok) throw new Error(j.error || 'Save failed')
+      if (!res.ok || !j.ok) throw new Error(j.error || $t('hub.fileSourceConfigEditor.errors.saveFailed'))
       onSaved()
     } catch (e) {
       saveErr = e instanceof Error ? e.message : String(e)
@@ -176,7 +177,7 @@
       class="fs-editor-warn m-0 bg-[color-mix(in_srgb,orange_18%,transparent)] px-[0.65rem] py-2 text-sm"
       role="alert"
     >
-      No Drive folders selected — add at least one folder before syncing (entire-Drive sync is disabled).
+      {$t('hub.fileSourceConfigEditor.driveFoldersRequired')}
     </p>
   {/if}
   {#if saveErr}
@@ -188,14 +189,16 @@
 
   <div class="fs-editor-roots">
     <div class="fs-editor-roots-head flex flex-wrap items-center justify-between gap-2">
-      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Indexed folders</span>
+      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">
+        {$t('hub.fileSourceConfigEditor.labels.indexedFolders')}
+      </span>
       <button type="button" class={cn(hubBtn, hubBtnSecondary, 'fs-btn inline-flex items-center gap-[0.35rem]')} onclick={openBrowser}>
         <FolderPlus size={16} aria-hidden="true" />
-        Add folder…
+        {$t('hub.fileSourceConfigEditor.actions.addFolder')}
       </button>
     </div>
     {#if draft.roots.length === 0}
-      <p class="fs-editor-empty m-0 text-sm opacity-80">None yet — use “Add folder…”.</p>
+      <p class="fs-editor-empty m-0 text-sm opacity-80">{$t('hub.fileSourceConfigEditor.empty.noIndexedFolders')}</p>
     {:else}
       <ul class="fs-root-list m-0 flex list-none flex-col gap-2 p-0">
         {#each draft.roots as r, i (r.id + i)}
@@ -212,12 +215,12 @@
                 checked={r.recursive}
                 onchange={(e) => setRecursive(i, (e.currentTarget as HTMLInputElement).checked)}
               />
-              Include subfolders
+              {$t('hub.fileSourceConfigEditor.labels.includeSubfolders')}
             </label>
             <button
               type="button"
               class="hub-icon-btn fs-remove justify-self-end"
-              aria-label="Remove folder"
+              aria-label={$t('hub.fileSourceConfigEditor.actions.removeFolderAria')}
               onclick={() => removeRoot(i)}
             >
               <Trash2 size={16} />
@@ -232,7 +235,7 @@
     <div
       class="fs-browser border border-[color-mix(in_srgb,var(--color-fg,#ccc)_18%,transparent)] bg-[color-mix(in_srgb,var(--color-fg,#ccc)_4%,transparent)] p-2"
       role="dialog"
-      aria-label="Pick folder"
+      aria-label={$t('hub.fileSourceConfigEditor.aria.pickFolder')}
     >
       <div class="fs-browser-head mb-[0.35rem] flex flex-wrap items-center gap-[0.35rem]">
         <button
@@ -241,7 +244,7 @@
           onclick={browserUp}
           disabled={browserStack.length === 0}
         >
-          Up
+          {$t('hub.hubConnectorDriveSection.browser.up')}
         </button>
         <span
           class="fs-breadcrumb inline-flex min-w-0 flex-1 flex-wrap items-center gap-[0.15rem] text-[0.8rem] opacity-90"
@@ -252,13 +255,13 @@
           {/each}
         </span>
         <button type="button" class={cn(hubBtn, hubBtnSecondary)} onclick={() => (browserOpen = false)}>
-          Close
+          {$t('common.actions.close')}
         </button>
       </div>
       {#if browserLoading}
-        <p class="fs-editor-note my-1 text-sm opacity-85">Loading…</p>
+        <p class="fs-editor-note my-1 text-sm opacity-85">{$t('common.status.loading')}</p>
       {:else if browserFolders.length === 0}
-        <p class="fs-editor-note my-1 text-sm opacity-85">No subfolders here.</p>
+        <p class="fs-editor-note my-1 text-sm opacity-85">{$t('hub.hubConnectorDriveSection.browser.noSubfolders')}</p>
       {:else}
         <ul class="fs-browser-list m-0 list-none p-0">
           {#each browserFolders as f (f.id)}
@@ -274,7 +277,7 @@
                 {#if f.hasChildren}<span class="fs-has-kids ml-1 opacity-60">▸</span>{/if}
               </button>
               <button type="button" class={cn(hubBtn, hubBtnPrimary, 'fs-pick shrink-0 px-[0.55rem] py-[0.2rem] text-[0.8rem]')} onclick={() => pickFolder(f)}>
-                Add
+                {$t('hub.hubConnectorDriveSection.browser.add')}
               </button>
             </li>
           {/each}
@@ -284,7 +287,9 @@
   {/if}
 
   <label class="fs-field flex flex-col gap-1">
-    <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Max file bytes</span>
+    <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">
+      {$t('hub.fileSourceConfigEditor.labels.maxFileBytes')}
+    </span>
     <input
       type="number"
       class="hub-source-input"
@@ -301,7 +306,7 @@
   {#if sourceKind === 'localDir'}
     <label class="fs-check flex items-center gap-[0.4rem] text-sm">
       <input type="checkbox" bind:checked={draft.respectGitignore} />
-      Respect .gitignore
+      {$t('hub.fileSourceConfigEditor.labels.respectGitignore')}
     </label>
   {/if}
 
@@ -310,22 +315,30 @@
     class={cn(hubBtn, hubBtnSecondary, 'fs-globs-toggle self-start')}
     onclick={() => (globsOpen = !globsOpen)}
   >
-    {globsOpen ? 'Hide' : 'Edit'} include / ignore patterns
+    {globsOpen
+      ? $t('hub.fileSourceConfigEditor.actions.hideIncludeIgnorePatterns')
+      : $t('hub.fileSourceConfigEditor.actions.editIncludeIgnorePatterns')}
   </button>
   {#if globsOpen}
     <label class="fs-field flex flex-col gap-1">
-      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Include globs (one per line, optional)</span>
+      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">
+        {$t('hub.fileSourceConfigEditor.labels.includeGlobs')}
+      </span>
       <textarea class="hub-source-textarea" rows="3" bind:value={includeText}></textarea>
     </label>
     <label class="fs-field flex flex-col gap-1">
-      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Ignore globs (one per line)</span>
+      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">
+        {$t('hub.fileSourceConfigEditor.labels.ignoreGlobs')}
+      </span>
       <textarea class="hub-source-textarea" rows="3" bind:value={ignoreText}></textarea>
     </label>
   {/if}
 
   <div class="fs-editor-actions mt-1">
     <button type="button" class={cn(hubBtn, hubBtnPrimary)} disabled={saveBusy} onclick={() => void save()}>
-      {saveBusy ? 'Saving…' : 'Save file source settings'}
+      {saveBusy
+        ? $t('common.status.saving')
+        : $t('hub.fileSourceConfigEditor.actions.saveFileSourceSettings')}
     </button>
   </div>
 </div>

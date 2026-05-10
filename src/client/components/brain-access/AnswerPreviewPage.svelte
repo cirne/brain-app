@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { Lock, Users } from 'lucide-svelte'
+  import { t } from '@client/lib/i18n/index.js'
   import {
     loadBrainAccessCustomPolicies,
     type BrainAccessCustomPolicy,
@@ -108,12 +109,12 @@
     try {
       const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
-        loadError = (await gRes.text()) || 'Failed to load grants.'
+        loadError = (await gRes.text()) || $t('access.answerPreviewPage.errors.failedToLoadGrants')
         return
       }
       const rows = parseGrants(await gRes.json())
       if (!rows) {
-        loadError = 'Invalid grants response.'
+        loadError = $t('access.answerPreviewPage.errors.invalidGrantsResponse')
         return
       }
       grantedByMe = rows
@@ -131,7 +132,7 @@
   const cardModels = $derived(buildPolicyCardModels(grantedByMe, customPolicies))
   const card = $derived(cardModels.find((c) => c.policyId === props.policyId))
 
-  const policyLabel = $derived(card?.label ?? 'Policy')
+  const policyLabel = $derived(card?.label ?? $t('access.policyDetailPage.fallbackPolicyLabel'))
 
   const grantsInPolicy = $derived(grantsMatchingPolicyId(grantedByMe, customPolicies, props.policyId))
 
@@ -145,8 +146,8 @@
 
   const previewComposerPlaceholder = $derived(
     hasPreviewTranscript
-      ? 'Ask another question to compare responses'
-      : 'Ask something a collaborator might ask about your vault or mail.',
+      ? $t('access.answerPreviewPage.placeholder.withTranscript')
+      : $t('access.answerPreviewPage.placeholder.default'),
   )
 
   const canonicalPrivacyPolicy = $derived.by(() => {
@@ -168,7 +169,7 @@
     genericError = null
     const policyText = canonicalPrivacyPolicy.trim()
     if (!policyText) {
-      genericError = 'Save your policy text before previewing.'
+      genericError = $t('access.answerPreviewPage.errors.savePolicyBeforePreviewing')
       return
     }
 
@@ -201,7 +202,7 @@
       })
 
       if (!res.ok) {
-        genericError = `Preview couldn’t run. Try again. (${res.status})`
+        genericError = $t('access.answerPreviewPage.errors.previewRunStatus', { status: res.status })
         phase = 'idle'
         streaming = false
         workingMessages = []
@@ -226,7 +227,7 @@
         workingMessages = []
         return
       }
-      genericError = 'Preview couldn’t run. Try again.'
+      genericError = $t('access.answerPreviewPage.errors.previewRun')
       phase = 'idle'
       streaming = false
       workingMessages = []
@@ -256,7 +257,7 @@
 
     const draftAnswer = lastAssistantPlainTextFromMessages(workingMessages)
     if (!draftAnswer.trim()) {
-      genericError = 'Preview couldn’t run. Try again.'
+      genericError = $t('access.answerPreviewPage.errors.previewRun')
       phase = 'idle'
       workingMessages = []
       return
@@ -285,8 +286,8 @@
       if (!fres.ok || j.ok !== true || typeof j.finalAnswer !== 'string') {
         genericError =
           typeof j.message === 'string' && j.message.length > 0
-            ? `Preview couldn’t run. Try again. (${j.message})`
-            : 'Preview couldn’t run. Try again.'
+            ? $t('access.answerPreviewPage.errors.previewRunMessage', { message: j.message })
+            : $t('access.answerPreviewPage.errors.previewRun')
         phase = 'idle'
         workingMessages = []
         return
@@ -305,7 +306,7 @@
         },
       ]
     } catch {
-      genericError = 'Preview couldn’t run. Try again.'
+      genericError = $t('access.answerPreviewPage.errors.previewRun')
     } finally {
       phase = 'idle'
       workingMessages = []
@@ -340,14 +341,15 @@
     <div
       class="answer-preview-inner mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 pb-6 pt-4 max-md:px-4 max-md:pb-4"
     >
-  <header class="flex flex-col gap-2">
-    <h1 class="m-0 text-[1.35rem] font-extrabold tracking-tight text-foreground">Test policy responses</h1>
-    <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
-      Run a sample question to see your assistant’s full research (private), the answer collaborators would get, and what
-      was trimmed or withheld.
-    </p>
-    <p class="m-0 text-[0.8125rem] text-muted">Previews aren’t saved to inbound activity.</p>
-  </header>
+      <header class="flex flex-col gap-2">
+        <h1 class="m-0 text-[1.35rem] font-extrabold tracking-tight text-foreground">
+          {$t('access.answerPreviewPage.header.title')}
+        </h1>
+        <p class="m-0 max-w-[42rem] text-[0.875rem] leading-relaxed text-muted">
+          {$t('access.answerPreviewPage.header.lead')}
+        </p>
+        <p class="m-0 text-[0.8125rem] text-muted">{$t('access.answerPreviewPage.header.previewsNotSaved')}</p>
+      </header>
 
   {#if loadError}
     <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{loadError}</p>
@@ -357,177 +359,179 @@
     <p class="m-0 text-[0.875rem] text-red-600 dark:text-red-400" role="alert">{genericError}</p>
   {/if}
 
-  <section class="flex min-h-0 flex-1 flex-col gap-8" aria-label="Cross-brain preview">
-    {#if completedTurns.length === 0 && phase === 'idle' && !streaming && workingMessages.length === 0}
-      <p class="m-0 text-[0.8125rem] text-muted">
-        Ask a question below to see how this policy filters replies—you’ll get the private research pass, the
-        collaborator-facing answer, and a short note on what changed.
-      </p>
-    {/if}
+      <section class="flex min-h-0 flex-1 flex-col gap-8" aria-label={$t('access.answerPreviewPage.crossBrainPreviewAria')}>
+        {#if completedTurns.length === 0 && phase === 'idle' && !streaming && workingMessages.length === 0}
+          <p class="m-0 text-[0.8125rem] text-muted">
+            {$t('access.answerPreviewPage.emptyPrompt')}
+          </p>
+        {/if}
 
-    <ul class="m-0 flex list-none flex-col gap-10 p-0">
-      {#each completedTurns as turn, i (i)}
-        {@const parsed = parseBrainQueryFilterNotes(turn.filterNotes)}
-        <li class="flex flex-col gap-4">
-          <div class="text-left">
-            <div class="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Question</div>
+        <ul class="m-0 flex list-none flex-col gap-10 p-0">
+          {#each completedTurns as turn, i (i)}
+            {@const parsed = parseBrainQueryFilterNotes(turn.filterNotes)}
+            <li class="flex flex-col gap-4">
+              <div class="text-left">
+                <div class="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+                  {$t('access.answerPreviewPage.labels.question')}
+                </div>
             <div
               class="rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-surface-3/80 px-2.5 py-2 text-left text-[0.8125rem] whitespace-pre-wrap text-foreground"
             >
               {turn.question.trim() || '—'}
             </div>
-          </div>
+              </div>
 
-          <div
-            class="overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-violet-500/[0.06] dark:bg-violet-400/[0.08]"
-          >
-          <div
-            class="flex flex-col gap-0.5 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] px-3 py-2"
-          >
-            <div class="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-violet-800 dark:text-violet-200">
-              <Lock size={14} aria-hidden="true" />
-              Private Research
-            </div>
-            <div class="text-[0.625rem] font-normal normal-case tracking-normal text-violet-700 dark:text-violet-300">
-              Internal work with privileged access—not visible to others
-            </div>
-          </div>
-            <div class="min-h-[120px] bg-surface">
-              {#key i}
-                <AgentConversation
-                  messages={turn.researchMessages}
-                  streaming={false}
-                  toolDisplayMode={toolDisplayMode}
-                />
-              {/key}
-            </div>
-          </div>
+              <div
+                class="overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-violet-500/[0.06] dark:bg-violet-400/[0.08]"
+              >
+                <div
+                  class="flex flex-col gap-0.5 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] px-3 py-2"
+                >
+                  <div class="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-violet-800 dark:text-violet-200">
+                    <Lock size={14} aria-hidden="true" />
+                    {$t('access.answerPreviewPage.labels.privateResearch')}
+                  </div>
+                  <div class="text-[0.625rem] font-normal normal-case tracking-normal text-violet-700 dark:text-violet-300">
+                    {$t('access.answerPreviewPage.labels.privateResearchDescription')}
+                  </div>
+                </div>
+                <div class="min-h-[120px] bg-surface">
+                  {#key i}
+                    <AgentConversation
+                      messages={turn.researchMessages}
+                      streaming={false}
+                      toolDisplayMode={toolDisplayMode}
+                    />
+                  {/key}
+                </div>
+              </div>
 
-          <div
-            class="rounded-lg border border-emerald-500/50 bg-emerald-500/[0.07] px-3 py-3 dark:bg-emerald-400/[0.09]"
-          >
-            <div
-              class="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200"
-            >
-              <Users size={14} aria-hidden="true" />
-              Collaborator sees
-            </div>
-            <div class="text-[0.8125rem] whitespace-pre-wrap text-foreground">
-              {#if turn.status === 'early_rejected'}
-                <span class="font-medium text-muted">Declined</span>
-                {' '}
-              {:else if turn.status === 'filter_blocked'}
-                <span class="font-medium text-muted">No answer shared.</span>
-                {' '}
+              <div
+                class="rounded-lg border border-emerald-500/50 bg-emerald-500/[0.07] px-3 py-3 dark:bg-emerald-400/[0.09]"
+              >
+                <div
+                  class="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200"
+                >
+                  <Users size={14} aria-hidden="true" />
+                  {$t('access.answerPreviewPage.labels.collaboratorSees')}
+                </div>
+                <div class="text-[0.8125rem] whitespace-pre-wrap text-foreground">
+                  {#if turn.status === 'early_rejected'}
+                    <span class="font-medium text-muted">{$t('access.answerPreviewPage.labels.declined')} </span>
+                  {:else if turn.status === 'filter_blocked'}
+                    <span class="font-medium text-muted">{$t('access.answerPreviewPage.labels.noAnswerShared')} </span>
+                  {/if}
+                  {turn.returnedToCollaborator.trim() || '—'}
+                </div>
+              </div>
+
+              {#if parsed.redactions.length > 0 || parsed.plainText}
+                <div
+                  class="rounded-lg border border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-violet-500/[0.06] px-3 py-3 dark:bg-violet-400/[0.08]"
+                >
+                  <div
+                    class="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-violet-800 dark:text-violet-200"
+                  >
+                    <Lock size={14} aria-hidden="true" />
+                    {$t('access.answerPreviewPage.labels.onlyYouWhatChanged')}
+                  </div>
+                  {#if parsed.redactions.length > 0}
+                    <ul class="m-0 mb-2 flex flex-wrap gap-1.5 p-0">
+                      {#each parsed.redactions as label (label)}
+                        <li
+                          class="list-none rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-0.5 text-[0.6875rem] text-foreground"
+                        >
+                          {label}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                  {#if parsed.plainText}
+                    <div class="whitespace-pre-wrap text-[0.8125rem] text-muted">{parsed.plainText}</div>
+                  {/if}
+                </div>
               {/if}
-              {turn.returnedToCollaborator.trim() || '—'}
-            </div>
-          </div>
+            </li>
+          {/each}
+        </ul>
 
-          {#if parsed.redactions.length > 0 || parsed.plainText}
+        {#if workingMessages.length > 0}
+          <article
+            class={`flex flex-col gap-4 ${completedTurns.length > 0 ? 'border-t border-border pt-6' : ''}`}
+            aria-busy={streaming || phase !== 'idle'}
+          >
+            <div class="text-left">
+              <div class="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+                {$t('access.answerPreviewPage.labels.question')}
+              </div>
+              <div
+                class="rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-surface-3/80 px-2.5 py-2 text-left text-[0.8125rem] whitespace-pre-wrap text-foreground"
+              >
+                {activeQuestionPreview || '—'}
+              </div>
+            </div>
             <div
               class="rounded-lg border border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-violet-500/[0.06] px-3 py-3 dark:bg-violet-400/[0.08]"
             >
               <div
-                class="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-violet-800 dark:text-violet-200"
+                class="flex flex-col gap-0.5 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] px-3 py-2"
               >
-                <Lock size={14} aria-hidden="true" />
-                Only you — What changed
+                <div class="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-violet-800 dark:text-violet-200">
+                  <Lock size={14} aria-hidden="true" />
+                  {$t('access.answerPreviewPage.labels.privateResearch')}
+                </div>
+                <div class="text-[0.625rem] font-normal normal-case tracking-normal text-violet-700 dark:text-violet-300">
+                  {$t('access.answerPreviewPage.labels.privateResearchDescription')}
+                </div>
               </div>
-              {#if parsed.redactions.length > 0}
-                <ul class="m-0 mb-2 flex flex-wrap gap-1.5 p-0">
-                  {#each parsed.redactions as label (label)}
-                    <li
-                      class="list-none rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-0.5 text-[0.6875rem] text-foreground"
-                    >
-                      {label}
-                    </li>
-                  {/each}
-                </ul>
-              {/if}
-              {#if parsed.plainText}
-                <div class="whitespace-pre-wrap text-[0.8125rem] text-muted">{parsed.plainText}</div>
-              {/if}
+              <div class="min-h-[200px] bg-surface">
+                <AgentConversation
+                  bind:this={conversationEl}
+                  messages={workingMessages}
+                  streaming={streaming}
+                  toolDisplayMode={toolDisplayMode}
+                />
+              </div>
             </div>
-          {/if}
-        </li>
-      {/each}
-    </ul>
 
-    {#if workingMessages.length > 0}
-      <article
-        class={`flex flex-col gap-4 ${completedTurns.length > 0 ? 'border-t border-border pt-6' : ''}`}
-        aria-busy={streaming || phase !== 'idle'}
-      >
-        <div class="text-left">
-          <div class="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Question</div>
-          <div
-            class="rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-surface-3/80 px-2.5 py-2 text-left text-[0.8125rem] whitespace-pre-wrap text-foreground"
-          >
-            {activeQuestionPreview || '—'}
-          </div>
-        </div>
+            {#if phase === 'filter'}
+              <div
+                class="rounded-lg border border-emerald-500/50 bg-emerald-500/[0.07] px-3 py-3 dark:bg-emerald-400/[0.09]"
+              >
+                <div
+                  class="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200"
+                >
+                  <Users size={14} aria-hidden="true" />
+                  {$t('access.answerPreviewPage.labels.collaboratorSees')}
+                </div>
+                <p class="m-0 text-[0.8125rem] text-muted">{$t('access.answerPreviewPage.labels.applyingPolicy')}</p>
+              </div>
+            {/if}
+          </article>
+        {/if}
 
-        <div
-          class="overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-violet-500/[0.06] dark:bg-violet-400/[0.08]"
-        >
-          <div
-            class="flex flex-col gap-0.5 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] px-3 py-2"
-          >
-            <div class="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-violet-800 dark:text-violet-200">
-              <Lock size={14} aria-hidden="true" />
-              Private Research
-            </div>
-            <div class="text-[0.625rem] font-normal normal-case tracking-normal text-violet-700 dark:text-violet-300">
-              Internal work with privileged access—not visible to others
-            </div>
-          </div>
-          <div class="min-h-[200px] bg-surface">
-            <AgentConversation
-              bind:this={conversationEl}
-              messages={workingMessages}
-              streaming={streaming}
-              toolDisplayMode={toolDisplayMode}
+        <div class="mt-auto flex flex-col gap-2 border-t border-border pt-4">
+          <div class="min-w-0">
+            <UnifiedChatComposer
+              voiceEligible={false}
+              sessionResetKey={String(composerSessionKey)}
+              placeholder={previewComposerPlaceholder}
+              streaming={composerStreaming}
+              queuedMessages={[]}
+              wikiFiles={[]}
+              skills={[]}
+              transparentSurround={false}
+              onSend={(t) => void handleComposerSend(t)}
+              onTranscribe={(text) => void handleComposerSend(text)}
             />
           </div>
+          {#if phase === 'research' || phase === 'filter'}
+            <span class="text-[0.8125rem] text-muted" role="status">
+              {$t('access.answerPreviewPage.status.preparingPreview')}
+            </span>
+          {/if}
         </div>
-
-        {#if phase === 'filter'}
-          <div
-            class="rounded-lg border border-emerald-500/50 bg-emerald-500/[0.07] px-3 py-3 dark:bg-emerald-400/[0.09]"
-          >
-            <div
-              class="mb-2 flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200"
-            >
-              <Users size={14} aria-hidden="true" />
-              Collaborator sees
-            </div>
-            <p class="m-0 text-[0.8125rem] text-muted">Applying policy…</p>
-          </div>
-        {/if}
-      </article>
-    {/if}
-
-    <div class="mt-auto flex flex-col gap-2 border-t border-border pt-4">
-      <div class="min-w-0">
-        <UnifiedChatComposer
-          voiceEligible={false}
-          sessionResetKey={String(composerSessionKey)}
-          placeholder={previewComposerPlaceholder}
-          streaming={composerStreaming}
-          queuedMessages={[]}
-          wikiFiles={[]}
-          skills={[]}
-          transparentSurround={false}
-          onSend={(t) => void handleComposerSend(t)}
-          onTranscribe={(text) => void handleComposerSend(text)}
-        />
-      </div>
-      {#if phase === 'research' || phase === 'filter'}
-        <span class="text-[0.8125rem] text-muted" role="status">Preparing your preview…</span>
-      {/if}
-    </div>
-  </section>
+      </section>
     </div>
   </div>
 </div>

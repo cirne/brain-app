@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { fly } from 'svelte/transition'
   import { cn } from '@client/lib/cn.js'
+  import { t } from '@client/lib/i18n/index.js'
   import type {
     BackgroundAgentDoc,
     BackgroundTimelineEvent,
@@ -90,6 +91,7 @@
   const agentIsLive = $derived(
     agent?.status === 'running' || agent?.status === 'queued' || agent?.status === 'paused',
   )
+  const translate = $derived($t)
 
   function formatTimelineTime(iso: string): string {
     const d = new Date(iso)
@@ -236,7 +238,20 @@
   })
 
   function statusLabel(s: string): string {
-    return s.replace(/-/g, ' ')
+    switch (s) {
+      case 'queued':
+        return translate('hub.backgroundAgentPanel.status.queued')
+      case 'running':
+        return translate('hub.backgroundAgentPanel.status.running')
+      case 'paused':
+        return translate('hub.backgroundAgentPanel.status.paused')
+      case 'completed':
+        return translate('hub.backgroundAgentPanel.status.completed')
+      case 'error':
+        return translate('hub.backgroundAgentPanel.status.error')
+      default:
+        return s.replace(/-/g, ' ')
+    }
   }
 
   function formatTokenCount(n: number): string {
@@ -248,7 +263,9 @@
   /** Human-readable model usage for Hub (non-authoritative cost estimate from the provider stack). */
   function formatUsageSnapshot(u: LlmUsageSnapshot): string {
     const parts: string[] = []
-    if (u.totalTokens > 0) parts.push(`${formatTokenCount(u.totalTokens)} tok`)
+    if (u.totalTokens > 0) {
+      parts.push(translate('hub.backgroundAgentPanel.usage.tokens', { count: formatTokenCount(u.totalTokens) }))
+    }
     if (u.costTotal > 0) parts.push(`~$${u.costTotal.toFixed(3)}`)
     return parts.length > 0 ? parts.join(' · ') : ''
   }
@@ -261,7 +278,7 @@
     if (cum && last && cum.totalTokens !== last.totalTokens) {
       const t = formatUsageSnapshot(cum)
       const l = formatUsageSnapshot(last)
-      if (t && l) return `Run total: ${t} · last pass: ${l}`
+      if (t && l) return translate('hub.backgroundAgentPanel.usage.runTotalLastPass', { total: t, last: l })
     }
     const one = cum ?? last
     if (!one) return null
@@ -376,7 +393,7 @@
       {#if loadError}
         <p class={mutedClass} role="status">{loadError}</p>
       {:else if !agent}
-        <p class={mutedClass} role="status">No active wiki expansion.</p>
+        <p class={mutedClass} role="status">{$t('hub.backgroundAgentPanel.empty.noActiveWikiExpansion')}</p>
       {:else}
         {#if agent.detail?.trim() && !embedDuplicateParentChrome}
           <p class={statusLineClass} aria-live="polite">{agent.detail.trim()}</p>
@@ -392,9 +409,9 @@
 
         {#if timelineSorted.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class={sectionLabel}>Steps</div>
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
           {/if}
-          <ul class={timelineClass} aria-label="Steps in order, oldest first">
+          <ul class={timelineClass} aria-label={$t('hub.backgroundAgentPanel.aria.stepsInOrder')}>
             {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
               <li class={timelineItemClass}>
                 <span class={timelineTimeClass}>{formatTimelineTime(ev.at)}</span>
@@ -416,9 +433,9 @@
           </ul>
         {:else if agent.logEntries && agent.logEntries.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class={sectionLabel}>Steps</div>
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
           {/if}
-          <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+          <ul class={activityListClass} aria-label={$t('hub.backgroundAgentPanel.aria.expansionActivityLegacy')}>
             {#each agent.logEntries as entry, i (i)}
               <li class={activityLineClass}>
                 <span class={verbClass}>{entry.verb}</span>
@@ -430,19 +447,19 @@
           </ul>
         {:else if agent.logLines && agent.logLines.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class={sectionLabel}>Steps</div>
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
           {/if}
-          <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+          <ul class={activityListClass} aria-label={$t('hub.backgroundAgentPanel.aria.expansionActivityLegacy')}>
             {#each agent.logLines as line, i (i)}
               <li class={fallbackLineClass}>{line}</li>
             {/each}
           </ul>
         {:else}
           {#if !embedDuplicateParentChrome}
-            <div class={sectionLabel}>Steps</div>
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
           {/if}
           <p class={mutedClass} role="status">
-            No steps yet. The assistant may be planning; completed work will appear here.
+            {$t('hub.backgroundAgentPanel.empty.noStepsYet')}
           </p>
         {/if}
 
@@ -455,7 +472,7 @@
             <button
               type="button"
               class={cn(jumpButton, agentIsLive && jumpButtonStreaming)}
-              aria-label="Jump to latest activity"
+              aria-label={$t('hub.backgroundAgentPanel.aria.jumpToLatestActivity')}
               onclick={() => scrollToBottom()}
             >
               {#if agentIsLive}
@@ -467,14 +484,14 @@
                 class="bg-jump-chevron"
                 aria-hidden="true"
               />
-              <span class={jumpTextClass}>Latest</span>
+              <span class={jumpTextClass}>{$t('chat.agentConversation.latest')}</span>
             </button>
           </div>
         {/if}
 
         {#if agent.status === 'paused'}
           <div class={pausedNoticeClass}>
-            <p class="m-0 text-[13px] text-muted">Pausing wiki expansion and maintenance.</p>
+            <p class="m-0 text-[13px] text-muted">{$t('hub.backgroundAgentPanel.pausedNotice')}</p>
             <button
               type="button"
               class={resumeBtnClass}
@@ -482,7 +499,7 @@
               onclick={resumeAgent}
             >
               <Play size={12} fill="currentColor" />
-              Resume
+              {$t('common.actions.resume')}
             </button>
           </div>
         {/if}
@@ -498,18 +515,20 @@
         {#if loadError}
           <p class={mutedClass} role="status">{loadError}</p>
         {:else if !agent}
-          <p class={mutedClass} role="status">No active wiki expansion.</p>
+          <p class={mutedClass} role="status">{$t('hub.backgroundAgentPanel.empty.noActiveWikiExpansion')}</p>
         {:else}
           {#if !embedInHubDetail}
             <div class="bg-panel-summary flex flex-wrap items-center gap-2">
               <span class={pillClass}>{statusLabel(agent.status)}</span>
               {#if agent.pageCount > 0}
-                <span class={countClass} aria-label="Pages created">{agent.pageCount} pages</span>
+                <span class={countClass} aria-label={$t('hub.backgroundAgentPanel.aria.pagesCreated')}>
+                  {$t('hub.backgroundAgentPanel.pageCount', { count: agent.pageCount })}
+                </span>
               {/if}
               {#if usageHudLine}
                 <span
                   class={cn(countClass, countUsageClass)}
-                  aria-label="Model token usage estimate"
+                  aria-label={$t('hub.backgroundAgentPanel.aria.modelTokenUsageEstimate')}
                 >{usageHudLine}</span>
               {/if}
             </div>
@@ -524,8 +543,8 @@
           {/if}
 
           {#if timelineSorted.length > 0}
-            <div class={sectionLabel}>Steps</div>
-            <ul class={timelineClass} aria-label="Steps in order, oldest first">
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
+            <ul class={timelineClass} aria-label={$t('hub.backgroundAgentPanel.aria.stepsInOrder')}>
               {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
                 <li class={timelineItemClass}>
                   <span class={timelineTimeClass}>{formatTimelineTime(ev.at)}</span>
@@ -546,8 +565,8 @@
               {/each}
             </ul>
           {:else if agent.logEntries && agent.logEntries.length > 0}
-            <div class={sectionLabel}>Steps</div>
-            <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
+            <ul class={activityListClass} aria-label={$t('hub.backgroundAgentPanel.aria.expansionActivityLegacy')}>
               {#each agent.logEntries as entry, i (i)}
                 <li class={activityLineClass}>
                   <span class={verbClass}>{entry.verb}</span>
@@ -558,16 +577,16 @@
               {/each}
             </ul>
           {:else if agent.logLines && agent.logLines.length > 0}
-            <div class={sectionLabel}>Steps</div>
-            <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
+            <ul class={activityListClass} aria-label={$t('hub.backgroundAgentPanel.aria.expansionActivityLegacy')}>
               {#each agent.logLines as line, i (i)}
                 <li class={fallbackLineClass}>{line}</li>
               {/each}
             </ul>
           {:else}
-            <div class={sectionLabel}>Steps</div>
+            <div class={sectionLabel}>{$t('hub.backgroundAgentPanel.labels.steps')}</div>
             <p class={mutedClass} role="status">
-              No steps yet. The assistant may be planning; completed work will appear here.
+              {$t('hub.backgroundAgentPanel.empty.noStepsYet')}
             </p>
           {/if}
         {/if}
@@ -582,7 +601,7 @@
           <button
             type="button"
             class={cn(jumpButton, agentIsLive && jumpButtonStreaming)}
-            aria-label="Jump to latest activity"
+            aria-label={$t('hub.backgroundAgentPanel.aria.jumpToLatestActivity')}
             onclick={() => scrollToBottom()}
           >
             {#if agentIsLive}
@@ -594,7 +613,7 @@
               class="bg-jump-chevron"
               aria-hidden="true"
             />
-            <span class={jumpTextClass}>Latest</span>
+            <span class={jumpTextClass}>{$t('chat.agentConversation.latest')}</span>
           </button>
         </div>
       {/if}
@@ -611,7 +630,7 @@
             onclick={pauseAgent}
             disabled={actionBusy || !effectiveId}
           >
-            Pause
+            {$t('common.actions.pause')}
           </button>
         {:else if agent.status === 'paused'}
           <button
@@ -620,7 +639,7 @@
             onclick={resumeAgent}
             disabled={actionBusy || !effectiveId}
           >
-            Resume
+            {$t('common.actions.resume')}
           </button>
         {/if}
       </div>
