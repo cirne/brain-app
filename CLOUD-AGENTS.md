@@ -42,7 +42,9 @@ npm install
 
 ## Optional: Download ripmail binary
 
-CI publishes a pre-built Linux x86_64 binary to GitHub Releases on each push to main. For private repos, use authenticated download:
+CI publishes a pre-built Linux x86_64 binary to GitHub Releases on each push to main (rolling tag **`ripmail-latest`**). That job goes away when the Rust crate is removed from `main`; see **[docs/architecture/ripmail-rust-snapshot.md](docs/architecture/ripmail-rust-snapshot.md)** (“After the TypeScript port merge”) for the checklist and for git tags that pin the last Rust tree.
+
+Until then, for private repos, use authenticated download:
 
 ```sh
 # Download from private release (requires GITHUB_TOKEN)
