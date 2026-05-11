@@ -48,6 +48,25 @@ describe('ChatHistory.svelte', () => {
     })
   })
 
+  it('applies bg-surface-selected to the active chat row', async () => {
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'cur-session', title: 'Open chat' }),
+    ])
+
+    render(ChatHistory, {
+      props: {
+        ...chatHistoryTestProps(),
+        activeSessionId: 'cur-session',
+      },
+    })
+
+    await waitFor(() => {
+      const row = screen.getByText('Open chat').closest('[role="button"]')
+      expect(row).toBeTruthy()
+      expect(row?.className).toMatch(/bg-surface-selected/)
+    })
+  })
+
   it('calls onSelect when a chat row is clicked', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'abc', title: 'Pick me' }),

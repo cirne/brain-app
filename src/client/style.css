@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap");
 @import "tailwindcss";
 @import "./styles/search/wfnLeadIcon.css";
 @import "./styles/onboarding/onboardingHeroPrimitives.css";
@@ -57,28 +57,25 @@
   }
 }
 
-/* Light mode (default) — warm paper + forest/phosphor accent (no mint wash) */
+/* Light mode (default) — warm paper (“ledger”) + ember accent; IBM Plex Sans body, mono where explicit */
 :root {
-  /** Proportional stack for rare escape hatches; default UI uses `--font-mono` (terminal read). */
-  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  --bg: #f0efeb;
-  --bg-2: #e3e2db;
-  --bg-3: #d4d3ca;
-  --border: #8a9582;
-  --text: #0c140d;
-  --text-2: #4a5648;
+  --bg: #f4f1eb;
+  --bg-2: #eae6de;
+  --bg-3: #dfd9cf;
+  --border: #c4bcb0;
+  --text: #1b1917;
+  --text-2: #5e5a53;
   --muted: var(--text-2);
-  --accent: #146c32;
-  --accent-foreground: #f7f7f4;
-  --accent-dim: #d5dcd4;
+  /* Muted russet–terracotta: lower chroma than pure orange-red so borders / chips calm down */
+  --accent: #95664d;
+  --accent-foreground: #fcfaf8;
+  --accent-dim: #ece4dd;
+  /** List rails on `--bg-2`: selected row must read clearly vs rail + `--accent-dim` wash */
+  --surface-selected: color-mix(in srgb, var(--accent) 20%, var(--bg-2));
   --danger: #b91c1c;
-  --success: #0d5c3d;
-
-  /* Border radii — DESIGN.md `rounded`; Tailwind `rounded-sm|md|lg` uses these via theme (no literals in `@theme`). */
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 8px;
+  --success: #0f6b41;
 
   --tab-h: 44px;
   /** L2 row: chat drawer + slide-over (fixed height, matches --tab-h) */
@@ -95,23 +92,27 @@
   --chat-transcript-px: 16px;
   --chat-transcript-pt: 1.25rem;
   --chat-transcript-pb: 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.5;
 }
 
-/* Dark mode — phosphor-on-void; follows system preference */
+/* Dark mode — warm charcoal + ember accent (readable parchment type, not CRT green) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #020403;
-    --bg-2: #060b06;
-    --bg-3: #0d150d;
-    --border: #1a3520;
-    --text: #a0e8a8;
-    --text-2: #5eb86a;
-    --accent: #39ff88;
-    --accent-foreground: #020805;
-    --accent-dim: #0a1f0f;
+    --bg: #131110;
+    --bg-2: #1c1a17;
+    --bg-3: #262320;
+    --border: #3d3935;
+    --text: #f0eae2;
+    --text-2: #a89f93;
+    /* Dark: dusty amber—not traffic-cone orange on charcoal */
+    --accent: #c9935c;
+    --accent-foreground: #171210;
+    --accent-dim: #2c241e;
+    --surface-selected: color-mix(in srgb, var(--accent) 26%, var(--bg-2));
+    --danger: #f87171;
+    --success: #34d399;
   }
 }
 
@@ -226,6 +227,7 @@ svg.sync-spinning {
    *   bg-surface-1    → --bg     alias of surface (Material-style “level 1”; avoids silent transparency if mis-remembered)
    *   bg-surface-2    → --bg-2   bars, side rails, grouped regions
    *   bg-surface-3    → --bg-3   chips, wells, hover on nested controls
+   *   bg-surface-selected → --surface-selected current row on `bg-surface-2` rails (chat/wiki lists)
    *
    * Do not invent bg-surface-4+ without adding --color-surface-4 here first — undefined theme colors compile to empty rules.
    */
@@ -233,6 +235,7 @@ svg.sync-spinning {
   --color-surface-1: var(--bg);
   --color-surface-2: var(--bg-2);
   --color-surface-3: var(--bg-3);
+  --color-surface-selected: var(--surface-selected);
   --color-border: var(--border);
   --color-foreground: var(--text);
   --color-muted: var(--text-2);
@@ -250,4 +253,9 @@ svg.sync-spinning {
   --width-sidebar-history-mobile: var(--sidebar-history-mobile-w);
   /* max-w-chat — v4 uses --max-width-* (not --max-w-*) */
   --max-width-chat: var(--chat-column-max);
+
+  /* DESIGN.md `rounded`; shared by Tailwind utilities (rounded-sm/md/lg) and `var(--radius-*)` in global CSS */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 }

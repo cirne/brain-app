@@ -1,50 +1,50 @@
 ---
 version: alpha
 name: Braintunnel
-description: A local-first console for chat, wiki, inbox, and agents—Neo’s desk, not a stock chatbot skin.
+description: A local-first console for chat, wiki, inbox, and agents—“ink & ember”: warm stationery, not neon terminal cosplay nor generic SaaS chrome.
 colors:
-  primary: "#146c32"
-  on-primary: "#f7f7f4"
-  surface: "#f0efeb"
-  surface-1: "#f0efeb"
-  surface-2: "#e3e2db"
-  surface-3: "#d4d3ca"
-  border: "#8a9582"
-  foreground: "#0c140d"
-  muted: "#4a5648"
-  accent-dim: "#d5dcd4"
+  primary: "#95664d"
+  on-primary: "#fcfaf8"
+  surface: "#f4f1eb"
+  surface-1: "#f4f1eb"
+  surface-2: "#eae6de"
+  surface-3: "#dfd9cf"
+  border: "#c4bcb0"
+  foreground: "#1b1917"
+  muted: "#5e5a53"
+  accent-dim: "#ece4dd"
   danger: "#b91c1c"
   on-danger: "#fef2f2"
-  success: "#0d5c3d"
-  on-success: "#f0f4f1"
+  success: "#0f6b41"
+  on-success: "#f6faf7"
 typography:
   display:
-    fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
+    fontFamily: '"IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: 2.125rem
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "-0.02em"
   heading:
-    fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
+    fontFamily: '"IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: 1.125rem
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: "-0.015em"
   body:
-    fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
+    fontFamily: '"IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: 1rem
     fontWeight: 400
     lineHeight: 1.5
   label:
-    fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
+    fontFamily: '"IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: 0.8125rem
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: "-0.005em"
 rounded:
-  sm: 2px
-  md: 4px
-  lg: 8px
+  sm: 8px
+  md: 12px
+  lg: 16px
 spacing:
   xs: 4px
   sm: 8px
@@ -102,58 +102,61 @@ components:
 
 ## Overview
 
-Braintunnel should read as **a personal terminal into your own stack**: phosphor green on deep void when the system is “awake,” and a **construct** in light mode—**warm neutral paper** (not green-tinted chrome) with **forest type** and **one strong accent**—still unmistakably “code that chose you,” not pastel SaaS.
+Braintunnel should read as **a warm personal workstation**: **light mode** is **ledger paper** (cream stone surfaces, muted warm borders, deep ink-brown type) with a single **ember / terracotta** accent—not minty SaaS teal, not sterile gray dashboards. **Dark mode** stays **brown-charcoal**, not OLED black with neon green glow: **parchment body text** plus the same amber family for interactions so long sessions stay legible.
 
-The identity is **green-on-dark as default hero**, **near-neutral light surfaces + deep green text** (mint washes only in tiny accent-dim hits), and constrained neutrals so chat, wiki, and inbox stay one product. Avoid rainbow accents; reds are for errors and rare warnings only.
+The identity is **one accent hue** across surfaces (ember), **muted warm neutrals** for structure, **IBM Plex Sans** for default UI readability, **Plex Mono** only where monospace helps (handles, IDs, code). Reds and greens remain **semantic** (danger / success); they must not hijack routine chrome.
 
 ## Light mode (“the construct”)
 
-Yes—the app ships **light as default** in CSS (`:root`), then follows **`prefers-color-scheme: dark`** for the void palette. The light program reads as **terminal paper**: warm gray-beige surfaces, muted olive-gray borders, and **forest / phosphor green** for type and actions—not mint or seafoam backgrounds.
+Yes—the app ships **light as default** in CSS (`:root`), then follows **`prefers-color-scheme: dark`** for the charcoal palette. The light program reads as **stationery**: pale warm gray-beige surfaces, stone-tinted borders, **ink-brown** primary type, **terracotta** for links and filled actions—not green-washed backgrounds.
 
 ## Colors
 
 The runtime source of truth remains `src/client/style.css`. This file documents the intended values and should be kept aligned with the `:root` variables and Tailwind v4 `@theme` aliases.
 
-- `rounded.sm` / `md` / `lg` map to `--radius-sm` / `--radius-md` / `--radius-lg` on `:root`. Tailwind utilities (`rounded-sm`, etc.) compile to `border-radius: var(--radius-*)`, so one edit to those variables rethemes every usage.
+- `rounded.sm` / `md` / `lg` map to `--radius-sm` / `--radius-md` / `--radius-lg` in **`@theme`** in `src/client/style.css` (Tailwind surfaces them on the root for utilities and plain `var(--radius-*)` use). Tailwind utilities (`rounded-sm`, etc.) compile to `border-radius: var(--radius-*)`.
 - `surface`, `surface-1`, `surface-2`, and `surface-3` map to the Tailwind utilities `bg-surface`, `bg-surface-1`, `bg-surface-2`, and `bg-surface-3`.
+- `surface-selected`: mix of **accent** into **`--bg-2`** (`--surface-selected` in CSS) → `bg-surface-selected`. Use on **lists whose parent rail is `surface-2`** (e.g. active chat row) where `accent-dim` would disappear into the rail. Keep `accent-dim` for mentions, dropdown hovers, and other soft washes off the rail.
 - `foreground`, `muted`, `border`, `primary`, `accent-dim`, `danger`, and `success` map to the existing text, border, and status utilities.
 - `on-primary` maps to `text-accent-foreground` and should be used for text or icons inside filled accent controls.
-- `primary` is the main interaction color (forest / phosphor family, not teal mint). Use it for links, primary buttons, selection, and progress—not a second saturated brand hue.
+- `primary` is the main interaction color (muted ember / russet terracotta). Use it for links, primary buttons, selection, and progress—not a second saturated brand hue.
 - `accent-dim` is a soft wash for hover/selected quiet controls; don’t rely on it alone when contrast or focus must be obvious.
 
-**Dark mode** (system preference): lower luminance, yellower phosphor (less teal than emerald):
+**Dark mode** (system preference): warm low luminance—not pure black, not green-shifted shadow:
 
-- `surface`: `#020403`
-- `surface-2`: `#060b06`
-- `surface-3`: `#0d150d`
-- `border`: `#1a3520`
-- `foreground`: `#a0e8a8`
-- `muted`: `#5eb86a`
-- `primary`: `#39ff88`
-- `on-primary`: `#020805`
-- `accent-dim`: `#0a1f0f`
+- `surface`: `#131110`
+- `surface-2`: `#1c1a17`
+- `surface-3`: `#262320`
+- `border`: `#3d3935`
+- `foreground`: `#f0eae2`
+- `muted`: `#a89f93`
+- `primary`: `#c9935c`
+- `on-primary`: `#171210`
+- `accent-dim`: `#2a221a`
+- `danger`: `#f87171` (lighter for readable error text)
+- `success`: `#34d399`
 
-Pure `#00FF41` is a fine **marketing / decorative** reference; UI text and fills should stay slightly desaturated for long-session reading and WCAG-ish contrast on variable displays.
+Accent chroma stays **warm amber** so dark mode stays cozy; avoid hypersaturated oranges that read as alarms for non-error UI.
 
 ## Typography
 
-**IBM Plex** is a type *family*, not one font: **IBM Plex Sans** is proportional (normal UI sans); **IBM Plex Mono** is **monospaced** (fixed column width, terminal-like). This product uses **Plex Mono as the default UI face** everywhere `font-family` inherits from `:root`, so chat, rails, and wiki chrome read as a console. Only `pre` / code / file views should force a different stack when needed.
+**IBM Plex** is a type *family*, not one font: **IBM Plex Sans** drives default UI copy (`font-family` on `:root`); **IBM Plex Mono** is for **identifiers, tooling rows, excerpts, code** wherever components opt in (`font-mono` or `[font-family:var(--font-mono)]`).
 
-Google Fonts loads **IBM Plex Mono** only in `src/client/style.css`. `--font-mono` is the primary stack; `--font-sans` is a system sans escape hatch (not loaded as Plex Sans anymore).
+Google Fonts loads **Plex Sans + Plex Mono** in `src/client/style.css`. `--font-sans` is the readable default stack; `--font-mono` is the technical rhythm stack.
 
 `--font-sans` and `--font-mono` on `:root` are the implementation hooks; prefer `font-family: inherit` on form controls so they match the page.
 
 ## Layout
 
-Pane-based: rail, transcript, wiki, inbox, slide-overs. Prefer **visible borders** over heavy shadows; the Matrix read is **grid and glow-subtle**, not stacked cards. Keep app layout variables in `src/client/style.css` (`--tab-h`, `--pane-header-px`, `--sidebar-w`, `--chat-column-max`) as implementation tokens.
+Pane-based: rail, transcript, wiki, inbox, slide-overs. Prefer **visible borders** over heavy shadows; the layout read is **tight stationery grid**, not stacked floaty cards or neon edge glow. Keep app layout variables in `src/client/style.css` (`--tab-h`, `--pane-header-px`, `--sidebar-w`, `--chat-column-max`) as implementation tokens.
 
 ## Elevation & Depth
 
-Layer **surface steps** and **1px borders**. Reserve stronger shadow for overlays and modals. In dark mode, a hint of **green inner/contrast** on borders reads more “CRT scan” than flat gray; avoid large blurred halos unless a specific component already uses them.
+Layer **surface steps** and **1px borders**. Reserve stronger shadow for overlays and modals. In dark mode, borders lean **neutral-warm gray**—no intentional green fringe; avoid large blurred halos unless a specific component already uses them.
 
 ## Shapes
 
-**Tight terminal radii** (`sm` / `md` / `lg` above): controls and panels read almost square, not SaaS-pill. Composer shell and quick-reply chips use **`rounded-sm` / `rounded-md`** (not `rounded-full`). Reserve **`rounded-full`** for spinners, switch thumbs, and true circular affordances.
+**Soft stationery radii** (`sm` / `md` / `lg` above): corners are clearly rounded for approachability—chips/small buttons use **`rounded-sm`**, panels and wells use **`rounded-md`/`rounded-lg`** as scale demands—not pill-everywhere. Reserve **`rounded-full`** for spinners, switch thumbs, and true circular affordances.
 
 ## Components
 
@@ -161,9 +164,9 @@ Primary actions: `primary` fill with `on-primary`. Prefer shared `.bt-btn` varia
 
 ## Do's and Don'ts
 
-- Do keep **one green story** across agent, wiki, and mail surfaces.
+- Do keep **one ember-accent story** across agent, wiki, and mail chrome (muted stone neutrals everywhere else).
 - Do use semantic Tailwind utilities from `@theme` before raw hex.
-- Do treat **dark mode as first-class** (system); light is the alternate “construct,” not an afterthought.
+- Do treat **dark mode as first-class** (system); light is the default ledger, not an afterthought.
 - Do not paste raw SVG icons; use Lucide per project guidance.
 - Do not add extra brand colors for ordinary states.
 - Do not replace `src/client/style.css` with generated output unless the export workflow is explicitly adopted.

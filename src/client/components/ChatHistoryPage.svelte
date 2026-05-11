@@ -179,7 +179,8 @@
         <div
           class={cn(
             'chp-row group/chprow flex w-full items-start gap-2 px-2 py-[9px] mb-0.5 text-left text-foreground cursor-pointer transition-colors hover:bg-surface-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
-            activeSessionId === s.sessionId && 'active bg-accent-dim outline outline-1 outline-accent',
+            activeSessionId === s.sessionId &&
+              'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected rounded-sm',
           )}
           role="button"
           tabindex="0"
