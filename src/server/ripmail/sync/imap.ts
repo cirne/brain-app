@@ -7,7 +7,13 @@ import { ImapFlow } from 'imapflow'
 import type { RipmailDb } from '../db.js'
 import { writeEml } from './maildir.js'
 import { parseEml } from './parse.js'
-import { persistMessage, updateSyncState, getSyncState, updateSourceLastSynced } from './persist.js'
+import {
+  clearImapFolderMaildirAndMessages,
+  persistMessage,
+  updateSyncState,
+  getSyncState,
+  updateSourceLastSynced,
+} from './persist.js'
 import type { SourceConfig, GoogleOAuthTokens } from './config.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
@@ -121,6 +127,7 @@ async function syncFolder(
       if (storedState.uidvalidity !== uidvalidity) {
         // UID validity changed — start fresh for this folder
         lastUid = 0
+        clearImapFolderMaildirAndMessages(db, ripmailHome, sourceId, folder)
         brainLogger.info({ sourceId, folder, oldValidity: storedState.uidvalidity, newValidity: uidvalidity }, 'ripmail:imap:uidvalidity-changed')
       } else {
         lastUid = storedState.lastUid
@@ -155,7 +162,7 @@ async function syncFolder(
 
         const rawPath = (() => {
           try {
-            return writeEml(ripmailHome, sourceId, folder, uid, raw)
+            return writeEml(ripmailHome, sourceId, folder, uidvalidity, uid, raw)
           } catch {
             return ''
           }

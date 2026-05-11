@@ -3,10 +3,44 @@
  * Mirrors ripmail/src/db/message_persist.rs.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { seedSyncSummaryRows, type RipmailDb } from '../db.js'
 import type { ParsedMessage } from './parse.js'
+
+export function clearImapFolderMaildirAndMessages(
+  db: RipmailDb,
+  ripmailHome: string,
+  sourceId: string,
+  folder: string,
+): void {
+  const deleteRows = db.transaction(() => {
+    const messages = db
+      .prepare(`SELECT message_id FROM messages WHERE source_id = ? AND folder = ?`)
+      .all(sourceId, folder) as Array<{ message_id: string }>
+    const deleteAttachments = db.prepare(`DELETE FROM attachments WHERE message_id = ?`)
+    const deleteAlerts = db.prepare(`DELETE FROM inbox_alerts WHERE message_id = ?`)
+    const deleteReviews = db.prepare(`DELETE FROM inbox_reviews WHERE message_id = ?`)
+    const deleteDecisions = db.prepare(`DELETE FROM inbox_decisions WHERE message_id = ?`)
+    for (const message of messages) {
+      deleteAttachments.run(message.message_id)
+      deleteAlerts.run(message.message_id)
+      deleteReviews.run(message.message_id)
+      deleteDecisions.run(message.message_id)
+    }
+    db.prepare(`DELETE FROM messages WHERE source_id = ? AND folder = ?`).run(sourceId, folder)
+    db.prepare(`
+      INSERT INTO sync_summary (id, total_messages, last_sync_at)
+      VALUES (1, (SELECT COUNT(*) FROM messages), datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        total_messages = (SELECT COUNT(*) FROM messages),
+        last_sync_at = datetime('now')
+    `).run()
+  })
+
+  deleteRows()
+  rmSync(join(ripmailHome, sourceId, folder), { recursive: true, force: true })
+}
 
 export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: string): void {
   const storedMessageId = `<${msg.messageId}>`
@@ -17,11 +51,28 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
       message_id, thread_id, folder, uid, labels, category,
       from_address, from_name, to_addresses, cc_addresses,
       to_recipients, cc_recipients, subject, date, body_text,
-      raw_path, source_id, is_archived, synced_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+      raw_path, source_id, is_archived, is_reply, recipient_count, list_like, synced_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, datetime('now'))
     ON CONFLICT(message_id) DO UPDATE SET
+      thread_id = excluded.thread_id,
+      folder = excluded.folder,
+      uid = excluded.uid,
+      labels = excluded.labels,
+      category = excluded.category,
+      from_address = excluded.from_address,
+      from_name = excluded.from_name,
+      to_addresses = excluded.to_addresses,
+      cc_addresses = excluded.cc_addresses,
+      to_recipients = excluded.to_recipients,
+      cc_recipients = excluded.cc_recipients,
       body_text = excluded.body_text,
       subject = excluded.subject,
+      date = excluded.date,
+      raw_path = excluded.raw_path,
+      source_id = excluded.source_id,
+      is_reply = excluded.is_reply,
+      recipient_count = excluded.recipient_count,
+      list_like = excluded.list_like,
       synced_at = datetime('now')
   `).run(
     storedMessageId,
@@ -41,6 +92,9 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
     msg.bodyText,
     msg.rawPath,
     msg.sourceId,
+    msg.isReply ? 1 : 0,
+    msg.recipientCount,
+    msg.listLike ? 1 : 0,
   )
 
   // Persist attachments

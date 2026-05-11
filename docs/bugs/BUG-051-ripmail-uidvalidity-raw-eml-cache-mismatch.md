@@ -1,6 +1,6 @@
 # BUG-051: ripmail raw EML cache can mismatch DB rows after UID reuse / cache drift
 
-**Status:** Open. **Severity:** Critical. **Tags:** ripmail, mail-cache, uidvalidity, data-integrity, ui-display
+**Status:** Fixed. **Severity:** Critical. **Tags:** ripmail, mail-cache, uidvalidity, data-integrity, ui-display
 
 ## Summary
 
@@ -15,6 +15,15 @@ Runtime debugging on 2026-05-11 confirmed the failure shape:
 5. The UI rendered the raw `.eml` HTML under the Geoff row's headers.
 
 This is not a GUID collision or a false `Message-ID` match. The DB lookup was correct. The stale/corrupt pointer was `messages.raw_path`.
+
+## Resolution
+
+Fixed on 2026-05-11:
+
+- Raw `.eml` paths now include UIDVALIDITY: `<ripmail_home>/<source_id>/<folder>/<uidvalidity>/<uid>.eml`.
+- IMAP sync clears the affected folder's raw cache and DB rows when UIDVALIDITY changes, then rebuilds from the new mailbox epoch.
+- `persistMessage()` conflict updates now refresh `raw_path`, folder/UID, source, labels, recipients, date, body, and related metadata.
+- `readMailForDisplay()` keeps the raw `Message-ID` invariant and falls back to indexed text if parsed raw mail does not match the DB row.
 
 ## Impact
 

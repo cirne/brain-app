@@ -204,7 +204,7 @@ export async function syncGmailSource(
         const labels = msgResp.data.labelIds ?? []
         const category = labelToCategory(labels)
 
-        const rawPath = writeEml(ripmailHome, sourceId, 'INBOX', uid, rawBuf)
+        const rawPath = writeEml(ripmailHome, sourceId, 'INBOX', 0, uid, rawBuf)
         const parsed = await parseEml(rawBuf, rawPath, {
           folder: 'INBOX',
           uid,
