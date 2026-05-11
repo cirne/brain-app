@@ -1116,7 +1116,8 @@
       {#if !hideInput}
         <div
           class={cn(
-            'composer-stack relative flex shrink-0 flex-col max-md:pb-[env(safe-area-inset-bottom,0px)]',
+            /* Same horizontal inset as `.chat-transcript-inner` — composer is a sibling of the scroll area, not inside it. */
+            'composer-stack relative box-border flex shrink-0 flex-col px-[length:var(--chat-transcript-px)] max-md:pb-[env(safe-area-inset-bottom,0px)]',
             bridgeSlideLayout && 'composer-stack--bridge-dock bg-surface',
           )}
         >
@@ -1364,13 +1365,12 @@
   }
 
   /**
-   * Match legacy `components/AgentChat`: column width + horizontal centering.
-   * Tailwind `mx-auto` on a flex item is defeated by `align-items: stretch` on the column parent;
-   * use plain CSS so the composer lines up with the transcript column (see `style.css` + `.mid-outer` horizontal inset).
+   * Chat-only split: limit readable column width + center. Horizontal padding uses `--chat-transcript-px` on
+   * `.composer-stack` so the input matches `.chat-transcript-inner` in every layout (including `.has-detail`).
+   * Tailwind `mx-auto` on a flex item is defeated by `align-items: stretch` on the column parent.
    */
   @media (min-width: 768px) {
     :global(.split:not(.has-detail)) .composer-stack {
-      box-sizing: border-box;
       width: 100%;
       max-width: var(--chat-column-max);
       margin-left: auto;

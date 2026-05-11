@@ -1166,6 +1166,15 @@ describe('AgentChat.svelte', () => {
     })
   })
 
+  describe('composer horizontal inset (source contract)', () => {
+    it('composer-stack shares transcript horizontal padding token', () => {
+      const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')
+      const src = readFileSync(path, 'utf8')
+      expect(src).toContain('composer-stack relative box-border')
+      expect(src).toContain('px-[length:var(--chat-transcript-px)]')
+    })
+  })
+
   describe('voice panel layout (source contract)', () => {
     it('voice eligibility follows press-to-talk only (not viewport width)', () => {
       const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')

@@ -82,7 +82,7 @@
   --sidebar-history-mobile-w: 90vw;
   /** Chat-only (no detail pane): centered readable column — matches conversation + composer */
   --chat-column-max: 680px;
-  /** `chat-transcript-scroll`: vertical padding for transcript; horizontal inset is `.chat-transcript-inner` in AgentConversation (scrollbar stays on the scrollport edge). */
+  /** `chat-transcript-scroll`: vertical padding for transcript; horizontal inset is `.chat-transcript-inner` in AgentConversation (scrollbar stays on the scrollport edge). AgentChat `.composer-stack` uses the same `--chat-transcript-px` so the composer aligns when the detail pane is open. */
   --chat-transcript-px: 16px;
   --chat-transcript-pt: 1.25rem;
   --chat-transcript-pb: 20px;
