@@ -110,11 +110,11 @@ On-disk layout, integrations, evaluations, and the **TypeScript** mail stack (**
 | **First-run onboarding** (persisted states, phased mail sync, `/api/onboarding`) | [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)                                            |
 | Mail (`@server/ripmail`), unified search, files API, optional iMessage              | [architecture/integrations.md](architecture/integrations.md)                                                                      |
 | Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`) | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
-| External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
+| External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045 stub](opportunities/OPP-045-google-drive.md) ([archived](opportunities/archive/OPP-045-google-drive.md)) |
 | Eval home, Enron fixture mail, search index rebuild                           | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
 | Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)               | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
 | **Rust ripmail — archaeology** (annotated git tags; last tree before crate left `main`) | [architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md) · [archived OPP-105](opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md) |
-| **Mail TS port** (scope + follow-on unified DB)                               | [OPP-103](opportunities/OPP-103-ripmail-ts-port.md) · [OPP-104](opportunities/OPP-104-unified-tenant-sqlite.md)                     |
+| **Mail in-process** (TS ripmail; Rust crate archaeology)                               | [archived OPP-103](opportunities/archive/OPP-103-ripmail-ts-port.md) · **stub** [OPP-103](opportunities/OPP-103-ripmail-ts-port.md) · [OPP-108](opportunities/OPP-108-unified-tenant-sqlite.md) (merge to one tenant DB)                     |
 
 
 ---
@@ -128,7 +128,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 | Topic                                                                   | Doc                                                                        |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Chat + app notifications: tenant SQLite (`var/brain-tenant.sqlite`); mail index in tenant **`ripmail/`** (separate SQLite today; merge follow-on [OPP-104](opportunities/OPP-104-unified-tenant-sqlite.md)) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
+| Chat + app notifications: tenant SQLite (`var/brain-tenant.sqlite`); mail index in tenant **`ripmail/`** (separate SQLite today; merge follow-on [OPP-108](opportunities/OPP-108-unified-tenant-sqlite.md)) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
 | Preferences scattered across JSON + `localStorage`                      | [architecture/preferences-store.md](architecture/preferences-store.md)     |
 
 

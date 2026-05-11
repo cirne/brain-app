@@ -1,10 +1,10 @@
-# OPP-104: Async brain-query (B2B) — notifications, human-approved drafts, shared agent for auto-send
+# Archived: OPP-104 — Async brain-query (B2B) — notifications, human-approved drafts, shared agent for auto-send
 
-**Status:** Proposed — **Phase 1** (notification + review-before-send); **Phase 2** (optional auto-send) gated on Phase 1 user testing.
+**Status:** Archived (2026-05-11). **Superseded by** [OPP-106 — Email-first cross-brain collaboration (archive)](OPP-106-email-first-cross-brain-collaboration.md) — mail as the canonical async plane; **`runBrainQuery` / `ask_brain`** removed. **Stub / summary:** [../OPP-106-email-first-cross-brain-collaboration.md](../OPP-106-email-first-cross-brain-collaboration.md).
 
-**Strategy note (2026-05):** Product direction favors **mail as the canonical async plane** and **ruthless removal** of **`runBrainQuery` / `ask_brain`** in favor of email + classifications + existing draft/send flows. See **[OPP-106 — Email-first cross-brain collaboration](OPP-106-email-first-cross-brain-collaboration.md)** (supersedes this doc’s engineering approach).
+**Historical:** The doc below retained **Phase 1 / Phase 2** framing for the abandoned **`runBrainQuery` + notification** approach.
 
-**See also:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **[OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant `notifications` — shipped) · [OPP-056](OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX patterns) · [OPP-100](OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT on grants)
+**See also:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **[OPP-102](./OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant `notifications` — shipped) · [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX patterns) · [OPP-100](../OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT on grants)
 
 ## Problem
 

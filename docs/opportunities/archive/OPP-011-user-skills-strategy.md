@@ -69,6 +69,6 @@ Primary UX: `/skillname` followed by free text. Typed templates are optional pow
 
 ## 5. References
 
-- Tool implementation: `[src/server/agent/tools.ts](../../src/server/agent/tools.ts)`
+- Tool implementation: `[src/server/agent/tools.ts](../../../src/server/agent/tools.ts)`
 - User skill seeds: `[assets/user-skills/](../../assets/user-skills/)`
 - Mechanics and UI: [OPP-010](OPP-010-user-skills.md)

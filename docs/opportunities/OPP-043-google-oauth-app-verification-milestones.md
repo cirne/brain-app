@@ -4,10 +4,71 @@
 
 **Related:**
 
-- [OPP-022](OPP-022-google-oauth-app-verification.md) — risk framing, scope policy, security assessment background
+- **[§ Background](#background-verification-context-formerly-opp-022)** — prerequisites, verification process, risk framing, and practical recommendations (consolidated from former **OPP-022**, 2026-05-11). **Stub:** [OPP-022](OPP-022-google-oauth-app-verification.md) · **Historical copy:** [archive/OPP-022-google-oauth-app-verification.md](archive/OPP-022-google-oauth-app-verification.md)
 - [OPP-019](OPP-019-gmail-first-class-brain.md) — Gmail first-class integration (the feature this unblocks)
 - [OPP-038](OPP-038-macos-developer-id-notarization-playbook.md) — macOS Developer ID signing and notarization
 - [docs/google-oauth.md](../google-oauth.md) — OAuth flow technical details
+
+---
+
+## Background: verification context (formerly OPP-022)
+
+<a id="background-verification-context-formerly-opp-022"></a>
+
+### Summary
+
+Brain (and ripmail’s Gmail path) may request **restricted Google scopes** (e.g. full Gmail via `https://mail.google.com/`, Calendar, and potentially other Google APIs). **Technical OAuth can work locally** while the Cloud project stays in **testing** mode, but **production-grade access for arbitrary users** requires **Google’s OAuth app verification**—including branding, policy documents, and often a **third-party security assessment**. This section captures **prerequisites**, **process**, **cost/timeline expectations**, and **risk framing** (including whether Google might reject the app) so we plan deliberately and align privacy/product copy with Google’s requirements.
+
+The **milestone execution plan** is this document’s M0–M10 sections below. Use those for staffing and sequencing.
+
+### Prerequisites before starting verification
+
+Verification is not “flip a switch” once the code works. Expect substantial **product and compliance** work first:
+
+1. **Stable product identity** — pick a **real, shippable app name** (and stick to it for the consent screen and public listing).
+2. **Public-facing site** — at minimum URLs Google expects for **Privacy Policy** and **Terms of Service** (and any other links required for your use case). These must accurately describe **what data you access, why, retention, and third parties** (including assessors and Google reviewers).
+3. **A well-prepared application** — polished UX, clear scope justification, minimal scopes, documented data handling; the **security assessment** will probe storage, retention, and whether behavior matches the policy.
+
+Skipping the above tends to waste cycles on resubmission or failed assessments.
+
+### What “getting Google to bless the app” means
+
+For **restricted/sensitive scopes**, Google expects a deliberate **OAuth App Verification** path (names and UI evolve; the Console’s **Verification** / verification-related flows are the source of truth).
+
+Typical steps (high level):
+
+1. **OAuth consent screen** — complete branding: app name, logo, **homepage URL**, **Privacy Policy URL**, **Terms of Service URL**, and accurate scope descriptions.
+2. **Submit for verification** — via the Cloud Console workflow (e.g. verification-related entry points / “Verification Center” style UI in the project).
+3. **Third-party security assessment** — for many restricted-scope apps, Google requires an assessment by a **Google-approved assessor** (e.g. firms in the ecosystem such as Leviathan Security, Bishop Fox). **Reported ballpark costs** in the wild are often on the order of **$15k–$75k** depending on scope breadth and assessor; treat as **planning numbers**, not quotes.
+4. **Google review** — after assessment materials are in shape, **review timelines** are often cited in the **roughly 4–6 week** range *after* the security assessment completes; actual schedules vary.
+
+Until verified, the project generally remains in **testing** (or equivalent): the integration can work for **developers and a limited set of test users** (commonly cited cap: **up to ~100 test users** manually listed), while **other users** see **“This app isn’t verified”** (or similar) warnings—bad for general release.
+
+### Risk: will Google say “no” to “slurping” email?
+
+**They do not typically refuse on a vague “that’s our moat” theory.** Google’s API and verification regime is tied to **policies, security, and data use**—not informal competition with Gmail.
+
+**Encouraging precedent:** Gmail exposes scopes that enable **legitimate email clients** and assistants; **many third-party clients** (e.g. Superhuman, Shortwave, Hey-on-Gmail-style products, and many others) have gone through verification. **Personal email client / assistant** narratives are a known category.
+
+**What actually raises risk:**
+
+- **Scope combination** — **Gmail + Calendar + Docs + Sheets + …** signals **broad aggregation**; reviewers and assessors ask harder questions about **storage, minimization, and purpose limitation**.
+- **Google API Services User Data Policy / Gmail API rules** — hard lines include **not using user data to train generalized AI/ML models** (unless permitted under specific terms), **not retaining more than necessary**, and **transparent disclosure** in the privacy policy.
+- **Security assessment** — validates that **implementation matches** what policies and the consent screen claim (encryption, access controls, retention, subprocessors, etc.).
+- **Product positioning** — reviewers are often **stricter** when the app looks like it **replaces or competes head-on** with core Google Workspace/Gmail features versus a **clear third-party tool** that uses Google data on the user’s behalf.
+
+**Framing matters for Braintunnel:** A positioning like **“your personal AI that helps you stay on top of mail you already authorized”** fits historical approval patterns better than **“we ingest your entire history into our LLM for unspecified purposes.”** **Privacy policy and security questionnaire** language should match **actual** retention, indexing, and model use—or verification will fail on **policy/assessment**, not on IMAP existing.
+
+### Practical recommendations
+
+- **Stay in testing** while iterating and while the user base is small; avoid forcing the general public through **unverified app** warnings until product and legal copy are ready.
+- Before a serious verification push, involve **privacy counsel familiar with Google OAuth / Gmail API requirements** to review the **privacy policy and data flows**—that document is heavily scrutinized.
+- Keep **scopes minimal**; add APIs only when features ship; document **why each scope** is needed on the consent screen and in policy.
+
+### Non-goals (background section)
+
+- Replace Google’s official verification docs or pricing; link out and re-read before submission.
+- Specify exact fees or timelines for a given submission (those change by project and assessor).
 
 ---
 
@@ -160,7 +221,7 @@ Google reviewers and security assessors will ask: "why does this app need each s
 
 **Scope audit:**
 
-- Document exactly which OAuth scopes are requested (see [OPP-022](OPP-022-google-oauth-app-verification.md) open questions)
+- Document exactly which OAuth scopes are requested (see [Open questions](#open-questions) — scope set for v1)
 - For each scope: write a one-paragraph justification ("We need `https://mail.google.com/` to sync Gmail via IMAP/XOAUTH2 for local search indexing")
 - Drop any scope that is not required for a currently-shipped feature
 - Consider phasing: start with minimum scopes for v1 verification; add Calendar and others in a subsequent verification update if not immediately needed
@@ -262,7 +323,7 @@ When submitting:
 
 For apps requesting restricted scopes like `https://mail.google.com/`, Google often routes apps through **CASA** — **Cloud Application Security Assessment** — under the **App Defense Alliance (ADA)**. An approved lab assesses the app, issues a **Letter of Validation (LoV)**, and submits it to Google; **Google** grants or withholds final verification — the lab does not “approve” the OAuth client itself.
 
-**Google-approved assessors** include many firms; full custom reviews in the industry are still sometimes quoted in the **~$15,000–$75,000** range for broad scope or non-CASA work (see [OPP-022](OPP-022-google-oauth-app-verification.md)). For the **CASA** path, costs and duration are often **much lower** than that band; see the subsection below. Confirm **Tier 2 vs Tier 3** and exact requirements in **Google Cloud Console** and any email from Google about **CASA** / vendor assessment — do not buy Tier 3 packages unless the project actually requires it.
+**Google-approved assessors** include many firms; full custom reviews in the industry are still sometimes quoted in the **~$15,000–$75,000** range for broad scope or non-CASA work (see [§ Background](#background-verification-context-formerly-opp-022)). For the **CASA** path, costs and duration are often **much lower** than that band; see the subsection below. Confirm **Tier 2 vs Tier 3** and exact requirements in **Google Cloud Console** and any email from Google about **CASA** / vendor assessment — do not buy Tier 3 packages unless the project actually requires it.
 
 ### CASA assessor: TAC Security (concrete path)
 
@@ -281,7 +342,7 @@ For apps requesting restricted scopes like `https://mail.google.com/`, Google of
 **Budget expectation (tiered):**
 
 - **CASA Tier 2 via an ADA lab (e.g. TAC):** plan **~$500–$900+** for many small/product teams for **Tier 2** one-time packages **unless** Google requires **Tier 3** or a broader review — use **$720** and **~3 weeks** as a **planning** anchor from a trusted contact, validated with TAC at engagement time.
-- **Higher-touch or Tier 3 / enterprise packages:** can reach **$15,000+** and into the **$15,000–$75,000** “full assessment” band depending on assessor, scope, and revalidation needs — keep the **$15k–$75k** range in [OPP-022](OPP-022-google-oauth-app-verification.md) as **upper-planning** for non-minimal paths.
+- **Higher-touch or Tier 3 / enterprise packages:** can reach **$15,000+** and into the **$15,000–$75,000** “full assessment” band depending on assessor, scope, and revalidation needs — keep the **$15k–$75k** range in [§ Background](#background-verification-context-formerly-opp-022) as **upper-planning** for non-minimal paths.
 
 **What the assessor evaluates:**
 
@@ -352,13 +413,13 @@ Google reviews the assessment report and the app itself. This phase may involve:
 3. **Security assessment budget and vendor:** For **CASA Tier 2**, plan on **~$500–$900+** list-style pricing (TAC: **~$720** as a contact data point; confirm with [TAC CASA](https://tacsecurity.com/google-casa-cloud-application-security-assessment/)). Reserve **$15k–$75k** only if Google requires **Tier 3** or a broader assessment than Tier 2 CASA. When do we engage **TAC (or another ADA lab)** relative to M8?
 4. **LLM subprocessors in privacy policy:** Which providers are named? Do the API terms of those providers allow Braintunnel's use case? (Most do for user-initiated assistant features; worth confirming.)
 5. **Multi-tenant data isolation:** For the hosted path, what is the isolation model between users? This is a primary assessor concern.
+6. **Data retention and controls:** Are **retention caps** and **user-visible controls** (delete index, revoke Google) sufficient for assessor comfort?
 
 ---
 
 ## Relationship to other docs
 
 - **Public marketing site (www)** — not in this repo: [cirne/braintunnel-www](https://github.com/cirne/braintunnel-www) (deploy: `https://braintunnel-www.vercel.app`).
-- [OPP-022](OPP-022-google-oauth-app-verification.md) — the background doc this plan operationalizes; see it for risk framing and scope policy guidance
 - [OPP-019](OPP-019-gmail-first-class-brain.md) — the product feature (Gmail as first-class connector) that Google verification unlocks at scale
 - [OPP-038](OPP-038-macos-developer-id-notarization-playbook.md) — parallel Apple signing work (M6)
 - [OPP-041](OPP-041-hosted-cloud-epic-docker-digitalocean.md) (stub) — [full epic + staging runbook](archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md); the **deployed** `https://staging.braintunnel.ai` instance is what Google reviewers would evaluate

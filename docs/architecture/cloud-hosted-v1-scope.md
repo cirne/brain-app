@@ -94,7 +94,7 @@ Keep existing **loopback** URIs for local dev and Braintunnel.app as documented 
 
 **Still a gap** for **public TLS** hostnames (production on the internet): set `PUBLIC_WEB_ORIGIN` to your real `https://…` origin and register that redirect URI in Google Cloud.
 
-**Policy:** [OPP-022](../opportunities/OPP-022-google-oauth-app-verification.md) applies when leaving Google’s test-user cap.
+**Policy:** [OPP-043](../opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022) applies when leaving Google’s test-user cap.
 
 ---
 

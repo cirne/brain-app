@@ -39,7 +39,7 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
       'warning: IMESSAGE_DB_PATH is set while BRAIN_DATA_ROOT is set — iMessage is host-level, not tenant-scoped',
     )
   }
-  brainLogger.info('ripmail: TypeScript in-process module (OPP-103); no ripmail CLI subprocess in server')
+  brainLogger.info('ripmail: TypeScript in-process module (archived OPP-103); no ripmail CLI subprocess in server')
 
   brainLogger.info('Local messages / iMessage tools: disabled in hosted multi-tenant mode.')
 

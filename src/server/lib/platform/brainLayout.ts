@@ -17,7 +17,7 @@ export interface BrainLayout {
     issues: string
   }
   files: {
-    /** Unified per-tenant app SQLite (chat, notifications; future mail index per OPP-103). */
+    /** Unified per-tenant app SQLite (chat, notifications; ripmail merge → OPP-108). */
     tenantSqlite: string
     wikiEditsLog: string
     dirIconsCache: string

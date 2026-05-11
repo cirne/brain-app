@@ -2,7 +2,7 @@
 
 Braintunnel’s inbox stack **used to** live in the **`ripmail/`** Cargo crate (Rust CLI + subprocess from Node). **`main` today** runs the same responsibilities in **`src/server/ripmail/`** (TypeScript, in-process `better-sqlite3`); the Rust crate is **not** on the default branch anymore. This page keeps **annotated git tags** for checking out the last **Rust-first** tree (archaeology, diffs, regression comparison) and records **CI/release** notes from the cutover.
 
-**Canonical opportunity context:** [OPP-103](../opportunities/OPP-103-ripmail-ts-port.md) · **Indexed record:** [archived OPP-105](../opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)
+**Canonical opportunity context:** [archived OPP-103](../opportunities/archive/OPP-103-ripmail-ts-port.md) (**stub** [OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)) · **Indexed record:** [archived OPP-105](../opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)
 
 ---
 

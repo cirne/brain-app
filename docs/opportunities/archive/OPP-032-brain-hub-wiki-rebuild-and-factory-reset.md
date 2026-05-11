@@ -19,7 +19,7 @@ Add a **user-facing recovery** area in the [Brain Hub](OPP-021-user-settings-pag
 | **`BRAIN_WIKI_ROOT`** (e.g. `~/Documents/Brain`) | **`wiki/`** — markdown vault, user-owned | “My notes — can sync via iCloud Desktop & Documents” |
 | **`BRAIN_HOME`** (e.g. `~/Library/Application Support/Brain`) | Chats, onboarding state, **`ripmail/`** (index, OAuth, secrets), cache, `var/`, etc. | “App internals — local, reconstructable from accounts” |
 
-**Implication for this OPP:** recovery copy and implementation must **name what is touched** in each root. A “wiki rebuild” should affect **primarily the vault** (`wiki/` content) while **preserving** `me.md` and leaving **local metadata and ripmail** intact. A “factory reset” must **wipe both** when the product definition says so — including the **entire wiki content directory** when it lives outside `BRAIN_HOME` (see `wipeBrainHomeContents` in [`brainHome.ts`](../../src/server/lib/brainHome.ts)) — and **clear mail credentials** under `RIPMAIL_HOME` (e.g. `ripmail clean --yes` as used in dev hard-reset).
+**Implication for this OPP:** recovery copy and implementation must **name what is touched** in each root. A “wiki rebuild” should affect **primarily the vault** (`wiki/` content) while **preserving** `me.md` and leaving **local metadata and ripmail** intact. A “factory reset” must **wipe both** when the product definition says so — including the **entire wiki content directory** when it lives outside `BRAIN_HOME` (see `wipeBrainHomeContents` in [`brainHome.ts`](../../../src/server/lib/brainHome.ts)) — and **clear mail credentials** under `RIPMAIL_HOME` (e.g. `ripmail clean --yes` as used in dev hard-reset).
 
 Users on **dev** (`./data` unified tree per [OPP-012](OPP-012-brain-home-data-layout.md)) still have one folder; the UI should describe outcomes in **behavioral** terms (“profile file kept”, “mail accounts removed”) rather than only paths.
 
@@ -34,7 +34,7 @@ Users on **dev** (`./data` unified tree per [OPP-012](OPP-012-brain-home-data-la
 
 ### 1. Section placement
 
-Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** — not mixed with day-to-day source management. Match the tone of existing Hub panels (e.g. wiki expansion in [`HubBackgroundAgentsDetail.svelte`](../../src/client/lib/HubBackgroundAgentsDetail.svelte)).
+Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** — not mixed with day-to-day source management. Match the tone of existing Hub panels (e.g. wiki expansion in [`HubBackgroundAgentsDetail.svelte`](../../../src/client/lib/HubBackgroundAgentsDetail.svelte)).
 
 ### 2. Action A — Rebuild wiki (keep profile & connections)
 
@@ -46,7 +46,7 @@ Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** �
 - **Remove:** All other markdown and directories under the wiki vault (respecting `.git` if present), plus **wiki edit history** (`wiki-edits` / truncation as today).
 - **Abort** in-flight seeding sessions so disk and memory agree.
 
-**Aftercare:** The seeding agent does **not** need to magically restart by itself. **Recommended default:** offer a checkbox **“Start a full wiki expansion after clearing”** that calls the same path as **Full expansion** — `POST /api/background/wiki-expansion/start` with `mode: full` ([`wikiExpansionRunner.ts`](../../src/server/agent/wikiExpansionRunner.ts)) — so the user gets one coherent flow. Alternatively, deep-link them to the existing **Full expansion** button with a toast (“Wiki cleared — start a full pass when ready”).
+**Aftercare:** The seeding agent does **not** need to magically restart by itself. **Recommended default:** offer a checkbox **“Start a full wiki expansion after clearing”** that calls the same path as **Full expansion** — `POST /api/background/wiki-expansion/start` with `mode: full` ([`wikiExpansionRunner.ts`](../../../src/server/agent/wikiExpansionRunner.ts))) — so the user gets one coherent flow. Alternatively, deep-link them to the existing **Full expansion** button with a toast (“Wiki cleared — start a full pass when ready”).
 
 **Note:** `POST /api/onboarding/prepare-seed` only sets onboarding state and categories; it does **not** run the agent. The expansion runner is the right “automatic rebuild” hook for Hub UX.
 
@@ -78,7 +78,7 @@ Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** �
 ## Implementation notes (engineering)
 
 - **Shared core:** Factor wiki wipe (`wipeWikiContentExceptMeMd`), brain wipe (`wipeBrainHomeContents`), onboarding state updates (`setOnboardingStateForce`), and ripmail clean into callable modules; dev routes become thin wrappers.
-- **Tests:** Extend patterns in [`dev.test.ts`](../../src/server/routes/dev.test.ts) and [`onboardingState.test.ts`](../../src/server/lib/onboardingState.test.ts) for any new public API.
+- **Tests:** Extend patterns in [`dev.test.ts`](../../../src/server/routes/dev.test.ts) and [`onboardingState.test.ts`](../../../src/server/lib/onboardingState.test.ts) for any new public API.
 - **CLI parity:** Keep `npm run dev:clean` and `npm run desktop:clean-data` documented as **developer / support** escapes; Hub is the **user** path.
 
 ## References
@@ -87,7 +87,7 @@ Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** �
 - [OPP-012: Brain home data layout](OPP-012-brain-home-data-layout.md) — unified `BRAIN_HOME` segments; dev single tree.
 - [OPP-021: Brain Hub (Admin & Settings)](OPP-021-user-settings-page.md) — shell / placement.
 - [OPP-006 (archived): Email-bootstrap onboarding](archive/OPP-006-email-bootstrap-onboarding.md) — re-onboarding after wipe.
-- Server: [`src/server/routes/dev.ts`](../../src/server/routes/dev.ts) (`restart-seed`, `hard-reset`), [`src/server/lib/brainHome.ts`](../../src/server/lib/brainHome.ts), [`src/server/lib/wikiDir.ts`](../../src/server/lib/wikiDir.ts), [`src/server/agent/wikiExpansionRunner.ts`](../../src/server/agent/wikiExpansionRunner.ts).
+- Server: [`src/server/routes/dev.ts`](../../../src/server/routes/dev.ts) (`restart-seed`, `hard-reset`), [`src/server/lib/brainHome.ts`](../../../src/server/lib/brainHome.ts), [`src/server/lib/wikiDir.ts`](../../../src/server/lib/wikiDir.ts), [`src/server/agent/wikiExpansionRunner.ts`](../../../src/server/agent/wikiExpansionRunner.ts).
 - Scripts: [`scripts/clean-brain-dev-data.mjs`](../../scripts/clean-brain-dev-data.mjs), [`scripts/clean-tauri-user-data.mjs`](../../scripts/clean-tauri-user-data.mjs).
 
 ## Status

@@ -105,7 +105,7 @@ This is the same **correlation pattern** as calendar + email: structured identit
 ## Productization notes
 
 - **Single-user brain** (today): one user, one machine — straightforward.
-- **Multi-user / hosted brain** ([docs/PRODUCTIZATION.md](../PRODUCTIZATION.md)): iMessage data does not belong on a shared server; any hosted offering would either omit this feature or require a local relay the user runs — same class of problem as "your mail lives on your laptop."
+- **Multi-user / hosted brain** ([docs/PRODUCTIZATION.md](../../PRODUCTIZATION.md)): iMessage data does not belong on a shared server; any hosted offering would either omit this feature or require a local relay the user runs — same class of problem as "your mail lives on your laptop."
 
 ---
 

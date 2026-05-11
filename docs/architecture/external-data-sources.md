@@ -8,7 +8,7 @@
 
 **Implementation split:** **ripmail** owns sync execution, SQLite, FTS, and `search` / `read`. **brain-app** owns connect UX, OAuth/API-key flows, scheduling refresh, and agent tools that spawn ripmail.
 
-Canonical corpus model: [OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) (`sources[]`, per-source `kind`).
+Canonical corpus model: [OPP-087 stub](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) ([archived spec](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)) (`sources[]`, per-source `kind`).
 
 ---
 
@@ -30,7 +30,7 @@ All kinds share one index and CLI surface (`--source <id>`); mail-only commands 
 |---|---|---|---|
 | **Mail** | Gmail, IMAP | Append-heavy + expunge | UID checkpoint, IDLE where available |
 | **Local files** | `~/Documents`, granted dirs | Mutable on disk | Crawl: `mtime` / size |
-| **Cloud file trees** | Google Drive ([OPP-045](../opportunities/OPP-045-google-drive.md)), similar providers later | Files live remotely; user selects trees | Incremental API sync + tokens/cursors |
+| **Cloud file trees** | Google Drive ([OPP-045 stub](../opportunities/OPP-045-google-drive.md), [archived spec](../opportunities/archive/OPP-045-google-drive.md)), similar providers later | Files live remotely; user selects trees | Incremental API sync + tokens/cursors |
 | **Remote SaaS docs** | Notion, Linear, Slack | Mutable by anyone; CRUD | Cursor / webhook / periodic full rescan |
 
 **Calendar** and other gateway-backed sources follow the same idea: data lands locally for fast agent access (see archived calendar notes linked from [integrations.md](./integrations.md) / ripmail docs).
@@ -63,7 +63,7 @@ Existing ripmail model: bodies and metadata in SQLite; **`ripmail read`** serves
 
 Duplicating **full file text** in SQLite for every indexed path mirrors the corpus and balloons the DB.
 
-**Decision:** **contentless FTS5** (`content=''`) — persist the **token index**, not the full original text. Store a **short excerpt** (~500 chars) for result snippets. Details: ADR-030 on Rust ripmail snapshot tag ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)), [OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md).
+**Decision:** **contentless FTS5** (`content=''`) — persist the **token index**, not the full original text. Store a **short excerpt** (~500 chars) for result snippets. Details: ADR-030 on Rust ripmail snapshot tag ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)), [OPP-087 stub](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) ([archived spec](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
 
 **Read path:** **`ripmail read`** for files resolves to **on-disk path** (local) or **re-download via provider API** with a **short-TTL cache** under `RIPMAIL_HOME/<source-id>/cache/` (cloud). Sync still **fetches bytes long enough to tokenize** during refresh; the durable store is not “full text × every file.”
 
@@ -161,7 +161,7 @@ If brain-app gains MCP-driven extensibility later, sync results must still **lan
 
 ## Product sequencing (high level)
 
-- **Cloud files:** **Google Drive** first — [OPP-045](../opportunities/OPP-045-google-drive.md). Additional file hosts reuse the same `kind` + tooling pattern.
+- **Cloud files:** **Google Drive** first — [OPP-045 stub](../opportunities/OPP-045-google-drive.md) ([archived spec](../opportunities/archive/OPP-045-google-drive.md)). Additional file hosts reuse the same `kind` + tooling pattern.
 - **SaaS docs:** **Notion → Linear → Slack** (read-only sync first; write-back only where justified)—breadth vs complexity tradeoff.
 - **Low-friction local-adjacent:** Apple Notes / Reminders (macOS stores)—same local-query pattern, simpler sync story.
 
@@ -174,7 +174,7 @@ Optional breadth accelerator (hosted connector layer): [OPP-040](../opportunitie
 1. **Polling defaults** — per-`kind` intervals (mail near-realtime, docs ~minutes, calendar event-sensitive windows).
 2. **Webhooks** — which sources justify public endpoints + push vs poll-only.
 3. **Write-back** — deferred until read-only sync is stable.
-4. **Binary rename** — “ripmail” as universal corpus carrier ([OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
+4. **Binary rename** — “ripmail” as universal corpus carrier ([OPP-087 stub](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) · [archived spec](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
 5. **Conflict policy** — if write-back exists later: **remote wins** unless explicitly designed otherwise.
 
 ---
@@ -182,8 +182,8 @@ Optional breadth accelerator (hosted connector layer): [OPP-040](../opportunitie
 ## Related
 
 - [integrations.md](./integrations.md) — `@server/ripmail`, `/api/search`, trust notes  
-- [OPP-087](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources[]` target architecture  
-- [OPP-045](../opportunities/OPP-045-google-drive.md) — Google Drive product milestone  
+- [OPP-087 stub](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) ([archived spec](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)) — `sources[]` target architecture  
+- [OPP-045 stub](../opportunities/OPP-045-google-drive.md) ([archived spec](../opportunities/archive/OPP-045-google-drive.md)) — Google Drive product milestone  
 - [packaging-and-distribution.md](../packaging-and-distribution.md) — OAuth / cloud-drive constraints  
 
 **Supersedes:** earlier standalone write-up `external-sources-and-mcp.md` (merged into this document).

@@ -4,8 +4,8 @@
 
 **Related (product / opportunity docs — not duplicated here):**
 
-- **Holistic onboarding orchestration** (email + interview + wiki coordination, unified Hub status) → [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md); engineering notes → [background-task-orchestration.md](./background-task-orchestration.md)
-- Interview UX / agent phases → [OPP-054: Guided onboarding agent](../opportunities/OPP-054-guided-onboarding-agent.md) (product intent; some phases deferred)
+- **Holistic onboarding orchestration** (email + interview + wiki coordination, unified Hub status) → [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md) · [stub](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md); engineering notes → [background-task-orchestration.md](./background-task-orchestration.md)
+- Interview UX / agent phases → **[archived OPP-054](../opportunities/archive/OPP-054-guided-onboarding-agent.md)** · [stub](../opportunities/OPP-054-guided-onboarding-agent.md) (product intent; some phases deferred)
 - Historical rationale for a **bounded first pass** (avoid huge default refresh) → [OPP-093 (archived)](../opportunities/archive/OPP-093-phased-onboarding-sync.md) (problem + risks; current ship uses a single **~1y** slice from indexing — see flow below)
 
 **Related (engineering docs):**

@@ -15,7 +15,7 @@ Two related gaps compound this:
 1. **No `remember_preference` tool.** The generic `edit` tool *can* write to `me.md`, but the assistant has no clear signal for when to do so, no structure guarantee, and the UI shows a generic "Edit file" label — invisible to the user as a "learning" moment.
 2. `**inbox_rules` is gated behind explicit request.** The system prompt says `inbox_rules` is "Rare" and should only be called when the user "explicitly wants to change ripmail inbox filtering rules." This means the assistant never proactively suggests a ripmail rule when the user states an email preference — missing the more reliable, LLM-free option entirely.
 
-See [preference-memory-layering.md](../architecture/preference-memory-layering.md) for the full architectural decision this implements.
+See [preference-memory-layering.md](../../architecture/preference-memory-layering.md) for the full architectural decision this implements.
 
 ---
 
@@ -96,7 +96,7 @@ A single new bullet in the `## Guidelines` section:
 
 ## Related
 
-- [preference-memory-layering.md](../architecture/preference-memory-layering.md) — architectural decision this implements
+- [preference-memory-layering.md](../../architecture/preference-memory-layering.md) — architectural decision this implements
 - [OPP-028](./OPP-028-named-assistant-identity-and-living-avatar.md) — `assistant.md` identity (not a preference store)
 - [OPP-015](./OPP-015-wiki-background-maintenance-agents.md) — wiki lint agent handles `me.md` size over time
 - [OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md) — wiki hygiene and refactoring standards

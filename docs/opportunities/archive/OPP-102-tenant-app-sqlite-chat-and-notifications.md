@@ -8,7 +8,7 @@
 - Chat moved off **`chats/*.json`** (clean break); **`chats/`** remains for **`onboarding.json`** and **`chats/onboarding/`** adjuncts.
 - Mail **`notify`** mirrored into **`notifications`** after ripmail refresh/backfill (**`source_kind = mail_notify`**, idempotency **`mail_notify:<message_id>`** — see `syncMailNotifyNotifications.ts`).
 - **`GET/PATCH /api/notifications`**, client empty-chat strip, agent **`mark_notification`** tool, and tests across server + client.
-- **Follow-on (not this OPP):** merge ripmail’s DB into the same file + in-process mail — **[OPP-103](../OPP-103-unified-tenant-sqlite-and-ripmail-ts-port.md)**.
+- **Follow-on (not this OPP):** merge ripmail’s DB into the same file — **[OPP-108](../OPP-108-unified-tenant-sqlite.md)** (**prerequisite:** [archived OPP-103](./OPP-103-ripmail-ts-port.md)).
 
 **Related:** [IDEA: Anticipatory assistant brief](../../ideas/IDEA-anticipatory-assistant-brief.md) (full brief UX still backlog) · [IDEA: Brain-query delegation](../../ideas/IDEA-brain-query-delegation.md) (enqueue/approval wiring still follow-on).
 

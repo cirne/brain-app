@@ -48,4 +48,4 @@ Ripmail `search --json` builds each row from `SearchResult` ([`ripmail/src/searc
 
 - Indexed overlay / PDF: [OPP-075](../OPP-075-overlay-native-document-preview-indexed-sources.md)
 - Drive source epic: [OPP-045](../OPP-045-google-drive.md)
-- Unified sources: [OPP-087](../../OPP-087-unified-sources-mail-local-files-future-connectors.md)
+- Unified sources: [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md) ([archived spec](./OPP-087-unified-sources-mail-local-files-future-connectors.md))

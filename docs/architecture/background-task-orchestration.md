@@ -1,6 +1,6 @@
 # Background task orchestration
 
-Holistic view for **mail indexing**, **onboarding milestones**, **wiki first-draft bootstrap** ([OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)), and **Your Wiki** supervisor — implemented for [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md).
+Holistic view for **mail indexing**, **onboarding milestones**, **wiki first-draft bootstrap** ([OPP-095 (archived)](../opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md) · [stub](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)), and **Your Wiki** supervisor — ships the framing in [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md) · [stub](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md).
 
 **Process model / scaling:** what triggers **`ripmail refresh`**, Hub polling vs mail work, **one supervisor loop per Node process**, and multi-tenant caveats — **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**.
 

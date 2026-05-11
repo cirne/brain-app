@@ -10,7 +10,7 @@ import { brainLayoutTenantSqlitePath } from '@server/lib/platform/brainLayout.js
 export const TENANT_SCHEMA_VERSION = 1
 
 /**
- * Per-tenant Brain app SQLite (chat, notifications). Ripmail keeps its own DB under `ripmail/` until OPP-103 merges schemas.
+ * Per-tenant Brain app SQLite (chat, notifications). Ripmail keeps its own DB under `ripmail/` until OPP-108 merges schemas.
  * Override path in tests via `BRAIN_TENANT_SQLITE_PATH` (single file; implies one tenant home per test process or close cache).
  */
 export function tenantSqlitePathForHome(home: string): string {

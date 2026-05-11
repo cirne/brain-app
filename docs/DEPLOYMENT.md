@@ -12,7 +12,7 @@
 ## Scale and audience
 
 - **Single staging instance** only, intended to support on the order of **~15 signups** (informal cap for early testing).
-- **Google sign-in (OAuth):** the Google Cloud project is **not** through full production app verification yet. In **testing** mode, Google caps usage at about **~100 total users** unless each address is on the [test user list](https://console.cloud.google.com/auth/audience?project=zmail-492422) (see below). Lifting that limit requires **Google OAuth app verification** — milestone plan: [OPP-043: Google OAuth app verification](opportunities/OPP-043-google-oauth-app-verification-milestones.md); background: [OPP-022](opportunities/OPP-022-google-oauth-app-verification.md).
+- **Google sign-in (OAuth):** the Google Cloud project is **not** through full production app verification yet. In **testing** mode, Google caps usage at about **~100 total users** unless each address is on the [test user list](https://console.cloud.google.com/auth/audience?project=zmail-492422) (see below). Lifting that limit requires **Google OAuth app verification** — **[OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md)** (see [§ Background](opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022); **stub [OPP-022](opportunities/OPP-022-google-oauth-app-verification.md)**).
 
 ## Google Cloud — test users
 

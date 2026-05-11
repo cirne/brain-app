@@ -275,5 +275,5 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) — cell architecture for future scale
 - [PRODUCTIZATION.md](./PRODUCTIZATION.md) — product-level blockers including OAuth verification
 - [OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth app verification (must-do before general availability)
-- [OPP-022](opportunities/OPP-022-google-oauth-app-verification.md) — OAuth verification risk framing
+- [OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth verification (see [§ Background](opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022); **stub [OPP-022](opportunities/OPP-022-google-oauth-app-verification.md)**)
 

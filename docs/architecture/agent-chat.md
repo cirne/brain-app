@@ -32,7 +32,7 @@ The session list reads **`chat_sessions`** ordered by **`updated_at_ms`** (newes
 
 **Mail `notify`** items surface as **`notifications`** rows (mirrored from the mail index after refresh — see [archived OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)); **`GET/PATCH /api/notifications`** and agent tooling (`mark_notification`) cover list/read/dismiss.
 
-**Merging** the mail SQLite file into the same **`var/brain-tenant.sqlite`** as chat is **[OPP-104](../opportunities/OPP-104-unified-tenant-sqlite.md)**. **[OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)** is the TypeScript in-process mail port (**shipped on `main`**). Until **OPP-104**, the mail index remains **`ripmail/ripmail.db`** (per-tenant layout).
+**Merging** the mail SQLite file into the same **`var/brain-tenant.sqlite`** as chat is **[OPP-108](../opportunities/OPP-108-unified-tenant-sqlite.md)**. In-process mail (**[archived OPP-103](../opportunities/archive/OPP-103-ripmail-ts-port.md)** · **stub [OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)**) ships on **`main`**. Until **OPP-108**, the mail index remains **`ripmail/ripmail.db`** (per-tenant layout).
 
 ## SSE wire format (`POST /api/chat`)
 

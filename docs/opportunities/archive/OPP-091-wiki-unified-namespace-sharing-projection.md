@@ -2,9 +2,9 @@
 
 **Status:** Shipped MVP (2026-05-02). UI rough edges remain; core `wikis/me` + `wikis/@handle` projection, accept-by-id API, and share management in Settings are working. **Follow-on (same week):** safe revoke when overlapping file + directory shares share the same path (**`lstat` + `isSymbolicLink()` guard** in `removeWikiShareProjectionForShare` — avoids deleting the owner’s real file when a directory projection masks a former file-symlink path); agent **`write`** tool appends a **WARNING** when the path is covered by an **accepted** outgoing share (visibility hint for the LLM).  
 **Tags:** `wiki` · `sharing` · `filesystem` · `multi-tenant`  
-**Replaces (for follow-on work):** Intermediate projection described in archived [OPP-064 § Follow-on](archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md#follow-on-moved-to-opp-091). **Phase 1 product + policy** remain as in [OPP-064 stub](OPP-064-wiki-directory-sharing-read-only-collaborators.md).  
+**Replaces (for follow-on work):** Intermediate projection described in archived [OPP-064 § Follow-on](OPP-064-wiki-directory-sharing-read-only-collaborators.md#follow-on-moved-to-opp-091). **Phase 1 product + policy** remain as in [OPP-064 stub](../OPP-064-wiki-directory-sharing-read-only-collaborators.md).  
 **Vision / sequencing:** [IDEA: Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md)  
-**Architecture (update as implemented):** [wiki-sharing.md](../architecture/wiki-sharing.md) · **Projection ↔ DB ordering (ADR):** [wiki-share-acl-and-projection-sync](../architecture/wiki-share-acl-and-projection-sync.md)
+**Architecture (update as implemented):** [wiki-sharing.md](../../architecture/wiki-sharing.md) · **Projection ↔ DB ordering (ADR):** [wiki-share-acl-and-projection-sync](../../architecture/wiki-share-acl-and-projection-sync.md)
 
 ---
 
@@ -51,19 +51,19 @@ Only a **sharing / policy manager** (same code path that applies `wiki_shares` t
 
 ## Codebase impact: what to rip out vs centralize
 
-**Today** the grantee tree is rooted at `**wiki/`**, shares under `**.brain-share-mount/<wsh_…>/`**, while the agent and SSE use `**@handle/…**` and “Shared with me/…” — coerced server-side into mount paths and pretty-printed back out for `open`, `grep`, and `find`. Target: one physical `**wikis/**` so **paths on disk match tool + UI strings**; **policy ↔ projection** stays in **one reconcile spine** ([ADR](../architecture/wiki-share-acl-and-projection-sync.md)).
+**Today** the grantee tree is rooted at `**wiki/`**, shares under `**.brain-share-mount/<wsh_…>/`**, while the agent and SSE use `**@handle/…**` and “Shared with me/…” — coerced server-side into mount paths and pretty-printed back out for `open`, `grep`, and `find`. Target: one physical `**wikis/**` so **paths on disk match tool + UI strings**; **policy ↔ projection** stays in **one reconcile spine** ([ADR](../../architecture/wiki-share-acl-and-projection-sync.md)).
 
 ### Targeted for removal or near-removal
 
 
 | Area                        | Today (representative paths under `src/`)                                                                                                                                                                                           | After OPP-091                                                                                                                                                                                                                     |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tool path coercion**      | `[server/lib/shares/wikiGranteeSharedWikiToolPath.ts](../../src/server/lib/shares/wikiGranteeSharedWikiToolPath.ts)` — `@handle`, virtual prefixes, longest-prefix `**wsh_*` resolution                                             | **Deleted or trivial:** resolve safe path under `**wikis/`** only; **no dual namespace**.                                                                                                                                         |
-| **SSE + display rewriting** | `[server/lib/shares/wikiGranteeAgentDisplayPath.ts](../../src/server/lib/shares/wikiGranteeAgentDisplayPath.ts)` — `enrichOpenToolArgsForWikiSse`, grep/find **stdout remap** (`rewrite*MountPathsForGrantee`), `prettyShareMount*` | **Removed** when `**open`** and `**rg`** already speak `**wikis/…`**; `[server/lib/chat/streamAgentSseHandlers.ts](../../src/server/lib/chat/streamAgentSseHandlers.ts)` loses enrich import/call.                                |
-| **Virtual path grammar**    | `[server/lib/shares/wikiSharedVirtualPath.ts](../../src/server/lib/shares/wikiSharedVirtualPath.ts)`, `[wikiSharedVirtualRead.ts](../../src/server/lib/shares/wikiSharedVirtualRead.ts)`                                            | **Shrink or drop** once HTTP + agents share **one relative path vocabulary** for the same directories.                                                                                                                            |
-| **Glob symlink hacks**      | `[server/lib/wiki/wikiVaultSymlinkGlob.ts](../../src/server/lib/wiki/wikiVaultSymlinkGlob.ts)` — special basename matching for **file** shares inside `**wikiShareMount`**                                                          | **Remove** branch(es) once `**wikis/@handle/…`** carries **owner-like** path segments (filename visible without parsing `wsh_*`).                                                                                                 |
-| **Grep/find glue**          | `[server/agent/tools/wikiScopedFsTools.ts](../../src/server/agent/tools/wikiScopedFsTools.ts)` — `granteePath` on every tool + **post-process** find/grep text                                                                      | **Identity coerce under `wikis/`** + read-only guard for `**@***`; **no output rewrite pass**. `[wikiSymlinkAwareGrep.ts](../../src/server/agent/tools/wikiSymlinkAwareGrep.ts)` may remain a **thin** `rg --follow` helper only. |
-| **File tools**              | `[server/agent/tools/wikiFileManagementTools.ts](../../src/server/agent/tools/wikiFileManagementTools.ts)` — imports same coercion                                                                                                  | **Block moves/writes** touching `**@*`** without the heavy resolver.                                                                                                                                                              |
+| **Tool path coercion**      | [`wikiGranteeSharedWikiToolPath.ts`](../../../src/server/lib/shares/wikiGranteeSharedWikiToolPath.ts) — `@handle`, virtual prefixes, longest-prefix `**wsh_*` resolution                                             | **Deleted or trivial:** resolve safe path under `**wikis/`** only; **no dual namespace**.                                                                                                                                         |
+| **SSE + display rewriting** | [`wikiGranteeAgentDisplayPath.ts`](../../../src/server/lib/shares/wikiGranteeAgentDisplayPath.ts) — `enrichOpenToolArgsForWikiSse`, grep/find **stdout remap** (`rewrite*MountPathsForGrantee`), `prettyShareMount*` | **Removed** when `**open`** and `**rg`** already speak `**wikis/…`**; [`streamAgentSseHandlers.ts`](../../../src/server/lib/chat/streamAgentSseHandlers.ts) loses enrich import/call.                                |
+| **Virtual path grammar**    | [`wikiSharedVirtualPath.ts`](../../../src/server/lib/shares/wikiSharedVirtualPath.ts), [`wikiSharedVirtualRead.ts`](../../../src/server/lib/shares/wikiSharedVirtualRead.ts)                                            | **Shrink or drop** once HTTP + agents share **one relative path vocabulary** for the same directories.                                                                                                                            |
+| **Glob symlink hacks**      | [`wikiVaultSymlinkGlob.ts`](../../../src/server/lib/wiki/wikiVaultSymlinkGlob.ts) — special basename matching for **file** shares inside `**wikiShareMount`**                                                          | **Remove** branch(es) once `**wikis/@handle/…`** carries **owner-like** path segments (filename visible without parsing `wsh_*`).                                                                                                 |
+| **Grep/find glue**          | [`wikiScopedFsTools.ts`](../../../src/server/agent/tools/wikiScopedFsTools.ts) — `granteePath` on every tool + **post-process** find/grep text                                                                      | **Identity coerce under `wikis/`** + read-only guard for `**@***`; **no output rewrite pass**. [`wikiSymlinkAwareGrep.ts`](../../../src/server/agent/tools/wikiSymlinkAwareGrep.ts) may remain a **thin** `rg --follow` helper only. |
+| **File tools**              | [`wikiFileManagementTools.ts`](../../../src/server/agent/tools/wikiFileManagementTools.ts) — imports same coercion                                                                                                  | **Block moves/writes** touching `**@*`** without the heavy resolver.                                                                                                                                                              |
 
 
 ### Centralize here (single projection story)
@@ -71,25 +71,25 @@ Only a **sharing / policy manager** (same code path that applies `wiki_shares` t
 
 | Module                                                                                      | Role                                                                                                                                                                |
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `**[wikiShareProjection.ts](../../src/server/lib/shares/wikiShareProjection.ts)`** (evolve) | **Only** code that creates/updates/deletes `**wikis/@<sanitized-handle>/…`** from `**wiki_shares`** + validated owner targets; implements ADR ordering + fail-safe. |
-| `**[wikiShareTargetPaths.ts](../../src/server/lib/shares/wikiShareTargetPaths.ts)`**        | Becomes **“link target for this row”** math for `**@handle/`** layout — **not** opaque `**wsh_`**-first mount paths (or folded into projection).                    |
+| **[wikiShareProjection.ts](../../../src/server/lib/shares/wikiShareProjection.ts)** (evolve) | **Only** code that creates/updates/deletes `**wikis/@<sanitized-handle>/…`** from `**wiki_shares`** + validated owner targets; implements ADR ordering + fail-safe. |
+| **[wikiShareTargetPaths.ts](../../../src/server/lib/shares/wikiShareTargetPaths.ts)**        | Becomes **“link target for this row”** math for `**@handle/`** layout — **not** opaque `**wsh_`**-first mount paths (or folded into projection).                    |
 | `**brainLayout` + `shared/brain-layout.json` + `dataRoot` / routes**                        | One contract: tenant **wiki tool root = `wikis/`** (with `**me/**` + peers).                                                                                        |
 
 
 ### Client: fewer special cases
 
-**Open bug:** [BUG-040: Chat overlay shared wiki open](../bugs/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md) — unify overlay `path` with `wikis/` vocabulary and **delete** brittle dual-path matching in `Wiki.svelte`’s post-`loadFiles` `$effect` (see bug for remediation).
+**Open bug:** [BUG-040: Chat overlay shared wiki open](../../bugs/archive/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md) — unify overlay `path` with `wikis/` vocabulary and **delete** brittle dual-path matching in `Wiki.svelte`’s post-`loadFiles` `$effect` (see bug for remediation).
 
 
 | Today                                                                                                                                        | Direction                                                                                                                                                                                 |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[client/lib/wikiDirListModel.ts](../../src/client/lib/wikiDirListModel.ts)` — `**prependShareHandleForIncomingSharedWikiBrowse`**, overlays | **Shrink** when list API paths are already `**me/…`** vs `**@alice/…`**.                                                                                                                  |
-| `[client/components/Assistant.svelte](../../src/client/components/Assistant.svelte)`, hub / slide-over **shared wiki** props                 | **Unify** navigation on **one path model**; fewer `shareOwner` / `sharePrefix` / `openSharedWiki*` branches. Close [BUG-040](../bugs/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md). |
+| [`wikiDirListModel.ts`](../../../src/client/lib/wikiDirListModel.ts) — `**prependShareHandleForIncomingSharedWikiBrowse`**, overlays | **Shrink** when list API paths are already `**me/…`** vs `**@alice/…`**.                                                                                                                  |
+| [`Assistant.svelte`](../../../src/client/components/Assistant.svelte), hub / slide-over **shared wiki** props                 | **Unify** navigation on **one path model**; fewer `shareOwner` / `sharePrefix` / `openSharedWiki*` branches. Close [BUG-040](../../bugs/archive/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md). |
 
 
 ### Stays (by design)
 
-- `**[wikiSharesRepo.ts](../../src/server/lib/shares/wikiSharesRepo.ts)`**, `**[routes/wikiShares.ts](../../src/server/routes/wikiShares.ts)`** — **policy + HTTP** surface.
+- [`wikiSharesRepo.ts`](../../../src/server/lib/shares/wikiSharesRepo.ts), [`wikiShares.ts`](../../../src/server/routes/wikiShares.ts) — **policy + HTTP** surface.
 - `**/api/wiki/shared/…`** and invite email — may still validate rows; **tools** lean on `**wikis/`** projection.
 - **Tenant context** — **which** `wikis/` root to use for sync and agent.
 
@@ -102,7 +102,7 @@ Only a **sharing / policy manager** (same code path that applies `wiki_shares` t
 1. From the wiki tool root `**wikis/`**, `find` / `rg` discovers files under `**me/`** and `**@handle/**` trees without `@handle` string rewriting in tool arguments (paths align with `**/wikis/me/…**` and `**/wikis/@handle/…**` in the UI).
 2. **Revoke** clears the grantee's symlink entry such that **direct file read** under `wikis/` fails immediately (ENOENT or no traversal).
 3. **No duplicate policy sources** — `wiki_shares` (or successor) remains authoritative; filesystem is **projection only**.
-4. **Developer docs:** [wiki-sharing.md](../architecture/wiki-sharing.md), ADR [wiki-share-acl-and-projection-sync.md](../architecture/wiki-share-acl-and-projection-sync.md); archived OPP-064 remains the Phase 1 record.
+4. **Developer docs:** [wiki-sharing.md](../../architecture/wiki-sharing.md), ADR [wiki-share-acl-and-projection-sync.md](../../architecture/wiki-share-acl-and-projection-sync.md); archived OPP-064 remains the Phase 1 record.
 5. **Simpler codebase:** **coercion + pretty-print stack removed or trivial** (see [Codebase impact](#codebase-impact-what-to-rip-out-vs-centralize)); `**wikiScopedFsTools`** and SSE **do not** translate between mount ids and `@handle` for the same file; **glob** no longer needs share-mount-specific matching once `**@handle/`** paths mirror owner layout.
 
 ---
@@ -113,7 +113,7 @@ Only a **sharing / policy manager** (same code path that applies `wiki_shares` t
 
 **SQLite + many syscalls are not one atomic transaction.** Under **projection-as-capability** (reads do not reliably re-hit `wiki_shares`), choose order to **prefer fail-closed granting** and **minimize revoke leaks**.
 
-Canonical write-up (**ADR:** [wiki-share-acl-and-projection-sync.md](../architecture/wiki-share-acl-and-projection-sync.md)) — summarized here.
+Canonical write-up (**ADR:** [wiki-share-acl-and-projection-sync.md](../../architecture/wiki-share-acl-and-projection-sync.md)) — summarized here.
 
 ### Grant access (invite accept → symlink exists)
 
@@ -139,7 +139,7 @@ Canonical write-up (**ADR:** [wiki-share-acl-and-projection-sync.md](../architec
 
 ### Atomicity note (technical)
 
-Beyond **per-path `rename`** on one symlink, multi-step propagation uses **explicit ordering + reconcile**, not cross-store atomicity — see [ADR](../architecture/wiki-share-acl-and-projection-sync.md) and [Validation and testing strategy](#validation-and-testing-strategy).
+Beyond **per-path `rename`** on one symlink, multi-step propagation uses **explicit ordering + reconcile**, not cross-store atomicity — see [ADR](../../architecture/wiki-share-acl-and-projection-sync.md) and [Validation and testing strategy](#validation-and-testing-strategy).
 
 ---
 
@@ -148,10 +148,10 @@ Beyond **per-path `rename`** on one symlink, multi-step propagation uses **expli
 
 | Doc                                                                                            | Purpose                                                                                                                                               |
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md)** (**ADR**) | **Authoritative ordering** + **fail-safe invariant** (ambiguous failure → lost access, not bonus access); link from code/tests                        |
-| **[wiki-sharing.md](../architecture/wiki-sharing.md)**                                         | **Living** wiki-share product + API + layout (`**wikis/me`**, HTTP, mount layout); grows implementation detail and route-level behavior as code lands |
-| **[tenant-filesystem-isolation.md](../architecture/tenant-filesystem-isolation.md)**           | Trusted boundary — only server-managed symlinks participate in ACL projection; aligns with symlink-only mutation rule                                 |
-| **[data-and-sync.md](../architecture/data-and-sync.md)**                                       | `**BRAIN_HOME` / tenant tree** conventions; updated when `**wiki/` vs `wikis/`** migration is specified                                               |
+| **[wiki-share-acl-and-projection-sync.md](../../architecture/wiki-share-acl-and-projection-sync.md)** (**ADR**) | **Authoritative ordering** + **fail-safe invariant** (ambiguous failure → lost access, not bonus access); link from code/tests                        |
+| **[wiki-sharing.md](../../architecture/wiki-sharing.md)**                                         | **Living** wiki-share product + API + layout (`**wikis/me`**, HTTP, mount layout); grows implementation detail and route-level behavior as code lands |
+| **[tenant-filesystem-isolation.md](../../architecture/tenant-filesystem-isolation.md)**           | Trusted boundary — only server-managed symlinks participate in ACL projection; aligns with symlink-only mutation rule                                 |
+| **[data-and-sync.md](../../architecture/data-and-sync.md)**                                       | `**BRAIN_HOME` / tenant tree** conventions; updated when `**wiki/` vs `wikis/`** migration is specified                                               |
 
 
 **SECURITY.md:** Add or extend a subsection when shipped if projection-as-capability becomes a formally stated trust assumption (risk: stale links, revoke ordering bugs).
@@ -200,10 +200,10 @@ Expand **In scope** **tests** bullet to reference `**src/server/lib/shares/`*** 
 
 ## Related
 
-- [ADR: wiki-share-acl-and-projection-sync](../architecture/wiki-share-acl-and-projection-sync.md) — **authoritative** DB ↔ FS ordering and **fail-safe invariant** (ambiguity → less access)
-- [OPP-064 stub](OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)
+- [ADR: wiki-share-acl-and-projection-sync](../../architecture/wiki-share-acl-and-projection-sync.md) — **authoritative** DB ↔ FS ordering and **fail-safe invariant** (ambiguity → less access)
+- [OPP-064 stub](../OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](OPP-064-wiki-directory-sharing-read-only-collaborators.md)
 - [IDEA: Wiki sharing with collaborators](../../ideas/archive/IDEA-wiki-sharing-collaborators.md)
-- [wiki-sharing.md](../architecture/wiki-sharing.md)
-- [tenant-filesystem-isolation.md](../architecture/tenant-filesystem-isolation.md)
-- [data-and-sync.md](../architecture/data-and-sync.md)
+- [wiki-sharing.md](../../architecture/wiki-sharing.md)
+- [tenant-filesystem-isolation.md](../../architecture/tenant-filesystem-isolation.md)
+- [data-and-sync.md](../../architecture/data-and-sync.md)
 

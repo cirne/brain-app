@@ -20,7 +20,7 @@
 
 ## Problem
 
-Today, when a session is **streaming** (`streaming: true`), the composer is **disabled** and `send` bails out if another turn is in flight ([`src/client/lib/AgentChat.svelte`](../../src/client/lib/AgentChat.svelte): `disabled={streaming}`, early return when `st.streaming`).
+Today, when a session is **streaming** (`streaming: true`), the composer is **disabled** and `send` bails out if another turn is in flight ([`src/client/lib/AgentChat.svelte`](../../../src/client/lib/AgentChat.svelte): `disabled={streaming}`, early return when `st.streaming`).
 
 That blocks a common workflow: **compose your next message** while the model is still thinking or streaming—then **send** when the turn completes (or apply a defined policy for mid-run steering).
 

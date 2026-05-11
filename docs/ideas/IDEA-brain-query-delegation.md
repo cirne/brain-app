@@ -1,6 +1,6 @@
 # Idea: Brain-query delegation (mail-first collaboration)
 
-**Status:** Active — **mail-first cross-brain shipped** (**[OPP-106 stub](../opportunities/OPP-106-email-first-cross-brain-collaboration.md)** — archived spec: [archive/OPP-106…](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md)). **Grants + policy:** Hub / Settings **Brain access** (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Next:** policy depth (**[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** — server policy rows + `policy_id` on grants). **Persistence:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** — `var/brain-tenant.sqlite` + **`notifications`** for **`mail_notify`**, **`brain_query_mail`**, **`brain_query_grant_received`**, etc.
+**Status:** Active — **mail-first cross-brain shipped** (**[OPP-106 stub](../opportunities/OPP-106-email-first-cross-brain-collaboration.md)** — archived spec: [archive/OPP-106…](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md)). **Grants + policy:** Hub / Settings **Brain access** (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Policy-by-reference (`policy_id` on grants)** remains the architecture direction ([§ follow-up](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up)); backlog epic **[archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** · **stub [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** is closed. **Persistence:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** — `var/brain-tenant.sqlite` + **`notifications`** for **`mail_notify`**, **`brain_query_mail`**, **`brain_query_grant_received`**, etc.
 
 **Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
 
@@ -12,7 +12,7 @@
 
 **Shipped:**
 
-- **`brain_query_grants`** in the global DB — opt-in collaborators + per-connection **privacy policy** prose (until **[OPP-100]** adds `policy_id` SSOT).
+- **`brain_query_grants`** in the global DB — opt-in collaborators + per-connection **privacy policy** prose (until **`policy_id` SSOT** lands — historical epic **[archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** · **stub [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)**).
 - **Grant CRUD** at **`/api/brain-query/grants`** when **`BRAIN_B2B_ENABLED`**; **`BRAIN_B2B_ENABLED`** still gates collaborator surfaces.
 - **Mail-first Q&A:** collaborator messages use the **`[braintunnel]`** subject marker; inbound mail surfaces as **`brain_query_mail`** notifications; **`brain_query_grant_received`** still fires when someone grants you access.
 - **No synchronous cross-tenant agent:** the former **`ask_brain` / `runBrainQuery`** pipeline, preview APIs, and **`brain_query_log`** are removed ([architecture: brain-query-delegation.md](../architecture/brain-query-delegation.md)).
@@ -138,7 +138,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 4. **Query log** — owner / asker roles; draft vs final delineation in UI for owner.
 5. **`ask_brain`** tool on the initiating side; NL “ask @handle …” still depends on the main model choosing the tool.
 
-**Product polish (ongoing):** mobile layout, **notification/inbox/brief** ([IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md); **`notifications` + chat** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped), cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) — track **[OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** (policy records + grant `policy_id`).
+**Product polish (ongoing):** mobile layout, **notification/inbox/brief** ([IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md); **`notifications` + chat** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped), cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) — **archived** **[OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** · **stub [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** (policy records + grant `policy_id`; not on active backlog).
 
 **Phase 1 — cross-instance:**
 

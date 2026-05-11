@@ -8,7 +8,7 @@
 
 **Status:** Proposed — **large simplification.** Default cross-brain Q&A rides **ordinary email** plus **Ripmail classify / notifications** (same substrate as **`mail_notify`**), not a bespoke cross-tenant agent RPC.
 
-**Supersedes the *engineering approach* of:** [OPP-104](../OPP-104-async-brain-query-notification-approval-flow.md) (async notification-first brain-query built on **`runBrainQuery`** + approve path). That OPP duplicated “inbox + draft + send” semantics; this OPP **deletes that parallel stack**.
+**Supersedes the *engineering approach* of:** [OPP-104](./OPP-104-async-brain-query-notification-approval-flow.md) (async notification-first brain-query built on **`runBrainQuery`** + approve path). That OPP duplicated “inbox + draft + send” semantics; this OPP **deletes that parallel stack**.
 
 **Keeps aligned with:** [OPP-100](../OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT → grants) · [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md) (three-layer policy vision; **`brain_query_grants`** remain consent + policy prose or **`policy_id`**) · [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX) · **`notifications`** substrate ([archived OPP-102](./OPP-102-tenant-app-sqlite-chat-and-notifications.md)).
 

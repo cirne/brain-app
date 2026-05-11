@@ -20,5 +20,5 @@ Structured `readStatus` + hints for `ripmail read <path> --json` and localDir in
 
 ## See also
 
-- [ripmail OPP-051 — unified sources](OPP-087-unified-sources-mail-local-files-future-connectors.md)
+- [ripmail OPP-051 — unified sources](archive/OPP-087-unified-sources-mail-local-files-future-connectors.md) (**stub:** [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md))
 - [Wiki read vs indexed mail/files](../architecture/wiki-read-vs-read-email.md)

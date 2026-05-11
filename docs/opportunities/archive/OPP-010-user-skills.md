@@ -22,7 +22,7 @@
 
 ## Problem
 
-Today the assistant is driven by a single, monolithic system prompt (`buildBaseSystemPrompt` in `[src/server/agent/index.ts](../../src/server/agent/index.ts)`) plus a fixed tool set. Recurring, well-defined workflows — "create a new wiki page the right way", "lint this page for DRY / link hygiene", "research a topic deeply", "prune obsolete content", "draft an email" — are either:
+Today the assistant is driven by a single, monolithic system prompt (`buildBaseSystemPrompt` in `[src/server/agent/index.ts](../../../src/server/agent/index.ts)`) plus a fixed tool set. Recurring, well-defined workflows — "create a new wiki page the right way", "lint this page for DRY / link hygiene", "research a topic deeply", "prune obsolete content", "draft an email" — are either:
 
 1. Re-explained in every session by the user, or
 2. Stuffed into the base prompt (where they bloat every turn and aren't discoverable).
