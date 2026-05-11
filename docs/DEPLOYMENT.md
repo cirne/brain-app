@@ -196,6 +196,20 @@ If `remove-rules` does not match, replace inbound rules with `doctl compute fire
   (Uses `scripts/docker-deploy-do.sh`; requires branch `main` and a clean working tree; run from repo root with correct Node per `.nvmrc` — see [AGENTS.md](../AGENTS.md). See [newrelic.md](./newrelic.md) for `NEW_RELIC_API_KEY` / `SKIP_NEW_RELIC_DEPLOYMENT`.)
 - After push, **Watchtower** on the droplet applies the new image (see above).
 
+## Post-deploy smoke
+
+Run this after **every** image rollout to staging (or any hosted environment): quick checks that routing, sessions, mail, and feature flags behave as usual. Extend depth when release notes highlight mail, Ripmail SQLite, onboarding, or collaboration.
+
+1. **App up:** Hit the public URL (browser or `curl` on `/` per your setup) until you see a sane response consistent with Cloudflare/origin routing.
+2. **Sign-in** with a tenant on the OAuth [Google Cloud — test users](#google-cloud--test-users) list.
+3. **Tenant Ripmail index:** On `$BRAIN_DATA_ROOT/<usr_*…>/ripmail/` for a smoke tenant, `sqlite3 ripmail.db 'PRAGMA user_version'` should match **`SCHEMA_VERSION`** in [`src/server/ripmail/schema.ts`](../src/server/ripmail/schema.ts). If disk had an older DB, first Ripmail-using request may rebuild the SQLite index from on-disk `.eml` maildirs — watch logs for **`ripmail:db:version-mismatch`** (longer latency until rebuild completes). See **`AGENTS.md`** for the no-row-migrations policy on local/index data.
+4. **In-app mail:** inbox list, one search, one opened message (plus attachments if you depend on them).
+5. **Sync:** trigger or observe a refresh cycle; skim logs for IMAP/Google/oauth errors.
+6. **Indexed calendar-from-mail:** only if staged users rely on Ripmail-fed calendar flows.
+7. **Brain-to-brain / collaboration:** only when **`BRAIN_B2B_ENABLED`** is intentionally on — sanity-check grants / collaborator tooling in two workspaces.
+
+**Before tagging a deploy SHA:** **`npm run ci`** on that commit (`AGENTS.md`). Optional local mail corpus checks: **`npm run test:e2e:enron`** when `./data` has the Enron demo tenant rebuilt with **`npm run brain:seed-enron-demo`** so **`user_version`** matches the current schema (otherwise those tests skip and CI should still rely on canonical paths for that workflow).
+
 ## Related docs
 
 - [digitalocean.md](./digitalocean.md) — `doctl`, registry login, team context, `./scripts/doctl-brain.sh`

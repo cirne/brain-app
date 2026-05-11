@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as rebuildFromMaildir from './rebuildFromMaildir.js'
@@ -59,6 +59,36 @@ describe('prepareRipmailDb / drift', () => {
       expect(ready.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
     } finally {
       spy.mockRestore()
+    }
+  })
+
+  const SAMPLE_PREPARE_EML = `Message-ID: <prepare-integration@test.dev>
+Date: Mon, 15 Jan 2026 12:00:00 +0000
+From: Prep <prep@test.dev>
+To: Other <other@test.dev>
+Subject: prepareRipmailDb integration
+
+Body text.
+`
+
+  it('prepareRipmailDb wipes stale user_version and repopulates from legacy maildir (no mock)', async () => {
+    const home = freshRipmailHome()
+    const cur = join(home, 'maildir', 'cur')
+    mkdirSync(cur, { recursive: true })
+    writeFileSync(join(cur, 'seed.eml'), SAMPLE_PREPARE_EML)
+    writeStaleVersionDb(home, SCHEMA_VERSION - 1)
+
+    await prepareRipmailDb(home)
+
+    const db = openRipmailDb(home)
+    try {
+      expect(db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
+      const row = db
+        .prepare(`SELECT COUNT(*) AS c FROM messages`)
+        .get() as { c: number }
+      expect(row.c).toBe(1)
+    } finally {
+      db.close()
     }
   })
 })

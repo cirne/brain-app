@@ -34,18 +34,32 @@ const IFRAME_DOC_BASE_STYLE = `<style>
       color: var(--mail-accent) !important;
     }
   }
-  html { color-scheme: light dark; }
-  html, body {
+  html {
+    color-scheme: light dark;
     margin: 0 !important;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
+    background: var(--mail-bg);
+  }
+  body {
+    margin: 0 !important;
+    padding: 0 1rem 1rem !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    box-sizing: border-box !important;
     background: var(--mail-bg);
     color: var(--mail-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 14px;
     line-height: 1.5;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
   }
-  a { color: var(--mail-accent); }
+  a {
+    color: var(--mail-accent);
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+  }
   img, table { max-width: 100% !important; height: auto; }
   table { border-collapse: collapse; }
   /* Flatten sender “card” corners so HTML mail aligns with inbox chrome (no nested rounded slabs). */

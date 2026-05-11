@@ -16,6 +16,8 @@ describe('mailBodyDisplay', () => {
     expect(wrapped).toContain('<meta charset="utf-8">')
     expect(wrapped).toContain('max-width: 100%')
     expect(wrapped).toContain('overflow-y: hidden')
+    expect(wrapped).toContain('padding: 0 1rem 1rem')
+    expect(wrapped).toContain('overflow-wrap: break-word')
     expect(wrapped).toContain('<p class="x">Hi</p>')
     expect(wrapped).toContain('--mail-bg')
     expect(wrapped).toContain('prefers-color-scheme: dark')
@@ -25,6 +27,7 @@ describe('mailBodyDisplay', () => {
     const full = '<!DOCTYPE html><html><body>x</body></html>'
     const passthrough = emailBodyToIframeSrcdoc(full)
     expect(passthrough).toContain('overflow-y: hidden')
+    expect(passthrough).toContain('padding: 0 1rem 1rem')
     expect(passthrough).toContain('x</body>')
   })
 

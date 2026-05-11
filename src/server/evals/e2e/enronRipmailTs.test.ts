@@ -2,13 +2,19 @@
  * Enron corpus E2E for the TypeScript ripmail module (`./data` Kean demo tenant).
  *
  * Skips when the Enron corpus is not seeded. Seed: `npm run brain:seed-enron-demo`
+ *
+ * Readiness avoids calling `prepareRipmailDb`-backed helpers when `user_version`
+ * mismatches CURRENT_SCHEMA_VERSION (would trigger full maildir rebuild and can
+ * exceed the default Vitest hook timeout). Re-seed after a Ripmail schema bump.
  */
 
 import { beforeAll, describe, expect, it } from 'vitest'
+import Database from 'better-sqlite3'
 import { existsSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ENRON_DEMO_TENANT_USER_ID_DEFAULT } from '@server/lib/auth/enronDemo.js'
+import { SCHEMA_VERSION as CURRENT_SCHEMA_VERSION } from '@server/ripmail/schema.js'
 import {
   ripmailAttachmentList,
   ripmailReadMail,
@@ -24,8 +30,24 @@ const ripmailDb = join(ripmailHome, 'ripmail.db')
 
 const JANET_WEEKLY_REPORT_ID = '2322798.1075855417584.JavaMail.evans@thyme'
 
+/** Read SQLite `user_version` without invoking `prepareRipmailDb` / rebuild paths. */
+function readRipmailUserVersionFast(dbPath: string): number | null {
+  try {
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true })
+    try {
+      return db.pragma('user_version', { simple: true }) as number
+    } finally {
+      db.close()
+    }
+  } catch {
+    return null
+  }
+}
+
 function isCorpusReady(): Promise<boolean> {
   if (!existsSync(ripmailDb)) return Promise.resolve(false)
+  const uv = readRipmailUserVersionFast(ripmailDb)
+  if (uv !== CURRENT_SCHEMA_VERSION) return Promise.resolve(false)
   try {
     if (statSync(ripmailDb).size < 10_000) return Promise.resolve(false)
   } catch {
