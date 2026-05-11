@@ -472,6 +472,27 @@ describe('calendar', () => {
     expect(new Set(ids).size).toBe(ids.length) // no duplicates
     db.close()
   })
+
+  it('restrictGoogleCalendarIds filters google rows by calendar_id but keeps other source kinds', () => {
+    const db = openMemoryRipmailDb()
+    const now = Math.floor(Date.now() / 1000)
+    const synced = now
+    const ins = db.prepare(`
+      INSERT INTO calendar_events
+      (source_id, source_kind, calendar_id, uid, summary, start_at, end_at, all_day, synced_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+    `)
+    ins.run('g', 'googleCalendar', 'lew@gmail.com', 'u1', 'Lew', now, now + 3600, synced)
+    ins.run('g', 'googleCalendar', 'other@group.calendar.google.com', 'u2', 'OtherCal', now, now + 3600, synced)
+    ins.run('apple', 'appleCalendar', 'home', 'u3', 'AppleOnly', now, now + 3600, synced)
+
+    const r = calendarRange(db, now - 60, now + 7200, {
+      restrictGoogleCalendarIds: ['lew@gmail.com'],
+    })
+    const titles = r.events.map((e) => e.summary).sort()
+    expect(titles).toEqual(['AppleOnly', 'Lew'])
+    db.close()
+  })
 })
 
 // ---------------------------------------------------------------------------

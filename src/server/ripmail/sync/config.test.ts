@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import {
   errorMessageIndicatesInvalidGoogleGrant,
   removeGoogleOAuthTokenFile,
+  collectGoogleCalendarDefaultCalendarIds,
 } from './config.js'
 
 describe('errorMessageIndicatesInvalidGoogleGrant', () => {
@@ -15,6 +16,47 @@ describe('errorMessageIndicatesInvalidGoogleGrant', () => {
     expect(errorMessageIndicatesInvalidGoogleGrant('GaxiosError: invalid_grant')).toBe(true)
     expect(errorMessageIndicatesInvalidGoogleGrant('{"error":"invalid_grant"}')).toBe(true)
     expect(errorMessageIndicatesInvalidGoogleGrant('something else')).toBe(false)
+  })
+})
+
+describe('collectGoogleCalendarDefaultCalendarIds', () => {
+  it('returns defaultCalendars when set', () => {
+    expect(
+      collectGoogleCalendarDefaultCalendarIds({
+        sources: [
+          {
+            id: 'g',
+            kind: 'googleCalendar',
+            calendarIds: ['a', 'b'],
+            defaultCalendars: ['  lew@gmail.com ', 'lew@gmail.com'],
+          },
+        ],
+      }),
+    ).toEqual(['lew@gmail.com'])
+  })
+
+  it('returns the sole calendarIds entry when defaultCalendars unset', () => {
+    expect(
+      collectGoogleCalendarDefaultCalendarIds({
+        sources: [{ id: 'g', kind: 'googleCalendar', calendarIds: ['only'] }],
+      }),
+    ).toEqual(['only'])
+  })
+
+  it('returns empty when multiple calendarIds and no defaults', () => {
+    expect(
+      collectGoogleCalendarDefaultCalendarIds({
+        sources: [{ id: 'g', kind: 'googleCalendar', calendarIds: ['a', 'b'] }],
+      }),
+    ).toEqual([])
+  })
+
+  it('ignores non-google sources', () => {
+    expect(
+      collectGoogleCalendarDefaultCalendarIds({
+        sources: [{ id: 'a', kind: 'appleCalendar', calendarIds: ['x'] }],
+      }),
+    ).toEqual([])
   })
 })
 

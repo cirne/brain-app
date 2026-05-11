@@ -62,7 +62,7 @@ export function calendarRange(
   db: RipmailDb,
   from: number,
   to: number,
-  opts?: { sourceIds?: string[]; calendarIds?: string[] },
+  opts?: { sourceIds?: string[]; calendarIds?: string[]; restrictGoogleCalendarIds?: string[] },
 ): CalendarRangeResult {
   const conditions: string[] = [`start_at <= ? AND end_at >= ?`]
   const params: unknown[] = [to, from]
@@ -76,6 +76,10 @@ export function calendarRange(
     const ph = opts.calendarIds.map(() => '?').join(', ')
     conditions.push(`calendar_id IN (${ph})`)
     params.push(...opts.calendarIds)
+  } else if (opts?.restrictGoogleCalendarIds?.length) {
+    const ph = opts.restrictGoogleCalendarIds.map(() => '?').join(', ')
+    conditions.push(`(source_kind != 'googleCalendar' OR calendar_id IN (${ph}))`)
+    params.push(...opts.restrictGoogleCalendarIds)
   }
 
   const where = conditions.join(' AND ')
@@ -129,8 +133,8 @@ export function calendarListCalendars(
 }
 
 // ---------------------------------------------------------------------------
-// Calendar mutations (create / update / cancel / delete)
-// Stored locally; write-through to Google Calendar API handled in sync layer.
+// Calendar mutations (create / update / cancel / delete) — SQLite helpers.
+// googleCalendar agent/tool cancels and deletes use the live Calendar API (see sync/googleCalendar.ts); this module only edits the local index for non-Google kinds.
 // ---------------------------------------------------------------------------
 
 export interface CreateEventOptions {

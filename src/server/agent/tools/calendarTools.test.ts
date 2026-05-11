@@ -72,6 +72,77 @@ describe('ripmailRecurrenceCliFlags', () => {
   })
 })
 
+describe('createCalendarTool op=search alias', () => {
+  it('accepts op=search same as op=events+search', async () => {
+    const { ripmailCalendarRange } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailCalendarRange).mockResolvedValueOnce({
+      events: [
+        {
+          uid: 'evt1',
+          sourceId: 's-gcal',
+          sourceKind: 'googleCalendar',
+          calendarId: 'lew@gmail.com',
+          summary: 'Bible study night',
+          description: null,
+          location: null,
+          startAt: 1_768_000_000,
+          endAt: 1_768_003_600,
+          allDay: false,
+        },
+      ],
+      sourcesConfigured: true,
+    })
+    const { calendar } = createCalendarTool('America/Los_Angeles')
+    const r = await calendar.execute(
+      't-search-alias',
+      {
+        op: 'search',
+        search: 'bible study',
+        start: '2026-05-01',
+        end: '2026-05-31',
+        calendar_ids: ['lew@gmail.com'],
+      },
+      undefined,
+      undefined,
+      testToolCtx,
+    )
+    expect(ripmailCalendarRange).toHaveBeenCalled()
+    expect((r.details as { totalMatchCount: number }).totalMatchCount).toBe(1)
+  })
+
+  it('op=search without keyword throws', async () => {
+    const { calendar } = createCalendarTool('UTC')
+    await expect(
+      calendar.execute(
+        't-search-bad',
+        { op: 'search', start: '2026-05-01', end: '2026-05-31' },
+        undefined,
+        undefined,
+        testToolCtx,
+      ),
+    ).rejects.toThrow(/op=search requires/)
+  })
+
+  it('allowedOps events-only permits op=search', async () => {
+    const { ripmailCalendarRange } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailCalendarRange).mockResolvedValueOnce({ events: [], sourcesConfigured: true })
+    const { calendar } = createCalendarTool('UTC', { allowedOps: ['events'] })
+    await calendar.execute(
+      't-search-allowed',
+      {
+        op: 'search',
+        search: 'x',
+        start: '2026-01-01',
+        end: '2026-01-02',
+      },
+      undefined,
+      undefined,
+      testToolCtx,
+    )
+    expect(ripmailCalendarRange).toHaveBeenCalled()
+  })
+})
+
 describe('createCalendarTool allowedOps', () => {
   it('rejects disallowed op when allowedOps is set', async () => {
     const { calendar } = createCalendarTool('UTC', {

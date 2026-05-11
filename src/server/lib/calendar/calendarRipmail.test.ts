@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   getCalendarEventsFromRipmail,
   mapRipmailRowToCalendarEvent,
@@ -8,6 +8,8 @@ import {
   flattenRipmailListCalendarsJson,
   type RipmailCalendarEventJson,
 } from './calendarRipmail.js'
+
+import * as ripCfg from '@server/ripmail/sync/config.js'
 
 vi.mock('@server/ripmail/db.js', () => ({
   openRipmailDb: vi.fn(() => ({})),
@@ -303,5 +305,93 @@ describe('getCalendarEventsFromRipmail deduplication', () => {
     expect(result.events[0].organizer).toBe('lewiscirne@gmail.com')
     expect(result.meta.sourcesConfigured).toBe(true)
     expect(result.meta.availableCalendars).toEqual([{ id: 'primary', sourceId: 'src-meta' }])
+  })
+})
+
+describe('getCalendarEventsFromRipmail Hub default calendar IDs', () => {
+  let loadSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    loadSpy = vi.spyOn(ripCfg, 'loadRipmailConfig').mockReturnValue({ sources: [] })
+  })
+
+  afterEach(() => {
+    loadSpy.mockRestore()
+  })
+
+  it('passes restrictGoogleCalendarIds when defaultCalendars set and calendarIds omitted', async () => {
+    loadSpy.mockReturnValue({
+      sources: [
+        {
+          id: 'u-gcal',
+          kind: 'googleCalendar',
+          calendarIds: ['lew@gmail.com', 'other@group.calendar.google.com'],
+          defaultCalendars: ['lew@gmail.com'],
+        },
+      ],
+    })
+    const { calendarRange } = await import('@server/ripmail/calendar.js')
+    vi.mocked(calendarRange).mockReturnValue({ events: [], sourcesConfigured: true })
+
+    await getCalendarEventsFromRipmail({ start: '2026-05-11', end: '2026-05-11' })
+
+    expect(calendarRange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Number),
+      expect.any(Number),
+      { restrictGoogleCalendarIds: ['lew@gmail.com'] },
+    )
+  })
+
+  it('passes calendarIds when explicitly requested', async () => {
+    loadSpy.mockReturnValue({
+      sources: [
+        {
+          id: 'u-gcal',
+          kind: 'googleCalendar',
+          defaultCalendars: ['lew@gmail.com'],
+        },
+      ],
+    })
+    const { calendarRange } = await import('@server/ripmail/calendar.js')
+    vi.mocked(calendarRange).mockReturnValue({ events: [], sourcesConfigured: true })
+
+    await getCalendarEventsFromRipmail({ start: '2026-05-11', end: '2026-05-11', calendarIds: ['explicit-cal'] })
+
+    expect(calendarRange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Number),
+      expect.any(Number),
+      { calendarIds: ['explicit-cal'] },
+    )
+  })
+
+  it('omits filter when multi-calendar Google source has no defaults (legacy)', async () => {
+    loadSpy.mockReturnValue({
+      sources: [{ id: 'u-gcal', kind: 'googleCalendar', calendarIds: ['a', 'b'] }],
+    })
+    const { calendarRange } = await import('@server/ripmail/calendar.js')
+    vi.mocked(calendarRange).mockReturnValue({ events: [], sourcesConfigured: true })
+
+    await getCalendarEventsFromRipmail({ start: '2026-05-11', end: '2026-05-11' })
+
+    expect(calendarRange).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), undefined)
+  })
+
+  it('uses sole calendarIds entry as implicit default when defaultCalendars omitted', async () => {
+    loadSpy.mockReturnValue({
+      sources: [{ id: 'g', kind: 'googleCalendar', calendarIds: ['only-cal'] }],
+    })
+    const { calendarRange } = await import('@server/ripmail/calendar.js')
+    vi.mocked(calendarRange).mockReturnValue({ events: [], sourcesConfigured: true })
+
+    await getCalendarEventsFromRipmail({ start: '2026-05-11', end: '2026-05-11' })
+
+    expect(calendarRange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Number),
+      expect.any(Number),
+      { restrictGoogleCalendarIds: ['only-cal'] },
+    )
   })
 })

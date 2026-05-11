@@ -7,7 +7,10 @@ import {
   selectResolutionTier,
   windowDaysFromYmd,
 } from '@server/lib/calendar/calendarCache.js'
-import { calendarEventsFromRipmailRangeJsonStdout } from '@server/lib/calendar/calendarRipmail.js'
+import {
+  calendarEventsFromRipmailRangeJsonStdout,
+  resolveRipmailRangeCalendarFilter,
+} from '@server/lib/calendar/calendarRipmail.js'
 import { runRipmailRefreshInBackground } from '@server/lib/ripmail/runRipmailRefreshBackground.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import {
@@ -140,10 +143,11 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
     name: 'calendar',
     label: 'Calendar',
     description:
-      'All calendar operations. op=events: query events for `start`/`end` (YYYY-MM-DD). **Adaptive tiers only** (no way to force full calendar dumps): >30 days = landmarks (all-day + timed ≥4h, recurring omitted); 10–30 days = overview (recurring omitted, trimmed timed fields); <10 days = full row detail for that window. **`calendar_ids`** limits to specific calendars; tier is still derived from the date span — narrow `start`/`end` or use **`search`** for more detail. **`search`**: FTS in range — returns up to **40 compact hints** (id, title, dates, weekdays) plus **`totalMatchCount`**; if your event is missing, narrow `start`/`end` or refine the keyword. Range responses are capped (~250 events). **Writes (Google Calendar only):** `create_event` (optional recurrence preset or RRULE), `update_event`, `cancel_event`, `delete_event` — pass **`event_id`** as the compound **`id`** from `op=events` / search (`sourceId:uid`). **`scope`**: cancel supports `this`|`future`|`all`; delete supports `this`|`all` only. Non-Google sources return an error from ripmail. Re-index after mutations. Requires `calendar.events` OAuth scope. For external scheduling help, forward to howie@howie.ai.',
+      'All calendar operations. **Range reads:** use **`op=events`** with `start`+`end` (YYYY-MM-DD). **`op=search`** is an alias for keyword search — same as `op=events` but requires non-empty **`search`**; do not invent a separate `op` value. **Adaptive tiers** for wide windows: >30 days = landmarks; 10–30 days = overview; <10 days = full detail. **`calendar_ids`** filters Google calendars. **Keyword:** `search` on `events`/`search` returns compact hints (~40) + **totalMatchCount**. **Writes:** `create_event`, `update_event`, `cancel_event`, `delete_event` — **`event_id`** = compound `sourceId:uid` from reads/search. **`scope`:** cancel `this`|`all` (**`future`** not supported); delete `this`|`all`. Requires `calendar.events` OAuth. For external scheduling help, forward to howie@howie.ai.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('events'),
+        Type.Literal('search'),
         Type.Literal('list_calendars'),
         Type.Literal('configure_source'),
         Type.Literal('create_event'),
@@ -151,12 +155,12 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         Type.Literal('cancel_event'),
         Type.Literal('delete_event'),
       ]),
-      start: Type.Optional(Type.String({ description: 'events: start date YYYY-MM-DD (inclusive)' })),
-      end: Type.Optional(Type.String({ description: 'events: end date YYYY-MM-DD (inclusive)' })),
+      start: Type.Optional(Type.String({ description: 'events / search: start date YYYY-MM-DD (inclusive)' })),
+      end: Type.Optional(Type.String({ description: 'events / search: end date YYYY-MM-DD (inclusive)' })),
       search: Type.Optional(
         Type.String({
           description:
-            'events: FTS keyword — matches summary/description/location within start/end. Returns compact hints (not full rows); see totalMatchCount in the tool result — narrow dates or tighten the keyword if the right event is missing.',
+            'events: optional keyword (summary/description/location). **search op:** required — same behavior as events+search.',
         }),
       ),
       source: Type.Optional(
@@ -166,7 +170,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         }),
       ),
       calendar_ids: Type.Optional(
-        Type.Array(Type.String(), { description: 'events / configure_source: IDs to sync or filter by' }),
+        Type.Array(Type.String(), { description: 'events / search / configure_source: calendar ids to filter or configure' }),
       ),
       default_calendar_ids: Type.Optional(
         Type.Array(Type.String(), {
@@ -217,7 +221,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
       scope: Type.Optional(
         Type.Union([Type.Literal('this'), Type.Literal('future'), Type.Literal('all')], {
           description:
-            'cancel_event: this | future | all (recurring semantics). delete_event: this | all only — do not use future.',
+            'cancel_event: this | all (recurring: one occurrence vs series; **future** not supported). delete_event: this | all — **future** rejected.',
         }),
       ),
       recurrence: Type.Optional(
@@ -242,6 +246,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
       params: {
         op:
           | 'events'
+          | 'search'
           | 'list_calendars'
           | 'configure_source'
           | 'create_event'
@@ -269,23 +274,35 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         recurrence_until?: string
       },
     ) {
-      if (allowedOps?.length && !allowedOps.includes(params.op)) {
+      if (params.op === 'search' && !params.search?.trim()) {
         throw new Error(
-          `Calendar op "${params.op}" is not available in this session. Allowed: ${allowedOps.join(', ')}.`,
+          'op=search requires a non-empty `search` keyword (and start/end). Equivalent: op=events with the same fields.',
         )
       }
-      if (params.op === 'events') {
+      if (allowedOps?.length) {
+        const opForSession = params.op === 'search' ? 'events' : params.op
+        if (!allowedOps.includes(opForSession)) {
+          throw new Error(
+            `Calendar op "${params.op}" is not available in this session. Allowed: ${allowedOps.join(', ')}.`,
+          )
+        }
+      }
+      if (params.op === 'events' || params.op === 'search') {
         if (!params.start || !params.end) {
-          throw new Error('start and end are required for op=events')
+          throw new Error('start and end are required for op=events and op=search')
         }
 
         const searchQ = params.search?.trim()
         if (searchQ) {
           const fromUnix = Math.floor(new Date(params.start + 'T00:00:00Z').getTime() / 1000)
           const toUnix = Math.floor(new Date(params.end + 'T23:59:59Z').getTime() / 1000)
-          const rangeResult = await ripmailCalendarRange(ripmailHomeForBrain(), fromUnix, toUnix, {
-            calendarIds: params.calendar_ids?.length ? params.calendar_ids : undefined,
-          })
+          const calHome = ripmailHomeForBrain()
+          const rangeResult = await ripmailCalendarRange(
+            calHome,
+            fromUnix,
+            toUnix,
+            resolveRipmailRangeCalendarFilter(calHome, params.calendar_ids),
+          )
           const qLower = searchQ.toLowerCase()
           const filteredRaw = rangeResult.events.filter((e) =>
             (e.summary ?? '').toLowerCase().includes(qLower) ||
@@ -372,7 +389,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         // If no events found and we have sources, add a hint to check available calendars
         if (!capped.rows.length && sourcesConfigured && availableCalendars?.length) {
           const list = availableCalendars.map(c => `- ${c.name || c.id} (id: ${c.id})`).join('\n')
-          text += `\n\n**HINT**: You are currently querying default calendars. If you are looking for a specific person's schedule, you might need to specify one of these available IDs in \`calendar_ids\`:\n${list}`
+          text += `\n\n**HINT**: Queries use Hub default Google calendars unless you pass \`calendar_ids\`. To search another calendar, pass its id:\n${list}`
         }
 
         const payload: Record<string, unknown> = {
@@ -543,11 +560,12 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         const eid = params.event_id?.trim()
         if (!eid) throw new Error('event_id is required for op=cancel_event')
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        await ripmailCalendarCancelEvent(ripmailHomeForBrain(), eventUid)
+        const scopeCancel = params.scope ?? 'this'
+        await ripmailCalendarCancelEvent(ripmailHomeForBrain(), sourceId, eventUid, scopeCancel)
         runCalendarRefreshAgent(sourceId)
         return {
           content: [{ type: 'text' as const, text: 'Event cancelled. Calendar re-index started in the background.' }],
-          details: { ok: true, cancelled: true, sourceId, eventUid },
+          details: { ok: true, cancelled: true, sourceId, eventUid, scope: scopeCancel },
         }
       }
 
@@ -555,14 +573,17 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         const eid = params.event_id?.trim()
         if (!eid) throw new Error('event_id is required for op=delete_event')
         if (params.scope === 'future') {
-          throw new Error('delete_event does not support scope=future (use cancel_event with scope=future)')
+          throw new Error(
+            'delete_event does not support scope=future; use delete_event with scope=this, or cancel_event with scope=all for the whole series.',
+          )
         }
         const { sourceId, eventUid } = parseCalendarEventRef(eid)
-        await ripmailCalendarDeleteEvent(ripmailHomeForBrain(), eventUid)
+        const scopeDelete = params.scope === 'all' ? 'all' : 'this'
+        await ripmailCalendarDeleteEvent(ripmailHomeForBrain(), sourceId, eventUid, scopeDelete)
         runCalendarRefreshAgent(sourceId)
         return {
           content: [{ type: 'text' as const, text: 'Event deleted. Calendar re-index started in the background.' }],
-          details: { ok: true, deleted: true, sourceId, eventUid },
+          details: { ok: true, deleted: true, sourceId, eventUid, scope: scopeDelete },
         }
       }
 

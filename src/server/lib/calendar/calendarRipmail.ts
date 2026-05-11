@@ -3,6 +3,7 @@
  */
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { ensureGoogleOAuthImapSiblingSources } from '@server/lib/platform/googleOAuth.js'
+import { collectGoogleCalendarDefaultCalendarIds, loadRipmailConfig } from '@server/ripmail/sync/config.js'
 import { prepareRipmailDb } from '@server/ripmail/db.js'
 import { calendarRange, calendarListCalendars } from '@server/ripmail/calendar.js'
 import type { CalendarEvent } from './calendarCache.js'
@@ -219,6 +220,26 @@ export function flattenRipmailListCalendarsJson(parsed: unknown): {
   return { sourcesConfigured, availableCalendars }
 }
 
+export type RipmailCalendarRangeFilterOpts = {
+  calendarIds?: string[]
+  restrictGoogleCalendarIds?: string[]
+}
+
+/**
+ * When tools/API omit `calendar_ids`, restrict indexed **Google** rows to Hub `defaultCalendars`
+ * (or the sole synced calendar id). Non-`googleCalendar` rows stay visible.
+ */
+export function resolveRipmailRangeCalendarFilter(
+  ripmailHome: string,
+  requested?: string[],
+): RipmailCalendarRangeFilterOpts | undefined {
+  const trimmedRequested = requested?.map((id) => id.trim()).filter(Boolean) ?? []
+  if (trimmedRequested.length > 0) return { calendarIds: trimmedRequested }
+  const defaults = collectGoogleCalendarDefaultCalendarIds(loadRipmailConfig(ripmailHome))
+  if (defaults.length > 0) return { restrictGoogleCalendarIds: defaults }
+  return undefined
+}
+
 async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: RipmailListCalendarRow[] }> {
   try {
     const db = await prepareRipmailDb(ripmailHomeForBrain())
@@ -266,10 +287,10 @@ export async function getCalendarEventsFromRipmail(opts: {
     ripmailCalendarSourcesInfo(),
     (async () => {
       try {
-        const db = await prepareRipmailDb(ripmailHomeForBrain())
-        return calendarRange(db, fromUnix, toUnix, {
-          calendarIds: opts.calendarIds?.length ? opts.calendarIds : undefined,
-        })
+        const ripHome = ripmailHomeForBrain()
+        const db = await prepareRipmailDb(ripHome)
+        const rangeOpts = resolveRipmailRangeCalendarFilter(ripHome, opts.calendarIds)
+        return calendarRange(db, fromUnix, toUnix, rangeOpts)
       } catch {
         return null
       }

@@ -68,6 +68,24 @@ export function getGoogleCalendarSources(config: RipmailConfig): SourceConfig[] 
   return sources.filter((s) => s.kind === 'googleCalendar')
 }
 
+/**
+ * IDs used for agent/API calendar range queries when the caller omits `calendar_ids`:
+ * union of each Google source's `defaultCalendars`, else that source's sole `calendarIds` entry when only one is synced.
+ */
+export function collectGoogleCalendarDefaultCalendarIds(config: RipmailConfig): string[] {
+  const ids = new Set<string>()
+  for (const s of getGoogleCalendarSources(config)) {
+    const defs = (s.defaultCalendars ?? []).map((x) => String(x).trim()).filter(Boolean)
+    if (defs.length > 0) {
+      for (const id of defs) ids.add(id)
+      continue
+    }
+    const calIds = (s.calendarIds ?? []).map((x) => String(x).trim()).filter(Boolean)
+    if (calIds.length === 1) ids.add(calIds[0]!)
+  }
+  return [...ids]
+}
+
 /** Google Calendar sources store OAuth tokens under the owning Gmail source. */
 export function googleOAuthTokenSourceId(source: SourceConfig): string {
   return source.oauthSourceId?.trim() || source.id

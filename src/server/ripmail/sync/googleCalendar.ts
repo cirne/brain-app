@@ -31,6 +31,13 @@ export interface GoogleCalendarClient {
       nextPageToken?: string | null
       nextSyncToken?: string | null
     }>
+    delete?: (_params: { calendarId: string; eventId: string; sendUpdates?: string }) => GoogleApiResponse<unknown>
+    patch?: (_params: {
+      calendarId: string
+      eventId: string
+      requestBody: { status?: string }
+      sendUpdates?: string
+    }) => GoogleApiResponse<GoogleCalendarEvent>
   }
   calendarList: {
     list: (_params: Record<string, unknown>) => GoogleApiResponse<{
@@ -161,6 +168,106 @@ function updateCalendarSourceLastSynced(db: RipmailDb, source: SourceConfig): vo
 function deleteEvent(db: RipmailDb, sourceId: string, uid: string): boolean {
   const info = db.prepare(`DELETE FROM calendar_events WHERE source_id = ? AND uid = ?`).run(sourceId, uid)
   return info.changes > 0
+}
+
+function parseRecurringEventId(rawJson: string | null | undefined): string | undefined {
+  if (!rawJson?.trim()) return undefined
+  try {
+    const o = JSON.parse(rawJson) as { recurringEventId?: string | null }
+    if (typeof o.recurringEventId !== 'string') return undefined
+    const t = o.recurringEventId.trim()
+    return t.length > 0 ? t : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Remove indexed rows after a Google Calendar API delete or cancel so refresh does not resurrect them. */
+function removeIndexedRowsAfterGoogleWrite(
+  db: RipmailDb,
+  sourceId: string,
+  rowUid: string,
+  rawJson: string | null,
+  scope: 'this' | 'all',
+): void {
+  const recMaster = parseRecurringEventId(rawJson)
+  if (scope === 'all') {
+    const masterId = recMaster ?? rowUid
+    db.prepare(`
+      DELETE FROM calendar_events
+      WHERE source_id = ?
+        AND (uid = ? OR json_extract(raw_json, '$.recurringEventId') = ?)
+    `).run(sourceId, masterId, masterId)
+    return
+  }
+  deleteEvent(db, sourceId, rowUid)
+}
+
+/**
+ * Delete a Google Calendar event (or recurring series when scope=all).
+ * Mutates the local index after the API succeeds.
+ */
+export async function deleteGoogleCalendarEventRemote(
+  db: RipmailDb,
+  ripmailHome: string,
+  source: SourceConfig,
+  calendarId: string,
+  rowUid: string,
+  rawJson: string | null,
+  scope: 'this' | 'all',
+  opts?: { client?: GoogleCalendarClient },
+): Promise<void> {
+  const tokens = loadGoogleOAuthTokens(ripmailHome, oauthSourceId(source))
+  const client = opts?.client ?? (tokens ? buildCalendarClient(tokens) : null)
+  if (!client) {
+    throw new Error('No OAuth client credentials available for Google Calendar')
+  }
+  if (!client.events.delete) {
+    throw new Error('Calendar client has no events.delete (internal error)')
+  }
+  const recMaster = parseRecurringEventId(rawJson)
+  const targetAll = scope === 'all'
+  const apiEventId = targetAll ? (recMaster ?? rowUid) : rowUid
+  await client.events.delete({
+    calendarId,
+    eventId: apiEventId,
+    sendUpdates: 'all',
+  })
+  removeIndexedRowsAfterGoogleWrite(db, source.id, rowUid, rawJson, scope)
+}
+
+/**
+ * Cancel a Google Calendar event via API (status=cancelled). For recurring series use scope=all.
+ * Mutates the local index after the API succeeds.
+ */
+export async function cancelGoogleCalendarEventRemote(
+  db: RipmailDb,
+  ripmailHome: string,
+  source: SourceConfig,
+  calendarId: string,
+  rowUid: string,
+  rawJson: string | null,
+  scope: 'this' | 'all',
+  opts?: { client?: GoogleCalendarClient },
+): Promise<void> {
+  const tokens = loadGoogleOAuthTokens(ripmailHome, oauthSourceId(source))
+  const client = opts?.client ?? (tokens ? buildCalendarClient(tokens) : null)
+  if (!client) {
+    throw new Error('No OAuth client credentials available for Google Calendar')
+  }
+  if (!client.events.patch) {
+    throw new Error('Calendar client has no events.patch (internal error)')
+  }
+  const recMaster = parseRecurringEventId(rawJson)
+  const targetAll = scope === 'all'
+  const apiEventId = targetAll ? (recMaster ?? rowUid) : rowUid
+  await client.events.patch({
+    calendarId,
+    eventId: apiEventId,
+    requestBody: { status: 'cancelled' },
+    sendUpdates: 'all',
+  })
+  removeIndexedRowsAfterGoogleWrite(db, source.id, rowUid, rawJson, scope)
 }
 
 function upsertEvent(

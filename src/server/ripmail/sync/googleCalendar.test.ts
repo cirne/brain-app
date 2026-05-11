@@ -5,20 +5,31 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import { closeRipmailDb, prepareRipmailDb } from '../db.js'
-import { syncGoogleCalendarSource, listGoogleCalendarsForSource } from './googleCalendar.js'
+import {
+  syncGoogleCalendarSource,
+  listGoogleCalendarsForSource,
+  deleteGoogleCalendarEventRemote,
+  cancelGoogleCalendarEventRemote,
+} from './googleCalendar.js'
 import type { SourceConfig } from './config.js'
 import type { GoogleCalendarClient } from './googleCalendar.js'
 
 function makeCalendarClient(): GoogleCalendarClient & {
   eventsList: ReturnType<typeof vi.fn>
+  eventsDelete: ReturnType<typeof vi.fn>
+  eventsPatch: ReturnType<typeof vi.fn>
   calendarListList: ReturnType<typeof vi.fn>
 } {
   const eventsList = vi.fn()
+  const eventsDelete = vi.fn()
+  const eventsPatch = vi.fn()
   const calendarListList = vi.fn()
   return {
-    events: { list: eventsList },
+    events: { list: eventsList, delete: eventsDelete, patch: eventsPatch },
     calendarList: { list: calendarListList },
     eventsList,
+    eventsDelete,
+    eventsPatch,
     calendarListList,
   }
 }
@@ -197,5 +208,74 @@ describe('Google Calendar sync', () => {
       { id: 'team@example.com', name: 'Team', sourceId: source.id, color: '#abcdef' },
     ])
     expect(client.calendarListList).toHaveBeenCalledTimes(2)
+  })
+
+  it('deleteGoogleCalendarEventRemote calls API and removes one indexed row (scope=this)', async () => {
+    const db = await prepareRipmailDb(home)
+    const raw = JSON.stringify({ id: 'inst_1', recurringEventId: 'master_1' })
+    db.prepare(`
+      INSERT INTO calendar_events
+      (source_id, source_kind, calendar_id, uid, summary, start_at, end_at, all_day, synced_at, raw_json)
+      VALUES (?, 'googleCalendar', 'primary', 'inst_1', 'Weekly', 1, 2, 0, 1, ?)
+    `).run(source.id, raw)
+    const client = makeCalendarClient()
+    client.eventsDelete.mockResolvedValueOnce({ data: {} })
+
+    await deleteGoogleCalendarEventRemote(db, home, source, 'primary', 'inst_1', raw, 'this', { client })
+
+    expect(client.eventsDelete).toHaveBeenCalledWith({
+      calendarId: 'primary',
+      eventId: 'inst_1',
+      sendUpdates: 'all',
+    })
+    expect(db.prepare(`SELECT 1 FROM calendar_events WHERE uid = 'inst_1'`).get()).toBeUndefined()
+  })
+
+  it('deleteGoogleCalendarEventRemote scope=all deletes master id and all instance rows', async () => {
+    const db = await prepareRipmailDb(home)
+    const rawInst = JSON.stringify({ id: 'inst_a', recurringEventId: 'master_x' })
+    db.prepare(`
+      INSERT INTO calendar_events
+      (source_id, source_kind, calendar_id, uid, summary, start_at, end_at, all_day, synced_at, raw_json)
+      VALUES (?, 'googleCalendar', 'primary', 'inst_a', 'Weekly', 1, 2, 0, 1, ?)
+    `).run(source.id, rawInst)
+    db.prepare(`
+      INSERT INTO calendar_events
+      (source_id, source_kind, calendar_id, uid, summary, start_at, end_at, all_day, synced_at, raw_json)
+      VALUES (?, 'googleCalendar', 'primary', 'inst_b', 'Weekly', 3, 4, 0, 1, ?)
+    `).run(source.id, JSON.stringify({ id: 'inst_b', recurringEventId: 'master_x' }))
+    const client = makeCalendarClient()
+    client.eventsDelete.mockResolvedValueOnce({ data: {} })
+
+    await deleteGoogleCalendarEventRemote(db, home, source, 'primary', 'inst_a', rawInst, 'all', { client })
+
+    expect(client.eventsDelete).toHaveBeenCalledWith({
+      calendarId: 'primary',
+      eventId: 'master_x',
+      sendUpdates: 'all',
+    })
+    expect((db.prepare(`SELECT COUNT(*) AS n FROM calendar_events WHERE source_id = ?`).get(source.id) as { n: number }).n).toBe(0)
+  })
+
+  it('cancelGoogleCalendarEventRemote patches status cancelled', async () => {
+    const db = await prepareRipmailDb(home)
+    const raw = JSON.stringify({ id: 'e1' })
+    db.prepare(`
+      INSERT INTO calendar_events
+      (source_id, source_kind, calendar_id, uid, summary, start_at, end_at, all_day, synced_at, raw_json)
+      VALUES (?, 'googleCalendar', 'primary', 'e1', 'Meet', 1, 2, 0, 1, ?)
+    `).run(source.id, raw)
+    const client = makeCalendarClient()
+    client.eventsPatch.mockResolvedValueOnce({ data: { id: 'e1', status: 'cancelled' } })
+
+    await cancelGoogleCalendarEventRemote(db, home, source, 'primary', 'e1', raw, 'this', { client })
+
+    expect(client.eventsPatch).toHaveBeenCalledWith({
+      calendarId: 'primary',
+      eventId: 'e1',
+      requestBody: { status: 'cancelled' },
+      sendUpdates: 'all',
+    })
+    expect(db.prepare(`SELECT 1 FROM calendar_events WHERE uid = 'e1'`).get()).toBeUndefined()
   })
 })

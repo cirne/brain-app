@@ -231,7 +231,7 @@ describe('calendar tool', () => {
       event_id: 's:evt',
       scope: 'all',
     })
-    expect(ripmailCalendarCancelEvent).toHaveBeenCalledWith(expect.any(String), 'evt')
+    expect(ripmailCalendarCancelEvent).toHaveBeenCalledWith(expect.any(String), 's', 'evt', 'all')
   })
 
   it('op=delete_event rejects scope=future', async () => {

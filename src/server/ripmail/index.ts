@@ -56,11 +56,11 @@ import { inbox } from './inbox.js'
 import { rulesList, rulesShow, rulesAdd, rulesEdit, rulesRemove, rulesMove, rulesValidate } from './rules.js'
 import { sourcesList, sourcesStatus, sourcesAddLocalDir, sourcesAddGoogleDrive, sourcesEdit, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
 import { archive, unarchive } from './archive.js'
-import { calendarRange, calendarListCalendars, calendarCreateEvent, calendarUpdateEvent, calendarCancelEvent, calendarDeleteEvent } from './calendar.js'
+import { calendarRange, calendarListCalendars, calendarCreateEvent, calendarUpdateEvent } from './calendar.js'
 import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList } from './draft.js'
 import { send } from './send.js'
 import { refresh } from './sync/index.js'
-import { listGoogleCalendarsForSource } from './sync/googleCalendar.js'
+import { listGoogleCalendarsForSource, cancelGoogleCalendarEventRemote, deleteGoogleCalendarEventRemote } from './sync/googleCalendar.js'
 import { loadRipmailConfig } from './sync/config.js'
 export { loadRipmailConfig, saveRipmailConfig, loadGoogleOAuthTokens, googleOAuthTokenSourceId } from './sync/config.js'
 import type { InboxOptions } from './inbox.js'
@@ -290,16 +290,83 @@ export async function ripmailCalendarUpdateEvent(
   return calendarUpdateEvent(db, uid, updates)
 }
 
-/** Cancel calendar event. */
-export async function ripmailCalendarCancelEvent(ripmailHome: string, uid: string) {
+/** Cancel calendar event. Google Calendar uses the live API; other source kinds update SQLite only. */
+export async function ripmailCalendarCancelEvent(
+  ripmailHome: string,
+  sourceId: string,
+  uid: string,
+  scope: 'this' | 'future' | 'all' = 'this',
+) {
+  if (scope === 'future') {
+    throw new Error(
+      'Calendar: cancel_event with scope=future is not supported yet. Use scope=this (one occurrence) or scope=all (entire series).',
+    )
+  }
+  const sid = sourceId.trim()
+  const id = uid.trim()
   const db = await prepareRipmailDb(ripmailHome)
-  return calendarCancelEvent(db, uid)
+  const row = db
+    .prepare(
+      `SELECT source_kind, calendar_id, raw_json FROM calendar_events WHERE source_id = ? AND uid = ?`,
+    )
+    .get(sid, id) as
+    | { source_kind: string; calendar_id: string; raw_json: string | null }
+    | undefined
+  if (!row) {
+    throw new Error(
+      `Calendar event not found in the local index (source_id=${sid}, uid=${id}). Use the compound event_id from op=events or search, then sync calendars if needed.`,
+    )
+  }
+  if (row.source_kind === 'googleCalendar') {
+    const cfg = loadRipmailConfig(ripmailHome)
+    const source = cfg.sources?.find((s) => s.id === sid)
+    if (!source || source.kind !== 'googleCalendar') {
+      throw new Error(`googleCalendar source not found in config: ${sid}`)
+    }
+    await cancelGoogleCalendarEventRemote(db, ripmailHome, source, row.calendar_id, id, row.raw_json, scope)
+    return
+  }
+  const info = db.prepare(`UPDATE calendar_events SET status = 'cancelled' WHERE source_id = ? AND uid = ?`).run(sid, id)
+  if (info.changes === 0) {
+    throw new Error(`Calendar event not found for cancel (source_id=${sid}, uid=${id}).`)
+  }
 }
 
-/** Delete calendar event. */
-export async function ripmailCalendarDeleteEvent(ripmailHome: string, uid: string) {
+/** Delete calendar event. Google Calendar uses the live API; other source kinds delete from SQLite only. */
+export async function ripmailCalendarDeleteEvent(
+  ripmailHome: string,
+  sourceId: string,
+  uid: string,
+  scope: 'this' | 'all' = 'this',
+) {
+  const sid = sourceId.trim()
+  const id = uid.trim()
   const db = await prepareRipmailDb(ripmailHome)
-  return calendarDeleteEvent(db, uid)
+  const row = db
+    .prepare(
+      `SELECT source_kind, calendar_id, raw_json FROM calendar_events WHERE source_id = ? AND uid = ?`,
+    )
+    .get(sid, id) as
+    | { source_kind: string; calendar_id: string; raw_json: string | null }
+    | undefined
+  if (!row) {
+    throw new Error(
+      `Calendar event not found in the local index (source_id=${sid}, uid=${id}). Use the compound event_id from op=events or search, then sync calendars if needed.`,
+    )
+  }
+  if (row.source_kind === 'googleCalendar') {
+    const cfg = loadRipmailConfig(ripmailHome)
+    const source = cfg.sources?.find((s) => s.id === sid)
+    if (!source || source.kind !== 'googleCalendar') {
+      throw new Error(`googleCalendar source not found in config: ${sid}`)
+    }
+    await deleteGoogleCalendarEventRemote(db, ripmailHome, source, row.calendar_id, id, row.raw_json, scope)
+    return
+  }
+  const info = db.prepare(`DELETE FROM calendar_events WHERE source_id = ? AND uid = ?`).run(sid, id)
+  if (info.changes === 0) {
+    throw new Error(`Calendar event not found for delete (source_id=${sid}, uid=${id}).`)
+  }
 }
 
 /** Create draft. */
