@@ -33,6 +33,7 @@ Prefer knowing **which `messageId`** applies before **`draft_email`** with `acti
 - **`action=new`** — requires **`to`**, **`subject`**, and **`body`** (final outbound text; there is no server-side compose step).
 - **`action=reply`** — requires **`message_id`** and **`body`**; **`subject`** optional (defaults to `Re:` the threaded subject).
 - **`action=forward`** — requires **`message_id`**, **`to`**, and **`body`**; **`subject`** optional (defaults to `Fwd:` the threaded subject).
+- For reply/forward, **`message_id`** must be the exact **`messageId`** from **`list_inbox`**, **`search_index`**, or **`read_mail_message`**. If you are unsure which message the user means, re-search or read it first; drafts fail when the source message is not indexed.
 - **`from`** — optional; when multiple mailboxes exist, pass the sender email or ripmail **source id** the user names (e.g. “from work”).
 - **`b2b_query: true`** — Braintunnel collaborator mail; the server normalizes **`subject`** so the `[braintunnel]` marker appears after any `Re:` / `Fwd:` chain. **`grant_id`** is opaque routing context — do not put it in **`body`** unless the user asks.
 

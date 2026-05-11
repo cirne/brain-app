@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { extractAttachmentText } from './attachments.js'
+import { describe, expect, it, beforeEach, afterEach } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  attachmentRead,
+  extractAttachmentText,
+  normalizeAttachmentLookupKey,
+} from './attachments.js'
+import { openMemoryRipmailDb, type RipmailDb } from './db.js'
 import { attachmentFixturePath } from './fixtures/attachments/index.js'
 import { htmlToAgentMarkdown } from '../lib/htmlToAgentMarkdown.js'
 
@@ -16,6 +24,78 @@ describe('htmlToAgentMarkdown', () => {
 
   it('returns empty string for whitespace-only HTML', () => {
     expect(htmlToAgentMarkdown('   \n\t  ')).toBe('')
+  })
+})
+
+describe('normalizeAttachmentLookupKey', () => {
+  it('coerces digit-only strings to 1-based indices', () => {
+    expect(normalizeAttachmentLookupKey('1')).toBe(1)
+    expect(normalizeAttachmentLookupKey(' 2 ')).toBe(2)
+  })
+
+  it('leaves non-numeric attachment names unchanged', () => {
+    expect(normalizeAttachmentLookupKey('1.txt')).toBe('1.txt')
+    expect(normalizeAttachmentLookupKey('v2')).toBe('v2')
+    expect(normalizeAttachmentLookupKey(3)).toBe(3)
+  })
+})
+
+describe('attachmentRead', () => {
+  let db: RipmailDb
+  let home: string
+
+  beforeEach(() => {
+    db = openMemoryRipmailDb()
+    home = mkdtempSync(join(tmpdir(), 'attachment-read-'))
+  })
+
+  afterEach(() => {
+    db.close()
+    rmSync(home, { recursive: true, force: true })
+  })
+
+  function seedMessage(mid = '<mid@test>') {
+    db.prepare(`
+      INSERT INTO messages (message_id, thread_id, folder, uid, from_address, to_addresses,
+                            cc_addresses, to_recipients, cc_recipients, subject, date,
+                            body_text, raw_path, source_id)
+      VALUES (?, ?, 'INBOX', 1, 'a@test', '[]', '[]', '[]', '[]', 'Subj', '2026-01-01', 'body', 'x.eml', 'src')
+    `).run(mid, mid)
+  }
+
+  it('returns a clear message when stored_path is empty (not EISDIR)', async () => {
+    seedMessage()
+    db.prepare(
+      `INSERT INTO attachments (message_id, filename, mime_type, size, stored_path) VALUES (?, ?, ?, ?, ?)`,
+    ).run('<mid@test>', 'x.pdf', 'application/pdf', 1, '')
+    const text = await attachmentRead(db, 'mid@test', 'x.pdf', home)
+    expect(text).toContain('missing stored path')
+    expect(text).not.toMatch(/EISDIR/)
+  })
+
+  it('coerces string index "1" for lookup', async () => {
+    seedMessage()
+    const p = attachmentFixturePath('pdfJsTestPlusminus')
+    db.prepare(
+      `INSERT INTO attachments (message_id, filename, mime_type, size, stored_path) VALUES (?, ?, ?, ?, ?)`,
+    ).run('<mid@test>', 'one.pdf', 'application/pdf', 1, p)
+    const text = await attachmentRead(db, 'mid@test', '1', home)
+    expect(text.trim().length).toBeGreaterThan(3)
+    expect(text).not.toMatch(/attachment not found/)
+  })
+
+  it('prefers a readable on-disk row when duplicate filenames exist', async () => {
+    seedMessage()
+    const p = attachmentFixturePath('pdfJsTestPlusminus')
+    db.prepare(
+      `INSERT INTO attachments (message_id, filename, mime_type, size, stored_path) VALUES (?, ?, ?, ?, ?)`,
+    ).run('<mid@test>', 'dup.pdf', 'application/pdf', 1, '')
+    db.prepare(
+      `INSERT INTO attachments (message_id, filename, mime_type, size, stored_path) VALUES (?, ?, ?, ?, ?)`,
+    ).run('<mid@test>', 'dup.pdf', 'application/pdf', 1, p)
+    const text = await attachmentRead(db, 'mid@test', 'dup.pdf', home)
+    expect(text.trim().length).toBeGreaterThan(3)
+    expect(text).not.toMatch(/EISDIR/)
   })
 })
 

@@ -2,7 +2,7 @@
  * Attachment list and read — mirrors ripmail attachment list / read commands.
  */
 
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { htmlToAgentMarkdown } from '../lib/htmlToAgentMarkdown.js'
 import type { RipmailDb } from './db.js'
@@ -16,6 +16,33 @@ interface AttachmentDbRow {
   size: number
   stored_path: string
   extracted_text: string | null
+}
+
+/** LLMs often pass `"1"` instead of a numeric index — treat digit-only strings as 1-based indices. */
+export function normalizeAttachmentLookupKey(key: string | number): string | number {
+  if (typeof key === 'string') {
+    const t = key.trim()
+    if (/^\d+$/.test(t)) {
+      const n = Number(t)
+      if (n >= 1 && Number.isSafeInteger(n)) return n
+    }
+  }
+  return key
+}
+
+function attachmentAbsPath(storedPath: string, ripmailHome: string): string {
+  return storedPath.startsWith('/') ? storedPath : join(ripmailHome, storedPath)
+}
+
+function storedPathPointsToReadableFile(storedPath: string, ripmailHome: string): boolean {
+  const t = storedPath?.trim()
+  if (!t) return false
+  const abs = attachmentAbsPath(t, ripmailHome)
+  try {
+    return statSync(abs).isFile()
+  } catch {
+    return false
+  }
 }
 
 function resolveMessageId(db: RipmailDb, messageId: string): string {
@@ -63,6 +90,7 @@ export async function attachmentRead(
   key: string | number,
   ripmailHome: string,
 ): Promise<string> {
+  const lookupKey = normalizeAttachmentLookupKey(key)
   const resolvedId = resolveMessageId(db, messageId)
   const rows = db
     .prepare(
@@ -73,23 +101,38 @@ export async function attachmentRead(
 
   if (rows.length === 0) return '(no attachments)'
 
-  let row: AttachmentDbRow | undefined
-  if (typeof key === 'number') {
-    row = rows[key - 1]
+  let candidates: AttachmentDbRow[]
+  if (typeof lookupKey === 'number') {
+    const at = rows[lookupKey - 1]
+    candidates = at ? [at] : []
   } else {
-    const k = key.toLowerCase()
-    row = rows.find((r) => r.filename.toLowerCase() === k)
+    const k = lookupKey.toLowerCase()
+    candidates = rows.filter((r) => r.filename.toLowerCase() === k)
   }
+
+  const row =
+    candidates.find((r) => storedPathPointsToReadableFile(r.stored_path, ripmailHome)) ?? candidates[0]
 
   if (!row) return `(attachment not found: ${key})`
 
   if (row.extracted_text != null) return row.extracted_text
 
-  const absPath = row.stored_path.startsWith('/')
-    ? row.stored_path
-    : join(ripmailHome, row.stored_path)
+  const absPath = attachmentAbsPath(row.stored_path, ripmailHome)
+
+  if (!row.stored_path?.trim()) {
+    return '(attachment file not found on disk: missing stored path; try refresh_sources / re-sync)'
+  }
 
   if (!existsSync(absPath)) return '(attachment file not found on disk)'
+
+  try {
+    const st = statSync(absPath)
+    if (!st.isFile()) {
+      return '(attachment path is not a regular file; try re-syncing mail)'
+    }
+  } catch {
+    return '(attachment file not found on disk)'
+  }
 
   const extracted = await extractAttachmentText(absPath, row.mime_type)
 

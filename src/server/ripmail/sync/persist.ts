@@ -97,7 +97,10 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
     msg.listLike ? 1 : 0,
   )
 
-  // Persist attachments
+  // Replace attachment rows on each persist so re-sync does not accumulate duplicates (which made
+  // filename lookups hit stale rows with empty stored_path — join(home, '') is the mail home dir → EISDIR).
+  db.prepare(`DELETE FROM attachments WHERE message_id = ?`).run(storedMessageId)
+
   for (const att of msg.attachments) {
     // Store attachment content if provided
     let storedPath = att.storedPath
@@ -107,8 +110,9 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
       storedPath = join(attDir, `${msg.uid}-${att.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`)
       writeFileSync(storedPath, att.content)
     }
+    if (!storedPath?.trim()) continue
     db.prepare(`
-      INSERT OR IGNORE INTO attachments (message_id, filename, mime_type, size, stored_path)
+      INSERT INTO attachments (message_id, filename, mime_type, size, stored_path)
       VALUES (?, ?, ?, ?, ?)
     `).run(storedMessageId, att.filename, att.mimeType, att.size, storedPath)
   }

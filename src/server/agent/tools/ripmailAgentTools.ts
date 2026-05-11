@@ -477,8 +477,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       ),
     }),
     async execute(_toolCallId: string, params: { id: string; attachment: string | number }) {
-      const key = typeof params.attachment === 'number' ? params.attachment : params.attachment
-      const text = await ripmailAttachmentRead(ripmailHomeForBrain(), params.id, key)
+      const text = await ripmailAttachmentRead(ripmailHomeForBrain(), params.id, params.attachment)
       return {
         content: [{ type: 'text' as const, text }],
         details: {},
@@ -966,7 +965,7 @@ export function createRipmailAgentTools(wikiDir: string) {
   const draftEmail = defineTool({
     name: 'draft_email',
     description:
-      'Create an email draft for **regular mailbox mail**. action=new composes a fresh email (requires **to**, **subject**, and **body**). action=reply drafts a reply (requires **message_id** and **body**; subject defaults to Re: original unless you pass **subject**). action=forward forwards an existing message (requires **message_id**, **to**, and **body**). **body** must be the final message text users will read — there is no separate server compose step. If the user **@mentions** a collaborator and wants the **Ask Brain** path, use **ask_collaborator** when that tool is available. When the workspace has more than one Gmail account, optional **from** picks the send mailbox. For **Braintunnel collaborator** email set **b2b_query: true** so the subject line is normalized to include the `[braintunnel]` marker (after any Re:/Fwd:); you still choose the substantive subject text. **grant_id** (`bqg_…`) is assistant-only validation context — never put it in **body** unless the user asks. Returns draft id, recipients, and subject; **do not repeat the full body in chat** unless the user asks.',
+      'Create an email draft for **regular mailbox mail**. action=new composes a fresh email (requires **to**, **subject**, and **body**). action=reply drafts a reply (requires **message_id** and **body**; subject defaults to Re: original unless you pass **subject**). action=forward forwards an existing message (requires **message_id**, **to**, and **body**). For reply/forward, **message_id** must be the exact `messageId` from `list_inbox`, `search_index`, or `read_mail_message`; the tool fails if the message is not in the index, so re-search instead of guessing. **body** must be the final message text users will read — there is no separate server compose step. If the user **@mentions** a collaborator and wants the **Ask Brain** path, use **ask_collaborator** when that tool is available. When the workspace has more than one Gmail account, optional **from** picks the send mailbox. For **Braintunnel collaborator** email set **b2b_query: true** so the subject line is normalized to include the `[braintunnel]` marker (after any Re:/Fwd:); you still choose the substantive subject text. **grant_id** (`bqg_…`) is assistant-only validation context — never put it in **body** unless the user asks. Returns draft id, recipients, and subject; **do not repeat the full body in chat** unless the user asks.',
     label: 'Draft Email',
     parameters: Type.Object({
       action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
@@ -978,7 +977,12 @@ export function createRipmailAgentTools(wikiDir: string) {
         }),
       ),
       to: Type.Optional(Type.String({ description: 'Recipient address — required for new and forward' })),
-      message_id: Type.Optional(Type.String({ description: 'Message ID to reply to or forward — required for reply and forward' })),
+      message_id: Type.Optional(
+        Type.String({
+          description:
+            'Exact email messageId from list_inbox, search_index, or read_mail_message — required for reply and forward.',
+        }),
+      ),
       from: Type.Optional(
         Type.String({
           description:
@@ -1014,33 +1018,35 @@ export function createRipmailAgentTools(wikiDir: string) {
       const resolvedFrom = await resolveRipmailSourceForCli(params.from)
       const home = ripmailHomeForBrain()
       const b2b = params.b2b_query === true
+      const to = params.to?.trim()
+      const messageId = params.message_id?.trim()
       let draft: import('@server/ripmail/types.js').Draft
       if (params.action === 'new') {
-        if (!params.to) throw new Error('to is required for action=new')
+        if (!to) throw new Error('to is required for action=new')
         const sub = params.subject?.trim()
         if (!sub) throw new Error('subject is required for action=new')
         draft = await ripmailDraftNew(home, {
-          to: params.to,
+          to,
           subject: sub,
           body: params.body,
           sourceId: resolvedFrom ?? undefined,
           braintunnelCollaborator: b2b,
         })
       } else if (params.action === 'reply') {
-        if (!params.message_id) throw new Error('message_id is required for action=reply')
+        if (!messageId) throw new Error('message_id is required for action=reply')
         draft = await ripmailDraftReply(home, {
-          messageId: params.message_id,
+          messageId,
           body: params.body,
           subject: params.subject?.trim(),
           sourceId: resolvedFrom ?? undefined,
           braintunnelCollaborator: b2b,
         })
       } else {
-        if (!params.message_id) throw new Error('message_id is required for action=forward')
-        if (!params.to) throw new Error('to is required for action=forward')
+        if (!messageId) throw new Error('message_id is required for action=forward')
+        if (!to) throw new Error('to is required for action=forward')
         draft = await ripmailDraftForward(home, {
-          messageId: params.message_id,
-          to: params.to,
+          messageId,
+          to,
           body: params.body,
           subject: params.subject?.trim(),
           sourceId: resolvedFrom ?? undefined,

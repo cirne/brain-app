@@ -5,6 +5,8 @@
 
 import { simpleParser } from 'mailparser'
 
+import { pickIndexedFromFields, type MailAddressEntry } from './senderIdentity.js'
+
 export interface ParsedMessage {
   messageId: string
   threadId: string
@@ -52,12 +54,21 @@ export async function parseEml(
     skipImageLinks: true,
   })
 
-  const fromAddr = parsed.from?.value?.[0]?.address ?? ''
-  const fromName = parsed.from?.value?.[0]?.name || undefined
+  const senderHdr = parsed.headers?.get('sender') as
+    | { value: MailAddressEntry[] }
+    | undefined
 
   const toAddresses = (parsed.to ? (Array.isArray(parsed.to) ? parsed.to : [parsed.to]) : [])
     .flatMap((a) => a.value.map((v) => v.address ?? ''))
     .filter(Boolean)
+
+  const picked = pickIndexedFromFields(parsed.from, {
+    replyTo: parsed.replyTo,
+    sender: senderHdr,
+    toAddresses,
+  })
+  const fromAddr = picked.fromAddress
+  const fromName = picked.fromName
 
   const ccAddresses = (parsed.cc ? (Array.isArray(parsed.cc) ? parsed.cc : [parsed.cc]) : [])
     .flatMap((a) => a.value.map((v) => v.address ?? ''))

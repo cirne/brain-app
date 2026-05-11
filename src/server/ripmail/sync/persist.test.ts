@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { openMemoryRipmailDb, type RipmailDb } from '../db.js'
+import { attachmentFixturePath } from '../fixtures/attachments/index.js'
 import type { ParsedMessage } from './parse.js'
 import { clearImapFolderMaildirAndMessages, persistMessage } from './persist.js'
 
@@ -96,6 +97,43 @@ describe('persistMessage conflict updates', () => {
       raw_path: 'new.eml',
       source_id: 'src-2',
     })
+  })
+
+  it('replaces attachment rows on each persist so duplicate filenames do not accumulate', () => {
+    const home = mkdtempSync(join(tmpdir(), 'ripmail-att-replace-'))
+    try {
+      const pdfBytes = readFileSync(attachmentFixturePath('pdfJsTestPlusminus'))
+      const base = parsedMessage({
+        attachments: [
+          {
+            filename: 'Policy.pdf',
+            mimeType: 'application/pdf',
+            size: pdfBytes.length,
+            storedPath: '',
+            content: pdfBytes,
+          },
+        ],
+      })
+      persistMessage(db, base, home)
+
+      const count1 = (
+        db.prepare(`SELECT COUNT(*) AS c FROM attachments WHERE message_id = '<same@test>'`).get() as {
+          c: number
+        }
+      ).c
+      expect(count1).toBe(1)
+
+      persistMessage(db, base, home)
+
+      const count2 = (
+        db.prepare(`SELECT COUNT(*) AS c FROM attachments WHERE message_id = '<same@test>'`).get() as {
+          c: number
+        }
+      ).c
+      expect(count2).toBe(1)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
   })
 })
 

@@ -111,6 +111,16 @@ describe('read_attachment / read_mail_message attachments', () => {
     )
   })
 
+  it('read_attachment passes string digits through so ripmail can treat them as indices', async () => {
+    const { ripmailAttachmentRead } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailAttachmentRead).mockResolvedValue('extracted\n')
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const readAtt = tools.find((t) => t.name === 'read_attachment')!
+    await readAtt.execute('t1c', { id: 'msg@example.com', attachment: '1' })
+    expect(ripmailAttachmentRead).toHaveBeenCalledWith(expect.any(String), 'msg@example.com', '1')
+  })
+
   it('read_mail_message merges attachment list into email JSON', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })

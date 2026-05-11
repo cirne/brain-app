@@ -19,7 +19,7 @@ import {
   ripmailReadMailForDisplay,
   ripmailArchive,
 } from '@server/ripmail/index.js'
-import type { EditDraftOptions } from '@server/ripmail/draft.js'
+import { DraftSourceMessageNotFoundError, type EditDraftOptions } from '@server/ripmail/draft.js'
 
 const inbox = new Hono()
 
@@ -36,6 +36,13 @@ function extractionToRipmailEdit(extracted: DraftEditExtraction): EditDraftOptio
   if (extracted.remove_cc?.length) o.removeCc = extracted.remove_cc
   if (extracted.remove_bcc?.length) o.removeBcc = extracted.remove_bcc
   return o
+}
+
+function draftCreateErrorResponse(err: unknown): { error: string; status: 404 | 500 } {
+  if (err instanceof DraftSourceMessageNotFoundError) {
+    return { error: err.message, status: 404 }
+  }
+  return { error: err instanceof Error ? err.message : String(err), status: 500 }
 }
 
 function normalizeRecipients(label: string, v: unknown): string[] | undefined {
@@ -271,7 +278,8 @@ inbox.post('/:id/reply', async (c) => {
     })
     return c.json(draft)
   } catch (err) {
-    return c.json({ error: String(err) }, 500)
+    const { error, status } = draftCreateErrorResponse(err)
+    return c.json({ error }, status)
   }
 })
 
@@ -309,7 +317,8 @@ inbox.post('/:id/forward', async (c) => {
     })
     return c.json(draft)
   } catch (err) {
-    return c.json({ error: String(err) }, 500)
+    const { error, status } = draftCreateErrorResponse(err)
+    return c.json({ error }, status)
   }
 })
 

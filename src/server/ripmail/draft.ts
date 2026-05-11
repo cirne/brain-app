@@ -10,6 +10,23 @@ import { randomUUID } from 'node:crypto'
 import { ensureBraintunnelCollaboratorSubject } from '@shared/braintunnelMailMarker.js'
 import type { Draft } from './types.js'
 import type { RipmailDb } from './db.js'
+import { readMail } from './mailRead.js'
+
+type DraftSourceAction = 'reply' | 'forward'
+
+export class DraftSourceMessageNotFoundError extends Error {
+  readonly action: DraftSourceAction
+  readonly messageId: string
+
+  constructor(action: DraftSourceAction, messageId: string) {
+    super(
+      `Cannot create ${action} draft: indexed message not found for message_id="${messageId}". Use a messageId from list_inbox, search_index, or read_mail_message and try again.`,
+    )
+    this.name = 'DraftSourceMessageNotFoundError'
+    this.action = action
+    this.messageId = messageId
+  }
+}
 
 function draftsDir(ripmailHome: string): string {
   return join(ripmailHome, 'drafts')
@@ -98,11 +115,16 @@ export function draftNew(_db: RipmailDb, ripmailHome: string, opts: NewDraftOpti
  * Create a reply draft.
  */
 export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftOptions): Draft {
-  const original = db
-    .prepare(`SELECT subject, from_address FROM messages WHERE message_id = ?`)
-    .get(opts.messageId) as { subject: string; from_address: string } | undefined
+  const messageId = opts.messageId.trim()
+  const original = readMail(db, messageId, { plainBody: false, includeAttachments: false })
+  if (!original) throw new DraftSourceMessageNotFoundError('reply', messageId)
+
+  const fromAddress = original.fromAddress.trim()
+  if (!fromAddress) {
+    throw new Error(`Cannot create reply draft: indexed message has no from_address for message_id="${messageId}".`)
+  }
   const now = new Date().toISOString()
-  const defaultSubject = original ? `Re: ${original.subject}` : 'Re: (unknown)'
+  const defaultSubject = `Re: ${original.subject}`
   const rawSubject = opts.subject ?? defaultSubject
   const subject =
     opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(rawSubject) : rawSubject
@@ -110,8 +132,8 @@ export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftO
     id: randomUUID(),
     subject,
     body: opts.body,
-    to: original ? [original.from_address] : [],
-    inReplyToMessageId: opts.messageId,
+    to: [fromAddress],
+    inReplyToMessageId: original.messageId,
     sourceId: opts.sourceId,
     createdAt: now,
     updatedAt: now,
@@ -124,11 +146,12 @@ export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftO
  * Create a forward draft.
  */
 export function draftForward(db: RipmailDb, ripmailHome: string, opts: ForwardDraftOptions): Draft {
-  const original = db
-    .prepare(`SELECT subject FROM messages WHERE message_id = ?`)
-    .get(opts.messageId) as { subject: string } | undefined
+  const messageId = opts.messageId.trim()
+  const original = readMail(db, messageId, { plainBody: false, includeAttachments: false })
+  if (!original) throw new DraftSourceMessageNotFoundError('forward', messageId)
+
   const now = new Date().toISOString()
-  const defaultSubject = original ? `Fwd: ${original.subject}` : 'Fwd: (unknown)'
+  const defaultSubject = `Fwd: ${original.subject}`
   const rawSubject = opts.subject ?? defaultSubject
   const subject =
     opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(rawSubject) : rawSubject
@@ -137,7 +160,7 @@ export function draftForward(db: RipmailDb, ripmailHome: string, opts: ForwardDr
     subject,
     body: opts.body,
     to: [opts.to],
-    forwardMessageId: opts.messageId,
+    forwardMessageId: original.messageId,
     sourceId: opts.sourceId,
     createdAt: now,
     updatedAt: now,
