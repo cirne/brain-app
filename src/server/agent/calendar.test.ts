@@ -44,15 +44,21 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'd1', dryRun: false })),
   ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
   ripmailCalendarListCalendars: vi.fn(async () => [{ id: 'cal1', name: 'My Calendar', sourceId: 'src1' }]),
+  ripmailGoogleCalendarListCalendars: vi.fn(async () => []),
   ripmailCalendarCreateEvent: vi.fn(async () => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
   ripmailCalendarUpdateEvent: vi.fn(async () => {}),
   ripmailCalendarCancelEvent: vi.fn(async () => {}),
   ripmailCalendarDeleteEvent: vi.fn(async () => {}),
   ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
+  loadRipmailConfig: vi.fn(() => ({ sources: [] })),
 }))
 
 vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
   runRipmailRefreshInBackground: vi.fn(() => ({ ok: true })),
+}))
+
+vi.mock('@server/lib/hub/hubRipmailSources.js', () => ({
+  updateHubRipmailCalendarIds: vi.fn(async () => ({ ok: true })),
 }))
 
 // Shared fixture: $BRAIN_HOME/wiki
@@ -139,8 +145,8 @@ describe('calendar tool', () => {
     ).rejects.toThrow(/default_calendar_ids/)
   })
 
-  it('op=configure_source calls ripmail sources edit with explicit default calendars', async () => {
-    const { ripmailSourcesEdit } = await import('@server/ripmail/index.js')
+  it('op=configure_source persists explicit default calendars', async () => {
+    const { updateHubRipmailCalendarIds } = await import('@server/lib/hub/hubRipmailSources.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
@@ -151,7 +157,7 @@ describe('calendar tool', () => {
       calendar_ids: ['c1', 'c2'],
       default_calendar_ids: ['c1'],
     })
-    expect(ripmailSourcesEdit).toHaveBeenCalledWith(expect.any(String), 'src1', expect.any(Object))
+    expect(updateHubRipmailCalendarIds).toHaveBeenCalledWith('src1', ['c1', 'c2'], ['c1'])
     expect(toolResultFirstText(result)).toContain('Source src1 updated')
   })
 

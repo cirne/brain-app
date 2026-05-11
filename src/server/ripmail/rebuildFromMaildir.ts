@@ -57,17 +57,56 @@ function rebuildLogBase(ripmailHome: string) {
   }
 }
 
+function formatPercent(value: number): string {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}%`
+}
+
+function progressPercent(done: unknown, total: unknown): number | undefined {
+  if (typeof done !== 'number' || typeof total !== 'number' || total <= 0) return undefined
+  return Math.max(0, Math.min(100, (done / total) * 100))
+}
+
+function rebuildLogMessage(event: string, fields: Record<string, unknown>): string {
+  const parts = [event]
+  if (typeof fields.phase === 'string') parts.push(`phase=${fields.phase}`)
+  if (typeof fields.mailboxId === 'string' && fields.mailboxId.length > 0) {
+    parts.push(`mailboxId=${fields.mailboxId}`)
+  }
+  if (typeof fields.rootIndex === 'number' && typeof fields.rootCount === 'number') {
+    parts.push(`root=${fields.rootIndex}/${fields.rootCount}`)
+  }
+
+  const percent =
+    typeof fields.percentDone === 'number'
+      ? fields.percentDone
+      : progressPercent(fields.parsed, fields.emlDiscovered) ??
+        progressPercent(fields.insertedSoFar, fields.parsed) ??
+        progressPercent(fields.inserted, fields.parsed)
+  if (percent !== undefined) parts.push(`done=${formatPercent(percent)}`)
+
+  if (typeof fields.parsed === 'number' && typeof fields.emlDiscovered === 'number') {
+    parts.push(`parsed=${fields.parsed}/${fields.emlDiscovered}`)
+  } else if (typeof fields.parsed === 'number') {
+    parts.push(`parsed=${fields.parsed}`)
+  }
+  if (typeof fields.insertedSoFar === 'number') parts.push(`inserted=${fields.insertedSoFar}`)
+  else if (typeof fields.inserted === 'number') parts.push(`inserted=${fields.inserted}`)
+  if (typeof fields.totalInserted === 'number') parts.push(`totalInserted=${fields.totalInserted}`)
+
+  return parts.join(' ')
+}
+
 function logRebuildPhase(
   ripmailHome: string,
   fields: Record<string, unknown>,
-  message = 'ripmail:rebuild:phase',
+  event = 'ripmail:rebuild:phase',
 ): void {
   brainLogger.info(
     {
       ...rebuildLogBase(ripmailHome),
       ...fields,
     },
-    message,
+    rebuildLogMessage(event, fields),
   )
 }
 
@@ -327,6 +366,7 @@ export async function appendMaildirToOpenDb(
           rootIndex: progress.rootIndex,
           rootCount: progress.rootCount,
           mailboxId,
+          percentDone: progressPercent(parseCount, paths.length),
           parsed: parseCount,
           emlDiscovered: paths.length,
         },
@@ -422,6 +462,7 @@ export async function appendMaildirToOpenDb(
           rootIndex: progress.rootIndex,
           rootCount: progress.rootCount,
           mailboxId,
+          percentDone: progressPercent(inserted, parsedRows.length),
           insertedSoFar: inserted,
           parsed: parsedRows.length,
         },
@@ -436,6 +477,7 @@ export async function appendMaildirToOpenDb(
       rootIndex: progress.rootIndex,
       rootCount: progress.rootCount,
       mailboxId,
+      percentDone: progressPercent(inserted, parsedRows.length) ?? 100,
       inserted,
       parsed: parsedRows.length,
     })

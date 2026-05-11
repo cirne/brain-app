@@ -14,10 +14,22 @@ const syncGmailSource = vi.hoisted(() =>
     error: 'Error: invalid_grant',
   })),
 )
+const syncGoogleCalendarSource = vi.hoisted(() =>
+  vi.fn(async () => ({
+    sourceId: 'gsrc-gcal',
+    eventsUpserted: 0,
+    eventsDeleted: 0,
+  })),
+)
 
 vi.mock('./gmail.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./gmail.js')>()
   return { ...actual, syncGmailSource }
+})
+
+vi.mock('./googleCalendar.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./googleCalendar.js')>()
+  return { ...actual, syncGoogleCalendarSource }
 })
 
 import { refresh } from './index.js'
@@ -44,6 +56,13 @@ describe('refresh Gmail invalid_grant', () => {
             imapAuth: 'googleOAuth',
             imap: { host: 'imap.gmail.com', port: 993, user: 'a@gmail.com' },
           },
+          {
+            id: 'gsrc-gcal',
+            kind: 'googleCalendar',
+            email: 'a@gmail.com',
+            oauthSourceId: 'gsrc',
+            calendarIds: ['primary'],
+          },
         ],
       }),
       'utf8',
@@ -54,6 +73,12 @@ describe('refresh Gmail invalid_grant', () => {
       messagesAdded: 0,
       messagesUpdated: 0,
       error: 'Error: invalid_grant',
+    })
+    syncGoogleCalendarSource.mockClear()
+    syncGoogleCalendarSource.mockResolvedValue({
+      sourceId: 'gsrc-gcal',
+      eventsUpserted: 0,
+      eventsDeleted: 0,
     })
   })
 
@@ -72,6 +97,7 @@ describe('refresh Gmail invalid_grant', () => {
     await refresh(home)
     expect(existsSync(tokenPath)).toBe(false)
     expect(syncGmailSource).toHaveBeenCalledTimes(1)
+    expect(syncGoogleCalendarSource).toHaveBeenCalledTimes(1)
   })
 
   it('does not delete oauth file when sync error is not invalid_grant', async () => {
@@ -84,5 +110,16 @@ describe('refresh Gmail invalid_grant', () => {
     const tokenPath = join(home, 'gsrc', 'google-oauth.json')
     await refresh(home)
     expect(existsSync(tokenPath)).toBe(true)
+  })
+
+  it('refreshes only the requested googleCalendar source when sourceId is calendar-only', async () => {
+    await refresh(home, { sourceId: 'gsrc-gcal' })
+    expect(syncGmailSource).not.toHaveBeenCalled()
+    expect(syncGoogleCalendarSource).toHaveBeenCalledTimes(1)
+    expect(syncGoogleCalendarSource).toHaveBeenCalledWith(
+      expect.anything(),
+      home,
+      expect.objectContaining({ id: 'gsrc-gcal', kind: 'googleCalendar' }),
+    )
   })
 })

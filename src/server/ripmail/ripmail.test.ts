@@ -22,7 +22,7 @@ import { status } from './status.js'
 import { inbox } from './inbox.js'
 import { archive } from './archive.js'
 import { rulesList, rulesAdd, rulesEdit, rulesRemove, rulesValidate } from './rules.js'
-import { sourcesList, sourcesAddLocalDir, sourcesRemove } from './sources.js'
+import { sourcesList, sourcesAddLocalDir, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
 import { calendarRange, calendarCreateEvent, calendarDeleteEvent, calendarListCalendars } from './calendar.js'
 import { draftNew, draftEdit, draftView } from './draft.js'
 import type { RipmailDb } from './db.js'
@@ -408,6 +408,29 @@ describe('sources', () => {
     sourcesRemove(db, s.id)
     const list2 = sourcesList(db)
     expect(list2.sources.some((src) => src.id === s.id)).toBe(false)
+    db.close()
+  })
+
+  it('mirrors configured googleCalendar sources into the SQLite sources table', () => {
+    const db = openMemoryRipmailDb()
+    ensureSourceRowsFromConfig(db, {
+      sources: [
+        {
+          id: 'a_gmail_com-gcal',
+          kind: 'googleCalendar',
+          email: 'a@gmail.com',
+          oauthSourceId: 'a_gmail_com',
+        },
+      ],
+    })
+    const list = sourcesList(db)
+    const row = list.sources.find((src) => src.id === 'a_gmail_com-gcal')
+    expect(row).toMatchObject({
+      id: 'a_gmail_com-gcal',
+      kind: 'googleCalendar',
+      label: 'a@gmail.com',
+      includeInDefault: true,
+    })
     db.close()
   })
 })

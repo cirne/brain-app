@@ -11,12 +11,17 @@ vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
 
 vi.mock('@server/ripmail/index.js', () => ({
   ripmailCalendarListCalendars: vi.fn(async () => []),
+  ripmailGoogleCalendarListCalendars: vi.fn(async () => []),
   ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
   ripmailCalendarCreateEvent: vi.fn(async () => ({ uid: 'e1', sourceId: 's1', sourceKind: 'local', calendarId: 'primary', startAt: 0, endAt: 3600, allDay: false })),
   ripmailCalendarUpdateEvent: vi.fn(async () => {}),
   ripmailCalendarCancelEvent: vi.fn(async () => {}),
   ripmailCalendarDeleteEvent: vi.fn(async () => {}),
-  ripmailSourcesEdit: vi.fn(async () => {}),
+  loadRipmailConfig: vi.fn(() => ({ sources: [] })),
+}))
+
+vi.mock('@server/lib/hub/hubRipmailSources.js', () => ({
+  updateHubRipmailCalendarIds: vi.fn(async () => ({ ok: true })),
 }))
 
 vi.mock('@server/lib/platform/brainHome.js', () => ({
@@ -90,5 +95,42 @@ describe('createCalendarTool allowedOps', () => {
     const r = await calendar.execute('t2', { op: 'list_calendars' }, undefined, undefined, testToolCtx)
     expect(r.content[0]?.type).toBe('text')
     expect(ripmailCalendarListCalendars).toHaveBeenCalled()
+  })
+
+  it('prefers live Google calendar list rows for list_calendars', async () => {
+    const { ripmailGoogleCalendarListCalendars } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailGoogleCalendarListCalendars).mockResolvedValue([
+      { id: 'primary', name: 'Personal', sourceId: 's1', color: '#123456' },
+    ])
+    const { calendar } = createCalendarTool('UTC')
+
+    const r = await calendar.execute('t3', { op: 'list_calendars', source: 's1' }, undefined, undefined, testToolCtx)
+
+    expect(r.details).toEqual({
+      calendars: [{ id: 'primary', name: 'Personal', sourceId: 's1', color: '#123456' }],
+    })
+    expect(ripmailGoogleCalendarListCalendars).toHaveBeenCalledWith('/tmp/test-ripmail-home', 's1')
+  })
+
+  it('persists configured calendar ids instead of editing the source label', async () => {
+    const { updateHubRipmailCalendarIds } = await import('@server/lib/hub/hubRipmailSources.js')
+    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
+    const { calendar } = createCalendarTool('UTC')
+
+    await calendar.execute(
+      't4',
+      {
+        op: 'configure_source',
+        source: 's1',
+        calendar_ids: ['primary', 'team'],
+        default_calendar_ids: ['primary'],
+      },
+      undefined,
+      undefined,
+      testToolCtx,
+    )
+
+    expect(updateHubRipmailCalendarIds).toHaveBeenCalledWith('s1', ['primary', 'team'], ['primary'])
+    expect(runRipmailRefreshInBackground).toHaveBeenCalledWith('s1', expect.any(String))
   })
 })

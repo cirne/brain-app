@@ -6,6 +6,7 @@ import {
   ripmailSourcesRemove,
   ripmailSourcesStatus,
   ripmailCalendarListCalendars,
+  ripmailGoogleCalendarListCalendars,
   loadRipmailConfig,
   saveRipmailConfig,
 } from '@server/ripmail/index.js'
@@ -260,14 +261,23 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
   if (!trimmed) return { ok: false, error: 'id required' }
   try {
     const home = ripmailHomeForBrain()
-    const calendars = await ripmailCalendarListCalendars(home, { sourceIds: [trimmed] })
-    const allCalendars: HubCalendarRow[] = calendars.map((c) => ({
-      id: c.id,
-      name: c.name ?? c.id,
-    }))
     // Load configured calendar IDs from config.json
     const config = loadRipmailConfig(home)
     const cfgRow = (config.sources ?? []).find((s) => s.id === trimmed)
+    let calendars = await ripmailCalendarListCalendars(home, { sourceIds: [trimmed] })
+    if (cfgRow?.kind === 'googleCalendar') {
+      try {
+        const live = await ripmailGoogleCalendarListCalendars(home, trimmed)
+        if (live.length > 0) calendars = live
+      } catch {
+        /* Fall back to indexed calendar rows. */
+      }
+    }
+    const allCalendars: HubCalendarRow[] = calendars.map((c) => ({
+      id: c.id,
+      name: c.name ?? c.id,
+      ...('color' in c && typeof c.color === 'string' ? { color: c.color } : {}),
+    }))
     const configuredIdsRaw = (cfgRow as unknown as Record<string, unknown> | undefined)?.calendarIds as
       | string[]
       | undefined
@@ -283,6 +293,7 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
 export async function updateHubRipmailCalendarIds(
   sourceId: string,
   calendarIds: string[],
+  defaultCalendarIds?: string[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmed = sourceId?.trim()
   if (!trimmed) return { ok: false, error: 'id required' }
@@ -294,6 +305,9 @@ export async function updateHubRipmailCalendarIds(
     const idx = sources.findIndex((s) => s.id === trimmed)
     if (idx === -1) return { ok: false, error: 'Source not found' }
     ;(sources[idx] as unknown as Record<string, unknown>).calendarIds = calendarIds
+    if (defaultCalendarIds !== undefined) {
+      ;(sources[idx] as unknown as Record<string, unknown>).defaultCalendars = defaultCalendarIds
+    }
     saveRipmailConfig(home, { ...config, sources })
     return { ok: true }
   } catch (e) {

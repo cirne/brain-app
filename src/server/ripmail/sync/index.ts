@@ -7,6 +7,7 @@ import { prepareRipmailDb } from '../db.js'
 import {
   loadRipmailConfig,
   getImapSources,
+  getGoogleCalendarSources,
   loadImapPassword,
   loadGoogleOAuthTokens,
   errorMessageIndicatesInvalidGoogleGrant,
@@ -14,9 +15,11 @@ import {
 } from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
+import { syncGoogleCalendarSource } from './googleCalendar.js'
 import type { RefreshOptions, RefreshResult } from '../types.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { clearSyncSummaryRunning, setSyncSummaryRunning } from './persist.js'
+import { ensureSourceRowsFromConfig } from '../sources.js'
 
 /**
  * Trigger an incremental sync for the given source (or all sources).
@@ -25,13 +28,18 @@ import { clearSyncSummaryRunning, setSyncSummaryRunning } from './persist.js'
 export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promise<RefreshResult> {
   const db = await prepareRipmailDb(ripmailHome)
   const config = loadRipmailConfig(ripmailHome)
+  ensureSourceRowsFromConfig(db, config)
   const imapSources = getImapSources(config)
+  const calendarSources = getGoogleCalendarSources(config)
 
   const filteredSources = opts?.sourceId
     ? imapSources.filter((s) => s.id === opts.sourceId || s.email === opts.sourceId)
     : imapSources
+  const filteredCalendarSources = opts?.sourceId
+    ? calendarSources.filter((s) => s.id === opts.sourceId || s.email === opts.sourceId)
+    : calendarSources
 
-  if (filteredSources.length === 0) {
+  if (filteredSources.length === 0 && filteredCalendarSources.length === 0) {
     brainLogger.info({ ripmailHome, sourceId: opts?.sourceId }, 'ripmail:refresh:no-sources')
     return { ok: true, messagesAdded: 0, messagesUpdated: 0, sourceId: opts?.sourceId }
   }
@@ -86,6 +94,17 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
         }
       } catch (e) {
         brainLogger.error({ sourceId: source.id, err: String(e) }, 'ripmail:refresh:source-error')
+      }
+    }
+
+    for (const source of filteredCalendarSources) {
+      try {
+        const result = await syncGoogleCalendarSource(db, ripmailHome, source)
+        if (result.error) {
+          brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:gcal:refresh-error')
+        }
+      } catch (e) {
+        brainLogger.error({ sourceId: source.id, err: String(e) }, 'ripmail:gcal:refresh-source-error')
       }
     }
 

@@ -34,6 +34,7 @@ vi.mock('@server/ripmail/index.js', () => ({
     messageAvailableForProgress: 100,
   })),
   ripmailDbPath: vi.fn(() => '/tmp/test-ripmail-home/ripmail.db'),
+  ripmailGoogleCalendarListCalendars: vi.fn(async () => []),
   loadRipmailConfig: vi.fn(() => ({
     sources: [
       { id: 'drive_x', kind: 'googleDrive', email: 'u@gmail.com', oauthSourceId: 'mailbox_a', includeSharedWithMe: true,

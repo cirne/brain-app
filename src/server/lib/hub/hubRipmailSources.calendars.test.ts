@@ -7,6 +7,7 @@ vi.mock('@server/lib/platform/brainHome.js', () => ({
 
 vi.mock('@server/ripmail/index.js', () => ({
   ripmailCalendarListCalendars: vi.fn(async () => []),
+  ripmailGoogleCalendarListCalendars: vi.fn(async () => []),
   ripmailSourcesRemove: vi.fn(async () => {}),
   ripmailSourcesList: vi.fn(async () => ({ sources: [] })),
   ripmailSourcesStatus: vi.fn(async () => []),
@@ -22,7 +23,11 @@ vi.mock('@server/ripmail/index.js', () => ({
 }))
 
 import { getHubRipmailCalendarsForSource, resolveConfiguredCalendarIdsForPicker } from './hubRipmailSources.js'
-import { ripmailCalendarListCalendars, loadRipmailConfig } from '@server/ripmail/index.js'
+import {
+  ripmailCalendarListCalendars,
+  ripmailGoogleCalendarListCalendars,
+  loadRipmailConfig,
+} from '@server/ripmail/index.js'
 
 describe('resolveConfiguredCalendarIdsForPicker', () => {
   it('maps primary to Google list id when it matches source email', () => {
@@ -58,6 +63,7 @@ describe('getHubRipmailCalendarsForSource', () => {
       { id: 'c1', name: 'One', sourceId: 'src1' },
       { id: 'c2', name: 'Two', sourceId: 'src1' },
     ])
+    vi.mocked(ripmailGoogleCalendarListCalendars).mockResolvedValue([])
     vi.mocked(loadRipmailConfig).mockReturnValue({
       sources: [{ id: 'src1', kind: 'googleCalendar', calendarIds: ['c1'] }],
     })
@@ -75,6 +81,7 @@ describe('getHubRipmailCalendarsForSource', () => {
       { id: 'lewiscirne@gmail.com', name: 'Lew', sourceId: 'lewiscirne_gmail_com-gcal' },
       { id: 'team@group.calendar.google.com', name: 'Team Katelyn', sourceId: 'lewiscirne_gmail_com-gcal' },
     ])
+    vi.mocked(ripmailGoogleCalendarListCalendars).mockResolvedValue([])
     vi.mocked(loadRipmailConfig).mockReturnValue({
       sources: [{
         id: 'lewiscirne_gmail_com-gcal', kind: 'googleCalendar',
@@ -88,5 +95,32 @@ describe('getHubRipmailCalendarsForSource', () => {
     if (!r.ok) return
     // primary resolved to the email address
     expect(r.configuredIds).toEqual(['lewiscirne@gmail.com'])
+  })
+
+  it('prefers live Google Calendar API rows before events have been indexed', async () => {
+    vi.mocked(ripmailCalendarListCalendars).mockResolvedValue([])
+    vi.mocked(ripmailGoogleCalendarListCalendars).mockResolvedValue([
+      { id: 'primary', name: 'Personal', sourceId: 'lewiscirne_gmail_com-gcal', color: '#123456' },
+      { id: 'team@group.calendar.google.com', name: 'Team', sourceId: 'lewiscirne_gmail_com-gcal', color: '#abcdef' },
+    ])
+    vi.mocked(loadRipmailConfig).mockReturnValue({
+      sources: [{
+        id: 'lewiscirne_gmail_com-gcal',
+        kind: 'googleCalendar',
+        email: 'lewiscirne@gmail.com',
+        oauthSourceId: 'lewiscirne_gmail_com',
+        calendarIds: ['primary'],
+      }],
+    })
+
+    const r = await getHubRipmailCalendarsForSource('lewiscirne_gmail_com-gcal')
+
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.allCalendars).toEqual([
+      { id: 'primary', name: 'Personal', color: '#123456' },
+      { id: 'team@group.calendar.google.com', name: 'Team', color: '#abcdef' },
+    ])
+    expect(ripmailGoogleCalendarListCalendars).toHaveBeenCalledWith('/tmp/test-ripmail-home', 'lewiscirne_gmail_com-gcal')
   })
 })

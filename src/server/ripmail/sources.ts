@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto'
 import type { RipmailDb } from './db.js'
 import type { Source, SourcesListResult } from './types.js'
+import type { RipmailConfig, SourceConfig } from './sync/config.js'
 
 interface SourceRow {
   id: string
@@ -29,6 +30,37 @@ export function sourcesList(db: RipmailDb): SourcesListResult {
       lastSyncedAt: r.last_synced_at ?? undefined,
       docCount: r.doc_count,
     })),
+  }
+}
+
+function sourceDisplayName(s: SourceConfig): string {
+  return s.label?.trim() || s.email?.trim() || s.id
+}
+
+function sourceIncludeInDefault(s: SourceConfig): number {
+  const search = (s as unknown as { search?: { includeInDefault?: boolean } }).search
+  if (search?.includeInDefault === false) return 0
+  if (s.includeInDefault === false) return 0
+  return 1
+}
+
+/**
+ * Mirror config.json sources into SQLite so Hub/Connections can show sources
+ * before their first successful sync writes stats.
+ */
+export function ensureSourceRowsFromConfig(db: RipmailDb, config: RipmailConfig): void {
+  for (const s of config.sources ?? []) {
+    const id = s.id?.trim()
+    const kind = s.kind?.trim()
+    if (!id || !kind) continue
+    db.prepare(`
+      INSERT INTO sources (id, kind, label, include_in_default)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        kind = excluded.kind,
+        label = excluded.label,
+        include_in_default = excluded.include_in_default
+    `).run(id, kind, sourceDisplayName(s), sourceIncludeInDefault(s))
   }
 }
 

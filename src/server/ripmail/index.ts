@@ -54,12 +54,14 @@ import { who } from './who.js'
 import { status, statusParsed } from './status.js'
 import { inbox } from './inbox.js'
 import { rulesList, rulesShow, rulesAdd, rulesEdit, rulesRemove, rulesMove, rulesValidate } from './rules.js'
-import { sourcesList, sourcesStatus, sourcesAddLocalDir, sourcesAddGoogleDrive, sourcesEdit, sourcesRemove } from './sources.js'
+import { sourcesList, sourcesStatus, sourcesAddLocalDir, sourcesAddGoogleDrive, sourcesEdit, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
 import { archive, unarchive } from './archive.js'
 import { calendarRange, calendarListCalendars, calendarCreateEvent, calendarUpdateEvent, calendarCancelEvent, calendarDeleteEvent } from './calendar.js'
 import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList } from './draft.js'
 import { send } from './send.js'
 import { refresh } from './sync/index.js'
+import { listGoogleCalendarsForSource } from './sync/googleCalendar.js'
+import { loadRipmailConfig } from './sync/config.js'
 export { loadRipmailConfig, saveRipmailConfig } from './sync/config.js'
 import type { InboxOptions } from './inbox.js'
 import type { SearchOptions } from './types.js'
@@ -188,13 +190,21 @@ export async function ripmailRulesValidate(ripmailHome: string, opts?: import('.
 /** List sources. */
 export async function ripmailSourcesList(ripmailHome: string) {
   const db = await prepareRipmailDb(ripmailHome)
+  ensureSourceRowsFromConfig(db, loadRipmailConfig(ripmailHome))
   return sourcesList(db)
 }
 
 /** Sources status. */
 export async function ripmailSourcesStatus(ripmailHome: string) {
   const db = await prepareRipmailDb(ripmailHome)
+  ensureSourceRowsFromConfig(db, loadRipmailConfig(ripmailHome))
   return sourcesStatus(db)
+}
+
+/** Ensure SQLite source rows exist for config.json sources. */
+export async function ripmailEnsureSourceRowsFromConfig(ripmailHome: string): Promise<void> {
+  const db = await prepareRipmailDb(ripmailHome)
+  ensureSourceRowsFromConfig(db, loadRipmailConfig(ripmailHome))
 }
 
 /** Add local dir source. */
@@ -254,6 +264,14 @@ export async function ripmailCalendarRange(
 export async function ripmailCalendarListCalendars(ripmailHome: string, opts?: { sourceIds?: string[] }) {
   const db = await prepareRipmailDb(ripmailHome)
   return calendarListCalendars(db, opts)
+}
+
+/** Live Google Calendar calendarList API discovery for a googleCalendar source. */
+export async function ripmailGoogleCalendarListCalendars(ripmailHome: string, sourceId: string) {
+  const config = loadRipmailConfig(ripmailHome)
+  const source = (config.sources ?? []).find((s) => s.id === sourceId && s.kind === 'googleCalendar')
+  if (!source) return []
+  return listGoogleCalendarsForSource(ripmailHome, source)
 }
 
 /** Create calendar event. */

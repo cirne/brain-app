@@ -22,6 +22,7 @@ export interface SourceConfig {
   includeInDefault?: boolean
   /** Google Calendar source: selected calendar IDs (Hub / config.json). */
   calendarIds?: string[]
+  defaultCalendars?: string[]
   icsUrl?: string
   includeSharedWithMe?: boolean
   oauthSourceId?: string
@@ -60,6 +61,11 @@ export function loadRipmailConfig(ripmailHome: string): RipmailConfig {
 export function getImapSources(config: RipmailConfig): SourceConfig[] {
   const sources = config.sources ?? []
   return sources.filter((s) => s.kind === 'imap' || !s.kind)
+}
+
+export function getGoogleCalendarSources(config: RipmailConfig): SourceConfig[] {
+  const sources = config.sources ?? []
+  return sources.filter((s) => s.kind === 'googleCalendar')
 }
 
 /** Read the IMAP password for a source from per-source .env. */

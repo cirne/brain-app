@@ -140,9 +140,24 @@ describe('rebuildIndexFromMaildir', () => {
           ripmailHome: ripHome,
           rootIndex: 1,
           rootCount: 2,
+          mailboxId: 'mbox_one',
           emlDiscovered: 1,
         }),
-        expect.stringContaining('ripmail:rebuild:phase'),
+        expect.stringContaining('mailboxId=mbox_one root=1/2'),
+      )
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'ripmail_rebuild',
+          phase: 'maildir_complete',
+          ripmailHome: ripHome,
+          rootIndex: 1,
+          rootCount: 2,
+          mailboxId: 'mbox_one',
+          percentDone: 100,
+          inserted: 1,
+          parsed: 1,
+        }),
+        expect.stringContaining('mailboxId=mbox_one root=1/2 done=100.0% parsed=1 inserted=1'),
       )
       expect(infoSpy).toHaveBeenCalledWith(
         expect.objectContaining({

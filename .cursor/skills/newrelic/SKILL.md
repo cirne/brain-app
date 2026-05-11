@@ -86,15 +86,38 @@ SELECT count(*) FROM TransactionError WHERE appName = 'Braintunnel Staging' SINC
 SELECT * FROM TransactionError WHERE appName = 'Braintunnel Staging' SINCE 6 hours ago LIMIT 50
 ```
 
-### Logs
+### Logs (staging)
 
-Prefer scoping by app or entity as data model allows:
+Logs forwarded from the **Node APM agent** are tied to the **APM application entity**. For **Braintunnel Staging**, use **only** this predicate—no `service.name`, `appName`, `entity.name`, or `entity.guids LIKE` is required. **Use backticks** around `entity.guid` (NRQL dotted attribute):
 
 ```sql
-SELECT message FROM Log WHERE entityGuid = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3' SINCE 1 hour ago LIMIT 100
+WHERE `entity.guid` = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3'
 ```
 
-If a log query returns no rows, try `FACET entityGuid` on recent `Log` events or filter by `hostname` / container attributes visible in `SHOW ATTRIBUTES FROM Log`.
+**Tail messages:**
+
+```sql
+SELECT timestamp, level, message FROM Log
+WHERE `entity.guid` = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3'
+SINCE 1 hour ago LIMIT 500
+```
+
+**Inspect full structured fields** (everything the agent attached to that line):
+
+```sql
+SELECT * FROM Log
+WHERE `entity.guid` = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3'
+SINCE 30 minutes ago LIMIT 50
+```
+
+**CLI** (escape backticks so the shell does not treat them as command substitution):
+
+```bash
+newrelic nrql query --accountId 3774651 \
+  --query "SELECT timestamp, level, message FROM Log WHERE \`entity.guid\` = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3' SINCE 1 hour ago LIMIT 200"
+```
+
+If a query returns no rows, confirm the time window and run `SHOW ATTRIBUTES FROM Log`—some environments may use alternate entity attributes until log forwarding is aligned.
 
 ### Distributed tracing (if enabled)
 
@@ -110,6 +133,7 @@ SELECT count(*) FROM Span WHERE appName = 'Braintunnel Staging' SINCE 1 hour ago
 | Latency | `average(duration)` or `percentile(duration, 50, 95, 99) FROM Transaction …` |
 | Error rate | `percentage(count(*), WHERE error = true) FROM Transaction …` |
 | Recent failures | `TransactionError` with same `appName` |
+| Staging logs | ``FROM Log WHERE `entity.guid` = 'Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3'`` |
 | Health / Apdex | `apdex(duration, t)` FROM Transaction (tune threshold `t` to product SLO) |
 
 Default time window if unspecified: `SINCE 1 hour ago`. Expand for “today”, “week”, etc.

@@ -17,8 +17,10 @@ import {
   ripmailCalendarUpdateEvent,
   ripmailCalendarCancelEvent,
   ripmailCalendarDeleteEvent,
-  ripmailSourcesEdit,
+  ripmailGoogleCalendarListCalendars,
+  loadRipmailConfig,
 } from '@server/ripmail/index.js'
+import { updateHubRipmailCalendarIds } from '@server/lib/hub/hubRipmailSources.js'
 
 function runCalendarRefreshAgent(sourceId?: string): { ok: true } {
   return runRipmailRefreshInBackground(sourceId, 'ripmail refresh (calendar background) failed')
@@ -389,9 +391,31 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
       }
 
       if (params.op === 'list_calendars') {
-        const calendars = await ripmailCalendarListCalendars(ripmailHomeForBrain(), {
+        const home = ripmailHomeForBrain()
+        const indexedCalendars = await ripmailCalendarListCalendars(home, {
           sourceIds: params.source?.trim() ? [params.source.trim()] : undefined,
         })
+        let calendars = indexedCalendars
+        if (params.source?.trim()) {
+          try {
+            const live = await ripmailGoogleCalendarListCalendars(home, params.source.trim())
+            if (live.length > 0) calendars = live
+          } catch {
+            /* Keep indexed results when live discovery is unavailable. */
+          }
+        } else {
+          try {
+            const cfg = loadRipmailConfig(home)
+            const liveRows = []
+            for (const source of cfg.sources ?? []) {
+              if (source.kind !== 'googleCalendar') continue
+              liveRows.push(...(await ripmailGoogleCalendarListCalendars(home, source.id)))
+            }
+            if (liveRows.length > 0) calendars = liveRows
+          } catch {
+            /* Keep indexed results when live discovery is unavailable. */
+          }
+        }
         const text = JSON.stringify({ calendars })
         return {
           content: [{ type: 'text' as const, text }],
@@ -410,9 +434,8 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
             'op=configure_source: when `calendar_ids` lists more than one calendar, pass `default_calendar_ids` with the ids the user chose for default day-view (ripmail `sources edit --default-calendar`). Decide from list_calendars + context—do not omit.',
           )
         }
-        await ripmailSourcesEdit(ripmailHomeForBrain(), params.source, {
-          label: [...calIds, ...defs].join(', '),
-        })
+        const updated = await updateHubRipmailCalendarIds(params.source, calIds, defs.length > 0 ? defs : undefined)
+        if (!updated.ok) throw new Error(updated.error)
         runCalendarRefreshAgent(params.source)
         return {
           content: [
