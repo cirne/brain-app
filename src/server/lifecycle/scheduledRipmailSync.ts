@@ -2,6 +2,7 @@
  * Periodic `ripmail refresh` for every tenant under BRAIN_DATA_ROOT (server process).
  * Defers ticks when Your Wiki supervisor is mid-lap for the same tenant (see scheduledMailSyncPolicy).
  */
+import pLimit from 'p-limit'
 import { YOUR_WIKI_DOC_ID, getWikiSupervisorMailSyncDeferSnapshot } from '@server/agent/yourWikiSupervisor.js'
 import { readBackgroundRun } from '@server/lib/chat/backgroundAgentStore.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
@@ -20,6 +21,7 @@ import { runWithTenantContextAsync, type TenantContext } from '@server/lib/tenan
 
 let sweepInFlight = false
 let timer: ReturnType<typeof setInterval> | null = null
+const SCHEDULED_MAIL_SWEEP_CONCURRENCY = 4
 
 async function resolveTenantContext(tenantUserId: string): Promise<TenantContext> {
   const homeDir = tenantHomeDir(tenantUserId)
@@ -75,25 +77,32 @@ async function runScheduledRipmailForTenant(params: {
 async function sweepOnce(): Promise<void> {
   if (sweepInFlight) return
   sweepInFlight = true
-  const sup = getWikiSupervisorMailSyncDeferSnapshot()
-
-  let tenants: string[]
   try {
-    tenants = await listTenantUserIdsUnderDataRoot()
-  } catch (e) {
-    brainLogger.warn({ error: String(e) }, '[scheduled-mail] list tenants failed')
-    sweepInFlight = false
-    return
-  }
+    const sup = getWikiSupervisorMailSyncDeferSnapshot()
 
-  for (const tenantUserId of tenants) {
+    let tenants: string[]
     try {
-      await runScheduledRipmailForTenant({ tenantUserId, sup })
+      tenants = await listTenantUserIdsUnderDataRoot()
     } catch (e) {
-      brainLogger.warn({ tenantUserId, error: String(e) }, '[scheduled-mail] tenant sweep failed')
+      brainLogger.warn({ error: String(e) }, '[scheduled-mail] list tenants failed')
+      return
     }
+
+    const limit = pLimit(SCHEDULED_MAIL_SWEEP_CONCURRENCY)
+    await Promise.all(
+      tenants.map((tenantUserId) =>
+        limit(async () => {
+          try {
+            await runScheduledRipmailForTenant({ tenantUserId, sup })
+          } catch (e) {
+            brainLogger.warn({ tenantUserId, error: String(e) }, '[scheduled-mail] tenant sweep failed')
+          }
+        }),
+      ),
+    )
+  } finally {
+    sweepInFlight = false
   }
-  sweepInFlight = false
 }
 
 /**

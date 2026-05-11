@@ -6,8 +6,13 @@
 import type { Dirent } from 'node:fs'
 import { mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import type { RipmailDb } from './db.js'
-import { invalidateRipmailDbCache, openRipmailDb } from './db.js'
+import {
+  invalidateRipmailDbCache,
+  markRipmailDbSchemaReady,
+  openRipmailDbForRepopulate,
+} from './db.js'
 import { parseInboxWindowToIsoCutoff } from './inboxWindow.js'
 import {
   applyRebuildIndexDateNormalization,
@@ -17,8 +22,54 @@ import {
 import { parseEml } from './sync/parse.js'
 import { loadRipmailConfig, getImapSources } from './sync/config.js'
 
+/**
+ * Maildir rebuild does lots of sync SQLite + fs work. Yield occasionally so TLS/HTTP/SSE
+ * (e.g. POST /api/chat) are not starved for the entire rebuild (see prepareRipmailDb drift path).
+ */
+function yieldEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve))
+}
+
+/** Parse steps before one `setImmediate` yield. */
+const REBUILD_PARSE_YIELD_INTERVAL = 48
+
+/** Rows committed per SQLite transaction; smaller values yield the loop more often. */
+const REBUILD_INSERT_CHUNK_SIZE = 400
+
+/** `minTrustworthyIndexDateInMaildir` batch size (avoids one huge Promise.all + long sync stretches). */
+const REBUILD_MIN_TRUSTWORTHY_BATCH = 48
+
+const REBUILD_PARSE_PROGRESS_INTERVAL = REBUILD_PARSE_YIELD_INTERVAL * 10
+const REBUILD_INSERT_PROGRESS_CHUNKS = 5
+
 const DEFAULT_IMAP_FOLDER = '[Gmail]/All Mail'
 const LABELS_JSON = '[]'
+
+type RebuildProgressContext = {
+  rootIndex: number
+  rootCount: number
+}
+
+function rebuildLogBase(ripmailHome: string) {
+  return {
+    kind: 'ripmail_rebuild',
+    ripmailHome,
+  }
+}
+
+function logRebuildPhase(
+  ripmailHome: string,
+  fields: Record<string, unknown>,
+  message = 'ripmail:rebuild:phase',
+): void {
+  brainLogger.info(
+    {
+      ...rebuildLogBase(ripmailHome),
+      ...fields,
+    },
+    message,
+  )
+}
 
 /** Infer mailbox source id from `<ripmail_home>/<id>/maildir/...` layout. */
 export function inferMailboxIdFromMaildirRoot(maildirRoot: string): string {
@@ -135,29 +186,33 @@ function mimeFromExt(filename: string): string {
 async function minTrustworthyIndexDateInMaildir(paths: string[], mailboxId: string): Promise<string | undefined> {
   let best: Date | undefined
 
-  const dates = await Promise.all(
-    paths.map(async (path) => {
-      try {
-        const buf = readFileSync(path)
-        const p = await parseEml(buf, path, {
-          folder: DEFAULT_IMAP_FOLDER,
-          uid: 0,
-          sourceId: mailboxId || 'mailbox',
-        })
-        if (!isUntrustworthyIndexDateStr(p.date)) {
-          const d = parseStoredIndexDateUtc(p.date)
-          if (d) return d
+  for (let i = 0; i < paths.length; i += REBUILD_MIN_TRUSTWORTHY_BATCH) {
+    const slice = paths.slice(i, i + REBUILD_MIN_TRUSTWORTHY_BATCH)
+    const dates = await Promise.all(
+      slice.map(async (path) => {
+        try {
+          const buf = readFileSync(path)
+          const p = await parseEml(buf, path, {
+            folder: DEFAULT_IMAP_FOLDER,
+            uid: 0,
+            sourceId: mailboxId || 'mailbox',
+          })
+          if (!isUntrustworthyIndexDateStr(p.date)) {
+            const d = parseStoredIndexDateUtc(p.date)
+            if (d) return d
+          }
+        } catch {
+          /* skip */
         }
-      } catch {
-        /* skip */
-      }
-      return undefined
-    }),
-  )
+        return undefined
+      }),
+    )
 
-  for (const d of dates) {
-    if (!d) continue
-    if (!best || d < best) best = d
+    for (const d of dates) {
+      if (!d) continue
+      if (!best || d < best) best = d
+    }
+    await yieldEventLoop()
   }
   return best?.toISOString()
 }
@@ -202,9 +257,20 @@ export async function appendMaildirToOpenDb(
   ripmailHome: string,
   maildirRoot: string,
   uidOffset: number,
+  progress?: RebuildProgressContext,
 ): Promise<{ inserted: number; nextUidExclusive: number }> {
   const mailboxId = inferMailboxIdFromMaildirRoot(maildirRoot)
   const paths = collectEmlPaths(maildirRoot)
+  if (progress) {
+    logRebuildPhase(ripmailHome, {
+      phase: 'maildir',
+      rootIndex: progress.rootIndex,
+      rootCount: progress.rootCount,
+      mailboxId,
+      maildirRoot,
+      emlDiscovered: paths.length,
+    })
+  }
   const batchFloor = await minTrustworthyIndexDateInMaildir(paths, mailboxId)
 
   type ParsedRow = {
@@ -215,6 +281,7 @@ export async function appendMaildirToOpenDb(
 
   const parsedRows: ParsedRow[] = []
   let uid = uidOffset
+  let parseCount = 0
   for (const path of paths) {
     let buf: Buffer
     try {
@@ -247,6 +314,25 @@ export async function appendMaildirToOpenDb(
     }
 
     parsedRows.push({ uid, msg, rawRel })
+
+    parseCount += 1
+    if (parseCount % REBUILD_PARSE_YIELD_INTERVAL === 0) {
+      await yieldEventLoop()
+    }
+    if (progress && parseCount % REBUILD_PARSE_PROGRESS_INTERVAL === 0) {
+      logRebuildPhase(
+        ripmailHome,
+        {
+          phase: 'parse',
+          rootIndex: progress.rootIndex,
+          rootCount: progress.rootCount,
+          mailboxId,
+          parsed: parseCount,
+          emlDiscovered: paths.length,
+        },
+        'ripmail:rebuild:progress',
+      )
+    }
   }
 
   const insertMessage = db.prepare(`
@@ -323,32 +409,83 @@ export async function appendMaildirToOpenDb(
     return inserted
   })
 
-  const inserted = trx(parsedRows)
+  let inserted = 0
+  for (let i = 0; i < parsedRows.length; i += REBUILD_INSERT_CHUNK_SIZE) {
+    const chunk = parsedRows.slice(i, i + REBUILD_INSERT_CHUNK_SIZE)
+    inserted += trx(chunk)
+    const chunkIndex = Math.floor(i / REBUILD_INSERT_CHUNK_SIZE) + 1
+    if (progress && chunkIndex % REBUILD_INSERT_PROGRESS_CHUNKS === 0) {
+      logRebuildPhase(
+        ripmailHome,
+        {
+          phase: 'insert',
+          rootIndex: progress.rootIndex,
+          rootCount: progress.rootCount,
+          mailboxId,
+          insertedSoFar: inserted,
+          parsed: parsedRows.length,
+        },
+        'ripmail:rebuild:progress',
+      )
+    }
+    await yieldEventLoop()
+  }
+  if (progress) {
+    logRebuildPhase(ripmailHome, {
+      phase: 'maildir_complete',
+      rootIndex: progress.rootIndex,
+      rootCount: progress.rootCount,
+      mailboxId,
+      inserted,
+      parsed: parsedRows.length,
+    })
+  }
   return { inserted, nextUidExclusive: uid }
 }
 
 /** After wiping `ripmail.db`, refill the mail index from all local mailbox maildirs (no snapshots). */
 export async function repopulateRipmailIndexFromAllMaildirs(ripmailHome: string): Promise<number> {
+  const startedAt = Date.now()
   mkdirSync(ripmailHome, { recursive: true })
   invalidateRipmailDbCache(ripmailHome)
 
-  const db = openRipmailDb(ripmailHome)
-  db.exec(DELETE_INDEX_DATA)
-  const roots = discoverRipmailMaildirRoots(ripmailHome)
-  let nextUidExclusive = 0
-  let total = 0
-  for (const root of roots) {
-    const { inserted, nextUidExclusive: next } = await appendMaildirToOpenDb(
-      db,
-      ripmailHome,
-      root,
-      nextUidExclusive,
-    )
-    total += inserted
-    nextUidExclusive = next
+  const db = openRipmailDbForRepopulate(ripmailHome)
+  try {
+    db.exec(DELETE_INDEX_DATA)
+    const roots = discoverRipmailMaildirRoots(ripmailHome)
+    logRebuildPhase(ripmailHome, {
+      phase: 'start',
+      mailboxCount: roots.length,
+    })
+
+    let nextUidExclusive = 0
+    let total = 0
+    for (let i = 0; i < roots.length; i++) {
+      const root = roots[i]
+      const { inserted, nextUidExclusive: next } = await appendMaildirToOpenDb(
+        db,
+        ripmailHome,
+        root,
+        nextUidExclusive,
+        { rootIndex: i + 1, rootCount: roots.length },
+      )
+      total += inserted
+      nextUidExclusive = next
+      await yieldEventLoop()
+    }
+    runPostRebuildBootstrapTs(db)
+    markRipmailDbSchemaReady(db)
+    logRebuildPhase(ripmailHome, {
+      phase: 'complete',
+      totalInserted: total,
+      mailboxCount: roots.length,
+      durationMs: Date.now() - startedAt,
+    })
+    return total
+  } finally {
+    db.close()
+    invalidateRipmailDbCache(ripmailHome)
   }
-  runPostRebuildBootstrapTs(db)
-  return total
 }
 
 /**
@@ -356,12 +493,32 @@ export async function repopulateRipmailIndexFromAllMaildirs(ripmailHome: string)
  * `ripmailHome` is `$RIPMAIL_HOME`; stored `raw_path` values are relative to it.
  */
 export async function rebuildIndexFromMaildir(ripmailHome: string, maildirRoot: string): Promise<number> {
+  const startedAt = Date.now()
   mkdirSync(ripmailHome, { recursive: true })
   invalidateRipmailDbCache(ripmailHome)
 
-  const db = openRipmailDb(ripmailHome)
-  db.exec(DELETE_INDEX_DATA)
-  const { inserted } = await appendMaildirToOpenDb(db, ripmailHome, maildirRoot, 0)
-  runPostRebuildBootstrapTs(db)
-  return inserted
+  const db = openRipmailDbForRepopulate(ripmailHome)
+  try {
+    db.exec(DELETE_INDEX_DATA)
+    logRebuildPhase(ripmailHome, {
+      phase: 'start',
+      mailboxCount: 1,
+    })
+    const { inserted } = await appendMaildirToOpenDb(db, ripmailHome, maildirRoot, 0, {
+      rootIndex: 1,
+      rootCount: 1,
+    })
+    runPostRebuildBootstrapTs(db)
+    markRipmailDbSchemaReady(db)
+    logRebuildPhase(ripmailHome, {
+      phase: 'complete',
+      totalInserted: inserted,
+      mailboxCount: 1,
+      durationMs: Date.now() - startedAt,
+    })
+    return inserted
+  } finally {
+    db.close()
+    invalidateRipmailDbCache(ripmailHome)
+  }
 }

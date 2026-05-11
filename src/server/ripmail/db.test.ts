@@ -1,23 +1,33 @@
 import Database from 'better-sqlite3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { HANDLE_META_FILENAME } from '@server/lib/tenant/handleMeta.js'
-import * as rebuildFromMaildir from './rebuildFromMaildir.js'
+
+vi.mock('./runRipmailRepopulateChild.js', () => ({
+  runRipmailRepopulateChild: vi.fn(async () => undefined),
+}))
+
+import { runRipmailRepopulateChild } from './runRipmailRepopulateChild.js'
 import {
   closeRipmailDb,
   prepareRipmailDb,
   RipmailDbSchemaDriftError,
   openRipmailDb,
   ripmailDbPath,
+  RIPMAIL_DB_USER_VERSION_PENDING,
 } from './db.js'
 import { SCHEMA_VERSION } from './schema.js'
 
 describe('prepareRipmailDb / drift', () => {
   let ripHome: string
+
+  beforeEach(() => {
+    vi.mocked(runRipmailRepopulateChild).mockClear()
+  })
 
   afterEach(() => {
     closeRipmailDb(ripHome)
@@ -50,19 +60,25 @@ describe('prepareRipmailDb / drift', () => {
     expect(() => openRipmailDb(home)).toThrow(RipmailDbSchemaDriftError)
   })
 
+  it('openRipmailDb throws RipmailDbSchemaDriftError for pending rebuild user_version', () => {
+    const home = freshRipmailHome()
+    writeStaleVersionDb(home, RIPMAIL_DB_USER_VERSION_PENDING)
+
+    expect(() => openRipmailDb(home)).toThrow(RipmailDbSchemaDriftError)
+  })
+
   it('concurrent prepareRipmailDb shares one rebuild (single-flight)', async () => {
     const home = freshRipmailHome()
     writeStaleVersionDb(home, SCHEMA_VERSION - 1)
 
-    const spy = vi.spyOn(rebuildFromMaildir, 'repopulateRipmailIndexFromAllMaildirs').mockResolvedValue(0)
-    try {
-      await Promise.all([prepareRipmailDb(home), prepareRipmailDb(home)])
-      expect(spy).toHaveBeenCalledTimes(1)
-      const ready = openRipmailDb(home)
-      expect(ready.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
-    } finally {
-      spy.mockRestore()
-    }
+    await Promise.all([prepareRipmailDb(home), prepareRipmailDb(home)])
+    expect(runRipmailRepopulateChild).toHaveBeenCalledTimes(1)
+    expect(runRipmailRepopulateChild).toHaveBeenCalledWith(
+      home,
+      expect.objectContaining({ ripmailHome: home }),
+    )
+    const ready = openRipmailDb(home)
+    expect(ready.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
   })
 
   it('logs tenantUserId and workspaceHandle on rebuild when tenant ALS matches ripmail home', async () => {
@@ -72,9 +88,6 @@ describe('prepareRipmailDb / drift', () => {
 
     const warnSpy = vi.spyOn(brainLogger, 'warn')
     const infoSpy = vi.spyOn(brainLogger, 'info')
-    const spyRebuild = vi
-      .spyOn(rebuildFromMaildir, 'repopulateRipmailIndexFromAllMaildirs')
-      .mockResolvedValue(0)
     try {
       await runWithTenantContextAsync(
         {
@@ -105,7 +118,6 @@ describe('prepareRipmailDb / drift', () => {
         expect.stringContaining('rebuild-complete'),
       )
     } finally {
-      spyRebuild.mockRestore()
       warnSpy.mockRestore()
       infoSpy.mockRestore()
     }
@@ -125,9 +137,6 @@ describe('prepareRipmailDb / drift', () => {
 
     const warnSpy = vi.spyOn(brainLogger, 'warn')
     const infoSpy = vi.spyOn(brainLogger, 'info')
-    const spyRebuild = vi
-      .spyOn(rebuildFromMaildir, 'repopulateRipmailIndexFromAllMaildirs')
-      .mockResolvedValue(0)
     try {
       await prepareRipmailDb(ripHome)
 
@@ -146,37 +155,24 @@ describe('prepareRipmailDb / drift', () => {
         expect.stringContaining('rebuild-complete'),
       )
     } finally {
-      spyRebuild.mockRestore()
       warnSpy.mockRestore()
       infoSpy.mockRestore()
     }
   })
 
-  const SAMPLE_PREPARE_EML = `Message-ID: <prepare-integration@test.dev>
-Date: Mon, 15 Jan 2026 12:00:00 +0000
-From: Prep <prep@test.dev>
-To: Other <other@test.dev>
-Subject: prepareRipmailDb integration
-
-Body text.
-`
-
-  it('prepareRipmailDb wipes stale user_version and repopulates from legacy maildir (no mock)', async () => {
+  it('prepareRipmailDb treats pending user_version as drift and returns a ready db after child rebuild', async () => {
     const home = freshRipmailHome()
-    const cur = join(home, 'maildir', 'cur')
-    mkdirSync(cur, { recursive: true })
-    writeFileSync(join(cur, 'seed.eml'), SAMPLE_PREPARE_EML)
-    writeStaleVersionDb(home, SCHEMA_VERSION - 1)
+    writeStaleVersionDb(home, RIPMAIL_DB_USER_VERSION_PENDING)
 
     await prepareRipmailDb(home)
 
     const db = openRipmailDb(home)
     try {
       expect(db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
-      const row = db
-        .prepare(`SELECT COUNT(*) AS c FROM messages`)
-        .get() as { c: number }
-      expect(row.c).toBe(1)
+      expect(runRipmailRepopulateChild).toHaveBeenCalledWith(
+        home,
+        expect.objectContaining({ ripmailHome: home, stored: RIPMAIL_DB_USER_VERSION_PENDING }),
+      )
     } finally {
       db.close()
     }

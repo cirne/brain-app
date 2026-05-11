@@ -46,6 +46,7 @@ await esbuild.build({
     join(root, 'src/server/index.ts'),
     join(root, 'src/server/sync-cli.ts'),
     join(root, 'src/server/ripmail/rebuildFromMaildirCli.ts'),
+    join(root, 'src/server/ripmail/repopulateRipmailMaildirsCli.ts'),
   ],
   outdir,
 })

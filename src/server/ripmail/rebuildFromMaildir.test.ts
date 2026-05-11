@@ -5,8 +5,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { closeRipmailDb, openRipmailDb } from './db.js'
 import {
   collectEmlPaths,
@@ -18,6 +19,7 @@ import {
   applyRebuildIndexDateNormalization,
   isUntrustworthyIndexDateStr,
 } from './sync/ingestDate.js'
+import { SCHEMA_VERSION } from './schema.js'
 
 const SAMPLE_EML = `Return-Path: <alice@test.dev>
 Received: from test
@@ -103,7 +105,58 @@ describe('rebuildIndexFromMaildir', () => {
     const db = openRipmailDb(ripHome)
     const c = db.prepare(`SELECT COUNT(*) AS c FROM messages`).get() as { c: number }
     expect(c.c).toBe(2)
+    expect(db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
     closeRipmailDb(ripHome)
+  })
+
+  it('logs bounded rebuild progress for each mailbox root', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'brain-repopulate-progress-'))
+    cleanup = root
+    const ripHome = join(root, 'rip')
+    const cur1 = join(ripHome, 'mbox_one', 'maildir', 'cur')
+    const cur2 = join(ripHome, 'mbox_two', 'maildir', 'cur')
+    mkdirSync(cur1, { recursive: true })
+    mkdirSync(cur2, { recursive: true })
+    writeFileSync(join(cur1, 'a.eml'), SAMPLE_EML)
+    writeFileSync(join(cur2, 'b.eml'), SAMPLE_EML2)
+
+    const infoSpy = vi.spyOn(brainLogger, 'info').mockImplementation(() => undefined)
+    try {
+      await repopulateRipmailIndexFromAllMaildirs(ripHome)
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'ripmail_rebuild',
+          phase: 'start',
+          ripmailHome: ripHome,
+          mailboxCount: 2,
+        }),
+        expect.stringContaining('ripmail:rebuild:phase'),
+      )
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'ripmail_rebuild',
+          phase: 'maildir',
+          ripmailHome: ripHome,
+          rootIndex: 1,
+          rootCount: 2,
+          emlDiscovered: 1,
+        }),
+        expect.stringContaining('ripmail:rebuild:phase'),
+      )
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'ripmail_rebuild',
+          phase: 'complete',
+          ripmailHome: ripHome,
+          totalInserted: 2,
+        }),
+        expect.stringContaining('ripmail:rebuild:phase'),
+      )
+    } finally {
+      infoSpy.mockRestore()
+      closeRipmailDb(ripHome)
+    }
   })
 
   it('inserts message row and applies bulk-archive bootstrap', async () => {
@@ -126,6 +179,7 @@ describe('rebuildIndexFromMaildir', () => {
     expect(String(row.message_id)).toContain('seed-msg-1')
     expect(String(row.raw_path)).toMatch(/maildir/)
     expect(row.is_archived).toBe(1)
+    expect(db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
 
     closeRipmailDb(ripHome)
   })

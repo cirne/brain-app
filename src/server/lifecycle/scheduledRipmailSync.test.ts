@@ -91,4 +91,35 @@ describe('scheduledRipmailSync sweep', () => {
     await __runScheduledRipmailSweepOnceForTests()
     expect(h.syncInbox).not.toHaveBeenCalled()
   })
+
+  it('runs tenant sweeps concurrently so one tenant does not block the rest', async () => {
+    const tenants = [
+      'usr_' + 'a'.repeat(20),
+      'usr_' + 'b'.repeat(20),
+      'usr_' + 'd'.repeat(20),
+    ]
+    h.listTenants.mockResolvedValue(tenants)
+
+    let active = 0
+    let maxActive = 0
+    const resolvers: Array<() => void> = []
+    h.syncInbox.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          active += 1
+          maxActive = Math.max(maxActive, active)
+          resolvers.push(() => {
+            active -= 1
+            resolve({ ok: true })
+          })
+        }),
+    )
+
+    const sweep = __runScheduledRipmailSweepOnceForTests()
+    await vi.waitFor(() => expect(h.syncInbox).toHaveBeenCalledTimes(tenants.length))
+
+    expect(maxActive).toBeGreaterThan(1)
+    for (const resolve of resolvers) resolve()
+    await sweep
+  })
 })
