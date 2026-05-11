@@ -7,6 +7,9 @@ import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryR
 import { runRipmailRefreshInBackground } from '@server/lib/ripmail/runRipmailRefreshBackground.js'
 import { resolveRipmailSourceForCli } from '@server/lib/ripmail/ripmailSourceResolve.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { notifyAskerBrainQueryReplySent } from '@server/lib/brainQuery/brainQueryReplySentNotify.js'
+import { syncInboxRipmailBounded } from '@server/lib/platform/syncAll.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import {
   ripmailSearch,
   ripmailReadMail,
@@ -47,6 +50,7 @@ import { assertOptionalBrainQueryGrantId } from '@shared/braintunnelMailMarker.j
 import { applyInboxResolution, selectSearchResultTier, stripReadEmailResult, stripSearchIndexResult } from './ripmailCli.js'
 import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
 import { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
+import type { InboxItem, InboxResult } from '@server/ripmail/types.js'
 import {
   assertAgentReadPathAllowed,
   assertManageSourcePathAllowed,
@@ -56,6 +60,35 @@ import {
 const execAsync = promisify(exec)
 
 const READ_MAIL_BODY_MAX_CHARS = 5000
+const DEFAULT_REFRESH_SOURCES_MAX_WAIT_MS = 10_000
+const REFRESH_SOURCES_INBOX_SINCE = '24h'
+
+function inboxCountsForItems(items: InboxItem[]): InboxResult['counts'] {
+  const counts: InboxResult['counts'] = { notify: 0, inform: 0, ignore: 0, actionRequired: 0 }
+  for (const item of items) {
+    counts[item.action]++
+    if (item.requiresUserAction) counts.actionRequired++
+  }
+  return counts
+}
+
+function buildNewInboxItemsText(items: InboxItem[]): string {
+  if (items.length === 0) {
+    return 'No new inbox items.'
+  }
+  const mailboxesResult = {
+    mailboxes: [{ id: 'default', items }],
+    counts: inboxCountsForItems(items),
+  }
+  const { text, tier, totalItems } = applyInboxResolution(JSON.stringify(mailboxesResult))
+  if (tier === 'compact') {
+    return `${text}\n\n[resolution: compact — ${totalItems} new inbox items, snippet omitted. Use read_mail_message for full message content.]`
+  }
+  if (tier === 'minimal') {
+    return `${text}\n\n[resolution: minimal — ${totalItems} new inbox items, snippet and fromName omitted. Use read_mail_message for full content.]`
+  }
+  return text
+}
 
 /** `ripmail read` text mode: YAML frontmatter + markdown body (Drive / localDir / path). */
 function buildReadFileToolDetailsFromIndexedStdout(
@@ -605,7 +638,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'refresh_sources',
     label: 'Refresh sources',
     description:
-      'Incremental sync of indexed ripmail data (IMAP mail, calendars, local folder sources). Use when the user asks to refresh, sync, or update their email, mail, inbox, or index — e.g. "refresh my email", "sync Gmail", "get new messages". Runs in the background (same as `ripmail refresh`). Omit `source` to sync all configured sources; pass a source id or mailbox email when they name a specific account.',
+      'Incremental sync of indexed ripmail data (IMAP mail, calendars, local folder sources). Use when the user asks to refresh, sync, or update their email, mail, inbox, or index — e.g. "refresh my email", "sync Gmail", "get new messages". Waits up to `max_wait_ms` (default 10000) so fast refreshes are immediately visible; if the wait expires, sync continues in the background. When completed, the output already includes newly discovered inbox items or says there are none; answer the user directly from this output and do not suggest list_inbox/search_index unless they ask for a full inbox listing or search. Set `max_wait_ms: 0` for background-only behavior. Omit `source` to sync all configured sources; pass a source id or mailbox email when they name a specific account.',
     parameters: Type.Object({
       source: Type.Optional(
         Type.String({
@@ -613,19 +646,96 @@ export function createRipmailAgentTools(wikiDir: string) {
             'Ripmail source id or mailbox email for `--source` (from **Configured ripmail sources** / `manage_sources op=list`); omit to sync all. Never a folder or vendor label.',
         }),
       ),
+      max_wait_ms: Type.Optional(
+        Type.Number({
+          description:
+            'Maximum foreground wait in milliseconds before returning while sync continues. Default 10000; set 0 for background-only behavior.',
+        }),
+      ),
     }),
-    async execute(_toolCallId: string, params: { source?: string }) {
+    async execute(
+      _toolCallId: string,
+      params: { source?: string; max_wait_ms?: number },
+    ): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
       const resolved = await resolveRipmailSourceForCli(params.source)
-      runRipmailRefreshAgent(resolved)
       const scope = params.source?.trim() ? `source ${(resolved ?? params.source).trim()}` : 'all sources'
+      const rawMaxWaitMs =
+        typeof params.max_wait_ms === 'number' && Number.isFinite(params.max_wait_ms)
+          ? params.max_wait_ms
+          : DEFAULT_REFRESH_SOURCES_MAX_WAIT_MS
+      const maxWaitMs = Math.max(0, Math.floor(rawMaxWaitMs))
+
+      if (maxWaitMs <= 0) {
+        runRipmailRefreshAgent(resolved)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Refresh started in the background (${scope}). New inbox items will appear when the refresh finishes.`,
+            },
+          ],
+          details: { ok: true as const, source: resolved ?? null, max_wait_ms: maxWaitMs, background: true },
+        }
+      }
+
+      const sourceIds = resolved?.trim() ? [resolved.trim()] : undefined
+      const inboxBefore = await ripmailInbox(ripmailHomeForBrain(), {
+        since: REFRESH_SOURCES_INBOX_SINCE,
+        sourceIds,
+      })
+      const beforeMessageIds = new Set(inboxBefore.items.map((item) => item.messageId))
+      const syncResult = await syncInboxRipmailBounded({ sourceId: resolved, timeoutMs: maxWaitMs })
+      if (syncResult.kind === 'completed' && syncResult.ok) {
+        const inboxAfter = await ripmailInbox(ripmailHomeForBrain(), {
+          since: REFRESH_SOURCES_INBOX_SINCE,
+          sourceIds,
+        })
+        const newInboxItems = inboxAfter.items.filter((item) => !beforeMessageIds.has(item.messageId))
+        const newInboxText = buildNewInboxItemsText(newInboxItems)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Refresh successful (${scope}).\n${newInboxText}`,
+            },
+          ],
+          details: {
+            ok: true as const,
+            source: resolved ?? null,
+            max_wait_ms: maxWaitMs,
+            completed: true,
+            newInboxCount: newInboxItems.length,
+            newInboxItems,
+          },
+        }
+      }
+      if (syncResult.kind === 'completed' && !syncResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Sync failed (${scope}): ${syncResult.error}`,
+            },
+          ],
+          details: { ok: false as const, source: resolved ?? null, max_wait_ms: maxWaitMs, error: syncResult.error },
+        }
+      }
+
+      const waitText = `${maxWaitMs}ms`
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Sync started in the background (${scope}). New mail and index updates will appear shortly; use list_inbox or search_index after a short wait if needed.`,
+            text: `Refresh is still running (${scope}; waited ${waitText}). New inbox items will appear when the refresh finishes.`,
           },
         ],
-        details: { ok: true as const, source: resolved ?? null },
+        details: {
+          ok: true as const,
+          source: resolved ?? null,
+          max_wait_ms: maxWaitMs,
+          timedOut: syncResult.kind === 'timeout',
+          aborted: syncResult.kind === 'aborted',
+        },
       }
     },
   })
@@ -995,14 +1105,22 @@ export function createRipmailAgentTools(wikiDir: string) {
 
   const sendDraft = defineTool({
     name: 'send_draft',
-    description: 'Send a draft email. Only call this after showing the draft to the user and getting confirmation.',
+    description: 'Send a draft email. Only call this after showing the draft to the user and getting confirmation. For collaborator mail with **`[braintunnel]`** in the subject matching an active Ask Brain grant, the **asker** workspace receives an immediate in-app **`brain_query_reply_sent`** notification so they can refresh and read inbound mail.',
     label: 'Send Draft',
     parameters: Type.Object({
       draft_id: Type.String({ description: 'Draft ID to send' }),
     }),
     async execute(_toolCallId: string, params: { draft_id: string }) {
       const dry = isEvalRipmailSendDryRun()
-      const result = await ripmailSend(ripmailHomeForBrain(), params.draft_id, { dryRun: dry })
+      const home = ripmailHomeForBrain()
+      const snapshot = ripmailDraftView(home, params.draft_id)
+      const result = await ripmailSend(home, params.draft_id, { dryRun: dry })
+      if (result.ok && !dry && snapshot) {
+        const ctx = tryGetTenantContext()?.tenantUserId?.trim()
+        if (ctx) {
+          await notifyAskerBrainQueryReplySent(ctx, snapshot)
+        }
+      }
       return {
         content: [
           {

@@ -112,7 +112,7 @@ describe('manage_sources tool', () => {
     expect(ripmailSourcesRemove).toHaveBeenCalledWith(expect.anything(), 'src1')
   })
 
-  it('op=configure_source does not block the tool until refresh finishes', async () => {
+  it('refresh_sources waits for bounded sync and returns Refresh successful when ripmail completes', async () => {
     const { ripmailRefresh } = await import('@server/ripmail/index.js')
     vi.mocked(ripmailRefresh).mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -123,9 +123,8 @@ describe('manage_sources tool', () => {
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'refresh_sources')!
 
-    const resultPromise = tool.execute('s6', {})
-    const result = await resultPromise
+    const result = await tool.execute('s6', {})
     const text = (result.content[0] as { text: string }).text
-    expect(text).toMatch(/sync started|started/i)
+    expect(text).toMatch(/Refresh successful/i)
   })
 })

@@ -3,7 +3,8 @@
  * Orchestrates sync across all configured IMAP and Google OAuth sources.
  */
 
-import { prepareRipmailDb } from '../db.js'
+import pLimit from 'p-limit'
+import { prepareRipmailDb, type RipmailDb } from '../db.js'
 import {
   loadRipmailConfig,
   getImapSources,
@@ -14,52 +15,54 @@ import {
   removeGoogleOAuthTokenFile,
   googleOAuthTokenSourceId,
 } from './config.js'
+import type { RipmailConfig, SourceConfig } from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
 import { syncGoogleCalendarSource } from './googleCalendar.js'
-import type { RefreshOptions, RefreshResult } from '../types.js'
+import type { RefreshOptions, RefreshResult, RefreshSourceResult } from '../types.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { clearSyncSummaryRunning, setSyncSummaryRunning } from './persist.js'
 import { ensureSourceRowsFromConfig } from '../sources.js'
 
-/**
- * Trigger an incremental sync for the given source (or all sources).
- * Reads ripmail config.json to discover IMAP / Gmail sources.
- */
-export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promise<RefreshResult> {
-  const db = await prepareRipmailDb(ripmailHome)
-  const config = loadRipmailConfig(ripmailHome)
-  ensureSourceRowsFromConfig(db, config)
-  const imapSources = getImapSources(config)
-  const calendarSources = getGoogleCalendarSources(config)
+/** Global cap for independent source refreshes; per-source syncs keep their own inner limits. */
+export const RIPMAIL_REFRESH_SOURCE_CONCURRENCY = 10
 
-  const filteredSources = opts?.sourceId
-    ? imapSources.filter((s) => s.id === opts.sourceId || s.email === opts.sourceId)
-    : imapSources
-  const filteredCalendarSources = opts?.sourceId
-    ? calendarSources.filter((s) => s.id === opts.sourceId || s.email === opts.sourceId)
-    : calendarSources
+type RefreshSourceTask = {
+  sourceId: string
+  kind: string
+  errorLogMessage: string
+  run: () => Promise<Omit<RefreshSourceResult, 'sourceId' | 'kind' | 'durationMs'>>
+}
 
-  if (filteredSources.length === 0 && filteredCalendarSources.length === 0) {
-    brainLogger.info({ ripmailHome, sourceId: opts?.sourceId }, 'ripmail:refresh:no-sources')
-    return { ok: true, messagesAdded: 0, messagesUpdated: 0, sourceId: opts?.sourceId }
-  }
+function selectedBySourceId(source: SourceConfig, sourceId: string | undefined): boolean {
+  return !sourceId || source.id === sourceId || source.email === sourceId
+}
 
-  const lane = opts?.historicalSince ? 'backfill' : 'refresh'
-  setSyncSummaryRunning(db, lane)
+function buildRefreshTasks(params: {
+  db: RipmailDb
+  ripmailHome: string
+  config: RipmailConfig
+  opts?: RefreshOptions
+}): RefreshSourceTask[] {
+  const { db, ripmailHome, config, opts } = params
+  const imapSources = getImapSources(config).filter((source) => selectedBySourceId(source, opts?.sourceId))
+  const calendarSources = getGoogleCalendarSources(config).filter((source) => selectedBySourceId(source, opts?.sourceId))
 
-  let totalAdded = 0
-  let totalUpdated = 0
-
-  try {
-    for (const source of filteredSources) {
-      try {
+  // Future refreshable source kinds (localDir, googleDrive, Apple Calendar, ICS)
+  // should register task builders here once their TypeScript sync implementations land.
+  return [
+    ...imapSources.map((source): RefreshSourceTask => ({
+      sourceId: source.id,
+      kind: source.kind ?? 'imap',
+      errorLogMessage: 'ripmail:refresh:source-error',
+      run: async () => {
         const isGmailOAuth = source.imapAuth === 'googleOAuth'
         if (isGmailOAuth) {
           const oauthTokens = loadGoogleOAuthTokens(ripmailHome, source.id)
           if (!oauthTokens) {
+            const error = 'No Google OAuth token file available for Gmail sync'
             brainLogger.warn({ sourceId: source.id }, 'ripmail:refresh:gmail-no-oauth-file')
-            continue
+            return { ok: false, messagesAdded: 0, messagesUpdated: 0, error }
           }
           const result = await syncGmailSource(
             db,
@@ -69,8 +72,6 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
             oauthTokens,
             { historicalSince: opts?.historicalSince },
           )
-          totalAdded += result.messagesAdded
-          totalUpdated += result.messagesUpdated
           if (result.error) {
             brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:gmail-error')
             if (errorMessageIndicatesInvalidGoogleGrant(result.error)) {
@@ -81,25 +82,34 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
               )
             }
           }
-          continue
+          return {
+            ok: !result.error,
+            messagesAdded: result.messagesAdded,
+            messagesUpdated: result.messagesUpdated,
+            error: result.error,
+          }
         }
 
         const password = loadImapPassword(ripmailHome, source.id)
         const result = await syncImapSource(db, ripmailHome, source, password, null, {
           excludeLabels: config.sync?.excludeLabels ?? ['Trash', 'Spam'],
         })
-        totalAdded += result.messagesAdded
-        totalUpdated += result.messagesUpdated
         if (result.error) {
           brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:imap-error')
         }
-      } catch (e) {
-        brainLogger.error({ sourceId: source.id, err: String(e) }, 'ripmail:refresh:source-error')
-      }
-    }
-
-    for (const source of filteredCalendarSources) {
-      try {
+        return {
+          ok: !result.error,
+          messagesAdded: result.messagesAdded,
+          messagesUpdated: result.messagesUpdated,
+          error: result.error,
+        }
+      },
+    })),
+    ...calendarSources.map((source): RefreshSourceTask => ({
+      sourceId: source.id,
+      kind: source.kind,
+      errorLogMessage: 'ripmail:gcal:refresh-source-error',
+      run: async () => {
         const result = await syncGoogleCalendarSource(db, ripmailHome, source)
         if (result.error) {
           brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:gcal:refresh-error')
@@ -112,16 +122,92 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
             )
           }
         }
-      } catch (e) {
-        brainLogger.error({ sourceId: source.id, err: String(e) }, 'ripmail:gcal:refresh-source-error')
-      }
+        return {
+          ok: !result.error,
+          eventsUpserted: result.eventsUpserted,
+          eventsDeleted: result.eventsDeleted,
+          error: result.error,
+        }
+      },
+    })),
+  ]
+}
+
+async function runRefreshTask(task: RefreshSourceTask): Promise<RefreshSourceResult> {
+  const startedAt = Date.now()
+  try {
+    const result = await task.run()
+    return {
+      sourceId: task.sourceId,
+      kind: task.kind,
+      durationMs: Date.now() - startedAt,
+      ...result,
     }
+  } catch (e) {
+    const error = String(e)
+    brainLogger.error({ sourceId: task.sourceId, err: error }, task.errorLogMessage)
+    return {
+      sourceId: task.sourceId,
+      kind: task.kind,
+      ok: false,
+      durationMs: Date.now() - startedAt,
+      error,
+    }
+  }
+}
+
+/**
+ * Trigger an incremental sync for the given source (or all sources).
+ * Reads ripmail config.json to discover IMAP / Gmail sources.
+ */
+export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promise<RefreshResult> {
+  const db = await prepareRipmailDb(ripmailHome)
+  const config = loadRipmailConfig(ripmailHome)
+  ensureSourceRowsFromConfig(db, config)
+  const tasks = buildRefreshTasks({ db, ripmailHome, config, opts })
+
+  if (tasks.length === 0) {
+    brainLogger.info({ ripmailHome, sourceId: opts?.sourceId }, 'ripmail:refresh:no-sources')
+    return { ok: true, messagesAdded: 0, messagesUpdated: 0, sourceId: opts?.sourceId, sources: [] }
+  }
+
+  const lane = opts?.historicalSince ? 'backfill' : 'refresh'
+  setSyncSummaryRunning(db, lane)
+
+  try {
+    const limit = pLimit(RIPMAIL_REFRESH_SOURCE_CONCURRENCY)
+    const sources = await Promise.all(tasks.map((task) => limit(() => runRefreshTask(task))))
+    const totalAdded = sources.reduce((sum, source) => sum + (source.messagesAdded ?? 0), 0)
+    const totalUpdated = sources.reduce((sum, source) => sum + (source.messagesUpdated ?? 0), 0)
+    const ok = sources.every((source) => source.ok)
+
+    brainLogger.info(
+      {
+        ripmailHome,
+        sourceId: opts?.sourceId,
+        sourceCount: sources.length,
+        concurrency: RIPMAIL_REFRESH_SOURCE_CONCURRENCY,
+        sources: sources.map((source) => ({
+          sourceId: source.sourceId,
+          kind: source.kind,
+          ok: source.ok,
+          durationMs: source.durationMs,
+          messagesAdded: source.messagesAdded,
+          messagesUpdated: source.messagesUpdated,
+          eventsUpserted: source.eventsUpserted,
+          eventsDeleted: source.eventsDeleted,
+          error: source.error,
+        })),
+      },
+      'ripmail:refresh:completed',
+    )
 
     return {
-      ok: true,
+      ok,
       messagesAdded: totalAdded,
       messagesUpdated: totalUpdated,
       sourceId: opts?.sourceId,
+      sources,
     }
   } finally {
     clearSyncSummaryRunning(db)

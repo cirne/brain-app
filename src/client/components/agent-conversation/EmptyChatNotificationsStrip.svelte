@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { Bell, Mail, X } from 'lucide-svelte'
+  import {
+    Bell,
+    Mail,
+    MessageCircleCheck,
+    MessageCircleQuestionMark,
+    UserPlus,
+    X,
+  } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
   import type { EmptyChatNotificationsProps } from '@client/lib/agentConversationViewTypes.js'
@@ -8,6 +15,10 @@
 
   function iconForSourceKind(kind: string) {
     if (kind === 'mail_notify') return Mail
+    if (kind === 'brain_query_grant_received') return UserPlus
+    if (kind === 'brain_query_question' || kind === 'brain_query_mail')
+      return MessageCircleQuestionMark
+    if (kind === 'brain_query_reply_sent') return MessageCircleCheck
     return Bell
   }
 

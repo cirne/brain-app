@@ -168,6 +168,26 @@ function brainQueryMailPresentation(input: NotificationPresentationInput): Notif
   }
 }
 
+function brainQueryReplySentPresentation(input: NotificationPresentationInput): NotificationPresentation {
+  const p = input.payload && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
+  const handle = typeof p.peerHandle === 'string' ? p.peerHandle.trim().replace(/^@/, '') : ''
+  const rawSubject = typeof p.subject === 'string' ? p.subject.trim() : ''
+  const displaySubject = displaySubjectWithoutBraintunnelMarker(rawSubject) || '(no subject)'
+  const atLabel = handle ? `@${handle}` : 'Your collaborator'
+  const summaryLine = truncateOneLine(`${atLabel} replied — ${displaySubject}`, SUMMARY_MAX_CHARS)
+  const kickoffUserMessage =
+    atLabel === 'Your collaborator'
+      ? `**Your collaborator just sent their reply.** Subject: ${JSON.stringify(displaySubject)}. Help me refresh my inbox so I can read it.`
+      : `**${atLabel}** just sent their reply. Subject: ${JSON.stringify(displaySubject)}. Help me refresh my inbox so I can read it.`
+  return {
+    id: input.id,
+    sourceKind: input.sourceKind,
+    summaryLine,
+    kickoffUserMessage,
+    kickoffHints: hintsFrom(input),
+  }
+}
+
 function fallbackPresentation(input: NotificationPresentationInput): NotificationPresentation {
   const kind = input.sourceKind.trim() || 'unknown'
   const summaryLine = truncateOneLine(`Notification (${kind})`, SUMMARY_MAX_CHARS)
@@ -196,6 +216,9 @@ export function presentationForNotificationRow(input: NotificationPresentationIn
   }
   if (input.sourceKind === 'brain_query_mail') {
     return brainQueryMailPresentation(input)
+  }
+  if (input.sourceKind === 'brain_query_reply_sent') {
+    return brainQueryReplySentPresentation(input)
   }
   return fallbackPresentation(input)
 }

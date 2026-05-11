@@ -16,6 +16,10 @@ vi.mock('@server/lib/ripmail/runRipmailRefreshBackground.js', () => ({
   runRipmailRefreshInBackground: vi.fn(() => ({ ok: true })),
 }))
 
+vi.mock('@server/lib/platform/syncAll.js', () => ({
+  syncInboxRipmailBounded: vi.fn(async () => ({ kind: 'completed', ok: true })),
+}))
+
 vi.mock('@server/ripmail/index.js', () => ({
   ripmailSourcesList: vi.fn(async () => ({ sources: [] })),
   ripmailSourcesStatus: vi.fn(async () => []),
@@ -1575,23 +1579,103 @@ describe('refresh_sources tool', () => {
     vi.clearAllMocks()
   })
 
-  it('starts refresh for all sources when source omitted', async () => {
-    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
+  it('waits briefly for all sources when source omitted', async () => {
+    const { syncInboxRipmailBounded } = await import('@server/lib/platform/syncAll.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
     const tool = tools.find((t) => t.name === 'refresh_sources')!
     const result = await tool.execute('rs-1', {})
-    expect(runRipmailRefreshInBackground).toHaveBeenCalled()
+    expect(syncInboxRipmailBounded).toHaveBeenCalledWith({ sourceId: undefined, timeoutMs: 10_000 })
     expect(joinToolResultText(result)).toContain('all sources')
+    expect(joinToolResultText(result)).toContain('Refresh successful')
+    expect(joinToolResultText(result)).toContain('No new inbox items.')
+    expect(joinToolResultText(result)).not.toContain('list_inbox')
+    expect(joinToolResultText(result)).not.toContain('search_index')
   })
 
-  it('passes --source argv when source provided', async () => {
-    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
+  it('passes source id to the bounded refresh when source provided', async () => {
+    const { syncInboxRipmailBounded } = await import('@server/lib/platform/syncAll.js')
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
     const tool = tools.find((t) => t.name === 'refresh_sources')!
     await tool.execute('rs-2', { source: 'work@example.com' })
+    expect(syncInboxRipmailBounded).toHaveBeenCalledWith({ sourceId: 'work@example.com', timeoutMs: 10_000 })
+  })
+
+  it('uses background-only refresh when max_wait_ms is zero', async () => {
+    const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')
+    const { syncInboxRipmailBounded } = await import('@server/lib/platform/syncAll.js')
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const tool = tools.find((t) => t.name === 'refresh_sources')!
+    const result = await tool.execute('rs-3', { source: 'work@example.com', max_wait_ms: 0 })
     expect(runRipmailRefreshInBackground).toHaveBeenCalledWith('work@example.com', expect.any(String))
+    expect(syncInboxRipmailBounded).not.toHaveBeenCalled()
+    expect(joinToolResultText(result)).toContain('background')
+    expect(joinToolResultText(result)).not.toContain('list_inbox')
+    expect(joinToolResultText(result)).not.toContain('search_index')
+  })
+
+  it('reports that sync is still running when the bounded wait times out', async () => {
+    const { syncInboxRipmailBounded } = await import('@server/lib/platform/syncAll.js')
+    vi.mocked(syncInboxRipmailBounded).mockResolvedValueOnce({ kind: 'timeout' })
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const tool = tools.find((t) => t.name === 'refresh_sources')!
+    const result = await tool.execute('rs-4', { max_wait_ms: 25 })
+
+    expect(syncInboxRipmailBounded).toHaveBeenCalledWith({ sourceId: undefined, timeoutMs: 25 })
+    expect(joinToolResultText(result)).toContain('still running')
+    expect(joinToolResultText(result)).not.toContain('list_inbox')
+    expect(joinToolResultText(result)).not.toContain('search_index')
+    expect(result.details).toMatchObject({ ok: true, timedOut: true, max_wait_ms: 25 })
+  })
+
+  it('returns newly discovered inbox items after a completed sync', async () => {
+    const { ripmailInbox } = await import('@server/ripmail/index.js')
+    const oldItem = {
+      messageId: 'old-msg',
+      sourceId: 's1',
+      fromAddress: 'old@example.com',
+      subject: 'Old',
+      date: '2026-01-01T09:00:00Z',
+      snippet: 'old',
+      action: 'inform' as const,
+      matchedRuleIds: [],
+      requiresUserAction: false,
+    }
+    const newItem = {
+      messageId: 'new-msg',
+      sourceId: 's1',
+      fromAddress: 'new@example.com',
+      subject: 'New',
+      date: '2026-01-01T10:00:00Z',
+      snippet: 'new',
+      action: 'notify' as const,
+      matchedRuleIds: ['important'],
+      winningRuleId: 'important',
+      requiresUserAction: false,
+    }
+    vi.mocked(ripmailInbox)
+      .mockResolvedValueOnce({ items: [oldItem], counts: { notify: 0, inform: 1, ignore: 0, actionRequired: 0 } })
+      .mockResolvedValueOnce({ items: [newItem, oldItem], counts: { notify: 1, inform: 1, ignore: 0, actionRequired: 0 } })
+
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const tool = tools.find((t) => t.name === 'refresh_sources')!
+    const result = await tool.execute('rs-5', {})
+
+    expect(ripmailInbox).toHaveBeenCalledTimes(2)
+    expect(joinToolResultText(result)).toContain('Refresh successful')
+    expect(joinToolResultText(result)).toContain('new-msg')
+    expect(joinToolResultText(result)).not.toContain('old-msg')
+    expect(joinToolResultText(result)).not.toContain('list_inbox')
+    expect(joinToolResultText(result)).not.toContain('search_index')
+    expect(result.details).toMatchObject({
+      ok: true,
+      newInboxCount: 1,
+      newInboxItems: [expect.objectContaining({ messageId: 'new-msg' })],
+    })
   })
 })
 

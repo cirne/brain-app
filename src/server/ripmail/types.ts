@@ -301,9 +301,22 @@ export interface RefreshOptions {
   historicalSince?: RipmailHistoricalSince
 }
 
+export interface RefreshSourceResult {
+  sourceId: string
+  kind: string
+  ok: boolean
+  durationMs: number
+  messagesAdded?: number
+  messagesUpdated?: number
+  eventsUpserted?: number
+  eventsDeleted?: number
+  error?: string
+}
+
 export interface RefreshResult {
   ok: boolean
   messagesAdded: number
   messagesUpdated: number
   sourceId?: string
+  sources?: RefreshSourceResult[]
 }

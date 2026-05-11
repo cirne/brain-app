@@ -19,6 +19,18 @@ export interface FullSyncResult {
   inbox: SyncComponentResult
 }
 
+export interface SyncInboxRipmailBoundedOptions {
+  sourceId?: string
+  timeoutMs: number
+  signal?: AbortSignal
+}
+
+export type SyncInboxRipmailBoundedResult =
+  | { kind: 'completed'; ok: true }
+  | { kind: 'completed'; ok: false; error: string }
+  | { kind: 'timeout' }
+  | { kind: 'aborted' }
+
 /**
  * Wiki content is plain files on disk (no git backup or remote sync).
  * Kept as a no-op so full sync and POST /api/wiki/sync still succeed.
@@ -86,6 +98,77 @@ export async function syncInboxRipmail(_signal?: AbortSignal): Promise<SyncCompo
   }
 }
 
+function logDetachedRipmailRefreshError(sourceId: string | undefined, e: unknown): void {
+  const detail = formatExecError(e)
+  console.error('[brain-app] ripmail refresh continued after early return failed:', {
+    sourceId: sourceId ?? null,
+    error: detail,
+  })
+}
+
+async function runRipmailRefreshWork(sourceId?: string): Promise<void> {
+  try {
+    await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
+  } catch (e) {
+    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (bounded refresh):', e)
+  }
+  const sid = sourceId?.trim() || undefined
+  await ripmailRefresh(ripmailHomeForBrain(), sid ? { sourceId: sid } : undefined)
+  await syncMailNotifyNotificationsFromRipmailDbSafe()
+}
+
+/**
+ * Start an in-process ripmail refresh and wait for at most `timeoutMs`.
+ * Timeout/abort only stops waiting; the refresh promise is left running and logged on failure.
+ */
+export async function syncInboxRipmailBounded(
+  opts: SyncInboxRipmailBoundedOptions,
+): Promise<SyncInboxRipmailBoundedResult> {
+  const sourceId = opts.sourceId?.trim() || undefined
+  const work = runRipmailRefreshWork(sourceId)
+
+  if (opts.timeoutMs <= 0) {
+    void work.catch((e) => logDetachedRipmailRefreshError(sourceId, e))
+    return { kind: 'timeout' }
+  }
+
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  let cleanupAbort: (() => void) | undefined
+  const completed = work.then(
+    (): SyncInboxRipmailBoundedResult => ({ kind: 'completed', ok: true }),
+    (e: unknown): SyncInboxRipmailBoundedResult => ({ kind: 'completed', ok: false, error: formatExecError(e) }),
+  )
+
+  const contenders: Promise<SyncInboxRipmailBoundedResult>[] = [
+    completed,
+    new Promise((resolve) => {
+      timeout = setTimeout(() => resolve({ kind: 'timeout' }), opts.timeoutMs)
+    }),
+  ]
+
+  if (opts.signal) {
+    if (opts.signal.aborted) {
+      contenders.push(Promise.resolve({ kind: 'aborted' }))
+    } else {
+      contenders.push(
+        new Promise((resolve) => {
+          const onAbort = () => resolve({ kind: 'aborted' } satisfies SyncInboxRipmailBoundedResult)
+          opts.signal!.addEventListener('abort', onAbort, { once: true })
+          cleanupAbort = () => opts.signal!.removeEventListener('abort', onAbort)
+        }),
+      )
+    }
+  }
+
+  const result = await Promise.race(contenders)
+  if (timeout) clearTimeout(timeout)
+  cleanupAbort?.()
+  if (result.kind === 'timeout' || result.kind === 'aborted') {
+    void work.catch((e) => logDetachedRipmailRefreshError(sourceId, e))
+  }
+  return result
+}
+
 /** First onboarding pass: single ~1y Gmail historical slice (TS `refresh` + `historicalSince`). Interview can start once count gates pass while this run continues in the background. */
 export async function syncInboxRipmailOnboarding(_signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
@@ -113,24 +196,21 @@ export async function runFullSync(inboxSignal?: AbortSignal): Promise<FullSyncRe
 }
 
 /**
- * Run **`refresh`** and **wait** for it to complete. Callers pass **`timeoutMs`** for API symmetry;
- * the TS in-process sync path does not hard-cancel on that deadline today.
+ * Run **`refresh`** and wait up to `timeoutMs`. Timeout only stops waiting;
+ * the in-process refresh continues in the background.
  */
 export async function refreshMailAndWait(
-  _timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,
-  _signal?: AbortSignal,
+  timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,
+  signal?: AbortSignal,
 ): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
-  try {
-    await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
-  } catch (e) {
-    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (lap refresh):', e)
-  }
-  try {
-    await ripmailRefresh(ripmailHomeForBrain())
-    await syncMailNotifyNotificationsFromRipmailDbSafe()
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: formatExecError(e) }
+  const result = await syncInboxRipmailBounded({ timeoutMs, signal })
+  switch (result.kind) {
+    case 'completed':
+      return result.ok ? { ok: true } : { ok: false, error: result.error }
+    case 'timeout':
+      return { ok: false, timedOut: true }
+    case 'aborted':
+      return { ok: false, error: 'aborted' }
   }
 }
 

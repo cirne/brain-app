@@ -6,16 +6,18 @@ import { notificationKickoffAppContextText } from './notificationKickoffAppConte
 
 export { notificationKickoffAppContextText }
 
+/** Kinds stored in tenant SQLite whose payload SSOT beats wire hints (`notificationKickoff` from clients). */
+const NOTIFICATION_PAYLOAD_ENRICH_KINDS = new Set(['brain_query_question', 'brain_query_reply_sent'])
+
 /**
- * For `brain_query_question`, replace wire hints with the SSOT payload from tenant SQLite
- * so the agent always sees `question` / `grantId` / peer mail even if the client omitted them.
+ * Replace wire hints with the SSOT payload from tenant SQLite (e.g. full question text, reply subject hints).
  */
 export function enrichNotificationKickoffFromDb(h: NotificationKickoffHints): NotificationKickoffHints {
-  if (h.sourceKind !== 'brain_query_question') return h
+  if (!NOTIFICATION_PAYLOAD_ENRICH_KINDS.has(h.sourceKind)) return h
   const nid = h.notificationId?.trim()
   if (!nid) return h
   const row = getNotificationById(nid)
-  if (!row || row.sourceKind !== 'brain_query_question') return h
+  if (!row || row.sourceKind !== h.sourceKind) return h
   const pres = presentationForNotificationRow({
     id: row.id,
     sourceKind: row.sourceKind,

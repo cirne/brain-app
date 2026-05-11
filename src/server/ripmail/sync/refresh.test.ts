@@ -5,10 +5,11 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import { closeRipmailDb } from '../db.js'
+import type { GmailSyncResult } from './gmail.js'
 import type { GoogleCalendarSyncResult } from './googleCalendar.js'
 
 const syncGmailSource = vi.hoisted(() =>
-  vi.fn(async () => ({
+  vi.fn(async (): Promise<GmailSyncResult> => ({
     sourceId: 'gsrc',
     messagesAdded: 0,
     messagesUpdated: 0,
@@ -34,6 +35,16 @@ vi.mock('./googleCalendar.js', async (importOriginal) => {
 })
 
 import { refresh } from './index.js'
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
 
 describe('refresh Gmail invalid_grant', () => {
   let home: string
@@ -99,6 +110,77 @@ describe('refresh Gmail invalid_grant', () => {
     expect(existsSync(tokenPath)).toBe(false)
     expect(syncGmailSource).toHaveBeenCalledTimes(1)
     expect(syncGoogleCalendarSource).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts mailbox and calendar refresh concurrently during all-source refresh', async () => {
+    const gmailGate = deferred<GmailSyncResult>()
+    const calendarGate = deferred<GoogleCalendarSyncResult>()
+    syncGmailSource.mockImplementationOnce(async () => gmailGate.promise)
+    syncGoogleCalendarSource.mockImplementationOnce(async () => calendarGate.promise)
+
+    const run = refresh(home)
+    let result: Awaited<ReturnType<typeof refresh>> | undefined
+    try {
+      await vi.waitFor(() => {
+        expect(syncGmailSource).toHaveBeenCalledTimes(1)
+        expect(syncGoogleCalendarSource).toHaveBeenCalledTimes(1)
+      })
+    } finally {
+      gmailGate.resolve({ sourceId: 'gsrc', messagesAdded: 2, messagesUpdated: 1 })
+      calendarGate.resolve({ sourceId: 'gsrc-gcal', eventsUpserted: 3, eventsDeleted: 1 })
+      result = await run
+    }
+
+    expect(result).toMatchObject({
+      ok: true,
+      messagesAdded: 2,
+      messagesUpdated: 1,
+      sources: [
+        expect.objectContaining({ sourceId: 'gsrc', kind: 'imap', ok: true, messagesAdded: 2, messagesUpdated: 1 }),
+        expect.objectContaining({
+          sourceId: 'gsrc-gcal',
+          kind: 'googleCalendar',
+          ok: true,
+          eventsUpserted: 3,
+          eventsDeleted: 1,
+        }),
+      ],
+    })
+    expect(result?.sources?.[0]?.durationMs).toEqual(expect.any(Number))
+  })
+
+  it('captures one source failure without preventing unrelated source success', async () => {
+    syncGmailSource.mockRejectedValueOnce(new Error('gmail blew up'))
+    syncGoogleCalendarSource.mockResolvedValueOnce({
+      sourceId: 'gsrc-gcal',
+      eventsUpserted: 4,
+      eventsDeleted: 0,
+    })
+
+    const result = await refresh(home)
+
+    expect(syncGmailSource).toHaveBeenCalledTimes(1)
+    expect(syncGoogleCalendarSource).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({
+      ok: false,
+      messagesAdded: 0,
+      messagesUpdated: 0,
+      sources: [
+        expect.objectContaining({
+          sourceId: 'gsrc',
+          kind: 'imap',
+          ok: false,
+          error: 'Error: gmail blew up',
+        }),
+        expect.objectContaining({
+          sourceId: 'gsrc-gcal',
+          kind: 'googleCalendar',
+          ok: true,
+          eventsUpserted: 4,
+          eventsDeleted: 0,
+        }),
+      ],
+    })
   })
 
   it('does not delete oauth file when sync error is not invalid_grant', async () => {

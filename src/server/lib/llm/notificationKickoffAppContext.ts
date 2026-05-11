@@ -112,6 +112,30 @@ function brainQueryQuestionAppContext(h: NotificationKickoffHints): string {
   ].join('\n')
 }
 
+/** Grant asker ping right after collaborator send — inbound reply may lag until ripmail refreshes. */
+function brainQueryReplySentAppContext(h: NotificationKickoffHints): string {
+  const meta = [...routingBullets(h)]
+  if (h.grantId) meta.push(`- grant_id (opaque): \`${h.grantId}\``)
+  if (h.peerHandle) meta.push(`- peer_handle: @${h.peerHandle}`)
+  const subRaw = h.subject?.trim()
+  if (subRaw) meta.push(`- subject_hint: ${JSON.stringify(subRaw)}`)
+
+  return [
+    APP_QUEUE_HEADER,
+    '',
+    'The user opened an in-app notification: a **shared-brain collaborator has already sent** their reply email from their workspace. Their inbox/index may lag until ripmail catches new mail via IMAP.',
+    '',
+    ...meta,
+    '',
+    '**Interaction (recommended order):** Say briefly who replied (using **peer_handle** when shown). Run **refresh_sources** so inbound mail indexes (omit **source** to sync configured mail; use a larger **max_wait_ms** toward **45000** when they need the newest mail now — **max_wait_ms: 0** is background-only when they prefer not to wait on this turn). Then **list_inbox** or **search_index** (use **subject:** filters with phrases drawn from subject_hint — keep **[braintunnel]** in queries when threading requires it). Use **read_mail_message** once a **message id** appears. If nothing arrives after refresh, widen the query or retry one sync rather than asserting send failure.',
+    '',
+    'A **brain_query_mail** row may also appear once rules mirror the inbound message — use this notification strictly as early wake-up + refresh/read guidance.',
+    ...completionSuffix(),
+    '',
+    'Use normal assistant tools as needed.',
+  ].join('\n')
+}
+
 /** mail_notify and any unknown `source_kind`: inbox-style routing + tools. */
 function mailNotifyOrDefaultAppContext(h: NotificationKickoffHints): string {
   const lines: string[] = [
@@ -159,6 +183,7 @@ const NOTIFICATION_APP_CONTEXT_BY_KIND: Record<string, AppContextBuilder> = {
   brain_query_grant_received: brainQueryGrantReceivedAppContext,
   brain_query_mail: brainQueryMailAppContext,
   brain_query_question: brainQueryQuestionAppContext,
+  brain_query_reply_sent: brainQueryReplySentAppContext,
 }
 
 export function notificationKickoffAppContextText(h: NotificationKickoffHints): string {

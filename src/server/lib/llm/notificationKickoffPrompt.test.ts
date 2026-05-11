@@ -132,6 +132,34 @@ describe('notificationKickoffPrompt', () => {
     }
   })
 
+  it('enrichNotificationKickoffFromDb loads brain_query_reply_sent from tenant row', () => {
+    const spy = vi.spyOn(notificationsRepo, 'getNotificationById').mockReturnValue({
+      id: 'n-rs',
+      sourceKind: 'brain_query_reply_sent',
+      payload: {
+        grantId: 'bqg_0123456789abcdef01234567',
+        peerUserId: 'usr_owner',
+        peerHandle: 'donna',
+        subject: 'Re: [braintunnel] ETA',
+      },
+      state: 'unread',
+      idempotencyKey: 'k',
+      createdAtMs: 1,
+      updatedAtMs: 1,
+    })
+    try {
+      const h = enrichNotificationKickoffFromDb({
+        notificationId: 'n-rs',
+        sourceKind: 'brain_query_reply_sent',
+      })
+      expect(h.subject).toBe('Re: [braintunnel] ETA')
+      expect(h.grantId).toBe('bqg_0123456789abcdef01234567')
+      expect(h.peerHandle).toBe('donna')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('enrichNotificationKickoffFromDb is a no-op for other kinds', () => {
     const spy = vi.spyOn(notificationsRepo, 'getNotificationById')
     try {
@@ -205,6 +233,21 @@ describe('notificationKickoffPrompt', () => {
     expect(t).toContain('read_mail_message')
     expect(t).toContain('b2b_query')
     expect(t).toContain('send_draft')
+  })
+
+  it('notificationKickoffAppContextText for brain_query_reply_sent steers to refresh_sources then inbox', () => {
+    const t = notificationKickoffAppContextText({
+      notificationId: 'n1',
+      sourceKind: 'brain_query_reply_sent',
+      peerHandle: 'donna',
+      grantId: 'bqg_0123456789abcdef01234567',
+      subject: 'Re: [braintunnel] Status',
+    })
+    expect(t).toContain('refresh_sources')
+    expect(t).toContain('search_index')
+    expect(t).toContain('45000')
+    expect(t).not.toContain('draft_email')
+    expect(t).not.toContain('send_draft')
   })
 
   it('notificationKickoffAppContextText for brain_query_mail injects grant privacy_policy when present', () => {

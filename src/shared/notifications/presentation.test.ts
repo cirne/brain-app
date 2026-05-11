@@ -158,6 +158,23 @@ describe('notification presentation', () => {
     expect(row.kickoffUserMessage).not.toContain('read_mail_message')
   })
 
+  it('brain_query_reply_sent summarizes collaborator reply strip', () => {
+    const row = presentationForNotificationRow({
+      id: 'bqrs',
+      sourceKind: 'brain_query_reply_sent',
+      payload: {
+        grantId: 'bqg_0123456789abcdef0123456789ab',
+        peerHandle: 'donna',
+        peerUserId: 'usr_own',
+        subject: 'Re: [braintunnel] Ship checklist',
+      },
+    })
+    expect(row.summaryLine).toContain('@donna replied')
+    expect(row.summaryLine).not.toContain('[braintunnel]')
+    expect(row.kickoffUserMessage.toLowerCase()).toContain('refresh')
+    expect(row.kickoffHints.subject).toBe('Re: [braintunnel] Ship checklist')
+  })
+
   it('brain_query_mail summary falls back to email when no handle', () => {
     const row = presentationForNotificationRow({
       id: 'bm2',

@@ -34,7 +34,7 @@ export function createAskCollaboratorTool() {
     name: 'ask_collaborator',
     label: 'Ask Brain',
     description:
-      'Ask Brain: send a question to someone who **shared their workspace with you** (you are the grant asker). Delivers immediately as an **in-app notification** on their Braintunnel workspace — no email for the question. When the user **@mentions** a handle and wants to **ask or message** that person through Braintunnel, use this tool — not **draft_email**. Pass **either** `grant_id` (`bqg_…`) **or** `peer_handle` (`@their-name`) — the server resolves the active grant at send time so you do not need kickoff context on follow-up turns. After success, reply briefly (they will see the notification; you will get a notification when they respond by email).',
+      'Ask Brain: send a question to someone who **shared their workspace with you** (you are the grant asker). Delivers immediately as an **in-app notification** on their Braintunnel workspace — no email for the question. When the user **@mentions** a handle and wants to **ask or message** that person through Braintunnel, use this tool — not **draft_email**. Pass **either** `grant_id` (`bqg_…`) **or** `peer_handle` (`@their-name`) — the server resolves the active grant at send time so you do not need kickoff context on follow-up turns. After success, reply briefly (they will see the notification; when they send their reply mail, **your** workspace gets an immediate **`brain_query_reply_sent`** in-app ping — **refresh_sources** plus inbox tools let you read it while IMAP indexing catches up, and **`brain_query_mail`** may mirror the inbound message afterward).',
     parameters: Type.Object({
       grant_id: Type.Optional(
         Type.String({
@@ -162,7 +162,7 @@ export function createAskCollaboratorTool() {
       const lines = [
         'Your question was delivered to their Braintunnel notifications.',
         `Preview: ${subject}`,
-        'Acknowledge briefly in chat; you will get a notification when they respond.',
+        'Acknowledge briefly; you will get an in-app ping when they send—open it to refresh Sources and read inbound mail.',
       ]
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
