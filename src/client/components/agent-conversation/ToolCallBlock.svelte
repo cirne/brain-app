@@ -151,7 +151,7 @@
             {@render summaryBody(true)}
           </span>
           <span
-            class="tool-compact-pill inline-flex size-6 shrink-0 items-center justify-center self-center rounded-full border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--border)_35%,transparent)] p-0 leading-none text-muted group-hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-hover:text-accent group-focus-visible:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-focus-visible:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-focus-visible:text-accent group-hover:[&~_*_.tool-name]:text-accent"
+            class="tool-compact-pill inline-flex size-6 shrink-0 items-center justify-center self-center rounded-sm border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--border)_35%,transparent)] p-0 leading-none text-muted group-hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-hover:text-accent group-focus-visible:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-focus-visible:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-focus-visible:text-accent group-hover:[&~_*_.tool-name]:text-accent"
             aria-hidden="true"
           >
             <ChevronRight size={14} strokeWidth={2.25} aria-hidden="true" />

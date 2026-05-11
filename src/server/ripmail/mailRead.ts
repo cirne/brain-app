@@ -2,9 +2,7 @@
  * readMail() and readIndexedFile() — mirrors ripmail/src/mail_read.rs.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
-import { simpleParser } from 'mailparser'
+import { readFileSync } from 'node:fs'
 import type { RipmailDb } from './db.js'
 import type {
   ReadMailResult,
@@ -12,10 +10,6 @@ import type {
   ReadIndexedFileResult,
   AttachmentMeta,
 } from './types.js'
-
-function normalizeMessageId(value: string | undefined): string {
-  return String(value ?? '').trim().replace(/^<|>$/g, '')
-}
 
 interface MessageRow {
   message_id: string
@@ -28,6 +22,7 @@ interface MessageRow {
   subject: string
   date: string
   body_text: string
+  body_html: string | null
   raw_path: string
   is_archived: number
   category: string | null
@@ -100,7 +95,7 @@ function resolveMessageId(db: RipmailDb, messageId: string): string | null {
 export function readMail(
   db: RipmailDb,
   messageId: string,
-  opts?: { plainBody?: boolean; fullBody?: boolean; includeAttachments?: boolean },
+  opts?: { plainBody?: boolean; fullBody?: boolean; includeAttachments?: boolean; includeHtml?: boolean },
 ): ReadMailResult | null {
   const resolvedId = resolveMessageId(db, messageId)
   if (!resolvedId) return null
@@ -108,7 +103,7 @@ export function readMail(
   const row = db
     .prepare(
       `SELECT message_id, thread_id, source_id, from_address, from_name,
-              to_addresses, cc_addresses, subject, date, body_text,
+              to_addresses, cc_addresses, subject, date, body_text, body_html,
               raw_path, is_archived, category
        FROM messages WHERE message_id = ?`,
     )
@@ -120,6 +115,7 @@ export function readMail(
 
   let bodyText: string | undefined = row.body_text ?? undefined
   if (opts?.plainBody === false) bodyText = undefined
+  const bodyHtml = opts?.includeHtml && row.body_html?.trim() ? row.body_html : undefined
 
   // Normalize messageId: strip angle brackets to match Rust CLI output shape
   const normalizedMessageId = row.message_id.startsWith('<') && row.message_id.endsWith('>')
@@ -137,6 +133,7 @@ export function readMail(
     subject: row.subject,
     date: row.date,
     bodyText,
+    bodyHtml,
     rawPath: row.raw_path,
     isArchived: row.is_archived === 1,
     category: row.category ?? undefined,
@@ -144,48 +141,17 @@ export function readMail(
   }
 }
 
-function storedRawPathToFsPath(ripmailHome: string, rawPath: string): string | null {
-  const trimmed = rawPath.trim()
-  if (!trimmed) return null
-  return isAbsolute(trimmed) ? trimmed : join(ripmailHome, trimmed)
-}
-
 /**
- * UI-only message read: keeps agent reads text-only while allowing the inbox panel
- * to render the original HTML MIME part when the cached raw EML is available.
+ * UI-only message read: keeps agent reads text-only while allowing the inbox panel to render
+ * the original HTML MIME part stored during sync.
  */
-export async function readMailForDisplay(
+export function readMailForDisplay(
   db: RipmailDb,
-  ripmailHome: string,
+  _ripmailHome: string,
   messageId: string,
-): Promise<ReadMailDisplayResult | null> {
-  const msg = readMail(db, messageId, { includeAttachments: false })
+): ReadMailDisplayResult | null {
+  const msg = readMail(db, messageId, { includeAttachments: false, includeHtml: true })
   if (!msg) return null
-
-  let bodyText = msg.bodyText ?? ''
-  let bodyHtml: string | undefined
-  const rawFsPath = storedRawPathToFsPath(ripmailHome, msg.rawPath)
-  const rawExists = Boolean(rawFsPath && existsSync(rawFsPath))
-
-  if (rawFsPath && rawExists) {
-    try {
-      const parsed = await simpleParser(readFileSync(rawFsPath), {
-        skipHtmlToText: false,
-        skipTextToHtml: true,
-        skipImageLinks: true,
-      })
-      const parsedMessageId = normalizeMessageId(parsed.messageId)
-      const rawMessageMatchesDb =
-        Boolean(parsedMessageId) &&
-        parsedMessageId === normalizeMessageId(msg.messageId)
-      if (rawMessageMatchesDb) {
-        bodyText = parsed.text ?? bodyText
-        bodyHtml = typeof parsed.html === 'string' ? parsed.html : undefined
-      }
-    } catch {
-      /* Fall back to indexed body_text when raw parsing fails. */
-    }
-  }
 
   return {
     messageId: msg.messageId,
@@ -200,9 +166,9 @@ export async function readMailForDisplay(
     rawPath: msg.rawPath,
     isArchived: msg.isArchived,
     ...(msg.category ? { category: msg.category } : {}),
-    bodyKind: bodyHtml ? 'html' : 'text',
-    bodyText,
-    ...(bodyHtml ? { bodyHtml } : {}),
+    bodyKind: msg.bodyHtml ? 'html' : 'text',
+    bodyText: msg.bodyText ?? '',
+    ...(msg.bodyHtml ? { bodyHtml: msg.bodyHtml } : {}),
   }
 }
 

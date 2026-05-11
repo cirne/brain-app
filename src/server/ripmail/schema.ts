@@ -1,12 +1,12 @@
 /**
- * SQLite schema — SCHEMA_VERSION 30 (historically aligned with the Rust ripmail crate; see git tag
+ * SQLite schema — SCHEMA_VERSION 31 (historically aligned with the Rust ripmail crate; see git tag
  * `ripmail-rust-before-typescript-port` for reference sources).
  *
  * On open, if the stored `user_version` differs from [`SCHEMA_VERSION`], Brain deletes `ripmail.db`
  * (+ WAL/SHM) and repopulates the mail index by scanning `.eml` files under mailbox maildirs — no SQLite migrations or checkpoint snapshots (early dev convention).
  */
 
-export const SCHEMA_VERSION = 30
+export const SCHEMA_VERSION = 31
 
 /**
  * All CREATE TABLE / INDEX / TRIGGER / VIRTUAL TABLE statements.
@@ -39,6 +39,7 @@ export const SCHEMA_STATEMENTS: string[] = [
     subject      TEXT NOT NULL DEFAULT '',
     date         TEXT NOT NULL,
     body_text    TEXT NOT NULL DEFAULT '',
+    body_html    TEXT,
     raw_path     TEXT NOT NULL,
     source_id    TEXT NOT NULL DEFAULT '',
     is_archived  INTEGER NOT NULL DEFAULT 0,

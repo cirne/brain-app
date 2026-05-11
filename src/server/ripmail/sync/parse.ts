@@ -50,7 +50,7 @@ export async function parseEml(
   const buf = typeof raw === 'string' ? Buffer.from(raw, 'utf8') : raw
   const parsed = await simpleParser(buf, {
     skipHtmlToText: false,
-    skipTextToHtml: false,
+    skipTextToHtml: true,
     skipImageLinks: true,
   })
 
@@ -112,7 +112,7 @@ export async function parseEml(
   const recipientCount = recipientSet.size
 
   const bodyText = parsed.text ?? ''
-  const bodyHtml = parsed.html || undefined
+  const bodyHtml = typeof parsed.html === 'string' && parsed.html.trim() ? parsed.html : undefined
 
   const date = parsed.date ? parsed.date.toISOString() : new Date().toISOString()
 

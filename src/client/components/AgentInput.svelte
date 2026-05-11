@@ -376,7 +376,7 @@
   {/if}
 
   <div class="input-row flex w-full min-w-0">
-    <div class="input-shell flex flex-1 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-surface focus-within:border-accent">
+    <div class="input-shell flex flex-1 min-w-0 flex-col overflow-hidden rounded-md border border-border bg-surface focus-within:border-accent">
       {#if queuedMessages.length > 0}
         <div
           class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"

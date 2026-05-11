@@ -20,7 +20,7 @@
 
 ## Summary
 
-Today, when the user inspects an **indexed non-mail document** (e.g. Google Drive PDF) from chat or search, the slide-over uses **extracted text** ([`IndexedFileViewer.svelte`](../../../src/client/components/IndexedFileViewer.svelte) → `GET /api/files/indexed`, ripmail `read --json`). That matches how we surface **evidence to the model**, but it is **not** how users verify layout-heavy contracts: they want to see the **real document**, the same way inbox thread reading uses **faithful HTML** in an iframe (`emailBodyToIframeSrcdoc` + measured iframe in [`Inbox.svelte`](../../../src/client/components/Inbox.svelte)).
+Today, when the user inspects an **indexed non-mail document** (e.g. Google Drive PDF) from chat or search, the slide-over uses **extracted text** ([`IndexedFileViewer.svelte`](../../../src/client/components/IndexedFileViewer.svelte) → `GET /api/files/indexed`, ripmail `read --json`). That matches how we surface **evidence to the model**, but it is **not** how users verify layout-heavy contracts: they want to see the **real document**, the same way inbox thread reading uses **faithful HTML** in an iframe (`emailDisplayBodyToIframeSrcdoc` + measured iframe in [`Inbox.svelte`](../../../src/client/components/Inbox.svelte)).
 
 This opportunity is to add **end-to-end “original bytes → trusted viewer”** for indexed files: **ripmail** (or brain-app via ripmail) **fetches or streams the raw file**, brain-app exposes an **authenticated, tenant-safe HTTP surface**, and the client **renders by MIME** where we choose to support it — starting with **PDF**, then other formats over time.
 

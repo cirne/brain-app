@@ -30,7 +30,7 @@
   )
 
   const dismissBtnClass = cn(
-    'notif-row-dismiss mr-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-muted',
+    'notif-row-dismiss mr-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-muted',
     'transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--bg-3)_50%,transparent)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
   )
 </script>
@@ -48,7 +48,7 @@
       {@const Icon = iconForSourceKind(row.sourceKind)}
       <li
         class={cn(
-          'flex min-w-0 flex-row items-stretch gap-0 rounded-xl border border-border/60 bg-[color-mix(in_srgb,var(--bg-2)_58%,transparent)]',
+          'flex min-w-0 flex-row items-stretch gap-0 rounded-md border border-border/60 bg-[color-mix(in_srgb,var(--bg-2)_58%,transparent)]',
           'shadow-[0_1px_0_color-mix(in_srgb,var(--border)_55%,transparent),0_8px_22px_-14px_rgba(0,0,0,0.14)]',
           'dark:border-border/55 dark:bg-[color-mix(in_srgb,var(--bg-3)_42%,transparent)] dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_10px_28px_-16px_rgba(0,0,0,0.55)]',
         )}

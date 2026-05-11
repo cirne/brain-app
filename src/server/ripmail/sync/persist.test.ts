@@ -65,6 +65,7 @@ describe('persistMessage conflict updates', () => {
         subject: 'New subject',
         date: '2026-02-01T00:00:00Z',
         bodyText: 'New body',
+        bodyHtml: '<html><body><p>New HTML body</p></body></html>',
         rawPath: 'new.eml',
         sourceId: 'src-2',
       }),
@@ -74,7 +75,7 @@ describe('persistMessage conflict updates', () => {
     const row = db.prepare(`
       SELECT thread_id, folder, uid, labels, category, from_address, from_name,
              to_addresses, cc_addresses, to_recipients, cc_recipients,
-             subject, date, body_text, raw_path, source_id
+             subject, date, body_text, body_html, raw_path, source_id
       FROM messages
       WHERE message_id = '<same@test>'
     `).get() as Record<string, unknown>
@@ -94,6 +95,7 @@ describe('persistMessage conflict updates', () => {
       subject: 'New subject',
       date: '2026-02-01T00:00:00Z',
       body_text: 'New body',
+      body_html: '<html><body><p>New HTML body</p></body></html>',
       raw_path: 'new.eml',
       source_id: 'src-2',
     })

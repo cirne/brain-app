@@ -96,13 +96,13 @@ export async function ripmailSearch(ripmailHome: string, opts: SearchOptions) {
 export async function ripmailReadMail(
   ripmailHome: string,
   messageId: string,
-  opts?: { plainBody?: boolean; fullBody?: boolean; includeAttachments?: boolean },
+  opts?: { plainBody?: boolean; fullBody?: boolean; includeAttachments?: boolean; includeHtml?: boolean },
 ) {
   const db = await prepareRipmailDb(ripmailHome)
   return readMail(db, messageId, opts)
 }
 
-/** Read a mail message for UI display, including HTML when raw EML is available. */
+/** Read a mail message for UI display, including stored HTML when available. */
 export async function ripmailReadMailForDisplay(
   ripmailHome: string,
   messageId: string,

@@ -45,4 +45,52 @@ describe('parseEml sender identity', () => {
     expect(msg.fromAddress).toBe('afinley@greenlonghorninc.com')
     expect(msg.fromName).toBe('Alan Finley')
   })
+
+  it('stores real HTML MIME parts without synthesizing HTML for text-only mail', async () => {
+    const htmlRaw = [
+      'From: Sender <sender@example.com>',
+      'To: teammate@example.com',
+      'Subject: HTML',
+      'Message-ID: <idx-test-html@mail.example>',
+      'Content-Type: multipart/alternative; boundary="b"',
+      '',
+      '--b',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Plain fallback',
+      '--b',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      '<html><body><p>HTML body</p></body></html>',
+      '--b--',
+    ].join('\r\n')
+
+    const htmlMsg = await parseEml(Buffer.from(htmlRaw, 'utf8'), '/tmp/html.eml', {
+      folder: 'INBOX',
+      uid: 3,
+      sourceId: 'src',
+    })
+
+    expect(htmlMsg.bodyText).toContain('Plain fallback')
+    expect(htmlMsg.bodyHtml).toContain('<p>HTML body</p>')
+
+    const textOnlyRaw = [
+      'From: Sender <sender@example.com>',
+      'To: teammate@example.com',
+      'Subject: Text only',
+      'Message-ID: <idx-test-text@mail.example>',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Plain only',
+    ].join('\r\n')
+
+    const textMsg = await parseEml(Buffer.from(textOnlyRaw, 'utf8'), '/tmp/text.eml', {
+      folder: 'INBOX',
+      uid: 4,
+      sourceId: 'src',
+    })
+
+    expect(textMsg.bodyText).toContain('Plain only')
+    expect(textMsg.bodyHtml).toBeUndefined()
+  })
 })

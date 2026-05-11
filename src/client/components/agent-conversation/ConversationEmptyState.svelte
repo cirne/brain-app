@@ -24,11 +24,11 @@
     <p class="mt-1.5 text-xs opacity-70">
       {#if atHintParts.length === 2}
         {atHintParts[0]}<kbd
-          class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none shadow-[0_1px_0_color-mix(in_srgb,var(--border)_40%,transparent)]"
+          class="inline-flex size-5 items-center justify-center rounded-sm border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none shadow-[0_1px_0_color-mix(in_srgb,var(--border)_40%,transparent)]"
         >@</kbd>{atHintParts[1]}
       {:else}
         {$t('chat.emptyState.atHint')} <kbd
-          class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none shadow-[0_1px_0_color-mix(in_srgb,var(--border)_40%,transparent)]"
+          class="inline-flex size-5 items-center justify-center rounded-sm border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none shadow-[0_1px_0_color-mix(in_srgb,var(--border)_40%,transparent)]"
         >@</kbd>
       {/if}
       {#if onOpenWikiAbout}

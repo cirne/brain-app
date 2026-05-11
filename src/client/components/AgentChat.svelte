@@ -1164,7 +1164,7 @@
                 aria-checked={hearRepliesForChatComposer}
                 aria-label={$t('chat.agentChat.audioConversation')}
                 class={cn(
-                  'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full',
+                  'audio-conv-toggle inline-flex items-center gap-2.5 rounded-sm',
                   'px-4 py-2 text-md transition-colors duration-150',
                 )}
                 onclick={toggleHearRepliesFromHeader}

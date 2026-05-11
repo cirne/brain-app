@@ -50,9 +50,9 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
     INSERT INTO messages (
       message_id, thread_id, folder, uid, labels, category,
       from_address, from_name, to_addresses, cc_addresses,
-      to_recipients, cc_recipients, subject, date, body_text,
+      to_recipients, cc_recipients, subject, date, body_text, body_html,
       raw_path, source_id, is_archived, is_reply, recipient_count, list_like, synced_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, datetime('now'))
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, datetime('now'))
     ON CONFLICT(message_id) DO UPDATE SET
       thread_id = excluded.thread_id,
       folder = excluded.folder,
@@ -66,6 +66,7 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
       to_recipients = excluded.to_recipients,
       cc_recipients = excluded.cc_recipients,
       body_text = excluded.body_text,
+      body_html = excluded.body_html,
       subject = excluded.subject,
       date = excluded.date,
       raw_path = excluded.raw_path,
@@ -90,6 +91,7 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
     msg.subject,
     msg.date,
     msg.bodyText,
+    msg.bodyHtml ?? null,
     msg.rawPath,
     msg.sourceId,
     msg.isReply ? 1 : 0,

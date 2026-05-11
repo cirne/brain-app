@@ -358,7 +358,7 @@
   const jumpAnchorEmbed =
     'bg-jump-anchor--embed sticky inset-x-0 bottom-3 mt-[0.35rem] pb-[0.15rem]'
   const jumpButton =
-    'bg-jump-to-latest pointer-events-auto inline-flex cursor-pointer items-center gap-[6px] border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pl-[14px] pr-[16px] text-xs font-semibold uppercase tracking-[0.04em] text-foreground shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] transition-[transform,box-shadow,border-color] duration-[180ms] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]'
+    'bg-jump-to-latest pointer-events-auto inline-flex cursor-pointer items-center gap-[6px] rounded-md border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pl-[14px] pr-[16px] text-xs font-semibold uppercase tracking-[0.04em] text-foreground shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] transition-[transform,box-shadow,border-color] duration-[180ms] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]'
   const jumpButtonStreaming =
     'streaming border-[color-mix(in_srgb,var(--accent)_28%,var(--border))]'
   const livePulseClass =
@@ -374,10 +374,10 @@
   const pausedNoticeClass =
     'bg-panel-paused-notice mt-2 flex items-center justify-between gap-3 border-t border-border py-3'
   const resumeBtnClass =
-    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] rounded-md border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
+    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] rounded-sm border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
 
   const bgPanelBtnClass =
-    'bg-panel-btn cursor-pointer rounded-md border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
+    'bg-panel-btn cursor-pointer rounded-sm border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
   const bgPanelBtnPrimary =
     'bg-panel-btn-primary border-transparent bg-accent text-accent-foreground'
 </script>

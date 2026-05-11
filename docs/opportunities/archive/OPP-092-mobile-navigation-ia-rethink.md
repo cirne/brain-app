@@ -216,7 +216,7 @@ Each of these is independently shippable; the IA win is roughly steps 4–6 even
 
 ## Out of scope
 
-- **Full theming / DESIGN.md adoption** — see [OPP-089](OPP-089-google-design-md-exploratory.md). This OPP ships with the existing Tailwind tokens.
+- **Full theming / DESIGN.md adoption** — see [OPP-089 stub](../OPP-089-google-design-md-exploratory.md) (**[archive](OPP-089-google-design-md-exploratory.md)**). This OPP ships with the existing Tailwind tokens.
 - **iOS-style URL-bar shroud / standalone install** — separate work; not required for this redesign.
 - **Sharing UX** — `WikiShareDialog` stays as today; this OPP only changes how the entry point is presented (top bar icon vs sheet item).
 - **Calendar header redesign** — the existing week-nav inline header is fine on mobile; only the host bar around it changes.

@@ -114,7 +114,7 @@ For dense rails (e.g. **chat history**), a **small scoped block** can be a legit
 
 ### OPPORTUNITIES vs architecture
 
-- **`docs/opportunities/`** — track **work items** (e.g. [OPP-049](../opportunities/OPP-049-global-ui-tailwind-refactor.md)), not cascade debugging recipes.
+- **`docs/opportunities/`** — historical umbrella (**[OPP-049](../opportunities/archive/OPP-049-global-ui-tailwind-refactor.md)**; **stub:** [OPP-049](../opportunities/OPP-049-global-ui-tailwind-refactor.md)), not cascade debugging recipes.
 - **`docs/architecture/tailwind-migration.md`** (this file) — **how we migrate** and **how we debug** when styling surprises us.
 
 ---
