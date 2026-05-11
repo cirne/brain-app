@@ -892,14 +892,37 @@ describe('consumeAgentChatStream', () => {
     expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({ type: 'hub:sources-changed' })
   })
 
-  it('sets touchedWiki true for delete tool_end', async () => {
+  it('sets touchedWiki true for delete_file tool_end', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
     ]
     const res = sseResponse([
       'event: tool_end\n',
-      'data: {"id":"d1","name":"delete","args":{"path":"ideas/old.md"},"result":"deleted","isError":false}\n\n',
+      'data: {"id":"d1","name":"delete_file","args":{"path":"ideas/old.md"},"result":"deleted","isError":false}\n\n',
+    ])
+    const { touchedWiki } = await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(touchedWiki).toBe(true)
+  })
+
+  it('sets touchedWiki true for rmdir tool_end', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"r1","name":"rmdir","args":{"path":"scratch/empty"},"result":"removed","isError":false}\n\n',
     ])
     const { touchedWiki } = await consumeAgentChatStream(res, {
       getMessages: () => messages,

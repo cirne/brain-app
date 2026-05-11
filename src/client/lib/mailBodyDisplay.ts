@@ -1,7 +1,8 @@
 /**
  * Wrap a MIME body for `iframe.srcdoc` when it is not already a full document.
  * Ensures the browser parses markup as HTML (charset, viewport, links open in a new tab).
- * The inner HTML is not escaped — combine with `sandbox` (no `allow-scripts`) on the iframe.
+ * Plaintext bodies are escaped and wrapped with newline-preserving CSS. HTML bodies are not escaped —
+ * combine with `sandbox` (no `allow-scripts`) on the iframe.
  * Injects base theme colors (`IFRAME_DOC_BASE_STYLE`) because srcdoc is isolated from host CSS variables;
  * values mirror `src/client/style.css` until the message’s own CSS or inline styles override.
  */
@@ -60,6 +61,10 @@ const IFRAME_DOC_BASE_STYLE = `<style>
     overflow-wrap: break-word !important;
     word-break: break-word !important;
   }
+  .mail-plain-body {
+    white-space: pre-wrap;
+    font-family: inherit;
+  }
   img, table { max-width: 100% !important; height: auto; }
   table { border-collapse: collapse; }
   /* Flatten sender “card” corners so HTML mail aligns with inbox chrome (no nested rounded slabs). */
@@ -88,21 +93,36 @@ export function emailBodyToIframeSrcdoc(raw: string): string {
   const t = raw.trim()
   if (!t) return ''
   const passthrough = /^<!DOCTYPE\s+html/i.test(t) || /<\s*html[\s>]/i.test(t)
-  return passthrough
-    ? injectIframeDocGuard(raw)
-    : `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body>${raw}</body></html>`
+  if (passthrough) return injectIframeDocGuard(raw)
+
+  const body = looksLikeEmailHtml(t)
+    ? raw
+    : `<div class="mail-plain-body">${escapeAndLinkifyUrls(raw)}</div>`
+  return `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body>${body}</body></html>`
+}
+
+function escapeHtmlText(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 /** Escape HTML and turn bare http(s) URLs into links (safe subset for mail bodies). */
 export function escapeAndLinkifyUrls(text: string): string {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  return escaped.replace(
-    /https?:\/\/[^\s)>\]"]+/g,
-    (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`,
-  )
+  const urlPattern = /https?:\/\/[^\s)>\]"]+/g
+  let html = ''
+  let lastIndex = 0
+  for (const match of text.matchAll(urlPattern)) {
+    const url = match[0]
+    const index = match.index ?? 0
+    html += escapeHtmlText(text.slice(lastIndex, index))
+    const escapedUrl = escapeHtmlText(url)
+    html += `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer">${escapedUrl}</a>`
+    lastIndex = index + url.length
+  }
+  html += escapeHtmlText(text.slice(lastIndex))
+  return html
 }
 
 /** Remove embedded styles/scripts and HTML comments (email HTML often has huge &lt;style&gt; blocks). */
@@ -116,8 +136,10 @@ export function stripEmailEmbeddedTags(html: string): string {
 /** True when the string is probably HTML from HTML→text conversion or multipart HTML bodies. */
 export function looksLikeEmailHtml(s: string): boolean {
   const head = s.slice(0, 12000)
-  if (/<\s*(html|head|body|table|tbody|thead|tr|td|div|center)\b/i.test(head)) return true
-  const openClose = head.match(/<\/?[a-z][a-z0-9]{0,14}\b/gi)
+  if (/<\s*\/?\s*(html|head|body|table|tbody|thead|tr|td|div|center)\s*(?:\s|>|\/)/i.test(head)) {
+    return true
+  }
+  const openClose = head.match(/<\s*\/?\s*[a-z][a-z0-9]{0,14}(?:\s+[^>]*|\/?)>/gi)
   if (openClose && openClose.length >= 10) return true
   return false
 }

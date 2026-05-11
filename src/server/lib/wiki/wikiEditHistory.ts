@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { wikiEditsPathResolved } from '@server/lib/platform/brainHome.js'
 
-export type WikiEditOp = 'edit' | 'write' | 'move' | 'delete'
+export type WikiEditOp = 'edit' | 'write' | 'move' | 'delete' | 'rmdir'
 
 export interface WikiEditRecord {
   ts: string
@@ -14,7 +14,7 @@ export interface WikiEditRecord {
 }
 
 /** `$BRAIN_HOME/var/wiki-edits.jsonl` (see `shared/brain-layout.json`, key `wikiEditsLog`).
- * Append-only JSONL: each successful wiki **`write`**, **`edit`**, **`move_file`**, and **`delete_file`** from agent tools adds a row via `appendWikiEditRecord`.
+ * Append-only JSONL: each successful wiki **`write`**, **`edit`**, **`move_file`**, **`delete_file`**, and **`rmdir`** from agent tools adds a row via `appendWikiEditRecord`.
  * Prefer tailing or injecting excerpts for WikiBuilder / analytics — not LLM maintenance of markdown activity files.
  */
 export function wikiEditHistoryPath(): string {

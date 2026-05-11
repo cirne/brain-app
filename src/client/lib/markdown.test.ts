@@ -11,15 +11,15 @@ import {
 } from './markdown.js'
 
 describe('renderMarkdown', () => {
-  it('converts wiki: link with .md extension to wiki-link anchor', () => {
-    const result = renderMarkdown('[health index](wiki:health/_index.md)')
+  it('converts vault-relative markdown link to wiki-link anchor', () => {
+    const result = renderMarkdown('[health index](health/_index.md)')
     expect(result).toContain('class="wiki-link"')
     expect(result).toContain('data-wiki="health/_index.md"')
     expect(result).toContain('>health index<')
   })
 
-  it('converts wiki: link without .md extension, appending .md', () => {
-    const result = renderMarkdown('[Dr. Amy Offutt](wiki:people/amy-offutt)')
+  it('.md extension appended when markdown link has none', () => {
+    const result = renderMarkdown('[Dr. Amy Offutt](people/amy-offutt)')
     expect(result).toContain('data-wiki="people/amy-offutt.md"')
     expect(result).toContain('>Dr. Amy Offutt<')
   })
@@ -34,9 +34,18 @@ describe('renderMarkdown', () => {
     expect(html).toContain('data-wiki="people/x.md"')
   })
 
-  it('converts date: link to date-link button', () => {
+  it('converts legacy date: link to date-link button', () => {
     const result = renderMarkdown('[see notes](date:2026-04-13)')
-    expect(result).toContain('<button class="date-link" data-date="2026-04-13">see notes</button>')
+    expect(result).toContain(
+      '<button type="button" class="date-link" data-date="2026-04-13">see notes</button>',
+    )
+  })
+
+  it('converts bare ISO YYYY-MM-DD link to date-link button', () => {
+    const result = renderMarkdown('[see notes](2026-04-13)')
+    expect(result).toContain(
+      '<button type="button" class="date-link" data-date="2026-04-13">see notes</button>',
+    )
   })
 
   it('does not convert regular https links', () => {

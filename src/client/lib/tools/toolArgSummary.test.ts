@@ -29,6 +29,13 @@ describe('toolSummaryPartsFromArgs', () => {
     })
   })
 
+  it('returns rmdir path without wiki page extension normalization', () => {
+    expect(toolSummaryPartsFromArgs('rmdir', { path: 'scratch/empty' })).toEqual({
+      mode: 'single_path',
+      path: 'scratch/empty',
+    })
+  })
+
   it('grep shows pattern and optional scope', () => {
     expect(toolSummaryPartsFromArgs('grep', { pattern: 'foo', path: 'people' })).toEqual({
       mode: 'text',
@@ -145,12 +152,17 @@ describe('wikiOpenPathFromArgs', () => {
   it('uses destination for move_file', () => {
     expect(wikiOpenPathFromArgs('move_file', { from: 'a.md', to: 'b' })).toBe('b.md')
   })
+
+  it('uses directory path for rmdir', () => {
+    expect(wikiOpenPathFromArgs('rmdir', { path: 'scratch/empty' })).toBe('scratch/empty')
+  })
 })
 
 describe('wikiFilePendingVerb', () => {
   it('matches seeding prefixes for write/edit', () => {
     expect(wikiFilePendingVerb('write')).toBe('Writing')
     expect(wikiFilePendingVerb('edit')).toBe('Updating')
+    expect(wikiFilePendingVerb('rmdir')).toBe('Removing')
     expect(wikiFilePendingVerb('grep')).toBe(null)
   })
 })

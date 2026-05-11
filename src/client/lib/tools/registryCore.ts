@@ -49,6 +49,7 @@ const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }>
   find: { key: 'find', defaultValue: 'Find wiki files (glob)' },
   move_file: { key: 'moveFile', defaultValue: 'Move file' },
   delete_file: { key: 'deleteFile', defaultValue: 'Delete file' },
+  rmdir: { key: 'rmdir', defaultValue: 'Remove folder' },
   search_index: { key: 'searchIndex', defaultValue: 'Search index' },
   read_mail_message: { key: 'readMailMessage', defaultValue: 'Read mail' },
   read_indexed_file: { key: 'readIndexedFile', defaultValue: 'Read file' },

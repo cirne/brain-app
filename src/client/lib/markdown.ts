@@ -50,8 +50,8 @@ export function takeFirstLines(text: string, maxLines: number): string {
   return lines.slice(0, maxLines).join('\n')
 }
 
-// LLM emits [display text](date:YYYY-MM-DD); marked renders it as <a href="date:...">
-// LLM emits [display text](wiki:path) → marked → transformWikiPageHtml turns wiki: + [[wikilinks]] into data-wiki links.
+// Legacy: [text](date:YYYY-MM-DD) still becomes <a href="date:…"> from marked; transformWikiPageHtml rewrites to buttons.
+// Safety net if any <a href="date:…"> remains after the wiki transform pass.
 const DATE_LINK_RE = /<a href="date:(\d{4}-\d{2}-\d{2})">([\s\S]*?)<\/a>/g
 
 function escapeHtml(s: string): string {
@@ -63,7 +63,10 @@ function escapeHtml(s: string): string {
 }
 
 function applyDateLinkButtons(html: string): string {
-  return html.replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
+  return html.replace(
+    DATE_LINK_RE,
+    '<button type="button" class="date-link" data-date="$1">$2</button>',
+  )
 }
 
 /** Renders a visible header for product-feedback issue markdown (bug/feature + title; optional appHint). DRY: single place for chat + wiki `renderMarkdown`. */
@@ -108,7 +111,7 @@ function trySplitInlineFeedbackLead(body: string): { header: string; rest: strin
 }
 
 /**
- * Markdown body (no YAML front matter) → HTML: `marked` + Obsidian `[[links]]` + `wiki:` href handling.
+ * Markdown body (no YAML front matter) → HTML: `marked` + Obsidian `[[links]]` + internal path / date handling.
  * Use this anywhere we show markdown as HTML (chat, wiki cards, TipTap editor) so wikilinks behave consistently.
  */
 export function renderMarkdownBody(body: string): string {

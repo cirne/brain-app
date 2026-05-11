@@ -210,7 +210,7 @@ async function resolveToolEndDetails(
   return details
 }
 
-/** Record wiki-relative paths for successful write/edit/move/delete_file (post-turn touch-up anchor). */
+/** Record wiki-relative paths for successful write/edit/move/delete_file/rmdir (post-turn touch-up anchor). */
 function recordWikiMutationRelPaths(
   toolName: string,
   toolArgs: unknown | undefined,
@@ -223,7 +223,8 @@ function recordWikiMutationRelPaths(
   switch (toolName) {
     case 'write':
     case 'edit':
-    case 'delete_file': {
+    case 'delete_file':
+    case 'rmdir': {
       const p = args.path
       if (typeof p === 'string') {
         const rel = safeWikiRelativePath(wikiRoot, p)

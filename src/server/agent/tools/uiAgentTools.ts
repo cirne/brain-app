@@ -75,7 +75,7 @@ export function createUiAgentTools(wikiDir: string) {
           type: Type.Literal('file'),
           path: Type.String({
             description:
-              'Absolute path to a file on disk (e.g. /Users/…/sheet.xlsx). Opens the Files viewer, not wiki. Do not use wiki: for raw attachments or spreadsheets.',
+              'Absolute path to a file on disk (e.g. /Users/…/sheet.xlsx). Opens the Files viewer. Use for raw attachments and spreadsheets, not vault markdown paths.',
           }),
         }),
         Type.Object({

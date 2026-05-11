@@ -14,6 +14,7 @@ export const ALL_AGENT_TOOL_NAMES = [
   'find',
   'move_file',
   'delete_file',
+  'rmdir',
   'search_index',
   'read_mail_message',
   'read_indexed_file',
@@ -51,7 +52,7 @@ export type AgentToolName = (typeof ALL_AGENT_TOOL_NAMES)[number]
 
 /** Grouped names for composing custom omit/only lists (subset of {@link ALL_AGENT_TOOL_NAMES}). */
 export const TOOL_GROUPS = {
-  wikiFilesystem: ['read', 'grep', 'find', 'move_file', 'delete_file'] as const satisfies readonly AgentToolName[],
+  wikiFilesystem: ['read', 'grep', 'find', 'move_file', 'delete_file', 'rmdir'] as const satisfies readonly AgentToolName[],
   wikiWrite: ['edit', 'write', 'remember_preference'] as const satisfies readonly AgentToolName[],
   filesSources: ['manage_sources', 'refresh_sources'] as const satisfies readonly AgentToolName[],
   mailCore: ['search_index', 'read_mail_message', 'read_indexed_file', 'read_attachment', 'list_inbox', 'find_person'] as const satisfies readonly AgentToolName[],
@@ -124,6 +125,7 @@ export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
   'write',
   'move_file',
   'delete_file',
+  'rmdir',
   'inbox_rules',
   'archive_emails',
   'draft_email',

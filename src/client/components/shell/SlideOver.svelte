@@ -710,6 +710,7 @@
         onNavigate={(path) => onWikiNavigate(path)}
         onNavigateToDir={onWikiDirNavigate}
         onContextChange={onContextChange}
+        onCalendarNavigate={onCalendarNavigate}
       />
     {:else if overlay.type === 'wiki-dir'}
       <WikiDirList

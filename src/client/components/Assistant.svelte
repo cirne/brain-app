@@ -1403,6 +1403,7 @@ import AppShell from '@components/app/AppShell.svelte'
                           onNavigate={(path) => onWikiNavigate(path)}
                           onNavigateToDir={openWikiDir}
                           onContextChange={setContext}
+                          onCalendarNavigate={switchToCalendar}
                         />
                       {:else}
                         <WikiDirList

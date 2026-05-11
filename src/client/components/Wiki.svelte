@@ -35,6 +35,8 @@
     onNavigate,
     onNavigateToDir: _onNavigateToDir,
     onContextChange,
+    /** When set, `date-link` buttons and bare ISO `YYYY-MM-DD` anchors open this day in the calendar. */
+    onCalendarNavigate,
   }: {
     initialPath?: string
     refreshKey?: number
@@ -45,6 +47,7 @@
     /** Open folder browser (`/wiki-dir/…`) instead of picking `_index.md` / first file. */
     onNavigateToDir?: (_dirPath: string) => void
     onContextChange?: (_ctx: SurfaceContext) => void
+    onCalendarNavigate?: (_ymd: string) => void
   } = $props()
 
   function wikiFileUrl(rel: string): string {
@@ -241,8 +244,22 @@
       e.target instanceof Element ? e.target : ((e.target as Node | null)?.parentElement ?? null)
     if (!start) return
 
+    const dateBtn = start.closest<HTMLElement>('.date-link[data-date]')
+    if (dateBtn?.dataset.date && onCalendarNavigate) {
+      e.preventDefault()
+      onCalendarNavigate(dateBtn.dataset.date)
+      return
+    }
+
     const a = start.closest('a')
     if (!a) return
+
+    const hrefRaw = (a.getAttribute('href') ?? '').trim().split('#')[0]
+    if (/^\d{4}-\d{2}-\d{2}$/.test(hrefRaw) && onCalendarNavigate) {
+      e.preventDefault()
+      onCalendarNavigate(hrefRaw)
+      return
+    }
 
     e.preventDefault()
 

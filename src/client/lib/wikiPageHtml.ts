@@ -1,9 +1,18 @@
 /**
- * Server wiki pages use `marked()` only; `[label](wiki:path)` becomes `<a href="wiki:...">`.
- * In-app navigation and WikiFileName mounts expect `data-wiki` + `href="#"`.
+ * Server wiki pages use `marked()` only; `[label](path.md)` becomes `<a href="path.md">`.
+ * In-app navigation and WikiFileName mounts rewrite internal anchors to `data-wiki` + `href="#"`.
+ * ISO `YYYY-MM-DD` link targets become calendar `date-link` buttons.
  */
 
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
+
+/** Link text like "Victoria / Seattle" uses spaced slashes as typography, not `victoria/seattle.md`. */
+function labelLooksLikeWikiFsPath(label: string): boolean {
+  const t = label.trim()
+  if (!t.includes('/')) return false
+  if (/\s\/\s/.test(t)) return false
+  return true
+}
 
 /**
  * Encode each path segment for `/api/wiki/...` (and legacy path-shaped wiki URLs).
@@ -31,11 +40,6 @@ function wikiBasenameNormalized(ref: string): string {
 }
 
 /**
- * Map a `data-wiki` value to a real file path from the wiki file list.
- * Full paths match as today; bare slugs (e.g. `matt-shandera`) also resolve when
- * exactly one file ends with that slug (e.g. `people/matt-shandera.md`).
- */
-/**
  * Resolve a wiki vault reference string from a clicked `<a>` (viewer + TipTap).
  * Returns null when the anchor looks like an external/protocol link with no wiki ref.
  */
@@ -61,8 +65,9 @@ export function wikiLinkRefFromAnchor(a: HTMLAnchorElement): string | null {
     if (href === '#' || href === '') {
       const label = a.textContent?.trim() ?? ''
       if (label) {
+        const pathLike = labelLooksLikeWikiFsPath(label)
         ref = wikiPathForReadToolArg(
-          label.includes('/') ? label : label.toLowerCase().replace(/\s+/g, '-'),
+          pathLike ? label : label.toLowerCase().replace(/\s+/g, '-'),
         )
       }
     }
@@ -102,7 +107,7 @@ export function resolveWikiLinkToFilePath(
 
 /**
  * - `[[path|label]]` Obsidian-style wikilinks
- * - `<a href="wiki:path">label</a>` from markdown `[label](wiki:path)`
+ * - `<a href="path.md">` (and similar relative) from markdown
  */
 export function transformWikiPageHtml(html: string): string {
   let out = html.replace(/\[\[([^\]]+)\]\]/g, (_, inner: string) => {
@@ -111,25 +116,21 @@ export function transformWikiPageHtml(html: string): string {
     const resolved = wikiPathForReadToolArg(path.trim())
     return `<a href="#" data-wiki="${resolved}" class="wiki-link">${display}</a>`
   })
-  out = out.replace(
-    /<a href="wiki:([^"]+)">([\s\S]*?)<\/a>/gi,
-    (_, rawPath: string, label: string) => {
-      const p = wikiPathForReadToolArg(rawPath.trim())
-      return `<a href="#" data-wiki="${p}" class="wiki-link">${label}</a>`
-    },
-  )
-  /**
-   * Markdown internal links without `wiki:`:
-   * - `[label](ideas/note.md)` → `<a href="ideas/note.md">`
-   * - `[label](me)` / `[label](people/lewis-cirne)` → `<a href="me">` / `<a href="people/lewis-cirne">` (no `.md`, no `wiki:`)
-   * Those never matched the `wiki:` rule and had no `data-wiki`, so wiki viewer clicks did nothing.
-   */
+  /** Internal markdown links: relative paths, optional attribute order on `<a>`. */
   out = out.replace(/<a\s+([^>]*)>([\s\S]*?)<\/a>/gi, (full, attrs: string, inner: string) => {
     const hm = attrs.match(/\bhref=(["'])([^"']*)\1/i)
     if (!hm) return full
     const pathOnly = hm[2].trim().split('#')[0]
     if (!pathOnly || pathOnly === '#') return full
-    if (/^https?:\/\//i.test(pathOnly) || /^mailto:/i.test(pathOnly) || /^date:/i.test(pathOnly) || /^wiki:/i.test(pathOnly)) {
+    const legacyDate = pathOnly.match(/^date:(\d{4}-\d{2}-\d{2})$/i)
+    if (legacyDate) {
+      return `<button type="button" class="date-link" data-date="${legacyDate[1]}">${inner}</button>`
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(pathOnly)) {
+      return `<button type="button" class="date-link" data-date="${pathOnly}">${inner}</button>`
+    }
+    if (/^wiki:/i.test(pathOnly)) return full
+    if (/^https?:\/\//i.test(pathOnly) || /^mailto:/i.test(pathOnly)) {
       return full
     }
     if (pathOnly.includes('://')) return full
@@ -148,7 +149,7 @@ export function transformWikiPageHtml(html: string): string {
     const label = text.trim()
     if (!label) return full
     const p = wikiPathForReadToolArg(
-      label.includes('/') ? label : label.toLowerCase().replace(/\s+/g, '-'),
+      labelLooksLikeWikiFsPath(label) ? label : label.toLowerCase().replace(/\s+/g, '-'),
     )
     return `<a href="#" data-wiki="${p}" class="wiki-link">${text}</a>`
   })

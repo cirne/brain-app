@@ -10,25 +10,68 @@ import {
 } from './mailBodyDisplay.js'
 
 describe('mailBodyDisplay', () => {
-  it('emailBodyToIframeSrcdoc wraps fragments and passes through full documents', () => {
-    const wrapped = emailBodyToIframeSrcdoc('<p class="x">Hi</p>')
+  it('emailBodyToIframeSrcdoc wraps plaintext bodies in a newline-preserving sans-serif container', () => {
+    const wrapped = emailBodyToIframeSrcdoc(
+      ['Good morning', '> quoted reply <not-html>', 'See https://ex.com'].join('\n'),
+    )
     expect(wrapped).toContain('<!DOCTYPE html>')
     expect(wrapped).toContain('<meta charset="utf-8">')
     expect(wrapped).toContain('max-width: 100%')
     expect(wrapped).toContain('overflow-y: hidden')
     expect(wrapped).toContain('padding: 0 1rem 1rem')
     expect(wrapped).toContain('overflow-wrap: break-word')
-    expect(wrapped).toContain('<p class="x">Hi</p>')
+    expect(wrapped).toContain('.mail-plain-body')
+    expect(wrapped).toContain('white-space: pre-wrap')
+    expect(wrapped).toContain('font-family: inherit')
+    expect(wrapped).toContain('<div class="mail-plain-body">')
+    expect(wrapped).toContain('Good morning\n&gt; quoted reply &lt;not-html&gt;\nSee ')
+    expect(wrapped).toContain('<a href="https://ex.com"')
     expect(wrapped).toContain('--mail-bg')
     expect(wrapped).toContain('prefers-color-scheme: dark')
     expect(wrapped).toContain('body *')
     expect(wrapped).toContain('color: var(--mail-accent) !important')
     expect(wrapped).toContain('border-radius: 0 !important')
+  })
+
+  it('emailBodyToIframeSrcdoc treats quoted email addresses and angle-bracket URLs as plaintext', () => {
+    const wrapped = emailBodyToIframeSrcdoc(
+      [
+        'Begin forwarded message:',
+        '> From: Geoff Cannon <geoff@jillandgeoff.com>',
+        '> To: Ashar Rizqi <ashar@bountihq.com>',
+        '> The big news: we launched b.claw by bounti.ai <http://bounti.ai/>.',
+        '> On Fri, May 8, Ashar <ashar@bountihq.com <mailto:ashar@bountihq.com>> wrote:',
+      ].join('\n'),
+    )
+
+    expect(wrapped).toContain('<div class="mail-plain-body">')
+    expect(wrapped).toContain('&gt; From: Geoff Cannon &lt;geoff@jillandgeoff.com&gt;')
+    expect(wrapped).toContain('&lt;<a href="http://bounti.ai/"')
+    expect(wrapped).toContain('http://bounti.ai/</a>&gt;')
+    expect(wrapped).toContain('\n&gt; To: Ashar')
+  })
+
+  it('looksLikeEmailHtml ignores repeated plaintext address and URL angle brackets', () => {
+    const forwardedHeaders = Array.from(
+      { length: 12 },
+      (_, i) => `> From: Person ${i} <person${i}@example.com> via <http://example.com/${i}>`,
+    ).join('\n')
+
+    expect(looksLikeEmailHtml(forwardedHeaders)).toBe(false)
+    expect(emailBodyToIframeSrcdoc(forwardedHeaders)).toContain('<div class="mail-plain-body">')
+  })
+
+  it('emailBodyToIframeSrcdoc passes through full documents and likely HTML fragments', () => {
     const full = '<!DOCTYPE html><html><body>x</body></html>'
     const passthrough = emailBodyToIframeSrcdoc(full)
     expect(passthrough).toContain('overflow-y: hidden')
     expect(passthrough).toContain('padding: 0 1rem 1rem')
     expect(passthrough).toContain('x</body>')
+
+    const fragment = '<table><tr><td>Hi</td></tr></table>'
+    const wrappedFragment = emailBodyToIframeSrcdoc(fragment)
+    expect(wrappedFragment).toContain(fragment)
+    expect(wrappedFragment).not.toContain('&lt;table&gt;')
   })
 
   it('escapeAndLinkifyUrls escapes markup and wraps URLs', () => {

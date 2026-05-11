@@ -1,6 +1,6 @@
 import { defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
-import { mkdir, rename, stat, unlink } from 'node:fs/promises'
+import { mkdir, rename, rmdir, stat, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import {
   appendWikiEditRecord,
@@ -114,5 +114,44 @@ export function createWikiFileManagementTools(wikiDir: string) {
     },
   })
 
-  return { moveFile, deleteFile }
+  const rmdirTool = defineTool({
+    name: 'rmdir',
+    label: 'Remove directory',
+    description: 'Remove an empty directory under the wiki root (same scope as read/write). Fails for files and non-empty directories.',
+    parameters: Type.Object({
+      path: Type.String({
+        description:
+          'Vault-relative directory path (e.g. scratch/empty-folder). Redundant me/ prefix is accepted (same as read/write).',
+      }),
+    }),
+    async execute(_toolCallId: string, params: { path: string }) {
+      const rel = coerceWikiToolRelativePath(wikiDir, stripLegacyMePrefixFromRawPath(params.path))
+      if (wikiToolRelTouchesPeerProjection(rel)) {
+        throw new Error('Cannot remove directories inside shared wiki projection (read-only).')
+      }
+      const abs = resolveSafeWikiPath(wikiDir, rel)
+      const info = await stat(abs)
+      if (!info.isDirectory()) {
+        throw new Error(`Path is not a directory: ${rel}`)
+      }
+      try {
+        await rmdir(abs)
+      } catch (e: unknown) {
+        const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : ''
+        if (code === 'ENOTEMPTY') {
+          throw new Error(`Directory is not empty: ${rel}`, { cause: e })
+        }
+        throw e
+      }
+      await appendWikiEditRecord(wikiDir, 'rmdir', rel).catch((err: unknown) => {
+        brainLogger.warn({ err }, 'wiki edit record failed')
+      })
+      return {
+        content: [{ type: 'text' as const, text: `Removed empty directory ${rel}` }],
+        details: { path: rel },
+      }
+    },
+  })
+
+  return { moveFile, deleteFile, rmdir: rmdirTool }
 }

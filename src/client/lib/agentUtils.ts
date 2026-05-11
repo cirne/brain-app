@@ -125,11 +125,11 @@ export type SkillMenuItem = {
   args?: string
 }
 
-/** Extract wiki file paths referenced in assistant messages (tool args + wiki: links). */
+/** Extract wiki file paths referenced in assistant messages (tool args + markdown `](*.md)` vault links). */
 export function extractReferencedFiles(messages: ChatMessage[]): string[] {
   const seen = new Set<string>()
   const files: string[] = []
-  const wikiRe = /\]\(wiki:([^)]+)\)/g
+  const mdHrefRe = /\]\(([^)]+)\)/g
   for (const msg of messages) {
     if (msg.role !== 'assistant') continue
     for (const part of msg.parts ?? []) {
@@ -142,9 +142,15 @@ export function extractReferencedFiles(messages: ChatMessage[]): string[] {
         files.push(path)
       } else if (part.type === 'text') {
         let m
-        wikiRe.lastIndex = 0
-        while ((m = wikiRe.exec(part.content)) !== null) {
-          const p = m[1].endsWith('.md') ? m[1] : `${m[1]}.md`
+        mdHrefRe.lastIndex = 0
+        while ((m = mdHrefRe.exec(part.content)) !== null) {
+          const pathOnly = m[1].trim().split('#')[0]
+          if (/^https?:\/\//i.test(pathOnly) || /^mailto:/i.test(pathOnly)) continue
+          if (/^wiki:/i.test(pathOnly)) continue
+          if (/^date:/i.test(pathOnly) || /^\d{4}-\d{2}-\d{2}$/.test(pathOnly)) continue
+          if (!pathOnly.endsWith('.md')) continue
+          if (pathOnly.includes('://')) continue
+          const p = pathOnly.replace(/^\.\//, '')
           if (!seen.has(p)) { seen.add(p); files.push(p) }
         }
       }

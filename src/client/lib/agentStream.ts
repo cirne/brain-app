@@ -350,7 +350,9 @@ export async function consumeAgentChatStream(
               else if (endArgs !== undefined) part.toolCall.args = endArgs
             }
             const name = part.toolCall.name
-            if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
+            if (name === 'write' || name === 'edit' || name === 'move_file' || name === 'delete_file' || name === 'rmdir') {
+              touchedWiki = true
+            }
             if (
               name === 'manage_sources' &&
               !data.isError &&

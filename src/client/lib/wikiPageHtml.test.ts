@@ -48,6 +48,11 @@ describe('wikiLinkRefFromAnchor', () => {
     const a = anchor({ href: '#' }, 'some slug-title')
     expect(wikiLinkRefFromAnchor(a)).toBe('some-slug-title.md')
   })
+
+  it('slugifies label with typographic slash (not a path) when href is hash-only', () => {
+    const a = anchor({ href: '#' }, 'California coast / Yosemite')
+    expect(wikiLinkRefFromAnchor(a)).toBe('california-coast-/-yosemite.md')
+  })
 })
 
 describe('normalizeWikiPathForMatch', () => {
@@ -91,20 +96,17 @@ describe('transformWikiPageHtml', () => {
     expect(h).toContain('data-wiki="me.md"')
   })
 
-  it('converts marked wiki: href links to data-wiki (with .md in href)', () => {
-    const h = transformWikiPageHtml(
-      '<p>x <a href="wiki:companies/new-relic.md">New Relic</a> y</p>',
-    )
-    expect(h).not.toContain('href="wiki:')
-    expect(h).toContain('data-wiki="companies/new-relic.md"')
-    expect(h).toContain('>New Relic<')
+  it('converts `[label](2026-07-01)` anchors to date-link buttons', () => {
+    const h = transformWikiPageHtml('<p><a href="2026-07-01">July 1</a></p>')
+    expect(h).toContain('class="date-link"')
+    expect(h).toContain('data-date="2026-07-01"')
+    expect(h).toContain('>July 1<')
   })
 
-  it('appends .md when href has no extension', () => {
-    const h = transformWikiPageHtml(
-      '<a href="wiki:people/alice">Alice</a>',
-    )
-    expect(h).toContain('data-wiki="people/alice.md"')
+  it('converts legacy `[label](date:…)` href to date-link buttons', () => {
+    const h = transformWikiPageHtml('<a href="date:2026-07-01">Day</a>')
+    expect(h).toContain('data-date="2026-07-01"')
+    expect(h).toContain('class="date-link"')
   })
 
   it('converts marked relative `[label](ideas/foo.md)` anchors to data-wiki', () => {
@@ -113,7 +115,7 @@ describe('transformWikiPageHtml', () => {
     expect(h).not.toContain('href="ideas/')
   })
 
-  it('converts `[label](me)` style anchors (href without .md or wiki: prefix)', () => {
+  it('converts `[label](me)` style anchors (href without .md)', () => {
     const h = transformWikiPageHtml('<p><a href="me">me</a></p>')
     expect(h).toContain('data-wiki="me.md"')
     expect(h).toContain('class="wiki-link"')

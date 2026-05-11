@@ -40,6 +40,10 @@ export function toolSummaryPartsFromArgs(name: string, args: unknown): ToolSumma
       const raw = typeof a.path === 'string' ? a.path.trim() : ''
       return raw.length ? { mode: 'single_path', path: wikiPathForReadToolArg(raw) } : null
     }
+    case 'rmdir': {
+      const raw = typeof a.path === 'string' ? a.path.trim() : ''
+      return raw.length ? { mode: 'single_path', path: raw } : null
+    }
     case 'move_file': {
       if (typeof a.from !== 'string' || typeof a.to !== 'string') return null
       const from = a.from.trim()
@@ -191,6 +195,10 @@ export function wikiOpenPathFromArgs(name: string, args: unknown): string | null
     const p = a.path.trim()
     return p.length ? wikiPathForReadToolArg(p) : null
   }
+  if (name === 'rmdir' && typeof a.path === 'string') {
+    const p = a.path.trim()
+    return p.length ? p : null
+  }
   return null
 }
 
@@ -207,6 +215,8 @@ export function wikiFilePendingVerb(name: string): string | null {
       return 'Reading'
     case 'delete_file':
       return 'Deleting'
+    case 'rmdir':
+      return 'Removing'
     case 'move_file':
       return 'Moving'
     default:

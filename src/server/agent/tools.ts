@@ -75,7 +75,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     unifiedWikiRoot,
   })
 
-  const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir)
+  const { moveFile, deleteFile, rmdir } = createWikiFileManagementTools(wikiDir)
 
   const {
     searchIndex,
@@ -123,6 +123,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     find,
     moveFile,
     deleteFile,
+    rmdir,
     searchIndex,
     readMailMessage,
     readIndexedFile,

@@ -56,6 +56,7 @@ export const TOOL_ICONS = {
   get_imessage_thread: MessageSquare,
   move_file: FileText,
   delete_file: FileText,
+  rmdir: FileText,
   list_inbox: BookOpen,
   inbox_rules: BookOpen,
   archive_emails: Mail,

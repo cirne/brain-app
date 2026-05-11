@@ -36,7 +36,7 @@ No fixed order — pick what fits the question.
 - **`source`** narrows by *connector* (a specific mailbox, `*-drive`, etc.) — not a folder name, vendor nickname, or topic. Omit unless the user named one; discover valid ids via `manage_sources op=list` or the **Configured ripmail sources** block below. If a tool errors with "Unknown source," drop `source` rather than guessing.
 - **Two readers, two scopes:** `read_mail_message` for mail Message-IDs; `read_indexed_file` for Drive/local indexed `messageId`s or allowlisted paths. Wiki pages use `read`.
 - **`calendar`** uses `YYYY-MM-DD` for ranges, RFC3339 for timed event start/end, `YYYY-MM-DD` for all-day and `recurrence_until`. Calendar events are stored in UTC; convert with the offset in the date/time block. The `search` op returns capped hints plus `totalMatchCount` — narrow the window for full rows.
-- **`open`** surfaces a wiki path, email id, or calendar date in the UI. In chat, prefer inline `[Title](wiki:relative/path.md)` (only after the file exists) and `[label](date:YYYY-MM-DD)`.
+- **`open`** jumps the UI to a wiki path, a specific mail message, or a calendar day. Use it when the user should land on that surface; in prose you can also link inline with normal markdown (see **Style** below).
 - **`set_chat_title`** — first message of a new chat or when the topic clearly changes. Run early, ~3–8 words. Skip trivial follow-ups on the same topic.
 - **`suggest_reply_options`** — call at most once per turn, late (after lookups) so chip labels match your answer. Do not repeat chip labels in prose. For an end-of-conversation chip, set `submit` to exactly `__brain_finish_conversation__` (verbatim wire string).
 {{#if brainCollaborationEnabled}}
@@ -61,8 +61,8 @@ The wiki becomes the source of truth gradually, by accumulating answers to real 
 
 ## Style
 - Be concise. Use markdown.
-- Wiki links: `[Title](wiki:relative/path.md)` — only after the file exists.
-- Date links: `[label](date:YYYY-MM-DD)` — exact dates only, no vague ranges.
+- **Wiki links in chat prose:** always use normal markdown links with a wiki-root-relative target: `[Title](relative/path.md)` — e.g. `[Jane Doe](people/jane-doe.md)`, `[Trip summary](travel/2026/summary.md)`. Use a **real path** that exists or that you just created; include the **`.md`** extension. The target is relative to the wiki root, not a Drive/local/source path. Do not use a leading `/`, `wiki/`, `me/`, filesystem absolute paths, or backticks for file references you want the user to open. In wiki page bodies, Obsidian-style `[[wikilinks]]` / `[[folder/note|Label]]` are fine too.
+- **Calendar day:** `[Label](YYYY-MM-DD)` — **only** an exact ISO calendar date (so the app can open that day). Do not use custom URL schemes, ranges, or vague phrases as the link target.
 
 ## Spoken preview (`speak`)
 Call **`speak`** only when the injected user block says **read answers aloud** is on. If present: after `set_chat_title` and the minimum lookups, call **`speak`** once with 1–2 sentences, then output the full markdown answer.

@@ -118,6 +118,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('find')
     expect(names).toContain('move_file')
     expect(names).toContain('delete_file')
+    expect(names).toContain('rmdir')
     expect(names).toContain('search_index')
     expect(names).toContain('read_mail_message')
     expect(names).toContain('read_indexed_file')
@@ -943,7 +944,7 @@ Sel: {{selection}} File: {{open_file}}`,
     expect(text).toContain('foo')
   })
 
-  describe('move_file and delete_file tools', () => {
+  describe('move_file, delete_file, and rmdir tools', () => {
     let histFile: string
 
     beforeEach(async () => {
@@ -1043,6 +1044,42 @@ Sel: {{selection}} File: {{open_file}}`,
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const del = tools.find((t) => t.name === 'delete_file')!
       await expect(del.execute('del-bad', { path: '../../../etc/passwd' })).rejects.toThrow('wiki directory')
+    })
+
+    it('rmdir removes an empty wiki directory and appends history', async () => {
+      const { mkdir, access, readFile } = await import('node:fs/promises')
+      await mkdir(join(wikiDir, 'scratch', 'empty'), { recursive: true })
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const rmdir = tools.find((t) => t.name === 'rmdir')!
+      const result = await rmdir.execute('rmdir-1', { path: 'scratch/empty' })
+      expect(toolResultFirstText(result)).toContain('scratch/empty')
+      await expect(access(join(wikiDir, 'scratch', 'empty'))).rejects.toMatchObject({ code: 'ENOENT' })
+      const raw = await readFile(histFile, 'utf8')
+      const rec = JSON.parse(raw.trim()) as { op: string; path: string }
+      expect(rec.op).toBe('rmdir')
+      expect(rec.path).toBe('scratch/empty')
+    })
+
+    it('rmdir rejects path traversal', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const rmdir = tools.find((t) => t.name === 'rmdir')!
+      await expect(rmdir.execute('rmdir-bad', { path: '../../../etc/passwd' })).rejects.toThrow('wiki directory')
+    })
+
+    it('rmdir rejects files', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const rmdir = tools.find((t) => t.name === 'rmdir')!
+      await expect(rmdir.execute('rmdir-file', { path: 'ideas/foo.md' })).rejects.toThrow('not a directory')
+    })
+
+    it('rmdir rejects non-empty directories', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const rmdir = tools.find((t) => t.name === 'rmdir')!
+      await expect(rmdir.execute('rmdir-nonempty', { path: 'ideas' })).rejects.toThrow(/not empty|ENOTEMPTY/i)
     })
   })
 })

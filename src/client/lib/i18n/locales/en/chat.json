@@ -115,6 +115,7 @@
     "find": "Find wiki files (glob)",
     "moveFile": "Move file",
     "deleteFile": "Delete file",
+    "rmdir": "Remove folder",
     "searchIndex": "Search index",
     "readMailMessage": "Read mail",
     "readIndexedFile": "Read file",

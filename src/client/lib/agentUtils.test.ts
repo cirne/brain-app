@@ -129,22 +129,22 @@ describe('extractReferencedFiles', () => {
     expect(extractReferencedFiles(msgs)).toEqual([])
   })
 
-  it('extracts wiki: links with .md extension from text parts', () => {
+  it('extracts vault-relative .md links from markdown', () => {
     const msgs: ChatMessage[] = [{
       role: 'assistant',
       content: '',
-      parts: [{ type: 'text', content: 'See [project](wiki:projects/alpha.md) for details.' }],
+      parts: [{ type: 'text', content: 'See [Trip](travel/summer.md) for details.' }],
     }]
-    expect(extractReferencedFiles(msgs)).toEqual(['projects/alpha.md'])
+    expect(extractReferencedFiles(msgs)).toEqual(['travel/summer.md'])
   })
 
-  it('appends .md to wiki: links without extension', () => {
+  it('does not treat ISO date markdown links as wiki paths', () => {
     const msgs: ChatMessage[] = [{
       role: 'assistant',
       content: '',
-      parts: [{ type: 'text', content: 'See [person](wiki:people/alice) for context.' }],
+      parts: [{ type: 'text', content: 'Meetings on [Mon](2026-05-12).' }],
     }]
-    expect(extractReferencedFiles(msgs)).toEqual(['people/alice.md'])
+    expect(extractReferencedFiles(msgs)).toEqual([])
   })
 
   it('deduplicates across multiple messages', () => {
@@ -152,7 +152,7 @@ describe('extractReferencedFiles', () => {
       {
         role: 'assistant',
         content: '',
-        parts: [{ type: 'text', content: 'See [alpha](wiki:projects/alpha.md).' }],
+        parts: [{ type: 'text', content: 'See [alpha](projects/alpha.md).' }],
       },
       {
         role: 'assistant',
@@ -171,7 +171,7 @@ describe('extractReferencedFiles', () => {
       role: 'assistant',
       content: '',
       parts: [
-        { type: 'text', content: 'See [alpha](wiki:a.md) and [beta](wiki:b.md).' },
+        { type: 'text', content: 'See [alpha](a.md) and [beta](b.md).' },
       ],
     }]
     expect(extractReferencedFiles(msgs)).toEqual(['a.md', 'b.md'])

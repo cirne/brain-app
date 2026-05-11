@@ -10,6 +10,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'find',
   'move_file',
   'delete_file',
+  'rmdir',
   'search_index',
   'read_mail_message',
   'read_indexed_file',

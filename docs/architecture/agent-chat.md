@@ -59,7 +59,7 @@ Tappable follow-ups use the **`suggest_reply_options`** tool and an optional **r
 
 ## Agent tools (summary)
 
-**From pi-coding-agent (wiki-scoped):** `read`, `edit`, `write`, `grep`, `find` — plus app wrappers `move_file`, `delete_file`.
+**From pi-coding-agent (wiki-scoped):** `read`, `edit`, `write`, `grep`, `find` — plus app wrappers `move_file`, `delete_file`, `rmdir` (empty directories only).
 
 **Custom (inline in `tools.ts`):** e.g. `search_index`, `read_mail_message`, `read_indexed_file`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, `load_skill`, **`suggest_reply_options`** (quick-reply chips; see [chat-suggestions.md](./chat-suggestions.md)), and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
 
