@@ -6,13 +6,29 @@ Frontmatter (required keys):
 - (optional) appHint: one line of non-identifying build info if the user provided it
 
 After frontmatter, use these sections in order:
+
 ## Summary
-- Clear, neutral summary of the report. Replace emails, person names, phone numbers, API keys, tokens, and physical addresses with placeholders like [EMAIL], [NAME], [PHONE], [REDACTED].
+- Clear, neutral summary of the report: what happened vs what they expected.
 
 ## Repro
-- Numbered steps or "Unclear from context."
+Numbered steps the team can follow, or "Unclear from context."
+
+**Preserve anything that helps reproduce or diagnose**, especially when the bug is about the agent:
+
+- Include the user's **prompt / goal** from context (their exact wording is fine unless it embeds secrets). You may shorten very long prompts with "…", but **do not** drop the gist.
+- When **recent context or tool/error hints** list **tool calls** (names, arguments, outcomes, errors), carry that forward as a tight **timeline**: each tool → one line for what it attempted → short outcome (success / error snippet / missing step). Readers should see ordering (e.g. whether `search_wiki` or related tools ran).
+- Keep **queries, wiki paths (vault-relative), error messages, and HTTP/API error text** when they matter; truncate huge payloads to the **smallest excerpt** that still shows the problem (roughly a few hundred characters per block is enough unless a longer snippet is essential).
+- Do **not** paste entire mail bodies or long private threads; summarize and redact identifiers there (see below).
+
+Sensitive information — redact inline, **without** stripping the structural clues above:
+
+- **Secrets and credentials**: passwords, API keys, OAuth/access/refresh tokens, session cookies, `Authorization` / `Bearer` values, magic links → `[REDACTED]` or omit the value while keeping surrounding context ("request failed after auth").
+- **Personal identifiers** when not needed to understand the bug: replace standalone emails / phone numbers / postal addresses / full legal names with `[EMAIL]`, `[PHONE]`, `[ADDRESS]`, `[NAME]` (if a **role** matters—e.g. wrong recipient—use "[NAME] (intended teammate)" rather than deleting the narrative).
+- If redaction removes a crucial detail, say so briefly in **Redaction**.
+
+Prefer a structured **Repro** over vagueness: a short numbered list plus a bullet **Tool trace** (or inlined chronology) is better than omitting calls entirely.
+
+Do not invent repro steps or tools that were not in context.
 
 ## Redaction
-- One short paragraph stating what was redacted (best-effort; not legal guarantees).
-
-Do not include full chat logs. Do not invent repro steps.
+- One short paragraph listing **categories** redacted (e.g. bearer token, mailbox addresses)—best-effort; not legal guarantees.

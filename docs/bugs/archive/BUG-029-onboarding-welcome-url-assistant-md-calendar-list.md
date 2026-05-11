@@ -19,6 +19,6 @@ First-time guided setup had several rough edges: browser landed on OAuth interme
 - `src/server/lib/wiki/wikiAgentWritePolicy.ts`
 - `src/server/prompts/onboarding-agent/system.hbs`
 
-**Related:** [BUG-014](./BUG-014-setup-flow-per-stage-urls-and-naming.md), [BUG-027](../BUG-027-calendar-create-event-empty-list-rejects-source.md)
+**Related:** [BUG-014](./BUG-014-setup-flow-per-stage-urls-and-naming.md), [BUG-027](BUG-027-calendar-create-event-empty-list-rejects-source.md)
 
 **Tags:** hosted, first-run, OAuth, wiki, calendar

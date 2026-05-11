@@ -4,7 +4,7 @@
 
 **Tags:** `calendar` · `agent` · `google`
 
-**Related:** [OPP-019](../OPP-019-gmail-first-class-brain.md); [`calendar` tool](../../../src/server/agent/tools/calendarTools.ts); [BUG-027](../../bugs/BUG-027-calendar-create-event-empty-list-rejects-source.md); [OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md) (tracking).
+**Related:** [OPP-019](../OPP-019-gmail-first-class-brain.md); [`calendar` tool](../../../src/server/agent/tools/calendarTools.ts); [BUG-027](../../bugs/archive/BUG-027-calendar-create-event-empty-list-rejects-source.md); [OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md) (tracking).
 
 ---
 

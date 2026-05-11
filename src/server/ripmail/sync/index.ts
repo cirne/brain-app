@@ -12,6 +12,7 @@ import {
   loadGoogleOAuthTokens,
   errorMessageIndicatesInvalidGoogleGrant,
   removeGoogleOAuthTokenFile,
+  googleOAuthTokenSourceId,
 } from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
@@ -102,6 +103,14 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
         const result = await syncGoogleCalendarSource(db, ripmailHome, source)
         if (result.error) {
           brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:gcal:refresh-error')
+          if (errorMessageIndicatesInvalidGoogleGrant(result.error)) {
+            const tokenSourceId = googleOAuthTokenSourceId(source)
+            const cleared = removeGoogleOAuthTokenFile(ripmailHome, tokenSourceId)
+            brainLogger.warn(
+              { sourceId: source.id, tokenSourceId, removedOAuthFile: cleared },
+              'ripmail:gcal:invalid-grant-cleared',
+            )
+          }
         }
       } catch (e) {
         brainLogger.error({ sourceId: source.id, err: String(e) }, 'ripmail:gcal:refresh-source-error')

@@ -32,3 +32,4 @@ Draft tooling should **prefer** authoritative sources (connected mailbox **`From
 ## User feedback
 
 - In-app issue **#13** (`2026-04-27`).
+- In-app issue **#16** (`2026-05-09`) — while iterating on a draft, the assistant **guessed** wrong **CC** and contact email repeatedly instead of resolving from **wiki / contact** evidence first (same “identity fidelity” class as wrong `To` / signature).

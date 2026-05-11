@@ -62,7 +62,7 @@ import { send } from './send.js'
 import { refresh } from './sync/index.js'
 import { listGoogleCalendarsForSource } from './sync/googleCalendar.js'
 import { loadRipmailConfig } from './sync/config.js'
-export { loadRipmailConfig, saveRipmailConfig } from './sync/config.js'
+export { loadRipmailConfig, saveRipmailConfig, loadGoogleOAuthTokens, googleOAuthTokenSourceId } from './sync/config.js'
 import type { InboxOptions } from './inbox.js'
 import type { SearchOptions } from './types.js'
 

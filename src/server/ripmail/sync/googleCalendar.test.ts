@@ -144,6 +144,37 @@ describe('Google Calendar sync', () => {
     expect(state.sync_token).toBe('fresh-token')
   })
 
+  it('propagates calendarList failures (OAuth token / refresh 400 class) — user feedback #15', async () => {
+    const client = makeCalendarClient()
+    const apiErr = Object.assign(
+      new Error('Request failed with status code 400'),
+      {
+        code: 400,
+        response: {
+          status: 400,
+          data: { error: 'invalid_grant', error_description: 'Token has been expired or revoked.' },
+        },
+      },
+    )
+    client.calendarListList.mockRejectedValueOnce(apiErr)
+    await expect(listGoogleCalendarsForSource(home, source, { client })).rejects.toMatchObject({
+      message: expect.stringMatching(/400/),
+    })
+  })
+
+  it('records sync error when events.list fails with OAuth-style 400 — user feedback #15', async () => {
+    const db = await prepareRipmailDb(home)
+    const client = makeCalendarClient()
+    const apiErr = Object.assign(new Error('Request failed with status code 400'), {
+      code: 400,
+      response: { status: 400, data: { error: 'invalid_request' } },
+    })
+    client.eventsList.mockRejectedValueOnce(apiErr)
+    const result = await syncGoogleCalendarSource(db, home, source, { client })
+    expect(result.eventsUpserted).toBe(0)
+    expect(result.error).toMatch(/400/)
+  })
+
   it('lists calendars through the live Google Calendar API', async () => {
     const client = makeCalendarClient()
     client.calendarListList

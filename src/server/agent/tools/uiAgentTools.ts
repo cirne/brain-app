@@ -144,19 +144,26 @@ export function createUiAgentTools(wikiDir: string) {
     label: 'Product feedback (draft / submit)',
     description:
       'Submit structured product feedback (bugs or features) to local files under BRAIN_HOME/issues. ' +
-      'Use op=draft with user_message (and optional transcript) to get a redacted markdown draft. ' +
-      'Show the draft to the user; only after they explicitly agree, call op=submit with the same ' +
-      'markdown and confirmed=true. Never submit without clear user confirmation.',
+      'Use op=draft with user_message and optional transcript/tool_hints so the markdown issue can reproduce ' +
+      'the problem—include user prompts and ordered tool calls (names + short outcomes/errors) when the bug ' +
+      'is about agent behavior; secrets stay out. Show the draft; only after they explicitly agree, ' +
+      'call op=submit with the same markdown and confirmed=true. Never submit without clear user confirmation.',
     parameters: Type.Object({
       op: Type.Union([Type.Literal('draft'), Type.Literal('submit')]),
       user_message: Type.Optional(
         Type.String({ description: 'Required for op=draft: what the user wants to report' }),
       ),
       transcript: Type.Optional(
-        Type.String({ description: 'Optional bounded recent chat for repro context' }),
+        Type.String({
+          description:
+            'Optional recent conversation text for drafts: include user wording and—when diagnosing the agent—a compact chronological tool trace (tool name → args summary → outcome/error). Bounded by server.',
+        }),
       ),
       tool_hints: Type.Optional(
-        Type.String({ description: 'Optional short structured error text (not full logs)' }),
+        Type.String({
+          description:
+            'Optional complementary lines: errors, snippets, stack hints. Omit secrets.',
+        }),
       ),
       markdown: Type.Optional(
         Type.String({ description: 'Required for op=submit: full issue markdown (from draft step)' }),

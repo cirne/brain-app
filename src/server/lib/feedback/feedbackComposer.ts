@@ -38,7 +38,7 @@ export async function composeFeedbackIssueMarkdown(input: {
   const toolBit = input.toolHints?.trim()
     ? `\n\n## Tool / error hints (structured)\n${input.toolHints.trim()}\n`
     : ''
-  const user = `## User request\n\n${input.userMessage.trim()}\n\n## Recent context (may be empty)\n\n${t || '_none_'}${toolBit}\n\nWrite the full markdown file now.`
+  const user = `## User request\n\n${input.userMessage.trim()}\n\n## Conversation and diagnostics (may be empty)\n\n${t || '_none_'}${toolBit}\n\nWrite the full markdown file now—follow system instructions: reproduce with tool/order detail when relevant; redact only secrets and unnecessary PII.`
 
   const context = {
     systemPrompt: feedbackSystemPrompt(),

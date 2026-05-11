@@ -19,11 +19,24 @@ import {
   ripmailCalendarDeleteEvent,
   ripmailGoogleCalendarListCalendars,
   loadRipmailConfig,
+  loadGoogleOAuthTokens,
+  googleOAuthTokenSourceId,
 } from '@server/ripmail/index.js'
 import { updateHubRipmailCalendarIds } from '@server/lib/hub/hubRipmailSources.js'
 
 function runCalendarRefreshAgent(sourceId?: string): { ok: true } {
   return runRipmailRefreshInBackground(sourceId, 'ripmail refresh (calendar background) failed')
+}
+
+function stringifyCalendarDiscoveryError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function googleCalendarReconnectError(sourceId: string, error: unknown): Error {
+  const message = stringifyCalendarDiscoveryError(error)
+  return new Error(
+    `Reconnect Google Calendar for source ${sourceId}: live calendar discovery failed (${message}). The Google OAuth grant may have expired, been revoked, or been created with the wrong OAuth client.`,
+  )
 }
 
 /** Full row cap for non-search range queries. */
@@ -392,20 +405,24 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
 
       if (params.op === 'list_calendars') {
         const home = ripmailHomeForBrain()
+        const cfg = loadRipmailConfig(home)
         const indexedCalendars = await ripmailCalendarListCalendars(home, {
           sourceIds: params.source?.trim() ? [params.source.trim()] : undefined,
         })
         let calendars = indexedCalendars
-        if (params.source?.trim()) {
+        const sourceId = params.source?.trim()
+        if (sourceId) {
           try {
-            const live = await ripmailGoogleCalendarListCalendars(home, params.source.trim())
+            const live = await ripmailGoogleCalendarListCalendars(home, sourceId)
             if (live.length > 0) calendars = live
-          } catch {
-            /* Keep indexed results when live discovery is unavailable. */
+          } catch (e) {
+            const sourceConfig = (cfg.sources ?? []).find((s) => s.id === sourceId)
+            const tokenSourceId = sourceConfig ? googleOAuthTokenSourceId(sourceConfig) : sourceId
+            const hasOAuthTokens = loadGoogleOAuthTokens(home, tokenSourceId) !== null
+            if (hasOAuthTokens) throw googleCalendarReconnectError(sourceId, e)
           }
         } else {
           try {
-            const cfg = loadRipmailConfig(home)
             const liveRows = []
             for (const source of cfg.sources ?? []) {
               if (source.kind !== 'googleCalendar') continue

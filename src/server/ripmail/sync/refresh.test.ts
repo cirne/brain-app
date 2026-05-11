@@ -5,6 +5,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import { closeRipmailDb } from '../db.js'
+import type { GoogleCalendarSyncResult } from './googleCalendar.js'
 
 const syncGmailSource = vi.hoisted(() =>
   vi.fn(async () => ({
@@ -15,7 +16,7 @@ const syncGmailSource = vi.hoisted(() =>
   })),
 )
 const syncGoogleCalendarSource = vi.hoisted(() =>
-  vi.fn(async () => ({
+  vi.fn(async (): Promise<GoogleCalendarSyncResult> => ({
     sourceId: 'gsrc-gcal',
     eventsUpserted: 0,
     eventsDeleted: 0,
@@ -110,6 +111,23 @@ describe('refresh Gmail invalid_grant', () => {
     const tokenPath = join(home, 'gsrc', 'google-oauth.json')
     await refresh(home)
     expect(existsSync(tokenPath)).toBe(true)
+  })
+
+  it('deletes the owning google-oauth.json after invalid_grant from syncGoogleCalendarSource', async () => {
+    syncGoogleCalendarSource.mockResolvedValue({
+      sourceId: 'gsrc-gcal',
+      eventsUpserted: 0,
+      eventsDeleted: 0,
+      error: 'GaxiosError: invalid_grant',
+    })
+    const tokenPath = join(home, 'gsrc', 'google-oauth.json')
+    expect(existsSync(tokenPath)).toBe(true)
+
+    await refresh(home, { sourceId: 'gsrc-gcal' })
+
+    expect(existsSync(tokenPath)).toBe(false)
+    expect(syncGmailSource).not.toHaveBeenCalled()
+    expect(syncGoogleCalendarSource).toHaveBeenCalledTimes(1)
   })
 
   it('refreshes only the requested googleCalendar source when sourceId is calendar-only', async () => {

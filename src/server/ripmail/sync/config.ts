@@ -68,6 +68,11 @@ export function getGoogleCalendarSources(config: RipmailConfig): SourceConfig[] 
   return sources.filter((s) => s.kind === 'googleCalendar')
 }
 
+/** Google Calendar sources store OAuth tokens under the owning Gmail source. */
+export function googleOAuthTokenSourceId(source: SourceConfig): string {
+  return source.oauthSourceId?.trim() || source.id
+}
+
 /** Read the IMAP password for a source from per-source .env. */
 export function loadImapPassword(ripmailHome: string, sourceId: string): string | undefined {
   const envPath = join(ripmailHome, sourceId, '.env')

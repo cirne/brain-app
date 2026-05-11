@@ -47,12 +47,7 @@
     "demoPasswordPlaceholder": "Demo password",
     "pleaseWait": "Please wait…",
     "continue": "Continue",
-    "instructions": {
-      "pickMailbox": "Pick a mailbox (Steven Kean, Kenneth Lay, or Jeff Skilling), then enter the shared demo password you were given. Demo mail must be pre-seeded on the server (",
-      "datasetIntro": "). Data comes from the public Enron email dataset (roughly 1998–2001). For background, see ",
-      "datasetLinkLabel": "Carnegie Mellon’s Enron email dataset",
-      "datasetOutro": "."
-    },
+    "instructions": "Pick a mailbox then enter the shared demo password you were given. Data comes from the public Enron email dataset (roughly 1998–2001). For background, see <a href=\"https://www.cs.cmu.edu/~enron/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline\">Carnegie Mellon’s Enron email dataset</a>.",
     "backToSignIn": "Back to sign-in",
     "errors": {
       "loadAccountsWithStatus": "Could not load demo accounts ({{status}}).",

@@ -142,23 +142,7 @@
       </form>
 
       <p class="ob-lead mt-4 text-xs text-muted">
-        {$t('onboarding.enronDemo.instructions.pickMailbox')}
-        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
-          npm run brain:seed-enron-demo
-        </code>
-        {$t('onboarding.enronDemo.instructions.datasetIntro')}
-        <a
-          href="https://www.cs.cmu.edu/~enron/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="underline"
-        >
-          {$t('onboarding.enronDemo.instructions.datasetLinkLabel')}
-        </a>
-        {$t('onboarding.enronDemo.instructions.datasetOutro')}
-      </p>
-      <p class="ob-lead mt-6 text-xs text-muted">
-        <a href="/" class="underline">{$t('onboarding.enronDemo.backToSignIn')}</a>
+        {@html $t('onboarding.enronDemo.instructions')}
       </p>
     </div>
   </OnboardingHeroShell>

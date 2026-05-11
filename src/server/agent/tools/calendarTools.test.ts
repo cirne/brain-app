@@ -18,6 +18,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailCalendarCancelEvent: vi.fn(async () => {}),
   ripmailCalendarDeleteEvent: vi.fn(async () => {}),
   loadRipmailConfig: vi.fn(() => ({ sources: [] })),
+  loadGoogleOAuthTokens: vi.fn(() => null),
 }))
 
 vi.mock('@server/lib/hub/hubRipmailSources.js', () => ({
@@ -110,6 +111,17 @@ describe('createCalendarTool allowedOps', () => {
       calendars: [{ id: 'primary', name: 'Personal', sourceId: 's1', color: '#123456' }],
     })
     expect(ripmailGoogleCalendarListCalendars).toHaveBeenCalledWith('/tmp/test-ripmail-home', 's1')
+  })
+
+  it('surfaces live Google calendar discovery failures when OAuth tokens exist', async () => {
+    const { ripmailGoogleCalendarListCalendars, loadGoogleOAuthTokens } = await import('@server/ripmail/index.js')
+    vi.mocked(loadGoogleOAuthTokens).mockReturnValueOnce({ accessToken: 'at', refreshToken: 'rt' })
+    vi.mocked(ripmailGoogleCalendarListCalendars).mockRejectedValueOnce(new Error('Request failed with status code 400'))
+    const { calendar } = createCalendarTool('UTC')
+
+    await expect(
+      calendar.execute('t3-oauth-fail', { op: 'list_calendars', source: 's1' }, undefined, undefined, testToolCtx),
+    ).rejects.toThrow(/Reconnect Google Calendar.*400/)
   })
 
   it('persists configured calendar ids instead of editing the source label', async () => {
