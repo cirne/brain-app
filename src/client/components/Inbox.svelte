@@ -7,7 +7,10 @@
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
-  import { emailBodyToIframeSrcdoc } from '@client/lib/mailBodyDisplay.js'
+  import {
+    emailDisplayBodyToIframeSrcdoc,
+    type EmailDisplayBody,
+  } from '@client/lib/mailBodyDisplay.js'
   import { locationShowsEmailThread } from '@client/lib/inboxEmailLocation.js'
   import { getInboxThreadHeaderCell } from '@client/lib/inboxSlideHeaderContext.js'
   import { t } from '@client/lib/i18n/index.js'
@@ -24,6 +27,28 @@
     firstname: string
     lastname: string
     primaryAddress: string
+  }
+
+  type InboxMessageHeaders = {
+    from: string
+    to: string[]
+    cc: string[]
+    subject: string
+    date: string
+  }
+
+  type InboxMessageResponse = {
+    messageId: string
+    threadId: string
+    headers: InboxMessageHeaders
+    bodyKind: 'html' | 'text'
+    bodyText: string
+    bodyHtml?: string
+  }
+
+  type ThreadContent = {
+    headers: string
+    body: EmailDisplayBody
   }
 
   function navInboxEmail(overlay: Extract<Overlay, { type: 'email' }>) {
@@ -70,10 +95,10 @@
   let inboxListLoading = $state(true)
   let syncing = $state(false)
   let selectedThread = $state<string | null>(null)
-  let threadContent = $state<{ headers: string; body: string } | null>(null)
+  let threadContent = $state<ThreadContent | null>(null)
 
   const threadIframeSrcdoc = $derived(
-    threadContent?.body != null ? emailBodyToIframeSrcdoc(threadContent.body) : '',
+    threadContent?.body != null ? emailDisplayBodyToIframeSrcdoc(threadContent.body) : '',
   )
 
   /** Size iframe to document height so the thread pane scrolls as one surface (no nested iframe scrollbars). */
@@ -253,16 +278,36 @@
     emails = emails.map(e => e.id === id ? { ...e, read: true } : e)
   }
 
-  function parseEmailHeaders(headerText: string): { subject: string; from: string } {
-    let subject = $t('inbox.inboxPanel.thread.noSubject')
-    let from = ''
-    for (const line of headerText.split('\n')) {
-      const sub = line.match(/^Subject:\s*(.*)$/i)
-      if (sub) subject = sub[1].trim()
-      const fr = line.match(/^From:\s*(.*)$/i)
-      if (fr) from = fr[1].trim()
+  function headerValue(value: string): string {
+    return value.replace(/\r?\n\s*/g, ' ').trim()
+  }
+
+  function headerListValue(values: string[]): string {
+    return values.map(headerValue).filter(Boolean).join(', ')
+  }
+
+  function inboxMessageHeadersForDisplay(headers: InboxMessageHeaders): string {
+    return [
+      ['From', headerValue(headers.from)],
+      ['To', headerListValue(headers.to)],
+      ['Cc', headerListValue(headers.cc)],
+      ['Date', headerValue(headers.date)],
+      ['Subject', headerValue(headers.subject)],
+    ]
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n')
+  }
+
+  function threadContentFromMessage(message: InboxMessageResponse): ThreadContent {
+    return {
+      headers: inboxMessageHeadersForDisplay(message.headers),
+      body: {
+        bodyKind: message.bodyKind,
+        bodyText: message.bodyText,
+        bodyHtml: message.bodyHtml,
+      },
     }
-    return { subject, from }
   }
 
   /** 404 can be transient right after sync / new mail; brief retries match “refresh fixes it”. */
@@ -305,23 +350,20 @@
       const res = await fetchInboxMessageForOpen(id, signal)
       if (threadOpenLatest.isStale(token)) return
       if (res.ok) {
-        const text = await res.text()
+        const message = (await res.json()) as InboxMessageResponse
         if (threadOpenLatest.isStale(token)) return
-        const blank = text.indexOf('\n\n')
-        const headers = blank === -1 ? '' : text.slice(0, blank)
-        const body = blank === -1 ? text : text.slice(blank + 2)
-        threadContent =
-          blank === -1 ? { headers: '', body: text } : { headers, body: body }
-        const meta = headers
-          ? parseEmailHeaders(headers)
-          : { subject: $t('inbox.inboxPanel.thread.noSubject'), from: '' }
+        threadContent = threadContentFromMessage(message)
+        const meta = {
+          subject: headerValue(message.headers.subject) || $t('inbox.inboxPanel.thread.noSubject'),
+          from: headerValue(message.headers.from),
+        }
         orphanThreadMeta = meta
         onContextChange?.({
           type: 'email',
           threadId: id,
           subject: meta.subject,
           from: meta.from,
-          body: (blank === -1 ? text : body).slice(0, 4000),
+          body: message.bodyText.slice(0, 4000),
         })
         try {
           await markRead(id)
@@ -366,13 +408,10 @@
       const res = await fetchInboxMessageForOpen(email.id, signal)
       if (threadOpenLatest.isStale(token)) return
       if (res.ok) {
-        const text = await res.text()
+        const message = (await res.json()) as InboxMessageResponse
         if (threadOpenLatest.isStale(token)) return
-        const blank = text.indexOf('\n\n')
-        threadContent = blank === -1
-          ? { headers: '', body: text }
-          : { headers: text.slice(0, blank), body: text.slice(blank + 2) }
-        onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: threadContent.body.slice(0, 4000) })
+        threadContent = threadContentFromMessage(message)
+        onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: message.bodyText.slice(0, 4000) })
       } else {
         if (threadOpenLatest.isStale(token)) return
         threadContent = null

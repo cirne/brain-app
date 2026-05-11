@@ -2,7 +2,9 @@
 
 ## Summary
 
-Capture **automatic, timestamped backups** of the wiki vault so users can **recover from a bad expansion, accidental edits, or agent mistakes** without a full factory reset ([OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)). A practical default is **ZIP archives stored under `BRAIN_HOME`** (outside the live `wiki/` tree), created on a predictable cadence—e.g. **once per completed Your Wiki supervisor lap** ([OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md))—with **retention limits** and a **Hub UX** to list, inspect, and restore.
+Capture **automatic, timestamped backups** of the wiki vault so users can **recover from a bad expansion, accidental edits, or agent mistakes** without a full factory reset ([OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)). **Decided direction** (see [backup-restore.md](../architecture/backup-restore.md)): **compressed ZIP** archives under **`var/wiki-backups/`** (tenant-relative; [`shared/brain-layout.json`](../../shared/brain-layout.json) key `wikiBackups`), on a predictable cadence—e.g. **once per completed Your Wiki supervisor lap** ([OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md))—with **retention limits** and a **Hub UX** to list, inspect, and restore. Prefer **skipping** a run when **`var/wiki-edits.jsonl`** shows no changes since the last wiki snapshot (optional manifest backstop for edits that bypass the log).
+
+**Separate concern:** **Full-tenant** compressed archives to **object storage** (S3) for **DR, cell migration, and portability** are **heavier** and documented in [cloud-tenant-lifecycle.md](../architecture/cloud-tenant-lifecycle.md) / [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)—not the same as wiki-only history in `var/wiki-backups/`.
 
 ## Problem
 
@@ -21,8 +23,8 @@ Capture **automatic, timestamped backups** of the wiki vault so users can **reco
 ## Non-goals
 
 - Full **version control** UX (history per file, blame, branches).
-- **Continuous** replication or cloud backup (could be a follow-on; zips in `BRAIN_HOME` remain copyable by the user).
-- Backing up **entire** `BRAIN_HOME` (chats, ripmail) in v1—scope is **wiki vault only** unless we explicitly expand later.
+- **Continuous** replication (full **tenant** archives to S3 / transitions are [backup-restore.md](../architecture/backup-restore.md) tier 2 + [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md); this OPP stays **wiki-only local history**).
+- Packing **entire** `BRAIN_HOME` into the **Hub “previous wiki version”** flow—full-tenant ZIP is for **DR/migration**, not per-lap rollback UX.
 
 **Related (future collaboration):** [IDEA Wiki sharing with collaborators](../ideas/archive/IDEA-wiki-sharing-collaborators.md) may need **finer-grained** undo/blame than whole-vault ZIP restore; treat that as additive or superseding only after product decisions, not duplicate scope in OPP-034 v1.
 
@@ -58,7 +60,7 @@ Users need confidence they’re picking the **right** moment:
 
 ### A — Timestamped ZIP under `BRAIN_HOME` (recommended baseline)
 
-**Layout (illustrative):** `$BRAIN_HOME/var/wiki-snapshots/wiki-20260420T153022Z-lap47.zip` or a dedicated `backups/wiki/` segment added to [brain-layout](OPP-012-brain-home-data-layout.md) if we want it first-class.
+**Layout:** `$BRAIN_HOME/var/wiki-backups/wiki-20260420T153022Z-lap47.zip` (see `wikiBackups` in [`shared/brain-layout.json`](../../shared/brain-layout.json); cross-link [OPP-012](OPP-012-brain-home-data-layout.md) when layout is updated there).
 
 **Contents:** The `**wiki/`** directory as it exists on disk for the active vault root ([OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — zip `**BRAIN_WIKI_ROOT/wiki**`, not `BRAIN_HOME/wiki` when split).
 
@@ -95,7 +97,7 @@ Initialize a **bare or non-bare** repo beside or under the vault, commit **only*
 
 | Knob          | Suggested default                                                                                                |
 | ------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **When**      | End of each **Your Wiki** supervisor lap (success path); skip if wiki unchanged (optional hash of tree manifest) |
+| **When**      | End of each **Your Wiki** supervisor lap (success path); **skip if unchanged** (see `var/wiki-edits.jsonl` vs last snapshot high-water mark in [backup-restore.md](../architecture/backup-restore.md)) |
 | **Retention** | Last **15–30** snapshots **or** ~**500 MB–1 GB** total, whichever bound hits first (tunable)                     |
 | **Manual**    | Hub button **“Snapshot wiki now”**                                                                               |
 
@@ -113,8 +115,10 @@ Initialize a **bare or non-bare** repo beside or under the vault, commit **only*
 - [OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md): snapshots are **before** rebuild/reset; restore is **lighter** than full rebuild.
 - [OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md): snapshot source path must follow **wiki root** resolution (`brainWikiParentRoot()` / `wikiDir`).
 - [OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md): **lap completion** is the natural hook for automatic snapshots.
-- [OPP-012](OPP-012-brain-home-data-layout.md): store archives under a `**BRAIN_HOME`** segment; do **not** place giant zip trees **inside** the synced wiki folder unless the user opts in.
+- [OPP-012](OPP-012-brain-home-data-layout.md): wiki snapshot archives live under **`var/wiki-backups/`** (`wikiBackups` in [`shared/brain-layout.json`](../../shared/brain-layout.json)); do **not** place giant zip trees **inside** the synced wiki folder unless the user opts in.
+- [backup-restore.md](../architecture/backup-restore.md): **ADR** — wiki-only ZIP history vs full-tenant S3 archives.
+- [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md): hosted **full-tenant** durability / migration (ZIP direction; implementation may use tar where faster—see [cloud-tenant-lifecycle.md](../architecture/cloud-tenant-lifecycle.md)).
 
 ## Status
 
-**Proposed** — UX + technical options; no implementation yet.
+**Decided direction** ([backup-restore.md](../architecture/backup-restore.md)) — Hub UX, triggers, and implementation still **not shipped**; technical approaches **§ B/C** remain optional adjuncts.

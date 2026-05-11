@@ -1,6 +1,6 @@
 # Agent instructions
 
-Project context and developer conventions are in **[AGENTS.md](./AGENTS.md)**. That file is the single source of truth for assistants (including Claude Code and Cursor).
+Project context and developer conventions are in **[AGENTS.md](./AGENTS.md)**. That file is the single source of truth for assistants (including Claude Code and Cursor), including the agent behavior guidelines for clarity, simplicity, minimal diffs, and verification.
 
 ## Cloud agents (Cursor Cloud)
 

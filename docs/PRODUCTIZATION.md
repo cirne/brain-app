@@ -40,6 +40,8 @@ A user signs up with their Google account, approves email and calendar access, a
 
 **Likely answer:** S3 or similar for the storage layer, with our own lightweight versioning (keep last N versions of each file). Lose git but gain zero-friction onboarding.
 
+**Backup / restore direction (2026):** Product-facing backups use **compressed ZIP** (not Git as the primary mechanism). **Wiki-only** snapshot history under **`var/wiki-backups/`** ([`shared/brain-layout.json`](shared/brain-layout.json) `wikiBackups`) supports cheap rollback; **full-tenant** ZIPs to **object storage** cover **DR and migration** (see [architecture/backup-restore.md](architecture/backup-restore.md), [OPP-034](opportunities/OPP-034-wiki-snapshots-and-point-in-time-restore.md)).
+
 **See also:** [IDEA Wiki sharing with collaborators](ideas/archive/IDEA-wiki-sharing-collaborators.md) (§ Git per user) explores **internal** per-user repos for rollback/diff/collaboration history without exposing git to novices—a deliberate revisit of this tradeoff, not a contradiction of “likely answer” until product chooses.
 
 **Related (app state):** Durable **app** data — chat history, settings, and other metadata the product owns — is separate from the wiki backing store above. A plausible pattern is **local SQLite per tenant** with **periodic backup of the database file to tenant-scoped object storage**, so state survives deploys and restarts alongside other per-tenant blobs. Schema and scope are TBD. See [ARCHITECTURE.md](./ARCHITECTURE.md#future-durable-app-state-sqlite).

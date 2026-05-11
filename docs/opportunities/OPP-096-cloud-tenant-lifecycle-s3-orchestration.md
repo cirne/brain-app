@@ -6,6 +6,8 @@
 
 Implement **S3-backed tenant lifecycle** for hosted Braintunnel: distributed locks (DynamoDB), container-local hot storage, periodic DB checkpoints (VACUUM INTO), write-through wiki, graceful backup/restore on container transitions. Enables horizontal scaling while maintaining desktop-level performance during active sessions.
 
+**Archives:** Product **direction** is **compressed ZIP** for tenant bundles; **wiki-only** rollback history is a **separate**, lighter tier under **`var/wiki-backups/`** — see [backup-restore.md](../architecture/backup-restore.md). This OPP focuses on **full-tenant** durability to S3; [OPP-034](OPP-034-wiki-snapshots-and-point-in-time-restore.md) covers **wiki-only** Hub history.
+
 ## Background
 
 **Current state (Phase 1 — staging):**
@@ -39,7 +41,7 @@ Implement **S3-backed tenant lifecycle** for hosted Braintunnel: distributed loc
 3. **S3 as source of truth** for durability
 4. **Startup:** download snapshot from S3, extract to local
 5. **Runtime:** write-through wiki (immediate S3 PUT), DB checkpoints every 5 min (VACUUM INTO → S3)
-6. **Transition:** backup full snapshot (tar → S3), release lock, new container restores
+6. **Transition:** backup **full-tenant** snapshot (ZIP product direction; tar acceptable per perf notes in [cloud-tenant-lifecycle.md](../architecture/cloud-tenant-lifecycle.md)) → S3, release lock, new container restores
 7. **Crash recovery:** wiki current (write-through), DB stale (≤5 min), maildir re-sync from Gmail
 
 ## Implementation Phases

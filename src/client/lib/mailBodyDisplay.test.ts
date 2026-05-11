@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   emailBodyToIframeSrcdoc,
+  emailDisplayBodyToIframeSrcdoc,
   escapeAndLinkifyUrls,
   looksLikeEmailHtml,
   mailBodyToDisplayHtml,
@@ -72,6 +73,38 @@ describe('mailBodyDisplay', () => {
     const wrappedFragment = emailBodyToIframeSrcdoc(fragment)
     expect(wrappedFragment).toContain(fragment)
     expect(wrappedFragment).not.toContain('&lt;table&gt;')
+  })
+
+  it('emailDisplayBodyToIframeSrcdoc renders explicit text bodies without HTML guessing', () => {
+    const wrapped = emailDisplayBodyToIframeSrcdoc({
+      bodyKind: 'text',
+      bodyText: '> From: Geoff <geoff@example.com>\n<p>not html</p>',
+    })
+
+    expect(wrapped).toContain('<div class="mail-plain-body">')
+    expect(wrapped).toContain('&gt; From: Geoff &lt;geoff@example.com&gt;')
+    expect(wrapped).toContain('&lt;p&gt;not html&lt;/p&gt;')
+  })
+
+  it('emailDisplayBodyToIframeSrcdoc renders explicit HTML bodies as HTML', () => {
+    const wrapped = emailDisplayBodyToIframeSrcdoc({
+      bodyKind: 'html',
+      bodyText: 'Plain fallback',
+      bodyHtml: '<p class="x">HTML body</p>',
+    })
+
+    expect(wrapped).toContain('<p class="x">HTML body</p>')
+    expect(wrapped).not.toContain('&lt;p class="x"&gt;')
+    expect(wrapped).not.toContain('<div class="mail-plain-body">')
+  })
+
+  it('emailDisplayBodyToIframeSrcdoc falls back to explicit text when HTML body is missing', () => {
+    const wrapped = emailDisplayBodyToIframeSrcdoc({
+      bodyKind: 'html',
+      bodyText: 'Plain fallback',
+    })
+
+    expect(wrapped).toContain('<div class="mail-plain-body">Plain fallback</div>')
   })
 
   it('escapeAndLinkifyUrls escapes markup and wraps URLs', () => {

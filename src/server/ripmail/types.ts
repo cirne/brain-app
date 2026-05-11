@@ -92,6 +92,12 @@ export interface ReadMailResult {
   attachments?: AttachmentMeta[]
 }
 
+export interface ReadMailDisplayResult extends Omit<ReadMailResult, 'attachments' | 'bodyHtml' | 'bodyText'> {
+  bodyKind: 'html' | 'text'
+  bodyText: string
+  bodyHtml?: string
+}
+
 // ---------------------------------------------------------------------------
 // Read indexed file (Drive / localDir)
 // ---------------------------------------------------------------------------

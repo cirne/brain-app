@@ -13,6 +13,7 @@ vi.mock('@server/lib/llm/draftBodyRewrite.js', () => ({
 const ripmailInboxMock = vi.fn()
 const ripmailWhoMock = vi.fn()
 const ripmailReadMailMock = vi.fn()
+const ripmailReadMailForDisplayMock = vi.fn()
 const ripmailDraftViewMock = vi.fn()
 const ripmailDraftEditMock = vi.fn()
 const ripmailDraftReplyMock = vi.fn()
@@ -24,6 +25,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailInbox: ripmailInboxMock,
   ripmailWho: ripmailWhoMock,
   ripmailReadMail: ripmailReadMailMock,
+  ripmailReadMailForDisplay: ripmailReadMailForDisplayMock,
   ripmailDraftView: ripmailDraftViewMock,
   ripmailDraftEdit: ripmailDraftEditMock,
   ripmailDraftReply: ripmailDraftReplyMock,
@@ -59,6 +61,20 @@ beforeEach(async () => {
     ccAddresses: [],
     subject: 'Hi',
     date: '2026-04-12',
+    bodyText: 'plain text body',
+    rawPath: '',
+    threadId: 'msg-99',
+    sourceId: 's1',
+    isArchived: false,
+  })
+  ripmailReadMailForDisplayMock.mockResolvedValue({
+    messageId: 'msg-99',
+    fromAddress: 'x@test.com',
+    toAddresses: [],
+    ccAddresses: [],
+    subject: 'Hi',
+    date: '2026-04-12',
+    bodyKind: 'text',
     bodyText: 'plain text body',
     rawPath: '',
     threadId: 'msg-99',
@@ -163,16 +179,56 @@ describe('GET /api/inbox/who', () => {
 // ---- GET /api/inbox/:id -----------------------------------------------------
 
 describe('GET /api/inbox/:id', () => {
-  it('returns text with headers and body', async () => {
+  it('returns structured display JSON with headers and body', async () => {
     const res = await app.request('/api/inbox/msg-99')
     expect(res.status).toBe(200)
-    const text = await res.text()
-    expect(text).toContain('Subject: Hi')
-    expect(text).toContain('plain text body')
+    const json = await res.json()
+    expect(json).toMatchObject({
+      headers: {
+        from: 'x@test.com',
+        to: [],
+        cc: [],
+        subject: 'Hi',
+        date: '2026-04-12',
+      },
+      bodyKind: 'text',
+      bodyText: 'plain text body',
+    })
+    expect(ripmailReadMailForDisplayMock).toHaveBeenCalledWith(
+      expect.any(String),
+      'msg-99',
+    )
+  })
+
+  it('returns HTML display body when available', async () => {
+    ripmailReadMailForDisplayMock.mockResolvedValue({
+      messageId: 'msg-html',
+      fromAddress: 'x@test.com',
+      toAddresses: ['y@test.com'],
+      ccAddresses: [],
+      subject: 'HTML',
+      date: '2026-04-12',
+      bodyKind: 'html',
+      bodyText: 'plain fallback',
+      bodyHtml: '<p>HTML body</p>',
+      rawPath: '',
+      threadId: 'msg-html',
+      sourceId: 's1',
+      isArchived: false,
+    })
+    const res = await app.request('/api/inbox/msg-html')
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json).toMatchObject({
+      headers: { subject: 'HTML', to: ['y@test.com'] },
+      bodyKind: 'html',
+      bodyText: 'plain fallback',
+      bodyHtml: '<p>HTML body</p>',
+    })
   })
 
   it('returns 404 when message not found', async () => {
-    ripmailReadMailMock.mockResolvedValue(null)
+    ripmailReadMailForDisplayMock.mockResolvedValue(null)
     const res = await app.request('/api/inbox/no-such-id')
     expect(res.status).toBe(404)
   })

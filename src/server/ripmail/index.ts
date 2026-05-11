@@ -24,6 +24,7 @@ export type {
   SearchResultSet,
   SearchTimings,
   ReadMailResult,
+  ReadMailDisplayResult,
   ReadIndexedFileResult,
   AttachmentMeta,
   PersonResult,
@@ -48,7 +49,7 @@ export type {
 
 import { prepareRipmailDb } from './db.js'
 import { search } from './search.js'
-import { readMail, readIndexedFile } from './mailRead.js'
+import { readMail, readMailForDisplay, readIndexedFile } from './mailRead.js'
 import { attachmentList, attachmentRead } from './attachments.js'
 import { who } from './who.js'
 import { status, statusParsed } from './status.js'
@@ -99,6 +100,15 @@ export async function ripmailReadMail(
 ) {
   const db = await prepareRipmailDb(ripmailHome)
   return readMail(db, messageId, opts)
+}
+
+/** Read a mail message for UI display, including HTML when raw EML is available. */
+export async function ripmailReadMailForDisplay(
+  ripmailHome: string,
+  messageId: string,
+) {
+  const db = await prepareRipmailDb(ripmailHome)
+  return readMailForDisplay(db, ripmailHome, messageId)
 }
 
 /** Read an indexed file (Drive / localDir). */

@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto'
 import { openMemoryRipmailDb, openRipmailDb, closeRipmailDb } from './db.js'
 import { SCHEMA_VERSION } from './schema.js'
 import { search } from './search.js'
-import { readMail } from './mailRead.js'
+import { readMail, readMailForDisplay } from './mailRead.js'
 import { who } from './who.js'
 import { status } from './status.js'
 import { inbox } from './inbox.js'
@@ -42,6 +42,7 @@ function insertMessage(
     toAddresses: string
     date: string
     bodyText: string
+    rawPath: string
     sourceId: string
     category: string
     isArchived: number
@@ -52,7 +53,7 @@ function insertMessage(
     INSERT INTO messages (message_id, thread_id, folder, uid, from_address, from_name,
                           to_addresses, cc_addresses, to_recipients, cc_recipients,
                           subject, date, body_text, raw_path, source_id, is_archived)
-    VALUES (?, ?, 'INBOX', 1, ?, ?, ?, '[]', '[]', '[]', ?, ?, ?, '', ?, ?)
+    VALUES (?, ?, 'INBOX', 1, ?, ?, ?, '[]', '[]', '[]', ?, ?, ?, ?, ?, ?)
   `).run(
     mid,
     mid,
@@ -62,6 +63,7 @@ function insertMessage(
     overrides.subject ?? 'Test Subject',
     overrides.date ?? '2026-01-15T10:00:00Z',
     overrides.bodyText ?? 'Test body content',
+    overrides.rawPath ?? '',
     overrides.sourceId ?? 'test-source',
     overrides.isArchived ?? 0,
   )
@@ -201,6 +203,135 @@ describe('readMail', () => {
     insertMessage(db, { messageId: '<arch@test>', isArchived: 1 })
     const r = readMail(db, 'arch@test')
     expect(r!.isArchived).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// readMailForDisplay tests
+// ---------------------------------------------------------------------------
+
+describe('readMailForDisplay', () => {
+  let db: RipmailDb
+  let tmpHome: string
+
+  beforeEach(() => {
+    db = openMemoryRipmailDb()
+    tmpHome = join(tmpdir(), `ripmail-display-${randomUUID()}`)
+    mkdirSync(tmpHome, { recursive: true })
+  })
+
+  afterEach(() => {
+    db.close()
+    rmSync(tmpHome, { recursive: true, force: true })
+  })
+
+  it('returns plaintext display content for text-only EML', async () => {
+    const rawPath = join(tmpHome, 'text-only.eml')
+    writeFileSync(
+      rawPath,
+      [
+        'Message-ID: <display-text@test>',
+        'From: Alice <alice@example.com>',
+        'To: Bob <bob@example.com>',
+        'Subject: Text only',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        'Hello from raw text.',
+        'Second line.',
+      ].join('\r\n'),
+    )
+    insertMessage(db, {
+      messageId: '<display-text@test>',
+      subject: 'Text only',
+      bodyText: 'Stored text fallback',
+      rawPath,
+    })
+
+    const r = await readMailForDisplay(db, tmpHome, 'display-text@test')
+    expect(r).not.toBeNull()
+    expect(r!.bodyKind).toBe('text')
+    expect(r!.bodyText).toContain('Hello from raw text.')
+    expect(r!.bodyText).toContain('Second line.')
+    expect(r!.bodyHtml).toBeUndefined()
+  })
+
+  it('returns html display content for multipart alternative EML', async () => {
+    const rawPath = join(tmpHome, 'multipart.eml')
+    writeFileSync(
+      rawPath,
+      [
+        'Message-ID: <display-html@test>',
+        'From: Alice <alice@example.com>',
+        'To: Bob <bob@example.com>',
+        'Subject: Multipart',
+        'Content-Type: multipart/alternative; boundary="b"',
+        '',
+        '--b',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        'Plain fallback body.',
+        '--b',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        '<html><body><p>HTML body</p></body></html>',
+        '--b--',
+      ].join('\r\n'),
+    )
+    insertMessage(db, {
+      messageId: '<display-html@test>',
+      subject: 'Multipart',
+      bodyText: 'Stored text fallback',
+      rawPath,
+    })
+
+    const r = await readMailForDisplay(db, tmpHome, 'display-html@test')
+    expect(r).not.toBeNull()
+    expect(r!.bodyKind).toBe('html')
+    expect(r!.bodyText).toContain('Plain fallback body.')
+    expect(r!.bodyHtml).toContain('<p>HTML body</p>')
+  })
+
+  it('falls back to stored body_text when raw EML is missing', async () => {
+    insertMessage(db, {
+      messageId: '<display-fallback@test>',
+      subject: 'Fallback',
+      bodyText: 'Stored text fallback',
+      rawPath: 'missing.eml',
+    })
+
+    const r = await readMailForDisplay(db, tmpHome, 'display-fallback@test')
+    expect(r).not.toBeNull()
+    expect(r!.bodyKind).toBe('text')
+    expect(r!.bodyText).toBe('Stored text fallback')
+    expect(r!.bodyHtml).toBeUndefined()
+  })
+
+  it('falls back to stored body_text when raw EML message id does not match the DB row', async () => {
+    const rawPath = join(tmpHome, 'wrong-message.eml')
+    writeFileSync(
+      rawPath,
+      [
+        'Message-ID: <wrong-raw@test>',
+        'From: Receipt <receipt@example.com>',
+        'To: Bob <bob@example.com>',
+        'Subject: Wrong raw',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        '<html><body><h1>Receipt</h1></body></html>',
+      ].join('\r\n'),
+    )
+    insertMessage(db, {
+      messageId: '<display-mismatch@test>',
+      subject: 'Correct DB row',
+      bodyText: 'Correct stored text',
+      rawPath,
+    })
+
+    const r = await readMailForDisplay(db, tmpHome, 'display-mismatch@test')
+    expect(r).not.toBeNull()
+    expect(r!.bodyKind).toBe('text')
+    expect(r!.bodyText).toBe('Correct stored text')
+    expect(r!.bodyHtml).toBeUndefined()
   })
 })
 

@@ -75,6 +75,12 @@ const IFRAME_DOC_BASE_STYLE = `<style>
 
 const IFRAME_FRAGMENT_HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank" rel="noopener noreferrer">${IFRAME_DOC_BASE_STYLE}`
 
+export type EmailDisplayBody = {
+  bodyKind: 'html' | 'text'
+  bodyText: string
+  bodyHtml?: string
+}
+
 /** Insert overflow/layout guard into a full HTML document so passthrough mail still has no inner scrolling. */
 function injectIframeDocGuard(html: string): string {
   if (/<head[^>]*>/i.test(html)) {
@@ -99,6 +105,28 @@ export function emailBodyToIframeSrcdoc(raw: string): string {
     ? raw
     : `<div class="mail-plain-body">${escapeAndLinkifyUrls(raw)}</div>`
   return `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body>${body}</body></html>`
+}
+
+function htmlBodyToIframeSrcdoc(raw: string): string {
+  const t = raw.trim()
+  if (!t) return ''
+  const passthrough = /^<!DOCTYPE\s+html/i.test(t) || /<\s*html[\s>]/i.test(t)
+  return passthrough
+    ? injectIframeDocGuard(raw)
+    : `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body>${raw}</body></html>`
+}
+
+function plaintextBodyToIframeSrcdoc(raw: string): string {
+  const t = raw.trim()
+  if (!t) return ''
+  return `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body><div class="mail-plain-body">${escapeAndLinkifyUrls(raw)}</div></body></html>`
+}
+
+export function emailDisplayBodyToIframeSrcdoc(body: EmailDisplayBody): string {
+  if (body.bodyKind === 'html' && body.bodyHtml?.trim()) {
+    return htmlBodyToIframeSrcdoc(body.bodyHtml)
+  }
+  return plaintextBodyToIframeSrcdoc(body.bodyText)
 }
 
 function escapeHtmlText(text: string): string {

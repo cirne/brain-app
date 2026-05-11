@@ -58,6 +58,7 @@ Deployment topology, isolation, staging, and formal security posture.
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Desktop vs cloud deployment models                              | [architecture/deployment-models.md](architecture/deployment-models.md)                             |
 | **Directory-per-tenant storage (ADR, defense)**                 | [architecture/per-tenant-storage-defense.md](architecture/per-tenant-storage-defense.md)           |
+| **Backup & restore (ZIP: wiki history vs full tenant / S3)**    | [architecture/backup-restore.md](architecture/backup-restore.md)                                   |
 | **Multi-tenant cloud architecture (S3 + local, locks)**          | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
 | **Cloud tenant lifecycle (S3 backup, transitions, recovery)**   | [architecture/cloud-tenant-lifecycle.md](architecture/cloud-tenant-lifecycle.md) · **[OPP-096](opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)** |
 | Tenant filesystem isolation (BUG-012, kernel + app)             | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |

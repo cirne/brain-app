@@ -12,6 +12,8 @@ export interface BrainLayout {
     ripmail: string
     cache: string
     var: string
+    /** Wiki-only ZIP snapshot history directory (see docs/architecture/backup-restore.md). */
+    wikiBackups: string
     issues: string
   }
   files: {
@@ -82,6 +84,11 @@ export function brainLayoutCacheDir(base: string): string {
 
 export function brainLayoutVarDir(base: string): string {
   return join(base, getBrainLayout().directories.var)
+}
+
+/** Directory for retention-limited wiki-only backup ZIPs (`var/wiki-backups/` by default). */
+export function brainLayoutWikiBackupsDir(base: string): string {
+  return join(base, getBrainLayout().directories.wikiBackups)
 }
 
 export function brainLayoutIssuesDir(base: string): string {

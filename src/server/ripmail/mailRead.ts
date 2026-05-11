@@ -2,9 +2,20 @@
  * readMail() and readIndexedFile() — mirrors ripmail/src/mail_read.rs.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { isAbsolute, join } from 'node:path'
+import { simpleParser } from 'mailparser'
 import type { RipmailDb } from './db.js'
-import type { ReadMailResult, ReadIndexedFileResult, AttachmentMeta } from './types.js'
+import type {
+  ReadMailResult,
+  ReadMailDisplayResult,
+  ReadIndexedFileResult,
+  AttachmentMeta,
+} from './types.js'
+
+function normalizeMessageId(value: string | undefined): string {
+  return String(value ?? '').trim().replace(/^<|>$/g, '')
+}
 
 interface MessageRow {
   message_id: string
@@ -130,6 +141,68 @@ export function readMail(
     isArchived: row.is_archived === 1,
     category: row.category ?? undefined,
     attachments,
+  }
+}
+
+function storedRawPathToFsPath(ripmailHome: string, rawPath: string): string | null {
+  const trimmed = rawPath.trim()
+  if (!trimmed) return null
+  return isAbsolute(trimmed) ? trimmed : join(ripmailHome, trimmed)
+}
+
+/**
+ * UI-only message read: keeps agent reads text-only while allowing the inbox panel
+ * to render the original HTML MIME part when the cached raw EML is available.
+ */
+export async function readMailForDisplay(
+  db: RipmailDb,
+  ripmailHome: string,
+  messageId: string,
+): Promise<ReadMailDisplayResult | null> {
+  const msg = readMail(db, messageId, { includeAttachments: false })
+  if (!msg) return null
+
+  let bodyText = msg.bodyText ?? ''
+  let bodyHtml: string | undefined
+  const rawFsPath = storedRawPathToFsPath(ripmailHome, msg.rawPath)
+  const rawExists = Boolean(rawFsPath && existsSync(rawFsPath))
+
+  if (rawFsPath && rawExists) {
+    try {
+      const parsed = await simpleParser(readFileSync(rawFsPath), {
+        skipHtmlToText: false,
+        skipTextToHtml: true,
+        skipImageLinks: true,
+      })
+      const parsedMessageId = normalizeMessageId(parsed.messageId)
+      const rawMessageMatchesDb =
+        Boolean(parsedMessageId) &&
+        parsedMessageId === normalizeMessageId(msg.messageId)
+      if (rawMessageMatchesDb) {
+        bodyText = parsed.text ?? bodyText
+        bodyHtml = typeof parsed.html === 'string' ? parsed.html : undefined
+      }
+    } catch {
+      /* Fall back to indexed body_text when raw parsing fails. */
+    }
+  }
+
+  return {
+    messageId: msg.messageId,
+    threadId: msg.threadId,
+    sourceId: msg.sourceId,
+    fromAddress: msg.fromAddress,
+    ...(msg.fromName ? { fromName: msg.fromName } : {}),
+    toAddresses: msg.toAddresses,
+    ccAddresses: msg.ccAddresses,
+    subject: msg.subject,
+    date: msg.date,
+    rawPath: msg.rawPath,
+    isArchived: msg.isArchived,
+    ...(msg.category ? { category: msg.category } : {}),
+    bodyKind: bodyHtml ? 'html' : 'text',
+    bodyText,
+    ...(bodyHtml ? { bodyHtml } : {}),
   }
 }
 

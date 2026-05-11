@@ -57,7 +57,7 @@ See [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) and [SECU
 Export, backup, retention, and **deletion** become **filesystem operations** with a clear narrative: one tenant ≈ one tree. 
 
 - **GDPR-style right to deletion:** remove the directory.
-- **Backup:** S3 snapshot (`tar cf` → S3 PUT) or write-through wiki (S3 real-time). See [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md) for current S3-based strategy.
+- **Backup:** **Wiki-only** ZIP history under **`var/wiki-backups/`** and **full-tenant** bundles for object storage ([backup-restore.md](./backup-restore.md)); see also [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md).
 - **Migration:** copy the directory (cloud → desktop via S3 snapshot, desktop → cloud via S3 upload, tenant transfer between hosts).
 - **Forensics / support:** inspect one user's state without touching others.
 

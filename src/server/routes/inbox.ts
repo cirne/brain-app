@@ -16,7 +16,7 @@ import {
   ripmailDraftReply,
   ripmailDraftForward,
   ripmailSend,
-  ripmailReadMail,
+  ripmailReadMailForDisplay,
   ripmailArchive,
 } from '@server/ripmail/index.js'
 import type { EditDraftOptions } from '@server/ripmail/draft.js'
@@ -220,11 +220,22 @@ inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
     const home = ripmailHomeForBrain()
-    const msg = await ripmailReadMail(home, id, { plainBody: true, fullBody: true })
+    const msg = await ripmailReadMailForDisplay(home, id)
     if (!msg) return c.json({ error: 'Not found' }, 404)
-    const headersText = `From: ${msg.fromAddress}\nTo: ${msg.toAddresses.join(', ')}\nSubject: ${msg.subject}\nDate: ${msg.date}`
-    const displayBody = msg.bodyText ?? ''
-    return c.text(`${headersText}\n\n${displayBody}`)
+    return c.json({
+      messageId: msg.messageId,
+      threadId: msg.threadId,
+      headers: {
+        from: msg.fromAddress,
+        to: msg.toAddresses,
+        cc: msg.ccAddresses,
+        subject: msg.subject,
+        date: msg.date,
+      },
+      bodyKind: msg.bodyKind,
+      bodyText: msg.bodyText,
+      ...(msg.bodyHtml ? { bodyHtml: msg.bodyHtml } : {}),
+    })
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }

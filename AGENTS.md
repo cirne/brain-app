@@ -23,6 +23,17 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 - **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
 - **No React, no Next.js**: Svelte 5 for all UI.
 
+### Agent behavior (clarity & minimal diffs)
+
+These guidelines are derived from [Karpathy-inspired coding agent principles](https://github.com/forrestchang/andrej-karpathy-skills) and should be applied with judgment: trivial one-line fixes do not need extra ceremony.
+
+- **Think before coding.** Surface assumptions, ambiguity, and tradeoffs before implementing; ask a quick clarifying question instead of silently guessing.
+- **Simplicity first.** Write the minimum code that solves the requested problem; do not add speculative features, configurability, or abstractions.
+- **Surgical changes.** Touch only what the task requires, match nearby style, and mention unrelated dead code or cleanup instead of changing it.
+- **Goal-driven execution.** For non-trivial work, define the success criteria up front, write the test first for bug fixes or new behavior, and run the relevant verification before calling the task done.
+- **DRY with restraint.** Extract shared helpers when the same logic is repeated or clearly will be reused; do not preemptively abstract one-off fixes.
+- **Velocity does not mean guessing.** Early-development velocity favors small PRs and low ceremony, not hidden assumptions; backlog and process skills widen scope only when explicitly invoked.
+
 ### Icons (Lucide) and text
 
 - **Use Lucide as components**, not ad-hoc inline `<svg>`. Import from `lucide-svelte` and register tool-side icons in [`src/client/lib/tools/registryIcons.ts`](src/client/lib/tools/registryIcons.ts) (`getToolIcon` / `toolIcons.js`). For unregistered tool names, use a generic Lucide icon in the UI (e.g. `Wrench` in `ToolCallBlock`)—do not paste raw SVG.

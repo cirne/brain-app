@@ -55,6 +55,8 @@ No network latency for hot-path queries. **Same performance as desktop** during 
 
 ### Durability & Backups
 
+**Two archive tiers** ([backup-restore.md](./backup-restore.md)): **(1)** **Wiki-only** compressed **ZIP** history under **`var/wiki-backups/`** for cheap point-in-time **wiki** rollback (separate retention from S3 DR). **(2)** **Full-tenant** bundle (ZIP preferred product-wise; may be tar in some pipelines) to **S3** on transition for **migration and disaster recovery**.
+
 **Write-through wiki** (critical data):
 - Every wiki edit → immediate `PUT s3://brain-data/<tenant>/wiki/<path>.md`
 - User's knowledge base always safe, even if container crashes
@@ -71,8 +73,8 @@ No network latency for hot-path queries. **Same performance as desktop** during 
 - On crash: `ripmail refresh` re-syncs from Gmail (10–20 minutes, background)
 - Avoids backing up 2.6 GB every 5 minutes (would be 400 GB/day upload per tenant)
 
-**Full snapshots on transition**:
-- When tenant moves containers (load balancing, maintenance): tar entire `BRAIN_HOME` → S3
+**Full tenant archive on transition**:
+- When tenant moves containers (load balancing, maintenance): package entire tenant home → S3 (see [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md))
 - Download on new container startup
 - Happens infrequently (hours/days), user offline during 60–90s transition
 
@@ -83,7 +85,7 @@ No network latency for hot-path queries. **Same performance as desktop** during 
 
 **Cost estimate** (100 tenants): ~$145/month S3 + $0.22/month DynamoDB locks = **$145/month total**
 
-**Self-host / B2B:** Directory-per-tenant enables **per-customer deployment** (VPC, intranet, air-gapped) using the same codebase and directory structure as cloud. Tenant snapshots (S3 tarballs) are the deployment unit—no schema migrations, no vendor-specific export formats. See [IDEA: Enterprise self-hosted Braintunnel](../ideas/IDEA-enterprise-self-hosted-braintunnel.md).
+**Self-host / B2B:** Directory-per-tenant enables **per-customer deployment** (VPC, intranet, air-gapped) using the same codebase and directory structure as cloud. Tenant bundles in object storage (**ZIP** / tar per [backup-restore.md](./backup-restore.md)) are the deployment unit—no schema migrations, no vendor-specific export formats. See [IDEA: Enterprise self-hosted Braintunnel](../ideas/IDEA-enterprise-self-hosted-braintunnel.md).
 
 **Data sovereignty detail** (portability, BYO S3, encryption, positioning): [cloud-tenant-lifecycle.md § Data Sovereignty and Portability](./cloud-tenant-lifecycle.md#data-sovereignty-and-portability).
 

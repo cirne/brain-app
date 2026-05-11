@@ -16,6 +16,8 @@ In hosted Braintunnel, each tenant maps to a specific container with **exclusive
 6. **Maildir is recoverable** — re-sync from Gmail IMAP if needed (slow but works)
 7. **Wiki is write-through** — only truly irreplaceable data, protected immediately
 
+**Backup tiers (product direction):** See [backup-restore.md](./backup-restore.md). **(1)** **Wiki-only** compressed ZIPs under **`var/wiki-backups/`** for **local point-in-time wiki restore** (retention-limited history; conditional on `wiki-edits.jsonl` / manifest). **(2)** **Full-tenant** compressed archive (**ZIP** preferred for ergonomics; this document’s transition examples may use **uncompressed tar** where CPU/network tradeoffs favor streaming) uploaded to **S3** for **disaster recovery, cell migration, and portability**. Tier 2 is **heavier** than tier 1 and is not the same as per-lap wiki rollback.
+
 ## Tenant Data Profile
 
 From production staging data (1 year of email history indexed):
@@ -25,7 +27,7 @@ From production staging data (1 year of email history indexed):
 | **SQLite DB** (`ripmail.db`) | 236 MB | 641 MB | Periodic snapshot (VACUUM INTO) |
 | **Maildir** (`.eml` files) | 950 MB | 2.6 GB | Recoverable from IMAP (not backed up frequently) |
 | **Wiki** (markdown) | 5 MB | 20 MB | Write-through to S3 on every edit |
-| **Total per tenant** | ~1.2 GB | ~3.2 GB | Full snapshot on transition |
+| **Total per tenant** | ~1.2 GB | ~3.2 GB | Full **tenant** archive on transition → S3 ([backup-restore.md](./backup-restore.md) tier 2) |
 
 **Compression:** Not worth it. Testing shows 50% compression (2.2GB → 1.14GB) takes 45 seconds CPU, saving only ~10 seconds of network transfer at 1 Gbps. Skip compression for same-region S3.
 
@@ -148,6 +150,8 @@ Every 10 seconds:
 
 Total user downtime: ~60–90 seconds
 ```
+
+**Archive format:** [backup-restore.md](./backup-restore.md) sets **ZIP** as the long-term product format for full-tenant bundles. The `tar` / `czf` vs `cf` notes above describe **measured tradeoffs** on large maildirs; an implementation may ship **ZIP**, **uncompressed tar**, or both per environment until benchmarks converge.
 
 **Implementation note:** Steps 2–5 must be atomic (or idempotent). If backup fails mid-upload, do not release lock. Retry or alert operator.
 

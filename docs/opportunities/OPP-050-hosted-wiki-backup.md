@@ -2,7 +2,7 @@
 
 **Status:** Superseded by [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — May 2026
 
-**Note:** The "wiki-only, exclude ripmail" principle from this OPP is correct and carried forward into OPP-096. However, the implementation strategy has changed from **nightly encrypted tarball** to **write-through S3 on every edit** (real-time protection) plus periodic full snapshots. See [cloud-tenant-lifecycle.md](../architecture/cloud-tenant-lifecycle.md) for current design.
+**Note:** The "wiki-only, exclude ripmail" principle from this OPP is correct for **lightweight rollback** and low-sensitivity off-site copies. **Full-tenant** compressed archives to S3 for **DR and migration** are the **heavier** tier ([backup-restore.md](../architecture/backup-restore.md), [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)). The implementation strategy in OPP-096 evolved from **nightly encrypted tarball** toward **write-through S3** on wiki edits plus periodic DB checkpoints plus transition uploads. See [cloud-tenant-lifecycle.md](../architecture/cloud-tenant-lifecycle.md) for current design.
 
 ## Summary
 
