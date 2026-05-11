@@ -9,8 +9,11 @@
 
 import Database from 'better-sqlite3'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { brainLayoutRipmailDir } from '@server/lib/platform/brainLayout.js'
+import { readHandleMeta, isValidUserId } from '@server/lib/tenant/handleMeta.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { SCHEMA_STATEMENTS, SCHEMA_VERSION } from './schema.js'
 
 export type RipmailDb = Database.Database
@@ -36,6 +39,30 @@ export class RipmailDbSchemaDriftError extends Error {
 const dbCache = new Map<string, RipmailDb>()
 
 const prepareRipmailInflight = new Map<string, Promise<RipmailDb>>()
+
+/** Fields for NR / ops when SQLite is wiped for schema drift (best-effort if no tenant ALS). */
+type RipmailRebuildLogFields = {
+  tenantUserId?: string
+  workspaceHandle?: string
+}
+
+async function resolveRipmailRebuildLogContext(ripmailHome: string): Promise<RipmailRebuildLogFields> {
+  const absRipmail = resolve(ripmailHome)
+  const ctx = tryGetTenantContext()
+  if (ctx && resolve(brainLayoutRipmailDir(ctx.homeDir)) === absRipmail) {
+    return { tenantUserId: ctx.tenantUserId, workspaceHandle: ctx.workspaceHandle }
+  }
+  const tenantHome = dirname(absRipmail)
+  const dirName = basename(tenantHome)
+  let tenantUserId: string | undefined =
+    dirName === '_single' || isValidUserId(dirName) ? dirName : undefined
+  const meta = await readHandleMeta(tenantHome)
+  const workspaceHandle = meta?.handle
+  if (!tenantUserId && meta?.userId && isValidUserId(meta.userId)) {
+    tenantUserId = meta.userId
+  }
+  return { tenantUserId, workspaceHandle }
+}
 
 /** Path to `ripmail.db` inside a ripmail home dir. */
 export function ripmailDbPath(ripmailHome: string): string {
@@ -135,14 +162,28 @@ async function doPrepareRipmailDb(ripmailHome: string): Promise<RipmailDb> {
     return openRipmailDb(ripmailHome)
   } catch (e) {
     if (!(e instanceof RipmailDbSchemaDriftError)) throw e
+    const rebuildLog = await resolveRipmailRebuildLogContext(e.ripmailHome)
     brainLogger.warn(
-      { ripmailHome: e.ripmailHome, stored: e.storedVersion, expected: e.expectedVersion },
+      {
+        ripmailHome: e.ripmailHome,
+        stored: e.storedVersion,
+        expected: e.expectedVersion,
+        ...rebuildLog,
+      },
       'ripmail:db:version-mismatch — wiping and rebuilding from maildir cache',
     )
     invalidateRipmailDbCache(e.ripmailHome)
     removeRipmailDbArtifacts(ripmailDbPath(e.ripmailHome))
     const { repopulateRipmailIndexFromAllMaildirs } = await import('./rebuildFromMaildir.js')
     await repopulateRipmailIndexFromAllMaildirs(e.ripmailHome)
+    brainLogger.info(
+      {
+        ripmailHome: e.ripmailHome,
+        schemaVersion: SCHEMA_VERSION,
+        ...rebuildLog,
+      },
+      'ripmail:db:rebuild-complete — maildir repopulation finished',
+    )
     return openRipmailDb(ripmailHome)
   }
 }

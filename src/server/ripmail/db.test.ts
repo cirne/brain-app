@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
+import { HANDLE_META_FILENAME } from '@server/lib/tenant/handleMeta.js'
 import * as rebuildFromMaildir from './rebuildFromMaildir.js'
 import {
   closeRipmailDb,
@@ -59,6 +62,93 @@ describe('prepareRipmailDb / drift', () => {
       expect(ready.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
     } finally {
       spy.mockRestore()
+    }
+  })
+
+  it('logs tenantUserId and workspaceHandle on rebuild when tenant ALS matches ripmail home', async () => {
+    const tenantHome = mkdtempSync(join(tmpdir(), 'ripmail-db-log-'))
+    ripHome = join(tenantHome, 'ripmail')
+    writeStaleVersionDb(ripHome, SCHEMA_VERSION - 1)
+
+    const warnSpy = vi.spyOn(brainLogger, 'warn')
+    const infoSpy = vi.spyOn(brainLogger, 'info')
+    const spyRebuild = vi
+      .spyOn(rebuildFromMaildir, 'repopulateRipmailIndexFromAllMaildirs')
+      .mockResolvedValue(0)
+    try {
+      await runWithTenantContextAsync(
+        {
+          tenantUserId: 'usr_test1234567890123456',
+          workspaceHandle: 'acme-dev',
+          homeDir: tenantHome,
+        },
+        async () => prepareRipmailDb(ripHome),
+      )
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantUserId: 'usr_test1234567890123456',
+          workspaceHandle: 'acme-dev',
+          ripmailHome: ripHome,
+          stored: SCHEMA_VERSION - 1,
+          expected: SCHEMA_VERSION,
+        }),
+        expect.stringContaining('version-mismatch'),
+      )
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantUserId: 'usr_test1234567890123456',
+          workspaceHandle: 'acme-dev',
+          ripmailHome: ripHome,
+          schemaVersion: SCHEMA_VERSION,
+        }),
+        expect.stringContaining('rebuild-complete'),
+      )
+    } finally {
+      spyRebuild.mockRestore()
+      warnSpy.mockRestore()
+      infoSpy.mockRestore()
+    }
+  })
+
+  it('logs tenantUserId and workspaceHandle from handle-meta when ALS is absent', async () => {
+    const tenantHome = mkdtempSync(join(tmpdir(), 'ripmail-db-meta-'))
+    ripHome = join(tenantHome, 'ripmail')
+    writeStaleVersionDb(ripHome, SCHEMA_VERSION - 1)
+    writeFileSync(
+      join(tenantHome, HANDLE_META_FILENAME),
+      JSON.stringify({
+        userId: 'usr_meta1234567890123456',
+        handle: 'from-meta',
+      }),
+    )
+
+    const warnSpy = vi.spyOn(brainLogger, 'warn')
+    const infoSpy = vi.spyOn(brainLogger, 'info')
+    const spyRebuild = vi
+      .spyOn(rebuildFromMaildir, 'repopulateRipmailIndexFromAllMaildirs')
+      .mockResolvedValue(0)
+    try {
+      await prepareRipmailDb(ripHome)
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantUserId: 'usr_meta1234567890123456',
+          workspaceHandle: 'from-meta',
+        }),
+        expect.any(String),
+      )
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantUserId: 'usr_meta1234567890123456',
+          workspaceHandle: 'from-meta',
+        }),
+        expect.stringContaining('rebuild-complete'),
+      )
+    } finally {
+      spyRebuild.mockRestore()
+      warnSpy.mockRestore()
+      infoSpy.mockRestore()
     }
   })
 
