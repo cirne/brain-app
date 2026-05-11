@@ -403,7 +403,7 @@
                 <span class={cn(
                   'phase-pill-mini whitespace-nowrap bg-surface-3 px-1.5 py-px text-[9px] font-extrabold uppercase tracking-wider text-muted',
                   mobilePanel && 'text-[10px] px-1.5 py-0.5',
-                  ['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-white',
+                  ['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-accent-foreground',
                 )}>
                   {yourWikiPhaseLabel(yourWikiHdr.current.doc.phase)}
                 </span>

@@ -3,13 +3,6 @@
   "rules": [
     {
       "kind": "search",
-      "id": "def-otp",
-      "action": "notify",
-      "query": "(\\botp\\b|\\b2fa\\b|verification.{0,120}code|password reset|login code|\\bauthenticat)",
-      "description": "OTP / security codes (word-bounded otp/2fa; avoids otpToken= tracking noise)"
-    },
-    {
-      "kind": "search",
       "id": "def-cat-list",
       "action": "ignore",
       "query": "",
@@ -124,8 +117,8 @@
       "kind": "search",
       "id": "def-mkt-fts",
       "action": "ignore",
-      "query": "newsletter|digest|sale|deal alert|sitewide|membership",
-      "description": "Marketing keywords in body/subject (regex); event invites excluded"
+      "query": "newsletter|digest|\\bsale\\b|\\bsell\\b|deal alert|sitewide|membership",
+      "description": "Marketing keywords in body/subject (regex); word-bound sale/sell avoids Sell/purchase promos and wholesale false hits"
     },
     {
       "kind": "search",

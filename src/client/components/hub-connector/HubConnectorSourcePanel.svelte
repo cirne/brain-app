@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { cn } from '@client/lib/cn.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { getHubSourceSlideHeaderCell } from '@client/lib/hubSourceSlideHeaderContext.js'
@@ -484,10 +483,7 @@
     hubSourceHeaderCtrl = null
   })
 
-  const hubDialogBtnBase =
-    'hub-dialog-btn cursor-pointer rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
-  const hubDialogBtnDanger =
-    'hub-dialog-btn-danger bg-[color-mix(in_srgb,var(--danger)_14%,var(--bg))] text-danger border-[color-mix(in_srgb,var(--danger)_40%,transparent)] hover:not-disabled:bg-[color-mix(in_srgb,var(--danger)_24%,var(--bg))]'
+  const btnDanger = 'bt-btn bt-btn-danger'
 </script>
 
 <div class="hub-connector-source min-h-0 flex-1 overflow-auto px-5 pb-6 pt-4">
@@ -534,7 +530,7 @@
       >
         <button
           type="button"
-          class={cn(hubDialogBtnBase, hubDialogBtnDanger)}
+          class={btnDanger}
           disabled={removingSource}
           onclick={() => void confirmRemoveSource()}
         >

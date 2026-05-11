@@ -64,12 +64,9 @@
     ),
   )
 
-  const wikiBtnBase =
-    'inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border px-[0.65rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
-  const wikiBtnPrimary =
-    'border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.07)]'
-  const wikiBtnSecondary =
-    'border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-3'
+  const wikiBtnBase = 'bt-btn px-[0.65rem] py-[0.3rem] text-[0.8125rem] gap-[0.3rem]'
+  const wikiBtnPrimary = 'bt-btn-primary'
+  const wikiBtnSecondary = 'bt-btn-secondary hover:not-disabled:bg-surface-3'
   const wikiBtnGhost =
     'border-transparent bg-transparent text-muted hover:not-disabled:bg-surface-3 hover:not-disabled:text-foreground'
 

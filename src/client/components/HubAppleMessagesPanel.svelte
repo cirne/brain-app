@@ -262,15 +262,9 @@
     }
   })
 
-  /** Hub button recipes (mirrors HubBackgroundAgentsDetail / HubConnectorSourcePanel). */
-  const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
-  const hubBtnPrimary =
-    'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
-  const hubBtnSecondary =
-    'hub-dialog-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
-  const hubBtnDanger =
-    'hub-dialog-btn-danger border-[color-mix(in_srgb,var(--danger)_40%,transparent)] bg-[color-mix(in_srgb,var(--danger)_14%,var(--bg))] text-danger hover:not-disabled:bg-[color-mix(in_srgb,var(--danger)_24%,var(--bg))]'
+  const btnPrimary = 'bt-btn bt-btn-primary'
+  const btnSecondary = 'bt-btn bt-btn-secondary'
+  const btnDanger = 'bt-btn bt-btn-danger'
   const hamBtnBlock = 'ham-btn-block w-full text-center'
 </script>
 
@@ -320,7 +314,7 @@
             <p class="ham-callout-p m-0 text-[0.8125rem] leading-tight text-foreground">
               {$t('inbox.hubAppleMessagesPanel.permissions.fdaDisabled')}
             </p>
-            <button type="button" class={cn(hubBtn, hubBtnSecondary, 'ham-callout-btn self-start')} onclick={openFdaHelp}>
+            <button type="button" class={cn(btnSecondary, 'ham-callout-btn self-start')} onclick={openFdaHelp}>
               {$t('inbox.hubAppleMessagesPanel.actions.openFdaHelp')}
             </button>
           </div>
@@ -380,10 +374,10 @@
           bind:value={setupCode}
         ></textarea>
         <div class="ham-setup-actions mt-[0.65rem] flex flex-wrap gap-2">
-          <button type="button" class={cn(hubBtn, hubBtnPrimary)} onclick={() => void copyText(setupCode ?? '')}>
+          <button type="button" class={cn(btnPrimary)} onclick={() => void copyText(setupCode ?? '')}>
             {$t('inbox.hubAppleMessagesPanel.actions.copyCode')}
           </button>
-          <button type="button" class={cn(hubBtn, hubBtnSecondary)} onclick={() => (setupCode = null)}>
+          <button type="button" class={cn(btnSecondary)} onclick={() => (setupCode = null)}>
             {$t('inbox.hubAppleMessagesPanel.actions.hideCode')}
           </button>
         </div>
@@ -393,7 +387,7 @@
     <div class="ham-actions flex flex-col gap-[0.6rem]">
       <button
         type="button"
-        class={cn(hubBtn, hubBtnPrimary, hamBtnBlock)}
+        class={cn(btnPrimary, hamBtnBlock)}
         disabled={busy}
         onclick={() => void turnOn()}
       >
@@ -460,7 +454,7 @@
               </div>
               <button
                 type="button"
-                class={cn(hubBtn, hubBtnSecondary, 'ham-device-action shrink-0 self-start min-[520px]:self-center')}
+                class={cn(btnSecondary, 'ham-device-action shrink-0 self-start min-[520px]:self-center')}
                 disabled={busy}
                 onclick={() => void disconnectDevice(device)}
               >
@@ -483,7 +477,7 @@
       </p>
       <button
         type="button"
-        class={cn(hubBtn, hubBtnDanger, hamBtnBlock)}
+        class={cn(btnDanger, hamBtnBlock)}
         disabled={busy}
         onclick={() => void wipeSyncedMessages()}
       >
@@ -494,7 +488,7 @@
     </section>
 
     <footer class="ham-footer pt-1">
-      <button type="button" class={cn(hubBtn, hubBtnSecondary, hamBtnBlock)} onclick={onClosePanel}>
+      <button type="button" class={cn(btnSecondary, hamBtnBlock)} onclick={onClosePanel}>
         {$t('common.actions.closePanel')}
       </button>
     </footer>

@@ -162,13 +162,8 @@
 
   const driveNeedsFolders = $derived(sourceKind === 'googleDrive' && draft.roots.length === 0)
 
-  /** Hub button recipes (mirrors hub panels). */
-  const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
-  const hubBtnPrimary =
-    'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
-  const hubBtnSecondary =
-    'hub-dialog-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
+  const btnPrimary = 'bt-btn bt-btn-primary'
+  const btnSecondary = 'bt-btn bt-btn-secondary'
 </script>
 
 <div class="fs-editor mt-2 flex flex-col gap-3">
@@ -192,7 +187,7 @@
       <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">
         {$t('hub.fileSourceConfigEditor.labels.indexedFolders')}
       </span>
-      <button type="button" class={cn(hubBtn, hubBtnSecondary, 'fs-btn inline-flex items-center gap-[0.35rem]')} onclick={openBrowser}>
+      <button type="button" class={cn(btnSecondary, 'fs-btn')} onclick={openBrowser}>
         <FolderPlus size={16} aria-hidden="true" />
         {$t('hub.fileSourceConfigEditor.actions.addFolder')}
       </button>
@@ -240,7 +235,7 @@
       <div class="fs-browser-head mb-[0.35rem] flex flex-wrap items-center gap-[0.35rem]">
         <button
           type="button"
-          class={cn(hubBtn, hubBtnSecondary)}
+          class={cn(btnSecondary)}
           onclick={browserUp}
           disabled={browserStack.length === 0}
         >
@@ -254,7 +249,7 @@
             <span>{seg.name}</span>
           {/each}
         </span>
-        <button type="button" class={cn(hubBtn, hubBtnSecondary)} onclick={() => (browserOpen = false)}>
+        <button type="button" class={cn(btnSecondary)} onclick={() => (browserOpen = false)}>
           {$t('common.actions.close')}
         </button>
       </div>
@@ -276,7 +271,7 @@
                 {f.name}
                 {#if f.hasChildren}<span class="fs-has-kids ml-1 opacity-60">▸</span>{/if}
               </button>
-              <button type="button" class={cn(hubBtn, hubBtnPrimary, 'fs-pick shrink-0 px-[0.55rem] py-[0.2rem] text-[0.8rem]')} onclick={() => pickFolder(f)}>
+              <button type="button" class={cn(btnPrimary, 'fs-pick shrink-0 px-[0.55rem] py-[0.2rem] text-[0.8rem]')} onclick={() => pickFolder(f)}>
                 {$t('hub.hubConnectorDriveSection.browser.add')}
               </button>
             </li>
@@ -312,7 +307,7 @@
 
   <button
     type="button"
-    class={cn(hubBtn, hubBtnSecondary, 'fs-globs-toggle self-start')}
+    class={cn(btnSecondary, 'fs-globs-toggle self-start')}
     onclick={() => (globsOpen = !globsOpen)}
   >
     {globsOpen
@@ -335,7 +330,7 @@
   {/if}
 
   <div class="fs-editor-actions mt-1">
-    <button type="button" class={cn(hubBtn, hubBtnPrimary)} disabled={saveBusy} onclick={() => void save()}>
+    <button type="button" class={cn(btnPrimary)} disabled={saveBusy} onclick={() => void save()}>
       {saveBusy
         ? $t('common.status.saving')
         : $t('hub.fileSourceConfigEditor.actions.saveFileSourceSettings')}

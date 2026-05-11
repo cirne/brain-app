@@ -34,6 +34,10 @@ These guidelines are derived from [Karpathy-inspired coding agent principles](ht
 - **DRY with restraint.** Extract shared helpers when the same logic is repeated or clearly will be reused; do not preemptively abstract one-off fixes.
 - **Velocity does not mean guessing.** Early-development velocity favors small PRs and low ceremony, not hidden assumptions; backlog and process skills widen scope only when explicitly invoked.
 
+### Visual design system
+
+`DESIGN.md` is the agent-facing design system for Braintunnel's palette, typography, spacing, and visual intent. Read it before changing global UI tokens or broad component styling. The runtime source of truth remains `src/client/style.css` and its Tailwind v4 `@theme` aliases, so keep both files aligned; use `npm run design:lint` to validate the DESIGN.md schema, and treat generated exports as exploratory until an export workflow is explicitly adopted.
+
 ### Icons (Lucide) and text
 
 - **Use Lucide as components**, not ad-hoc inline `<svg>`. Import from `lucide-svelte` and register tool-side icons in [`src/client/lib/tools/registryIcons.ts`](src/client/lib/tools/registryIcons.ts) (`getToolIcon` / `toolIcons.js`). For unregistered tool names, use a generic Lucide icon in the UI (e.g. `Wrench` in `ToolCallBlock`)—do not paste raw SVG.

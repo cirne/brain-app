@@ -301,13 +301,8 @@
     return ''
   })
 
-  /** Inlined dialog button styles — avoids relying on `:global()` rules from the parent panel. */
-  const hubDialogBtnBase =
-    'hub-dialog-btn cursor-pointer rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
-  const hubDialogBtnPrimary =
-    'hub-dialog-btn-primary bg-accent text-white border-[color-mix(in_srgb,var(--accent)_80%,black)] hover:not-disabled:brightness-[1.06]'
-  const hubDialogBtnSecondary =
-    'hub-dialog-btn-secondary bg-transparent text-foreground border-[color-mix(in_srgb,var(--border)_80%,transparent)] hover:not-disabled:bg-surface-2'
+  const btnPrimary = 'bt-btn bt-btn-primary'
+  const btnSecondary = 'bt-btn bt-btn-secondary'
 
   const driveCtaBtn = 'drive-cta-btn inline-flex items-center gap-[0.4rem]'
   const driveActionBtn = 'drive-action-btn inline-flex items-center gap-[0.35rem] text-[0.8125rem]'
@@ -338,7 +333,7 @@
     <div class="drive-empty-ctas flex flex-wrap gap-2">
       <button
         type="button"
-        class={cn(hubDialogBtnBase, hubDialogBtnPrimary, driveCtaBtn)}
+        class={cn(btnPrimary, driveCtaBtn)}
         disabled={suggestBusy}
         onclick={() => void loadSuggestions()}
       >
@@ -352,7 +347,7 @@
       </button>
       <button
         type="button"
-        class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveCtaBtn)}
+        class={cn(btnSecondary, driveCtaBtn)}
         onclick={openBrowser}
       >
         <Folder size={15} aria-hidden="true" />
@@ -408,7 +403,7 @@
       <div class="drive-actions-row flex flex-wrap gap-2">
         <button
           type="button"
-          class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
+          class={cn(btnSecondary, driveActionBtn)}
           onclick={openBrowser}
         >
           <FolderOpen size={14} aria-hidden="true" />
@@ -416,7 +411,7 @@
         </button>
         <button
           type="button"
-          class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
+          class={cn(btnSecondary, driveActionBtn)}
           disabled={suggestBusy}
           onclick={() => void loadSuggestions()}
         >
@@ -503,7 +498,7 @@
                     </span>
                   {:else if checked}
                     <span
-                      class="drive-suggest-marker drive-suggest-marker--on box-border inline-flex h-5 w-5 items-center justify-center bg-accent text-white text-xs"
+                      class="drive-suggest-marker drive-suggest-marker--on box-border inline-flex h-5 w-5 items-center justify-center bg-accent text-accent-foreground text-xs"
                     >✓</span>
                   {:else}
                     <span
@@ -556,7 +551,7 @@
         <div class="drive-suggest-footer flex flex-wrap gap-2">
           <button
             type="button"
-            class={cn(hubDialogBtnBase, hubDialogBtnPrimary, driveActionBtn)}
+            class={cn(btnPrimary, driveActionBtn)}
             disabled={saveBusy || !canApplySuggestions}
             onclick={() => void applySuggestions()}
           >
@@ -567,7 +562,7 @@
           </button>
           <button
             type="button"
-            class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
+            class={cn(btnSecondary, driveActionBtn)}
             onclick={() => (suggestOpen = false)}
           >
             {$t('common.actions.dismiss')}
@@ -646,8 +641,7 @@
               <button
                 type="button"
                 class={cn(
-                  hubDialogBtnBase,
-                  alreadyAdded ? hubDialogBtnSecondary : hubDialogBtnPrimary,
+                  alreadyAdded ? btnSecondary : btnPrimary,
                   'drive-browser-add shrink-0 px-[0.55rem] py-[0.2rem] text-[0.8rem]',
                 )}
                 disabled={alreadyAdded || saveBusy}
@@ -666,8 +660,7 @@
         <button
           type="button"
           class={cn(
-            hubDialogBtnBase,
-            hubDialogBtnSecondary,
+            btnSecondary,
             'drive-browser-up mt-1 self-start text-[0.8rem]',
           )}
           onclick={browserUp}
@@ -759,7 +752,7 @@
             <div class="drive-adv-save-row flex">
               <button
                 type="button"
-                class={cn(hubDialogBtnBase, hubDialogBtnPrimary, driveActionBtn)}
+                class={cn(btnPrimary, driveActionBtn)}
                 disabled={saveBusy}
                 onclick={() => void saveAdvanced()}
               >

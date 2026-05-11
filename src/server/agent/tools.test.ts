@@ -1472,11 +1472,11 @@ describe('buildInboxRulesCommand', () => {
         rule_action: 'ignore',
         from: 'spam@x.com',
         query: 'digest|unsubscribe',
-        insert_before: 'def-otp',
+        insert_before: 'def-cat-list',
         source: 'u@mail.com',
       })
     ).toBe(
-      'rules add --action ignore --query "digest|unsubscribe" --from "spam@x.com" --insert-before "def-otp" --source "u@mail.com"'
+      'rules add --action ignore --query "digest|unsubscribe" --from "spam@x.com" --insert-before "def-cat-list" --source "u@mail.com"'
     )
   })
 

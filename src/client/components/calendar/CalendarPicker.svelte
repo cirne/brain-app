@@ -188,7 +188,7 @@
             <span class="cal-picker-marker-track flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
               {#if checked}
                 <span
-                  class="cal-picker-marker cal-picker-marker--on box-border inline-flex h-6 w-6 items-center justify-center border-none text-white [background:linear-gradient(145deg,color-mix(in_srgb,var(--accent)_92%,white),var(--accent))] [box-shadow:0_1px_2px_color-mix(in_srgb,var(--text)_22%,transparent),inset_0_1px_0_color-mix(in_srgb,white_35%,transparent)]"
+                  class="cal-picker-marker cal-picker-marker--on box-border inline-flex h-6 w-6 items-center justify-center border-none text-accent-foreground [background:linear-gradient(145deg,color-mix(in_srgb,var(--accent)_92%,white),var(--accent))] [box-shadow:0_1px_2px_color-mix(in_srgb,var(--text)_22%,transparent),inset_0_1px_0_color-mix(in_srgb,white_35%,transparent)]"
                 >
                   <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                 </span>

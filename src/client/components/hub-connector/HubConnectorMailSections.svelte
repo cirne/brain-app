@@ -46,14 +46,9 @@
     onBackfill,
   }: Props = $props()
 
-  /** Shared dialog button look — inlined to avoid `:global()` on snippet children from the panel. */
-  const hubDialogBtnBase =
-    'hub-dialog-btn cursor-pointer rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
-  const hubDialogBtnPrimary =
-    'hub-dialog-btn-primary bg-accent text-white border-[color-mix(in_srgb,var(--accent)_80%,black)] hover:not-disabled:brightness-[1.06]'
-  const hubDialogBtnSecondary =
-    'hub-dialog-btn-secondary bg-transparent text-foreground border-[color-mix(in_srgb,var(--border)_80%,transparent)] hover:not-disabled:bg-surface-2'
-  const hubSourceSyncBtn = 'hub-source-sync-btn inline-flex items-center gap-[0.4rem]'
+  const btnPrimary = 'bt-btn bt-btn-primary'
+  const btnSecondary = 'bt-btn bt-btn-secondary'
+  const hubSourceSyncBtn = 'hub-source-sync-btn gap-[0.4rem]'
 
   const sectionDivider =
     'border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-[0.85rem]'
@@ -202,7 +197,7 @@
     {#if showInlineRefresh}
       <button
         type="button"
-        class={cn(hubDialogBtnBase, hubDialogBtnPrimary, hubSourceSyncBtn)}
+        class={cn(btnPrimary, hubSourceSyncBtn)}
         disabled={sourceSyncAction !== null}
         onclick={onRefresh}
       >
@@ -214,7 +209,7 @@
     {/if}
     <button
       type="button"
-      class={cn(hubDialogBtnBase, hubDialogBtnSecondary, hubSourceSyncBtn)}
+      class={cn(btnSecondary, hubSourceSyncBtn)}
       disabled={sourceSyncAction !== null}
       onclick={onBackfill}
     >

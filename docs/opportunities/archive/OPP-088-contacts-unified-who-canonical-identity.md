@@ -90,7 +90,7 @@ Use **union-find** (or equivalent) offline during **`refresh` / `who --rebuild`*
 
 ## Related
 
-- [OPP-077](OPP-077-who-smart-address-book.md) — historical “what shipped” for mail-centric `who`; this opp **supersedes direction** for the next-generation identity layer (may archive or narrow OPP-077 when implementation lands).
+- [OPP-077](OPP-077-who-smart-address-book.md) — **archived (done enough)** mail-centric `who` ship list; this opp **supersedes direction** for the next-generation identity layer where that work lands.
 - [OPP-053 archived](../../ripmail/docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md) — calendar + same-binary native surface; **attendee email** correlation with `who` clusters.
 - [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources` model for connectors.
 - [OPP-042](../../ripmail/docs/opportunities/OPP-042-google-oauth-cli-auth.md) — Google OAuth; scope expansion for People API.

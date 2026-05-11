@@ -292,7 +292,7 @@
 
   // Shared button styles (preserve legacy class hooks for tests / external selectors).
   const sendBtnBase =
-    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-white p-0 disabled:cursor-not-allowed disabled:opacity-40'
+    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-accent-foreground p-0 disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
 <div class={cn(

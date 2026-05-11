@@ -743,12 +743,12 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'list_inbox',
     label: 'List Inbox',
     description:
-      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_mail_message. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them. **Adaptive resolution:** per-item fields are reduced when the inbox is large — ≤8 items: full; 9–20: compact (snippet omitted); >20: minimal (snippet + fromName omitted) — use read_mail_message to get full content for any item.',
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_mail_message. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them. **Locally archived messages are never listed** (thorough or not); use search_index if you need to confirm a message still exists after archive. **Adaptive resolution:** per-item fields are reduced when the inbox is large — ≤8 items: full; 9–20: compact (snippet omitted); >20: minimal (snippet + fromName omitted) — use read_mail_message to get full content for any item.',
     parameters: Type.Object({
       thorough: Type.Optional(
         Type.Boolean({
           description:
-            'Ripmail inbox `--thorough`: include suppressed/hidden candidates and fuller decision metadata so the agent can tie a missing message to its matched filter.',
+            'Ripmail inbox `--thorough`: include suppressed/hidden candidates and fuller decision metadata so the agent can tie a missing message to its matched filter. Does not include messages the user archived locally.',
         }),
       ),
     }),

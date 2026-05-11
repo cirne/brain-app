@@ -6,7 +6,8 @@
  *  1. Load candidates from messages within the time window
  *  2. Apply rules.json regex + structured filters to assign rule_triage
  *  3. Fall back to heuristics when no rule matches
- *  4. Return surfaced items (notify + inform by default; all when thorough)
+ *  4. Return surfaced items (notify + inform by default; notify + inform + ignore when thorough)
+ *     Archived rows are always excluded (thorough is for suppressed-by-rules / category visibility, not “undo archive”).
  */
 
 import { createHash } from 'node:crypto'
@@ -65,7 +66,8 @@ function isNoreply(address: string): boolean {
 // ---------------------------------------------------------------------------
 
 const EXCLUDED_CATEGORIES = new Set(['promotional', 'social', 'forum', 'list', 'bulk', 'spam', 'automated'])
-const AUTOMATED_SUBJECTS = ['newsletter', 'digest', 'sale', 'deal alert', 'sitewide', 'membership']
+const AUTOMATED_SUBJECT_PHRASES = ['newsletter', 'digest', 'deal alert', 'sitewide', 'membership']
+const AUTOMATED_SUBJECT_PROMO_WORD = /\b(sale|sell)\b/i
 const AUTOMATED_SNIPPETS = [
   'view in browser',
   'view this email in your browser',
@@ -84,7 +86,10 @@ function fallbackHeuristic(candidate: InboxCandidate): { action: 'notify' | 'inf
   if (isNoreply(from)) return { action: 'ignore', note: 'Heuristic: noreply-style sender address.' }
   if (from.includes('newsletter')) return { action: 'ignore', note: 'Heuristic: sender address looks like newsletter traffic.' }
   if (from.includes('linkedin')) return { action: 'ignore', note: 'Heuristic: sender address looks like LinkedIn traffic.' }
-  if (AUTOMATED_SUBJECTS.some((n) => subject.includes(n)))
+  if (
+    AUTOMATED_SUBJECT_PHRASES.some((n) => subject.includes(n)) ||
+    AUTOMATED_SUBJECT_PROMO_WORD.test(subject)
+  )
     return { action: 'ignore', note: 'Heuristic: subject suggests marketing or automated bulk mail.' }
   if (AUTOMATED_SNIPPETS.some((n) => snippet.includes(n)))
     return { action: 'ignore', note: 'Heuristic: snippet suggests list or marketing boilerplate.' }
@@ -208,7 +213,8 @@ export function inbox(db: RipmailDb, ripmailHome: string, opts?: InboxOptions): 
   const sourceIds = opts?.sourceIds ?? []
 
   const categoryFilter = thorough ? '' : ` AND ${defaultCategoryFilterSql('category')}`
-  const archivedFilter = thorough ? '' : ` AND is_archived = 0`
+  /** User-archived mail must not reappear in list_inbox — including thorough diagnostics. */
+  const archivedFilter = ` AND is_archived = 0`
   const sourceFilter =
     sourceIds.length > 0 ? ` AND source_id IN (${sourceIds.map(() => '?').join(', ')})` : ''
 

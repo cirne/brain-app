@@ -58,17 +58,18 @@
 
 /* Light mode (default) */
 :root {
-  --bg: #ffffff;
-  --bg-2: #f5f5f5;
-  --bg-3: #ebebeb;
-  --border: #e0e0e0;
-  --text: #111111;
-  --text-2: #6b7280;
+  --bg: #fbfaf7;
+  --bg-2: #f2eee8;
+  --bg-3: #e7dfd5;
+  --border: #d8d0c4;
+  --text: #18130e;
+  --text-2: #6f6458;
   --muted: var(--text-2);
-  --accent: #2563eb;
-  --accent-dim: #dbeafe;
-  --danger: #e05c5c;
-  --success: #4caf7d;
+  --accent: #586a55;
+  --accent-foreground: #ffffff;
+  --accent-dim: #e4e8dc;
+  --danger: #b94b4b;
+  --success: #2f7f55;
 
   --tab-h: 44px;
   /** L2 row: chat drawer + slide-over (fixed height, matches --tab-h) */
@@ -85,7 +86,7 @@
   --chat-transcript-px: 16px;
   --chat-transcript-pt: 1.25rem;
   --chat-transcript-pb: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.5;
 }
@@ -93,14 +94,15 @@
 /* Dark mode — follows system preference */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f0f0f;
-    --bg-2: #1a1a1a;
-    --bg-3: #252525;
-    --border: #2e2e2e;
-    --text: #e8e8e8;
-    --text-2: #999999;
-    --accent: #4a9eff;
-    --accent-dim: #1e3d5a;
+    --bg: #11100d;
+    --bg-2: #1d1a16;
+    --bg-3: #2a251f;
+    --border: #3b342c;
+    --text: #f0ebe4;
+    --text-2: #b3a797;
+    --accent: #b8c9ae;
+    --accent-foreground: #11100d;
+    --accent-dim: #253126;
   }
 }
 
@@ -133,6 +135,60 @@ svg.sync-spinning {
 }
 
 @layer components {
+  .bt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      filter 150ms ease;
+  }
+
+  .bt-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .bt-btn-primary {
+    border-color: color-mix(in srgb, var(--accent) 80%, black);
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .bt-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  .bt-btn-secondary {
+    border-color: color-mix(in srgb, var(--border) 80%, transparent);
+    background: transparent;
+    color: var(--text);
+  }
+
+  .bt-btn-secondary:hover:not(:disabled) {
+    background: var(--bg-2);
+  }
+
+  .bt-btn-danger {
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    background: color-mix(in srgb, var(--danger) 14%, var(--bg));
+    color: var(--danger);
+  }
+
+  .bt-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 24%, var(--bg));
+  }
+
   /**
    * Transcript scroll: vertical rhythm + column width. Horizontal padding for message bodies lives on
    * `.chat-transcript-inner` inside AgentConversation. Onboarding shells may add `px` on the scroll node.
@@ -172,6 +228,7 @@ svg.sync-spinning {
   --color-foreground: var(--text);
   --color-muted: var(--text-2);
   --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-accent-dim: var(--accent-dim);
   --color-danger: var(--danger);
   --color-success: var(--success);

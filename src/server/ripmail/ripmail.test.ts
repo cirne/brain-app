@@ -457,6 +457,51 @@ describe('inbox', () => {
     expect(personal?.action).toBe('notify')
     expect(personal?.matchedRuleIds).toContain('test-rule')
   })
+
+  it('thorough scan excludes archived messages', () => {
+    const mid = insertMessage(db, {
+      subject: 'Visible until archived',
+      fromAddress: 'keep@example.com',
+      bodyText: 'Note body',
+      date: new Date().toISOString(),
+    })
+    let r = inbox(db, tmpHome, { since: '30d', thorough: true })
+    expect(r.items.some((i) => i.messageId === mid)).toBe(true)
+
+    archive(db, [mid])
+    r = inbox(db, tmpHome, { since: '30d', thorough: true })
+    expect(r.items.some((i) => i.messageId === mid)).toBe(false)
+  })
+
+  it('commerce promo subject Sell… matches def-mkt-fts ignore despite 2FA boilerplate in body', () => {
+    insertMessage(db, {
+      subject: 'Sell what people are buying',
+      fromAddress: 'email@e.therealreal.com',
+      bodyText:
+        'Consignment marketing.\n\nTwo-factor authentication keeps your account secure.\nManage preferences',
+      date: new Date().toISOString(),
+    })
+    const r = inbox(db, tmpHome, { since: '30d', thorough: true })
+    const item = r.items.find((i) => i.subject === 'Sell what people are buying')
+    expect(item).toBeDefined()
+    expect(item?.action).toBe('ignore')
+    expect(item?.winningRuleId).toBe('def-mkt-fts')
+    expect(item?.matchedRuleIds).toContain('def-mkt-fts')
+  })
+
+  it('verification-code mail falls back to inform without OTP notify rule', () => {
+    insertMessage(db, {
+      subject: 'Your sign-in verification',
+      fromAddress: 'security@example.com',
+      bodyText: 'Your verification code is 847291. Do not share this code.',
+      date: new Date().toISOString(),
+    })
+    const r = inbox(db, tmpHome, { since: '30d', thorough: true })
+    const item = r.items.find((i) => i.subject.includes('sign-in verification'))
+    expect(item?.action).toBe('inform')
+    expect(item?.winningRuleId).toBeUndefined()
+    expect(item?.decisionSource).toBe('fallback')
+  })
 })
 
 // ---------------------------------------------------------------------------

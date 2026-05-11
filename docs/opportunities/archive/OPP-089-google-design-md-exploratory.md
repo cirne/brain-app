@@ -1,8 +1,14 @@
+# Archived: OPP-089 — DESIGN.md exploratory (Google `design.md`)
+
+**Status: Archived — spike complete (2026-05-11).** The repo ships an agent-facing **`DESIGN.md`** (palette, type, spacing, visual intent) kept in sync with **`src/client/style.css`**; **`npm run design:lint`** validates the DESIGN.md schema. Optional follow-ons later: CI gate, **`@google/design.md`** export tooling, richer component catalog.
+
+---
+
 # OPP-089: DESIGN.md — exploratory design-system spec for agents (Google `design.md`)
 
-**Status:** Proposed — **exploration / spike**. Decide after a time-boxed trial whether to adopt, park, or archive.
+**Status:** Complete for this backlog scope; see archive banner above. Reopen only for optional CI, export tooling, or broader catalog work.
 
-**Depends on:** [OPP-049](OPP-049-global-ui-tailwind-refactor.md) — **shipped (2026-05-02)** for component-tree consolidation; substantive DESIGN.md work should still wait until **tokens / `@theme`** in `style.css` are stable enough that a written spec matches the real stylesheet.
+**Depends on:** [OPP-049](../OPP-049-global-ui-tailwind-refactor.md) — **shipped (2026-05-02)** for component-tree consolidation; substantive DESIGN.md work should still wait until **tokens / `@theme`** in `style.css` are stable enough that a written spec matches the real stylesheet.
 
 ## Summary
 
@@ -37,6 +43,6 @@ Time-box **~0.5–2 dev days**:
 
 ## Related
 
-- [OPP-049 — Global UI refactor (Tailwind-first)](OPP-049-global-ui-tailwind-refactor.md)
-- [architecture/tailwind-migration.md](../architecture/tailwind-migration.md)
+- [OPP-049 — Global UI refactor (Tailwind-first)](../OPP-049-global-ui-tailwind-refactor.md)
+- [architecture/tailwind-migration.md](../../architecture/tailwind-migration.md)
 - Upstream README / spec: [github.com/google-labs-code/design.md](https://github.com/google-labs-code/design.md)

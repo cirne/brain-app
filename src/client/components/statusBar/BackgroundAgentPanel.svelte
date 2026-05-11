@@ -379,7 +379,7 @@
   const bgPanelBtnClass =
     'bg-panel-btn cursor-pointer rounded-md border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
   const bgPanelBtnPrimary =
-    'bg-panel-btn-primary border-transparent bg-accent text-white'
+    'bg-panel-btn-primary border-transparent bg-accent text-accent-foreground'
 </script>
 
 <div

@@ -90,18 +90,13 @@
     })
   })
 
-  /** Hub action button recipe (used in expansion controls). */
-  const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center gap-[0.35rem] rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
-  const hubBtnPrimary =
-    'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
-  const hubBtnSecondary =
-    'hub-dialog-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
+  const btnPrimary = 'bt-btn bt-btn-primary'
+  const btnSecondary = 'bt-btn bt-btn-secondary'
 
   function statusPillClass(status: string): string {
     return cn(
       'status-pill bg-surface-3 px-2 py-[2px] text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-muted',
-      status === 'running' && 'bg-accent text-white',
+      status === 'running' && 'bg-accent text-accent-foreground',
       status === 'queued' && 'bg-[color-mix(in_srgb,var(--accent)_55%,var(--bg-3))] text-foreground',
       status === 'paused' && 'bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] text-foreground',
     )
@@ -119,7 +114,7 @@
   >
     <button
       type="button"
-      class={cn(hubBtn, hubBtnPrimary)}
+      class={cn(btnPrimary)}
       disabled={expansionBlocked || expansionLoading !== null}
       onclick={() => void startWikiExpansion('full')}
     >
@@ -130,7 +125,7 @@
     </button>
     <button
       type="button"
-      class={cn(hubBtn, hubBtnSecondary)}
+      class={cn(btnSecondary)}
       disabled={expansionBlocked || expansionLoading !== null}
       onclick={() => void startWikiExpansion('continue')}
     >

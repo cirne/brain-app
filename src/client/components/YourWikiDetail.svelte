@@ -137,7 +137,7 @@
   const actionBtnBase =
     'action-btn inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-[background,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-55'
   const actionBtnPrimary =
-    'action-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white enabled:hover:[filter:brightness(1.07)]'
+    'action-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-accent-foreground enabled:hover:[filter:brightness(1.07)]'
   const actionBtnSecondary =
     'action-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground enabled:hover:bg-surface-2'
   const actionBtnGhost =
@@ -172,7 +172,7 @@
         <span
           class={cn(
             phasePillBase,
-            isActive && 'active bg-accent text-white',
+            isActive && 'active bg-accent text-accent-foreground',
             isPaused && 'paused bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] text-foreground',
             isIdle && 'idle bg-surface-3 text-muted',
           )}
