@@ -104,11 +104,11 @@ Order is **suggested priority**, not a commitment to ship all at once.
 - **One entry point** (top-nav widget) → **Brain Hub** (`/hub`) with sections. We can **deep link** from onboarding, errors (“fix this in Brain Hub”), and docs.
 - **Empty states** that teach: e.g. “No remote URL yet—enable tunnel,” not a dead end.
 - **Advanced** collapses: keep simple paths obvious; power users expand for paths, raw config, or “open in editor.”
-- **Cross-link opportunities** instead of duplicating specs: Brain Hub **surfaces** tunnel and OAuth; **[OPP-008](./OPP-008-tunnel-qr-phone-access.md)** (stub + [tunnel status](./OPP-008-tunnel-status.md)) and **OPP-019** anchor behavior.
+- **Cross-link opportunities** instead of duplicating specs: Brain Hub **surfaces** tunnel and OAuth; **[OPP-008](./OPP-008-tunnel-qr-phone-access.md)** (stub + [tunnel status](./tunnel-status.md)) and **OPP-019** anchor behavior.
 
 ## Relation to other opportunities
 
-- **[OPP-008](./OPP-008-tunnel-qr-phone-access.md)** — **Phone Access** (QR, URL, GUID rotation) shipped as core POC; operational detail: [OPP-008-tunnel-status](./OPP-008-tunnel-status.md).
+- **[OPP-008](./OPP-008-tunnel-qr-phone-access.md)** — **Phone Access** (QR, URL, GUID rotation) shipped as core POC; operational detail: [tunnel-status](./tunnel-status.md).
 - **[OPP-014](./OPP-014-onboarding-local-folder-suggestions.md)** — Onboarding proposes folders; Brain Hub is where users **manage** them later.
 - **[archived OPP-087](archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)** · **stub [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md)** — Unified “sources” model informs the Data sources section.
 - **[OPP-010](./OPP-010-user-skills.md) / [OPP-011**](./OPP-011-user-skills-strategy.md) — Skills discovery and strategy; Brain Hub is the **navigational** anchor.
@@ -124,6 +124,6 @@ Order is **suggested priority**, not a commitment to ship all at once.
 ## Next steps
 
 1. **Shipped:** Add **Brain Hub widget** to top nav; navigate to `/hub` rendering `BrainHubPage.svelte`.
-2. Wire the next **real** Hub sections as **sources management** and related OPPs land (**Phone Access** tunnel POC already in Hub; [OPP-008-tunnel-status](./OPP-008-tunnel-status.md)).
+2. Wire the next **real** Hub sections as **sources management** and related OPPs land (**Phone Access** tunnel POC already in Hub; [tunnel-status](./tunnel-status.md)).
 3. Document the **GUI vs chat** split in a short **Brain Hub** subsection of [docs/ARCHITECTURE.md](../ARCHITECTURE.md) (optional; avoid doc sprawl until behavior exists).
 

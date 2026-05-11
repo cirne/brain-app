@@ -2,7 +2,7 @@
 
 **Status: Superseded — archived.** The brain-app–specific upload pipeline idea was replaced by the correct approach: local files and mail as first-class sources in the **ripmail** corpus. See [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md) for the implementation home.
 
-The earlier brain-app–specific sketch (Hono upload API, app-local source registry, PDF/DOCX handlers in the web server) is archived in [archive/OPP-005-source-ingestion-brain-app-upload-pipeline.md](./OPP-005-source-ingestion-brain-app-upload-pipeline.md).
+The earlier brain-app–specific sketch (Hono upload API, app-local source registry, PDF/DOCX handlers in the web server) is archived in [source-ingestion-brain-app-upload-pipeline.md](./source-ingestion-brain-app-upload-pipeline.md).
 
 This redirect file is also archived now that OPP-005 is fully closed.
 
@@ -14,7 +14,7 @@ This redirect file is also archived now that OPP-005 is fully closed.
 
 **Rationale:** Local folders belong in the **ripmail** corpus and CLI (same SQLite + FTS model as email), not as a parallel upload-only pipeline in brain-app. Brain-app continues to integrate via ripmail/agent tools; wiki-relative chat context and `WIKI_DIR` markdown remain as today.
 
-**Historical reference:** The earlier brain-app–specific sketch (Hono upload API, app-local source registry, PDF/DOCX handlers in the web server) is archived in [archive/OPP-005-source-ingestion-brain-app-upload-pipeline.md](./archive/OPP-005-source-ingestion-brain-app-upload-pipeline.md).
+**Historical reference:** The earlier brain-app–specific sketch (Hono upload API, app-local source registry, PDF/DOCX handlers in the web server) is archived in [source-ingestion-brain-app-upload-pipeline.md](./source-ingestion-brain-app-upload-pipeline.md).
 
 ## Related
 

@@ -29,7 +29,7 @@ The repo uses **one backlog** under **`docs/BUGS.md`** and **`docs/OPPORTUNITIES
 
 **Historical / crate-local:** `ripmail/docs/**` stubs + **`archive/`** only (no parallel active index).
 
-**Convention:** Next id is the **smallest unused integer** under **`docs/bugs`** / **`docs/opportunities`** (excluding archive rows that consumed the number). **One ticket = one number.**
+**Convention:** New ids are **monotonic**. Read **`<!-- NEXT_BUG_ID: NNN -->`** in **`docs/BUGS.md`** or **`<!-- NEXT_OPP_ID: NNN -->`** in **`docs/OPPORTUNITIES.md`**, use that id for the new ticket, then increment the anchor in the same change. Do **not** fill historical gaps. **One ticket = one number.**
 
 ## Hygiene: doc vs code
 
@@ -40,14 +40,16 @@ The repo uses **one backlog** under **`docs/BUGS.md`** and **`docs/OPPORTUNITIES
 
 ## New bug
 
-1. **`docs/bugs/BUG-NNN-short-slug.md`**: title **`# BUG-NNN:`**, symptom, repro/evidence if known, expected, **`Status:`** Open (optional severity/tags).
-2. Add row to **Active** in **`docs/BUGS.md`**.
-3. Cross-link if spanning app + ripmail.
+1. Read **`NEXT_BUG_ID`** from **`docs/BUGS.md`**.
+2. **`docs/bugs/BUG-NNN-short-slug.md`**: title **`# BUG-NNN:`**, symptom, repro/evidence if known, expected, **`Status:`** Open (optional severity/tags).
+3. Add row to **Active** in **`docs/BUGS.md`** and increment **`NEXT_BUG_ID`**.
+4. Cross-link if spanning app + ripmail.
 
 ## New opportunity (OPP)
 
-1. **`docs/opportunities/OPP-NNN-short-slug.md`**: problem, direction, Related, Status.
-2. Add row to **Active** in **`docs/OPPORTUNITIES.md`**.
+1. Read **`NEXT_OPP_ID`** from **`docs/OPPORTUNITIES.md`**.
+2. **`docs/opportunities/OPP-NNN-short-slug.md`**: problem, direction, Related, Status.
+3. Add row to **Active** in **`docs/OPPORTUNITIES.md`** and increment **`NEXT_OPP_ID`**.
 
 ## Close and archive — summary
 
