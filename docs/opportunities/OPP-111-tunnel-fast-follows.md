@@ -1,10 +1,10 @@
 # OPP-111: Tunnel fast follows
 
-**Status:** Open — **fast follows** after **[OPP-110](OPP-110-chat-native-brain-to-brain.md)** (chat-native tunnels) ships core transport + threads.
+**Status:** Open — **fast follows** after **[OPP-110](OPP-110-chat-native-brain-to-brain.md)** (**archived** 2026-05-12; full spec: [archive/OPP-110-chat-native-brain-to-brain.md](archive/OPP-110-chat-native-brain-to-brain.md)).
 
-**Depends on:** [OPP-110](OPP-110-chat-native-brain-to-brain.md) · **Policy context:** [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
+**Prerequisite:** [OPP-110](OPP-110-chat-native-brain-to-brain.md) (archived — core tunnel spec) · **Policy context:** [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
 
-This opportunity bundles **post-v1 tunnel polish** that does not need to ship in the same milestone as OPP-110, but should be designed as a coherent “second lap”: **(A)** compounding tunnel answers into **your** wiki on the asker side, and **(B)** honest, controllable UX when **others** tunnel **in** to your brain (inbound requests).
+This opportunity bundles **post-v1 tunnel polish** that does not need to ship in the same milestone as the core tunnel cutover, but should be designed as a coherent “second lap”: **(A)** compounding tunnel answers into **your** wiki on the asker side, and **(B)** honest, controllable UX when **others** tunnel **in** to your brain (inbound requests).
 
 ---
 
@@ -86,4 +86,4 @@ Without a deliberate model, the UI **lies** — users infer the wrong mental mod
 
 ## Relationship to OPP-110
 
-Ship **[OPP-110](OPP-110-chat-native-brain-to-brain.md)** first so tunnel threads, message storage, and trust boundaries exist. Then implement this opportunity as a **focused second lap**: wiki capture on the asker side **and** inbound **send gating + UI honesty** on the host side — without widening cross-brain trust or implying vault access the remote agent does not have.
+**[OPP-110](OPP-110-chat-native-brain-to-brain.md)** is **archived** (2026-05-12); it defines tunnel threads, message storage, and trust boundaries. Implement this opportunity as a **focused second lap**: wiki capture on the asker side **and** **send gating + UI honesty** on the host side — without widening cross-brain trust or implying vault access the remote agent does not have.

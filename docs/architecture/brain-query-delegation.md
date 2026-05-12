@@ -6,7 +6,7 @@ Cross-tenant collaboration is **grant-gated** and **mail-first**: collaborators 
 
 **Hub admin (Spike 1)** for grants and policy editing: closed **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — [brain-to-brain-access-policy.md § closure](./brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure).
 
-**Next evolution:** **[OPP-110](../opportunities/OPP-110-chat-native-brain-to-brain.md)** — replace the mail-first transport with a **chat-native B2B** model: conversations with other brains live in the chat sidebar alongside chats with your own brain.
+**Chat-native B2B (directional spec, archived):** **[archived OPP-110](../opportunities/archive/OPP-110-chat-native-brain-to-brain.md)** (**stub:** [OPP-110](../opportunities/OPP-110-chat-native-brain-to-brain.md)) — tunnel threads in chat alongside My Brain. **Follow-on:** **[OPP-111](../opportunities/OPP-111-tunnel-fast-follows.md)** (wiki capture, approve-to-send, answering-side UX honesty).
 
 **Purge of synchronous stack:** **[OPP-106](../opportunities/OPP-106-email-first-cross-brain-collaboration.md)** (archived body: [archive/OPP-106…](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md)) — removed `runBrainQuery`, `ask_brain`, preview APIs, `brain_query_log`, and `brain_query_inbound` UX; kept **`brain_query_grants`** CRUD and mail-driven **`brain_query_mail`** / **`brain_query_grant_received`** notifications.
 
