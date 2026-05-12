@@ -4,6 +4,13 @@ import type { ChatToolDisplayMode } from './chatToolDisplayPreference.js'
 import type { ContentCardPreview } from './cards/contentCards.js'
 import type { NotificationPresentation } from '@shared/notifications/presentation.js'
 
+/** Overrides for transcript row headers (solo chat defaults to You / Assistant). */
+export type ConversationRoleLabels = {
+  userLabel: string
+  assistantLabel: string
+  assistantWorkingAria: string
+}
+
 /** Empty-chat notification strip: mapped rows + handlers (see {@link NotificationPresentation}). */
 export type EmptyChatNotificationsProps = {
   items: NotificationPresentation[]
@@ -45,6 +52,14 @@ export type AgentConversationViewProps = {
   onOpenVisualArtifact?: (_ref: string, _label?: string) => void
   /** Empty-state “your wiki” link → wiki vault landing (same as Wiki in the top bar). */
   onOpenWikiAbout?: () => void
+  /** Tunnel / inbound threads: localized labels instead of generic You / Assistant. */
+  conversationRoleLabels?: ConversationRoleLabels
+  /**
+   * Outbound brain-to-brain tunnel: alternate empty transcript copy (you're messaging someone else's Brain).
+   */
+  tunnelOutboundEmptyChat?: boolean
+  /** Workspace @handle (or rare display-only fallback); when absent, tunnel empty-state uses anonymous strings. */
+  tunnelOutboundPeer?: string | null
   /** Only used by the default chat transcript (empty state override). */
   empty?: Snippet
   /**

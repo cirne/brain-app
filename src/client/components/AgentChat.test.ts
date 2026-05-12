@@ -312,6 +312,188 @@ describe('AgentChat.svelte', () => {
     expect(JSON.parse(String(patchInit?.body ?? '{}'))).toEqual({ state: 'read' })
   })
 
+  it('empty-chat b2b_inbound_query opens inbound session and does not POST main assistant chat', async () => {
+    const chatPost = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    const patchNotif = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ ok: true })),
+    )
+    const onSelectChatSession = vi.fn().mockResolvedValue(undefined)
+
+    stubFetchForAgentChat({
+      extra: [
+        agentChatPostHandler(chatPost),
+        {
+          match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
+          response: () =>
+            jsonResponse([
+              {
+                id: 'nin',
+                sourceKind: 'b2b_inbound_query',
+                payload: {
+                  grantId: 'bqg_t',
+                  b2bSessionId: 'in-sess-1',
+                  peerHandle: 'asker',
+                  question: 'Hi?',
+                },
+              },
+            ]),
+        },
+        {
+          match: (u: string, init?: RequestInit) =>
+            u === '/api/notifications/nin' && init?.method === 'PATCH',
+          response: patchNotif,
+        },
+      ],
+    })
+
+    const { component } = render(AgentChat, {
+      props: {
+        context: { type: 'none' },
+        showEmptyChatNotifications: true,
+        onSelectChatSession,
+      },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('empty-chat-notifications-strip')).toBeInTheDocument()
+    })
+
+    await fireEvent.click(screen.getByTestId('empty-chat-notif-act'))
+
+    await waitFor(() => {
+      expect(onSelectChatSession).toHaveBeenCalledWith('in-sess-1', expect.any(String))
+    })
+    expect(chatPost).not.toHaveBeenCalled()
+    await waitFor(() => expect(patchNotif).toHaveBeenCalled())
+  })
+
+  it('empty-chat brain_query_grant_received ensures tunnel and POSTs b2b welcome, not main chat', async () => {
+    const mainChatPost = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    const b2bSend = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+    const patchNotif = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ ok: true })),
+    )
+    const outSessionId = 'outbound-grant-sess'
+
+    let agent: InstanceType<typeof AgentChat>
+    const onSelectChatSession = vi.fn(async (sid: string) => {
+      await agent.loadSession(sid)
+    })
+
+    const { component } = render(AgentChat, {
+      props: {
+        context: { type: 'none' },
+        showEmptyChatNotifications: true,
+        onSelectChatSession,
+      },
+    })
+    agent = component
+
+    const mock = createMockFetch([
+      { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+      { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+      {
+        match: (u: string) => u === '/api/chat/b2b/tunnels',
+        response: () => jsonResponse({ tunnels: [] }),
+      },
+      {
+        match: (u: string, init?: RequestInit) =>
+          u === '/api/chat/b2b/ensure-session' && init?.method === 'POST',
+        response: () => jsonResponse({ sessionId: outSessionId }),
+      },
+      {
+        match: (u: string) => u === `/api/chat/sessions/${encodeURIComponent(outSessionId)}`,
+        response: () =>
+          jsonResponse({
+            sessionId: outSessionId,
+            title: null,
+            sessionType: 'b2b_outbound',
+            remoteGrantId: 'bqg_grant_a',
+            remoteHandle: '@owner',
+            remoteDisplayName: 'Owner',
+            approvalState: null,
+            messages: [],
+          }),
+      },
+      {
+        match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
+        response: () =>
+          jsonResponse([
+            {
+              id: 'gnot',
+              sourceKind: 'brain_query_grant_received',
+              payload: {
+                grantId: 'bqg_grant_a',
+                ownerHandle: 'owner',
+                ownerId: 'usr_o',
+              },
+            },
+          ]),
+      },
+      {
+        match: (u: string, init?: RequestInit) =>
+          u === '/api/notifications/gnot' && init?.method === 'PATCH',
+        response: patchNotif,
+      },
+      {
+        match: (u: string, init?: RequestInit) => u === '/api/chat' && init?.method === 'POST',
+        response: mainChatPost,
+      },
+      {
+        match: (u: string, init?: RequestInit) =>
+          u === '/api/chat/b2b/send' && init?.method === 'POST',
+        response: b2bSend,
+      },
+    ])
+    vi.stubGlobal('fetch', mock)
+
+    agent.newChat({ skipOverlayClose: true })
+    await tick()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('empty-chat-notifications-strip')).toBeInTheDocument()
+    })
+
+    mockedConsume.mockImplementation(async (_res, opts) => {
+      await Promise.resolve(opts.onFinishConversation?.())
+      return { sawDone: true, touchedWiki: false, deferredFinishConversation: false }
+    })
+
+    await fireEvent.click(screen.getByTestId('empty-chat-notif-act'))
+
+    await waitFor(() => expect(onSelectChatSession).toHaveBeenCalledWith(outSessionId, expect.any(String)))
+    await waitFor(() => expect(b2bSend).toHaveBeenCalled())
+    expect(mainChatPost).not.toHaveBeenCalled()
+    const b2bInit = b2bSend.mock.calls[0]?.[1] as RequestInit | undefined
+    const b2bBody = JSON.parse(String(b2bInit?.body ?? '{}')) as { message?: string; grantId?: string }
+    expect(b2bBody.grantId).toBe('bqg_grant_a')
+    expect(b2bBody.message?.length ?? 0).toBeGreaterThan(0)
+    await waitFor(() => expect(patchNotif).toHaveBeenCalled())
+  })
+
   it('notification strip flow does not PATCH read when finish hook does not run', async () => {
     const chatPost = vi.fn((_url: string, _init?: RequestInit) =>
       Promise.resolve(
@@ -502,6 +684,40 @@ describe('AgentChat.svelte', () => {
         expect(screen.getByText('Ken Lay')).toBeInTheDocument()
         expect(screen.getByText('via tunnel')).toBeInTheDocument()
       })
+    })
+
+    it('uses tunnel outbound composer placeholder when outbound session transcript is empty', async () => {
+      const sessionId = 'outbound-empty-session'
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: null,
+              sessionType: 'b2b_outbound',
+              remoteGrantId: 'grant-empty',
+              remoteHandle: '@ken',
+              remoteDisplayName: 'Ken Lay',
+              approvalState: null,
+              messages: [],
+            }),
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+
+      await tick()
+      await component.loadSession(sessionId)
+      await tick()
+
+      const ta = await screen.findByRole('textbox')
+      expect(ta).toHaveAttribute('placeholder', '@ken…')
     })
 
     it('posts outbound tunnel messages to the B2B send endpoint', async () => {

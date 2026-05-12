@@ -3,8 +3,8 @@
   import { cn } from '@client/lib/cn.js'
 
   /**
-   * One titled block in the assistant history rail (e.g. **Chats**, **Recents** —
-   * chat sessions and recent docs/email share the same chrome).
+   * One titled block in the assistant history rail (e.g. **Chats**, **Wiki** —
+   * chat sessions and wiki quick links share the same chrome).
    * `sectionClass` carries hook names like `ch-group--chats` for tests and layout.
    */
   let {

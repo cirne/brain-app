@@ -3,6 +3,7 @@
   import { type SurfaceContext } from '@client/router.js'
   import type {
     AgentConversationViewProps,
+    ConversationRoleLabels,
     ConversationScrollApi,
     EmptyChatNotificationsProps,
   } from '@client/lib/agentConversationViewTypes.js'
@@ -45,6 +46,7 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
+  import { formatTunnelPeerMention } from '@client/lib/chatTunnelPeerMention.js'
   import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
   import {
     EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP,
@@ -105,6 +107,17 @@
      * {@link onUserInitiatedNewChat} is used instead.
      */
     onAgentFinishConversation = undefined as (() => void | Promise<void>) | undefined,
+    /**
+     * Navigate the shell to a persisted chat session (e.g. tunnel / inbound from the notification strip).
+     * Main app wires session navigation from the Assistant shell; embedded AgentChat surfaces may omit this.
+     */
+    onSelectChatSession = undefined as
+      | ((
+          _sessionId: string,
+          _title?: string,
+          _opts?: { notificationIdMarkReadOnFinish?: string | null },
+        ) => void | Promise<void>)
+      | undefined,
     /** Active session id changed (new chat, load, or SSE session event). */
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
@@ -198,6 +211,11 @@
     /** Optional; when set, a “new chat” control is shown beside the composer (non-empty thread). */
     onUserInitiatedNewChat?: () => void
     onAgentFinishConversation?: () => void | Promise<void>
+    onSelectChatSession?: (
+      _sessionId: string,
+      _title?: string,
+      _opts?: { notificationIdMarkReadOnFinish?: string | null },
+    ) => void | Promise<void>
     onSessionChange?: (
       _sessionId: string | null,
       _meta?: { chatTitle?: string | null },
@@ -338,6 +356,53 @@
         row.sessionType === 'b2b_outbound'
           ? $t('chat.b2b.viaTunnel')
           : $t('chat.b2b.askingYourBrain'),
+    }
+  })
+
+  /** Outbound tunnel thread: user is messaging someone else's Brain (`POST /api/chat/b2b/send`). */
+  const tunnelOutboundEmptyChat = $derived(currentSession?.sessionType === 'b2b_outbound')
+
+  const tunnelOutboundPeer = $derived.by((): string | null => {
+    if (currentSession?.sessionType !== 'b2b_outbound') return null
+    const mention = formatTunnelPeerMention(currentSession.remoteHandle, currentSession.remoteDisplayName)
+    return mention.length > 0 ? mention : null
+  })
+
+  const conversationRoleLabels = $derived.by((): ConversationRoleLabels => {
+    const row = currentSession
+    const you = $t('chat.messageRow.you')
+    const assistant = $t('chat.messageRow.assistant')
+    const assistantAria = $t('chat.messageRow.assistantWorkingAria')
+    if (!row || row.sessionType === 'own' || !row.sessionType) {
+      return { userLabel: you, assistantLabel: assistant, assistantWorkingAria: assistantAria }
+    }
+    const peerPrimary = (
+      row.remoteDisplayName?.trim() ||
+      row.remoteHandle?.trim() ||
+      ''
+    ).trim()
+    if (row.sessionType === 'b2b_outbound') {
+      const assistantLabel =
+        peerPrimary !== ''
+          ? $t('chat.messageRow.tunnelAssistant', {
+              peer: peerPrimary,
+              via: $t('chat.b2b.viaTunnel'),
+            })
+          : $t('chat.messageRow.tunnelAssistantFallback')
+      return {
+        userLabel: you,
+        assistantLabel,
+        assistantWorkingAria: assistantAria,
+      }
+    }
+    const userLabel =
+      peerPrimary !== ''
+        ? $t('chat.messageRow.inboundRequester', { peer: peerPrimary })
+        : $t('chat.messageRow.inboundRequesterFallback')
+    return {
+      userLabel,
+      assistantLabel: $t('chat.messageRow.yourBrain'),
+      assistantWorkingAria: $t('chat.messageRow.yourBrainWorkingAria'),
     }
   })
 
@@ -560,7 +625,10 @@
     void focusAgentTextarea(0)
   }
 
-  export async function loadSession(loadId: string) {
+  export async function loadSession(
+    loadId: string,
+    opts?: { notificationIdMarkReadOnFinish?: string | null },
+  ) {
     if (sessionIsLiveStreaming(sessions, loadId)) {
       displayedSessionId = loadId
       await tick()
@@ -624,7 +692,7 @@
         approvalState: doc.approvalState ?? null,
         pendingQueuedMessages: [],
         hearReplies: readHearRepliesPreference(),
-        notificationIdMarkReadOnFinish: null,
+        notificationIdMarkReadOnFinish: opts?.notificationIdMarkReadOnFinish ?? null,
         composerResetKey: sid,
       })
       displayedSessionId = sid
@@ -902,6 +970,38 @@
     }
   }
 
+  async function patchNotificationReadNow(id: string) {
+    try {
+      const res = await apiFetch(`/api/notifications/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'read' }),
+      })
+      if (!res.ok) return
+      await refreshEmptyChatNotifications()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function ensureTunnelOutboundSessionClient(grantId: string): Promise<string | null> {
+    const res = await apiFetch('/api/chat/b2b/ensure-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grantId }),
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as { sessionId?: unknown }
+    return typeof body.sessionId === 'string' ? body.sessionId : null
+  }
+
+  async function fetchInboundSessionIdForGrant(grantId: string): Promise<string | null> {
+    const res = await apiFetch(`/api/chat/b2b/inbound-session/${encodeURIComponent(grantId)}`)
+    if (!res.ok) return null
+    const body = (await res.json()) as { sessionId?: unknown }
+    return typeof body.sessionId === 'string' ? body.sessionId : null
+  }
+
   async function refreshEmptyChatNotifications(signal?: AbortSignal) {
     try {
       const res = await apiFetch(
@@ -946,10 +1046,68 @@
         items,
         hasMore,
         onAct: (row) => {
-          const sid = displayedSessionId
-          if (!sid) return
-          sessions = touchSessionImmutable(sessions, sid, { notificationIdMarkReadOnFinish: row.id })
-          void send(row.kickoffUserMessage, undefined, false, { notificationKickoff: row.kickoffHints })
+          void (async () => {
+            const h = row.kickoffHints
+            const inboundFromNotif = h.b2bSessionId?.trim()
+            if (inboundFromNotif) {
+              if (onSelectChatSession) await onSelectChatSession(inboundFromNotif, row.summaryLine)
+              else await loadSession(inboundFromNotif)
+              await patchNotificationReadNow(row.id)
+              return
+            }
+
+            if (row.sourceKind === 'brain_query_grant_received') {
+              const gid = h.grantId?.trim()
+              if (gid) {
+                const outSid = await ensureTunnelOutboundSessionClient(gid)
+                if (outSid) {
+                  if (onSelectChatSession) await onSelectChatSession(outSid, row.summaryLine)
+                  else await loadSession(outSid)
+                  await tick()
+                  const st = sessions.get(outSid)
+                  if (st && st.messages.length === 0) {
+                    await send($t('chat.notifications.grantReceivedTunnelWelcome'), outSid)
+                  }
+                  await patchNotificationReadNow(row.id)
+                  return
+                }
+              }
+            }
+
+            const grantForInbound = h.grantId?.trim()
+            if (
+              grantForInbound &&
+              (row.sourceKind === 'brain_query_mail' || row.sourceKind === 'brain_query_question')
+            ) {
+              const inSid = await fetchInboundSessionIdForGrant(grantForInbound)
+              if (inSid) {
+                if (onSelectChatSession) await onSelectChatSession(inSid, row.summaryLine)
+                else await loadSession(inSid)
+                await patchNotificationReadNow(row.id)
+                return
+              }
+            }
+
+            if (row.sourceKind === 'brain_query_mail') {
+              const mid = h.messageId?.trim()
+              if (mid && onOpenEmail) {
+                onOpenEmail(mid, h.subject, '')
+                await patchNotificationReadNow(row.id)
+                return
+              }
+            }
+
+            if (row.sourceKind === 'brain_query_question') {
+              onOpenFullInbox?.()
+              await patchNotificationReadNow(row.id)
+              return
+            }
+
+            const sid = displayedSessionId
+            if (!sid) return
+            sessions = touchSessionImmutable(sessions, sid, { notificationIdMarkReadOnFinish: row.id })
+            void send(row.kickoffUserMessage, undefined, false, { notificationKickoff: row.kickoffHints })
+          })()
         },
         onDismiss: (nid: string) => void dismissNotification(nid),
       }
@@ -1000,7 +1158,12 @@
   }
 
   const placeholder = $derived(
-    inputPlaceholder ?? contextPlaceholder(context, messages.length > 0),
+    inputPlaceholder ??
+      (tunnelOutboundEmptyChat
+        ? tunnelOutboundPeer != null
+          ? $t('chat.input.tunnelOutboundPlaceholderNamed', { peer: tunnelOutboundPeer })
+          : $t('chat.input.tunnelOutboundPlaceholderAnonymous')
+        : contextPlaceholder(context, messages.length > 0)),
   )
 
   const contextChip = $derived.by((): string | null => {
@@ -1330,6 +1493,9 @@
                   {onOpenWikiAbout}
                   streamingWrite={streamingWritePreview}
                   {multiTenant}
+                  conversationRoleLabels={conversationRoleLabels}
+                  tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
+                  tunnelOutboundPeer={tunnelOutboundPeer}
                 />
               </div>
               {#if mobileDetail}
@@ -1361,6 +1527,9 @@
                 {onOpenWikiAbout}
                 streamingWrite={streamingWritePreview}
                 {multiTenant}
+                conversationRoleLabels={conversationRoleLabels}
+                tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
+                tunnelOutboundPeer={tunnelOutboundPeer}
               />
             </div>
           {/if}
@@ -1391,6 +1560,9 @@
                 {onOpenWikiAbout}
                 streamingWrite={streamingWritePreview}
                 {multiTenant}
+                conversationRoleLabels={conversationRoleLabels}
+                tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
+                tunnelOutboundPeer={tunnelOutboundPeer}
               />
             </div>
             {#if mobileDetail}
@@ -1422,6 +1594,9 @@
               {onOpenWikiAbout}
               streamingWrite={streamingWritePreview}
               {multiTenant}
+              conversationRoleLabels={conversationRoleLabels}
+              tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
+              tunnelOutboundPeer={tunnelOutboundPeer}
             />
           </div>
         {/if}

@@ -62,7 +62,7 @@
   } = $props()
 
   export function newChat(_opts?: { skipOverlayClose?: boolean }) {}
-  export function loadSession(_id: string): Promise<void> {
+  export function loadSession(_id: string, _opts?: { notificationIdMarkReadOnFinish?: string | null }): Promise<void> {
     return Promise.resolve()
   }
   export function sendInitialBootstrapKickoff(): Promise<void> {

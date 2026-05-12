@@ -29,6 +29,9 @@
     streamingWrite: _streamingWrite,
     multiTenant: _multiTenant = false,
     toolDisplayMode = 'compact',
+    conversationRoleLabels,
+    tunnelOutboundEmptyChat = false,
+    tunnelOutboundPeer = null,
   }: AgentConversationViewProps = $props()
 
   let messagesEl: HTMLElement | null = null
@@ -194,6 +197,8 @@
             {onOpenFullInbox}
             {onSwitchToCalendar}
             {onOpenWikiAbout}
+            {tunnelOutboundEmptyChat}
+            {tunnelOutboundPeer}
           />
         {/if}
       {/if}
@@ -205,6 +210,7 @@
           isLastMessage={i === messages.length - 1}
           isLastAssistantInThread={i === lastAssistantIndex}
           {toolDisplayMode}
+          {conversationRoleLabels}
           {onOpenWiki}
           {onOpenFile}
           {onOpenIndexedFile}

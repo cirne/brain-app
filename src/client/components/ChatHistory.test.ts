@@ -175,7 +175,40 @@ describe('ChatHistory.svelte', () => {
     })
   })
 
-  it('separates Chats from Recents with a distinct section landmark', async () => {
+  it('Wiki section lists doc nav history only (not email)', async () => {
+    mockedFetchSessions.mockResolvedValue([])
+    mockedLoadNav.mockResolvedValue([
+      {
+        id: 'doc:test.md',
+        type: 'doc',
+        title: 'Ignored title',
+        accessedAt: '2026-01-02T12:00:00.000Z',
+        path: 'test.md',
+      },
+      {
+        id: 'email:thr1',
+        type: 'email',
+        title: 'Some thread',
+        accessedAt: '2026-01-03T12:00:00.000Z',
+        path: 'thr1',
+      },
+    ])
+
+    const props = chatHistoryTestProps()
+    render(ChatHistory, {
+      props: {
+        ...props,
+        onSelectDoc: vi.fn(),
+        onWikiHome: vi.fn(),
+      },
+    })
+
+    await screen.findByRole('heading', { name: /^wiki$/i })
+    expect(screen.getByText('Test')).toBeInTheDocument()
+    expect(screen.queryByText('Some thread')).not.toBeInTheDocument()
+  })
+
+  it('separates Chats from Wiki with a distinct section landmark', async () => {
     mockedFetchSessions.mockResolvedValue([])
 
     render(ChatHistory, {
@@ -186,10 +219,10 @@ describe('ChatHistory.svelte', () => {
     })
 
     await screen.findByRole('heading', { name: /^chats$/i })
-    const recentsHeading = screen.getByRole('heading', { name: /^recents$/i })
-    const section = recentsHeading.closest('.ch-group--recents')
+    const wikiHeading = screen.getByRole('heading', { name: /^wiki$/i })
+    const section = wikiHeading.closest('.ch-group--wiki')
     expect(section).toBeTruthy()
-    expect(section?.className).toMatch(/ch-group--recents/)
+    expect(section?.className).toMatch(/ch-group--wiki/)
   })
 
   it('lists tunnels in alphabetical order by display label', async () => {

@@ -11,7 +11,6 @@ describe('chatRowShowsAgentWorking', () => {
   })
 
   it('is false for non-chat rows', () => {
-    expect(chatRowShowsAgentWorking({ type: 'email', sessionId: 'x' }, new Set(['x']))).toBe(false)
     expect(chatRowShowsAgentWorking({ type: 'doc', sessionId: 'x' }, new Set(['x']))).toBe(false)
   })
 

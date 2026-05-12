@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os'
 import b2bChatRoute from './b2bChat.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { registerIdentityWorkspace, registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
 import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
-import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
@@ -118,6 +118,39 @@ describe('/api/chat/b2b', () => {
     expect(res2.status).toBe(200)
     const body2 = (await res2.json()) as { sessionId?: string }
     expect(body2.sessionId).toBe(body1.sessionId)
+  })
+
+  it('GET /inbound-session/:grantId returns inbound session id for the grant owner', async () => {
+    const ownerId = 'usr_own5555555555555555555'
+    const askerId = 'usr_ask6666666666666666666'
+    const ownerSid = await sessionFor(ownerId, 'demo-owner-in')
+    await registerSessionTenant(ownerSid, ownerId)
+    await sessionFor(askerId, 'demo-asker-in')
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const inboundId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'demo-owner-in', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        const { ensureSessionStub } = await import('@server/lib/chat/chatStorage.js')
+        await ensureSessionStub(inboundId, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'demo-asker-in',
+          remoteDisplayName: 'Asker',
+          approvalState: 'auto',
+        })
+      },
+    )
+
+    const app = mountB2BChat()
+    const res = await app.request(
+      `http://localhost/api/chat/b2b/inbound-session/${encodeURIComponent(grant.id)}`,
+      { headers: { cookie: `brain_session=${ownerSid}` } },
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { sessionId?: string | null }
+    expect(body.sessionId).toBe(inboundId)
   })
 
   it('POST /send rejects when no active grant exists', async () => {

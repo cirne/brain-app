@@ -1022,7 +1022,11 @@ import AppShell from '@components/app/AppShell.svelte'
     if (shell.sidebarOpen) void refs.chatHistory?.refresh()
   }
 
-  async function selectChatSession(id: string, title?: string) {
+  async function selectChatSession(
+    id: string,
+    title?: string,
+    loadOpts?: { notificationIdMarkReadOnFinish?: string | null },
+  ) {
     shell.chatTitleForUrl = title?.trim() ? title.trim() : null
     navigateShell({ sessionId: id }, { replace: true })
     shell.route = parseRoute()
@@ -1032,18 +1036,13 @@ import AppShell from '@components/app/AppShell.svelte'
       tick,
       maxIterations: 16
       })
-    if (chat) await chat.loadSession(id)
+    if (chat) await chat.loadSession(id, loadOpts)
     shell.chatIsEmpty = false
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
   function selectDocFromHistory(path: string) {
     openWikiFromShell(path)
-    if (shell.isMobile) shell.sidebarOpen = false
-  }
-
-  function selectEmailFromHistory(id: string) {
-    openEmailFromShell(id, '', '')
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
@@ -1447,7 +1446,6 @@ import AppShell from '@components/app/AppShell.svelte'
               streamingSessionIds={shell.streamingSessionIds}
               onSelect={selectChatSession}
               onSelectDoc={selectDocFromHistory}
-              onSelectEmail={selectEmailFromHistory}
               onNewChat={historyNewChat}
               onOpenAllChats={openChatHistoryPage}
               onWikiHome={navigateWikiPrimary}
@@ -1718,6 +1716,7 @@ import AppShell from '@components/app/AppShell.svelte'
           {:else}
             <AgentChat
               bind:this={refs.agentChat}
+              onSelectChatSession={selectChatSession}
               context={shell.agentContext}
               conversationHidden={!!shell.route.overlay && !useDesktopSplitDetail}
               suppressMobileChatL2Header={shell.isMobile && !!shell.route.overlay && !useDesktopSplitDetail}

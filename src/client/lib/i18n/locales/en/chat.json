@@ -1,6 +1,13 @@
 {
+  "notifications": {
+    "grantReceivedTunnelWelcome": "We were just connected through this tunnel—you can ask questions here and their workspace answers under the access they granted. What's a good first question to try?"
+  },
   "emptyState": {
     "prompt": "Ask anything about your docs, email, or calendar.",
+    "tunnelOutboundPromptNamed": "Messaging {{peer}} through a tunnel.",
+    "tunnelOutboundHintNamed": "They answer from their Brain.",
+    "tunnelOutboundPromptAnonymous": "Messaging another Brain through a tunnel.",
+    "tunnelOutboundHintAnonymous": "They answer from their workspace.",
     "atHint": "Use @ to reference docs in",
     "yourWiki": "your wiki",
     "notificationsHeading": "Notifications",
@@ -17,7 +24,13 @@
   "messageRow": {
     "you": "You",
     "assistant": "Assistant",
-    "assistantWorkingAria": "Assistant is working"
+    "assistantWorkingAria": "Assistant is working",
+    "tunnelAssistant": "{{peer}} · {{via}}",
+    "tunnelAssistantFallback": "Tunnel",
+    "inboundRequester": "{{peer}}",
+    "inboundRequesterFallback": "Collaborator",
+    "yourBrain": "Your brain",
+    "yourBrainWorkingAria": "Your brain is working"
   },
   "agentChat": {
     "headerFallbackTitle": "Chat",
@@ -49,8 +62,8 @@
     "emptyInbound": "No inbound chats yet.",
     "pendingBadge": "Pending",
     "pendingCountAria": "{{count}} pending inbound chats",
-    "recentsHeading": "Recents",
-    "emptyRecents": "No recent documents or email."
+    "wikiHeading": "Wiki",
+    "emptyWikiPages": "No wiki pages yet."
   },
   "b2b": {
     "viaTunnel": "via tunnel",
@@ -95,6 +108,8 @@
   },
   "input": {
     "placeholder": "What do you need to know or get done?",
+    "tunnelOutboundPlaceholderNamed": "{{peer}}…",
+    "tunnelOutboundPlaceholderAnonymous": "Write a message…",
     "noMatchingSkills": "No matching skills",
     "mentionMenuAria": "Mention people or documents",
     "noMentionMatches": "No matches",

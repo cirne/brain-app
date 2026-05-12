@@ -45,7 +45,9 @@ async function displayNameForUser(userId: string): Promise<{ handle: string; dis
   const home = tenantHomeDir(userId)
   const meta = await readHandleMeta(home)
   const handle = meta?.handle ?? userId
-  return { handle, displayName: meta?.handle ?? userId }
+  const profileName = typeof meta?.displayName === 'string' ? meta.displayName.trim() : ''
+  const displayName = profileName.length > 0 ? profileName : handle
+  return { handle, displayName }
 }
 
 function grantIsActiveForAsker(row: BrainQueryGrantRow | null, askerId: string): row is BrainQueryGrantRow {
@@ -140,6 +142,21 @@ export async function runB2BQueryForGrant(params: {
     return { answer, inboundSessionId: inbound.sessionId }
   })
 }
+
+/** Owner: resolve chat-native inbound thread for a grant (or null if none yet). */
+b2bChat.get('/inbound-session/:grantId', async (c) => {
+  const ctx = getTenantContext()
+  const grantId = c.req.param('grantId')?.trim() ?? ''
+  if (!grantId) return c.json({ error: 'grantId_required' }, 400)
+
+  const grant = getBrainQueryGrantById(grantId)
+  if (!grant || grant.owner_id !== ctx.tenantUserId) {
+    return c.json({ error: 'not_found' }, 404)
+  }
+
+  const inbound = await findB2BSession(grant.id, 'b2b_inbound')
+  return c.json({ sessionId: inbound?.sessionId ?? null })
+})
 
 b2bChat.get('/tunnels', async (c) => {
   const ctx = getTenantContext()

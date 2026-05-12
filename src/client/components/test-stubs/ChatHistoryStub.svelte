@@ -4,7 +4,6 @@
     streamingSessionIds: _streamingSessionIds = new Set(),
     onSelect: _onSelect = () => {},
     onSelectDoc: _onSelectDoc = () => {},
-    onSelectEmail: _onSelectEmail = () => {},
     onNewChat: _onNewChat = () => {},
     onOpenAllChats: _onOpenAllChats = () => {},
   }: {
@@ -12,7 +11,6 @@
     streamingSessionIds?: ReadonlySet<string>
     onSelect?: (_id: string, _title?: string) => void
     onSelectDoc?: (_path: string) => void
-    onSelectEmail?: (_id: string) => void
     onNewChat?: () => void
     onOpenAllChats?: () => void
   } = $props()

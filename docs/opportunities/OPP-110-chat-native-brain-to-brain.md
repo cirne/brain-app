@@ -2,7 +2,7 @@
 
 **Status:** Open — new direction, supersedes the mail-first B2B transport.
 
-**Fast follow:** **[OPP-111](OPP-111-tunnel-answers-to-your-wiki.md)** — capture tunnel answers into *your* wiki (local write / My Brain composition); ships after core tunnel UX.
+**Fast follow:** **[OPP-111](OPP-111-tunnel-fast-follows.md)** — tunnel fast follows: wiki capture on the asker tenant **and** inbound send control + non-misleading inbound chat UX; ships after core tunnel UX.
 
 **Parent idea:** [IDEA-brain-query-delegation.md](../ideas/IDEA-brain-query-delegation.md) · **Policy model:** [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **Grants CRUD (shipped):** [brain-query-delegation.md](../architecture/brain-query-delegation.md)
 
@@ -286,7 +286,7 @@ This is an **evolution, not a replacement**, of the B2B data model:
 
 The big architectural shift is that **the synchronous cross-tenant request is now driven by a chat turn rather than a mail message**, and the answer returns in the same chat session rather than as email.
 
-Persisting tunnel-derived knowledge into **your** wiki is **[OPP-111](OPP-111-tunnel-answers-to-your-wiki.md)** — same trust boundary; capture runs on the asker’s tenant only.
+Persisting tunnel-derived knowledge into **your** wiki (and related inbound UX polish) is **[OPP-111](OPP-111-tunnel-fast-follows.md)** — same trust boundary; wiki capture runs on the asker’s tenant only.
 
 ---
 

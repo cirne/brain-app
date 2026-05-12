@@ -112,4 +112,67 @@ describe('ChatMessageRow.svelte', () => {
     })
     expect(container.querySelector('details.tool-call')).toBeTruthy()
   })
+
+  it('uses conversationRoleLabels for tunnel-style assistant header', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [{ type: 'text', content: 'Their reply' }],
+    }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: true,
+        conversationRoleLabels: {
+          userLabel: 'You',
+          assistantLabel: 'Taylor · via tunnel',
+          assistantWorkingAria: 'Assistant is working',
+        },
+      },
+    })
+    expect(screen.getByText('Taylor · via tunnel')).toBeInTheDocument()
+  })
+
+  it('uses conversationRoleLabels for inbound requester user header', () => {
+    const msg: ChatMessage = { role: 'user', content: 'Question for you' }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: false,
+        conversationRoleLabels: {
+          userLabel: 'Steven Kean',
+          assistantLabel: 'Your brain',
+          assistantWorkingAria: 'Your brain is working',
+        },
+      },
+    })
+    expect(screen.getByText('Steven Kean')).toBeInTheDocument()
+    expect(screen.queryByText('You')).not.toBeInTheDocument()
+  })
+
+  it('uses conversationRoleLabels assistantWorkingAria when streaming', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [{ type: 'tool', toolCall: { id: '1', name: 'noop_tool', args: {}, done: true } }],
+    }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: true,
+        isLastMessage: true,
+        isLastAssistantInThread: true,
+        conversationRoleLabels: {
+          userLabel: 'Steven Kean',
+          assistantLabel: 'Your brain',
+          assistantWorkingAria: 'Your brain is working',
+        },
+      },
+    })
+    expect(screen.getByRole('status', { name: /your brain is working/i })).toBeInTheDocument()
+  })
 })

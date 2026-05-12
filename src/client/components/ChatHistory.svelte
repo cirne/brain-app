@@ -3,7 +3,7 @@
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { t } from '@client/lib/i18n/index.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { BookOpen, Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
+  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2, Bell } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
@@ -35,7 +35,6 @@
     streamingSessionIds = emptyStreamingIds,
     onSelect,
     onSelectDoc,
-    onSelectEmail,
     onNewChat,
     onOpenAllChats,
     onWikiHome,
@@ -44,7 +43,6 @@
     streamingSessionIds?: ReadonlySet<string>
     onSelect: (_sessionId: string, _title?: string) => void
     onSelectDoc?: (_path: string) => void
-    onSelectEmail?: (_id: string) => void
     onNewChat: () => void
     onOpenAllChats?: () => void
     onWikiHome?: () => void
@@ -61,7 +59,7 @@
 
   type NavRowItem = {
     id: string
-    type: 'chat' | 'email' | 'doc' | 'tunnel'
+    type: 'chat' | 'doc' | 'tunnel'
     title: string
     timestamp: string
     path?: string
@@ -154,13 +152,14 @@
     sessions.filter((s) => s.sessionType === 'b2b_inbound' && s.approvalState === 'pending').length,
   )
 
-  const recentItems = $derived.by(() => {
+  /** Wiki pages from nav history (docs only; email threads stay out of this rail section). */
+  const wikiNavItems = $derived.by(() => {
     const items: NavRowItem[] = []
     for (const h of navHistory) {
-      if (h.type === 'doc' || h.type === 'email') {
+      if (h.type === 'doc' && h.path) {
         items.push({
           id: h.id,
-          type: h.type,
+          type: 'doc' as const,
           title: h.title,
           timestamp: h.accessedAt,
           path: h.path,
@@ -287,8 +286,6 @@
       onSelect(item.sessionId, item.title)
     } else if (item.type === 'doc' && item.path && onSelectDoc) {
       onSelectDoc(item.path)
-    } else if (item.type === 'email' && item.path && onSelectEmail) {
-      onSelectEmail(item.path)
     }
   }
 
@@ -372,18 +369,19 @@
         class={cn(
           'flex size-4 shrink-0 items-center justify-center max-md:size-5',
           (item.type === 'chat' || item.type === 'tunnel') && 'text-accent',
-          item.type === 'email' && 'text-muted/65',
           (item.type === 'chat' || item.type === 'tunnel') && (agentWorking ? 'opacity-90' : 'opacity-75'),
         )}
       >
         {#if item.type === 'chat' || item.type === 'tunnel'}
           {#if agentWorking}
             <Loader2 class="sync-spinning" size={12} strokeWidth={2} aria-hidden="true" />
+          {:else if item.type === 'tunnel'}
+            <Link2 size={12} strokeWidth={2} aria-hidden="true" />
+          {:else if item.type === 'chat' && item.sessionType === 'b2b_inbound'}
+            <Bell size={12} strokeWidth={2} aria-hidden="true" />
           {:else}
             <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
           {/if}
-        {:else if item.type === 'email'}
-          <Mail size={12} strokeWidth={2} aria-hidden="true" />
         {/if}
       </span>
       <span
@@ -528,14 +526,14 @@
       </section>
 
       <section
-        class="ch-group ch-group--recents m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5"
-        aria-labelledby="ch-heading-recents"
+        class="ch-group ch-group--wiki m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5"
+        aria-labelledby="ch-heading-wiki"
       >
         <h2
           class="ch-group-label m-0 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
-          id="ch-heading-recents"
+          id="ch-heading-wiki"
         >
-          {$t('chat.history.recentsHeading')}
+          {$t('chat.history.wikiHeading')}
         </h2>
         {#if onWikiHome}
           <button
@@ -547,13 +545,13 @@
             <span>{$t('nav.wiki.home')}</span>
           </button>
         {/if}
-        {#if recentItems.length === 0}
+        {#if wikiNavItems.length === 0}
           <div class={cn(chatHistoryRailEmptyMutedClass, 'ch-muted--section')}>
-            {$t('chat.history.emptyRecents')}
+            {$t('chat.history.emptyWikiPages')}
           </div>
         {:else}
           <div class={chatHistoryRowListClass}>
-            {#each recentItems as item (item.id)}
+            {#each wikiNavItems as item (item.id)}
               {@render navRow(item)}
             {/each}
           </div>
