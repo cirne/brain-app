@@ -39,6 +39,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run check:npm-malware
+
       - name: npm run build
         run: npm run build
 
@@ -58,6 +60,8 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - run: npm run check:npm-malware
 
       - name: npm run build
         run: npm run build

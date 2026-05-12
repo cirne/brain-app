@@ -34,6 +34,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [integrations.md](./integrations.md) | Ripmail (TS module), `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (mail index vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables (narrative + summary table) |
 | **[environment-variables.md](./environment-variables.md)** | **Full env var inventory** (required vs optional) and **contributor rule** (no new vars without explicit user request) |
+| [../npm-known-malware.md](../npm-known-malware.md) | **npm supply-chain:** curated denylist, `check-npm-malware` in CI, refreshing from advisories |
 | [chat-history-sqlite.md](./chat-history-sqlite.md) | Chat + notifications in **`var/brain-tenant.sqlite`** (sessions/messages + `notifications`); optional FTS follow-on |
 | [preferences-store.md](./preferences-store.md) | Preferences consolidation: scattered JSON files + localStorage → SQLite table + typed client module |
 | [tailwind-migration.md](./tailwind-migration.md) | Tailwind-first client components; scoped CSS only where justified — [components README](../../src/client/components/README.md) |

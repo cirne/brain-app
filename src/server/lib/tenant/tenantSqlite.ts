@@ -7,7 +7,7 @@ import { brainLayoutTenantSqlitePath } from '@server/lib/platform/brainLayout.js
 /**
  * Bump when `brain-tenant.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  */
-export const TENANT_SCHEMA_VERSION = 1
+export const TENANT_SCHEMA_VERSION = 2
 
 /**
  * Per-tenant Brain app SQLite (chat, notifications). Ripmail keeps its own DB under `ripmail/` until OPP-108 merges schemas.
@@ -45,10 +45,19 @@ CREATE TABLE chat_sessions (
   session_id TEXT PRIMARY KEY,
   title TEXT,
   preview TEXT,
+  session_type TEXT NOT NULL DEFAULT 'own' CHECK (session_type IN ('own', 'b2b_outbound', 'b2b_inbound')),
+  remote_grant_id TEXT,
+  remote_handle TEXT,
+  remote_display_name TEXT,
+  approval_state TEXT CHECK (approval_state IS NULL OR approval_state IN ('pending', 'approved', 'declined', 'auto')),
   created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL
+  updated_at_ms INTEGER NOT NULL,
+  CHECK (session_type = 'own' OR remote_grant_id IS NOT NULL)
 );
 CREATE INDEX idx_chat_sessions_updated ON chat_sessions(updated_at_ms DESC);
+CREATE UNIQUE INDEX idx_b2b_session_unique
+  ON chat_sessions(session_type, remote_grant_id)
+  WHERE session_type != 'own';
 
 CREATE TABLE chat_messages (
   session_id TEXT NOT NULL REFERENCES chat_sessions(session_id) ON DELETE CASCADE,

@@ -31,6 +31,8 @@ export type NotificationKickoffHints = {
   peerPrimaryEmail?: string
   /** Full question text for in-app `brain_query_question` notifications (no mail message). */
   question?: string
+  /** Chat-native B2B inbound session to open. */
+  b2bSessionId?: string
 }
 
 export type NotificationPresentation = {
@@ -78,6 +80,9 @@ function hintsFrom(input: NotificationPresentationInput): NotificationKickoffHin
 
   const questionRaw = typeof p.question === 'string' ? p.question.trim() : ''
   if (questionRaw) base.question = questionRaw
+
+  const b2bSessionId = typeof p.b2bSessionId === 'string' ? p.b2bSessionId.trim() : ''
+  if (b2bSessionId) base.b2bSessionId = b2bSessionId
 
   return base
 }
@@ -138,6 +143,29 @@ function brainQueryQuestionPresentation(input: NotificationPresentationInput): N
     atLabel === 'Collaborator'
       ? `Someone asked you a question — help them with an answer. Question: ${JSON.stringify(typeof p.question === 'string' ? p.question.trim() : '')}`
       : `**${atLabel}** asked you a question — help them with an answer. Question: ${JSON.stringify(typeof p.question === 'string' ? p.question.trim() : '')}`
+  return {
+    id: input.id,
+    sourceKind: input.sourceKind,
+    summaryLine,
+    kickoffUserMessage,
+    kickoffHints: hintsFrom(input),
+  }
+}
+
+function b2bInboundQueryPresentation(input: NotificationPresentationInput): NotificationPresentation {
+  const p = input.payload && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
+  const handle = typeof p.peerHandle === 'string' ? p.peerHandle.trim().replace(/^@/, '') : ''
+  const displayName = typeof p.peerDisplayName === 'string' ? p.peerDisplayName.trim() : ''
+  const label = handle ? `@${handle}` : displayName || 'Someone'
+  const question = typeof p.question === 'string' ? p.question.trim() : ''
+  const summaryLine = truncateOneLine(
+    question ? `${label} asked your brain: ${question}` : `${label} asked your brain`,
+    SUMMARY_MAX_CHARS,
+  )
+  const kickoffUserMessage =
+    label === 'Someone'
+      ? 'Someone asked your brain a question. Open the inbound chat to review the draft answer.'
+      : `**${label}** asked your brain a question. Open the inbound chat to review the draft answer.`
   return {
     id: input.id,
     sourceKind: input.sourceKind,
@@ -213,6 +241,9 @@ export function presentationForNotificationRow(input: NotificationPresentationIn
   }
   if (input.sourceKind === 'brain_query_question') {
     return brainQueryQuestionPresentation(input)
+  }
+  if (input.sourceKind === 'b2b_inbound_query') {
+    return b2bInboundQueryPresentation(input)
   }
   if (input.sourceKind === 'brain_query_mail') {
     return brainQueryMailPresentation(input)

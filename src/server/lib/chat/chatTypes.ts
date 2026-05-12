@@ -31,6 +31,9 @@ export type ChatMessage = {
   usage?: LlmUsageSnapshot
 }
 
+export type ChatSessionType = 'own' | 'b2b_outbound' | 'b2b_inbound'
+export type ApprovalState = 'pending' | 'approved' | 'declined' | 'auto'
+
 /** One in-progress assistant message while streaming SSE (server mirror of client state). */
 export type AssistantTurnState = {
   thinking?: string
@@ -43,5 +46,10 @@ export type ChatSessionDocV1 = {
   createdAt: string
   updatedAt: string
   title: string | null
+  sessionType: ChatSessionType
+  remoteGrantId: string | null
+  remoteHandle: string | null
+  remoteDisplayName: string | null
+  approvalState: ApprovalState | null
   messages: ChatMessage[]
 }

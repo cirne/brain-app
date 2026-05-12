@@ -83,6 +83,27 @@ function checkExpectInner(
       reasons.push(`final text matches none of: ${JSON.stringify(expect.substrings)}`)
       return false
     }
+    case 'finalTextExcludes': {
+      const ins = expect.caseInsensitive === true
+      const need = norm(expect.substring, ins)
+      const hay = norm(finalText, ins)
+      if (hay.includes(need)) {
+        reasons.push(`final text includes forbidden substring: ${JSON.stringify(expect.substring)}`)
+        return false
+      }
+      return true
+    }
+    case 'finalTextExcludesAll': {
+      const ins = expect.caseInsensitive === true
+      const hay = norm(finalText, ins)
+      for (const s of expect.substrings) {
+        if (hay.includes(norm(s, ins))) {
+          reasons.push(`final text includes forbidden substring: ${JSON.stringify(s)}`)
+          return false
+        }
+      }
+      return true
+    }
     case 'toolNamesIncludeAll': {
       for (const n of expect.names) {
         if (!toolNames.includes(n)) {

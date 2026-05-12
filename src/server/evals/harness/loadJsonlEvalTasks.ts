@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline'
 import { createReadStream } from 'node:fs'
-import type { EnronV1Task, WikiV1Task } from './types.js'
+import type { B2BV1Task, EnronV1Task, WikiV1Task } from './types.js'
 import { resolve } from 'node:path'
 
 /**
@@ -25,4 +25,8 @@ export async function loadEnronV1TasksFromFile(absPath: string): Promise<EnronV1
 
 export async function loadWikiV1TasksFromFile(absPath: string): Promise<WikiV1Task[]> {
   return loadJsonlEvalFile<WikiV1Task>(absPath)
+}
+
+export async function loadB2BV1TasksFromFile(absPath: string): Promise<B2BV1Task[]> {
+  return loadJsonlEvalFile<B2BV1Task>(absPath)
 }

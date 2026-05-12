@@ -62,6 +62,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/IDEAS.md](docs/IDEAS.md) — fuzzy ideas and concepts being refined before they become opportunities
 - [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
+- [docs/npm-known-malware.md](docs/npm-known-malware.md) — curated npm malware denylist; `npm run check:npm-malware` (part of `npm run ci`)
 
 ## Stack
 

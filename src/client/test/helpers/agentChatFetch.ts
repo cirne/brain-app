@@ -19,11 +19,13 @@ export function stubFetchForAgentChat(
   opts: {
     wikiList?: unknown
     skillsList?: unknown
+    tunnels?: unknown
     extra?: Parameters<typeof createMockFetch>[0]
   } = {},
 ) {
   const wikiList = opts.wikiList ?? []
   const skillsList = opts.skillsList ?? []
+  const tunnels = opts.tunnels ?? { tunnels: [] }
   const mock = createMockFetch([
     {
       match: (u: string) => u === '/api/wiki',
@@ -32,6 +34,10 @@ export function stubFetchForAgentChat(
     {
       match: (u: string) => u === '/api/skills',
       response: () => jsonResponse(skillsList),
+    },
+    {
+      match: (u: string) => u === '/api/chat/b2b/tunnels',
+      response: () => jsonResponse(tunnels),
     },
     ...(opts.extra ?? []),
   ])

@@ -8,6 +8,11 @@ export function createChatSessionListItem(overrides: Partial<ChatSessionListItem
     preview: 'Hello',
     createdAt: now,
     updatedAt: now,
+    sessionType: 'own',
+    remoteGrantId: null,
+    remoteHandle: null,
+    remoteDisplayName: null,
+    approvalState: null,
     ...overrides,
   }
 }

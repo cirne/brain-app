@@ -1,4 +1,5 @@
 import type { ChatMessage } from './agentUtils.js'
+import type { ApprovalState, ChatSessionType } from './chatSessionTypes.js'
 
 export type SessionState = {
   messages: ChatMessage[]
@@ -7,6 +8,11 @@ export type SessionState = {
   /** Server session id when known; null until first `session` SSE event. */
   sessionId: string | null
   chatTitle: string | null
+  sessionType?: ChatSessionType
+  remoteGrantId?: string | null
+  remoteHandle?: string | null
+  remoteDisplayName?: string | null
+  approvalState?: ApprovalState | null
   /** OPP-016: FIFO follow-ups queued while `streaming`; flushed one per turn when each stream ends. */
   pendingQueuedMessages: string[]
   /** POST /api/chat `hearReplies` when the user turned on “Read answers aloud” (OpenAI TTS; requires OPENAI_API_KEY on the server). */
@@ -29,6 +35,11 @@ export function emptySession(): SessionState {
     abortController: null,
     sessionId: null,
     chatTitle: null,
+    sessionType: 'own',
+    remoteGrantId: null,
+    remoteHandle: null,
+    remoteDisplayName: null,
+    approvalState: null,
     pendingQueuedMessages: [],
     hearReplies: false,
     notificationIdMarkReadOnFinish: null,

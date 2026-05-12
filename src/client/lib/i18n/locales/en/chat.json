@@ -42,8 +42,28 @@
     "newChat": "New chat",
     "emptyChats": "No chats yet.",
     "viewAllChats": "View all chats…",
+    "tunnelsHeading": "Tunnels",
+    "emptyTunnels": "No tunnels yet. Someone else must grant access from their Brain before you can chat through a tunnel.",
+    "tunnelsLoadFailed": "Could not load tunnels.",
+    "inboundHeading": "Inbound",
+    "emptyInbound": "No inbound chats yet.",
+    "pendingBadge": "Pending",
+    "pendingCountAria": "{{count}} pending inbound chats",
     "recentsHeading": "Recents",
     "emptyRecents": "No recent documents or email."
+  },
+  "b2b": {
+    "viaTunnel": "via tunnel",
+    "askingYourBrain": "asking your brain",
+    "approval": {
+      "title": "Review answer before sending",
+      "description": "Edit the answer if needed, then approve or decline the inbound request.",
+      "answerLabel": "Answer to send",
+      "approve": "Approve and send",
+      "decline": "Decline",
+      "saving": "Saving…",
+      "failed": "Could not update this request."
+    }
   },
   "historyPage": {
     "searchChatsLabel": "Search chats",

@@ -25,6 +25,7 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+RUN npm run check:npm-malware
 RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime

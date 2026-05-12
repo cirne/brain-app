@@ -4,6 +4,8 @@
 
 Code audit scope: `src/server/` (auth, sessions, tenant isolation, path enforcement, subprocess invocation, LLM data flows, logging). Deployment audit scope: see [DEPLOYMENT.md](./DEPLOYMENT.md). Not a pen-test; no dynamic/runtime analysis performed.
 
+**npm supply chain:** curated known-malware denylist + `npm run check:npm-malware` (wired into `npm run ci`) — see [npm-known-malware.md](./npm-known-malware.md).
+
 ---
 
 ## Crown jewels

@@ -1,0 +1,137 @@
+import { Agent } from '@mariozechner/pi-agent-core'
+import type { AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AssistantMessage } from '@mariozechner/pi-ai'
+import { convertToLlm } from '@mariozechner/pi-coding-agent'
+import Handlebars from 'handlebars'
+import { resolveLlmApiKey } from '@server/lib/llm/resolveModel.js'
+import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.js'
+import { renderPromptTemplate } from '@server/lib/prompts/render.js'
+import { createAgentTools, type CreateAgentToolsOptions } from './tools.js'
+import { B2B_QUERY_ONLY } from './agentToolSets.js'
+import { buildDateContext, requireStandardBrainLlm, type PromptClockOptions } from './agentFactory.js'
+import { meProfilePromptSection } from './assistantAgent.js'
+
+export type B2BGrantPolicy = {
+  id: string
+  owner_id: string
+  asker_id: string
+  privacy_policy: string
+}
+
+export type B2BAgentOptions = {
+  ownerDisplayName: string
+  ownerHandle?: string | null
+  timezone?: string
+  promptClock?: PromptClockOptions
+  initialMessages?: AgentMessage[]
+}
+
+export function createB2BToolOptions(timezone?: string): CreateAgentToolsOptions {
+  return {
+    includeLocalMessageTools: false,
+    onlyToolNames: B2B_QUERY_ONLY,
+    timezone,
+    calendarAllowedOps: ['events', 'search', 'list_calendars'],
+  }
+}
+
+export function buildB2BResearchPrompt(params: {
+  ownerDisplayName: string
+  privacyPolicy: string
+  wikiRoot: string
+  timezone?: string
+  promptClock?: PromptClockOptions
+}): string {
+  return renderPromptTemplate('b2b/research.hbs', {
+    ownerDisplayName: params.ownerDisplayName,
+    privacyPolicy: params.privacyPolicy,
+    dateContext: new Handlebars.SafeString(buildDateContext(params.timezone ?? 'UTC', params.promptClock)),
+    ownerProfile: new Handlebars.SafeString(meProfilePromptSection(params.wikiRoot)),
+  })
+}
+
+export function buildB2BFilterPrompt(params: { privacyPolicy: string; draftAnswer: string }): string {
+  return renderPromptTemplate('b2b/filter.hbs', {
+    privacyPolicy: params.privacyPolicy,
+    draftAnswer: params.draftAnswer,
+  })
+}
+
+export function createB2BAgent(grant: B2BGrantPolicy, wikiRoot: string, options: B2BAgentOptions): Agent {
+  const model = requireStandardBrainLlm()
+  const tools = createAgentTools(wikiRoot, createB2BToolOptions(options.timezone))
+  const systemPrompt = buildB2BResearchPrompt({
+    ownerDisplayName: options.ownerDisplayName,
+    privacyPolicy: grant.privacy_policy,
+    wikiRoot,
+    timezone: options.timezone,
+    promptClock: options.promptClock,
+  })
+
+  return new Agent({
+    initialState: {
+      systemPrompt,
+      model,
+      tools,
+      thinkingLevel: 'off',
+      ...(options.initialMessages?.length ? { messages: options.initialMessages } : {}),
+    },
+    onPayload: (params, m) => chainLlmOnPayloadNoThinking(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
+    convertToLlm,
+  })
+}
+
+export function createB2BFilterAgent(policy: string, draftAnswer: string): Agent {
+  const model = requireStandardBrainLlm()
+  return new Agent({
+    initialState: {
+      systemPrompt: buildB2BFilterPrompt({ privacyPolicy: policy, draftAnswer }),
+      model,
+      tools: [],
+      thinkingLevel: 'off',
+    },
+    onPayload: (params, m) => chainLlmOnPayloadNoThinking(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
+    convertToLlm,
+  })
+}
+
+function lastAssistantTextFromMessages(messages: AgentMessage[] | null | undefined): string {
+  if (!Array.isArray(messages)) return ''
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (!m || typeof m !== 'object' || !('role' in m) || m.role !== 'assistant') continue
+    const am = m as AssistantMessage
+    if (!Array.isArray(am.content)) continue
+    const text = am.content
+      .filter((c): c is { type: 'text'; text: string } => c?.type === 'text' && typeof c.text === 'string')
+      .map(c => c.text)
+      .join('')
+      .trim()
+    if (text) return text
+  }
+  return ''
+}
+
+export async function promptB2BAgentForText(agent: Agent, message: string): Promise<string> {
+  let endMessages: AgentMessage[] = []
+  await agent.waitForIdle()
+  const unsubscribe = agent.subscribe(async (event: AgentEvent) => {
+    if (event.type === 'agent_end' && 'messages' in event) {
+      endMessages = (event as { messages: AgentMessage[] }).messages
+    }
+  })
+  try {
+    await agent.prompt(message)
+  } finally {
+    unsubscribe()
+  }
+  return lastAssistantTextFromMessages(endMessages)
+}
+
+export async function filterB2BResponse(params: { privacyPolicy: string; draftAnswer: string }): Promise<string> {
+  const agent = createB2BFilterAgent(params.privacyPolicy, params.draftAnswer)
+  const filtered = await promptB2BAgentForText(agent, 'Return the filtered answer.')
+  return filtered.trim() || "I can't answer that from the access currently granted."
+}

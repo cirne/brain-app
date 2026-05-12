@@ -466,6 +466,100 @@ describe('AgentChat.svelte', () => {
       })
     })
 
+    it('shows B2B identity in the header for outbound sessions', async () => {
+      const sessionId = 'outbound-session-123'
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: null,
+              sessionType: 'b2b_outbound',
+              remoteGrantId: 'grant-1',
+              remoteHandle: '@ken',
+              remoteDisplayName: 'Ken Lay',
+              approvalState: null,
+              messages: [
+                { role: 'user', content: 'previous message' },
+                { role: 'assistant', content: 'previous response' },
+              ],
+            }),
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+
+      await tick()
+      await component.loadSession(sessionId)
+
+      await waitFor(() => {
+        expect(screen.getByText('Ken Lay')).toBeInTheDocument()
+        expect(screen.getByText('via tunnel')).toBeInTheDocument()
+      })
+    })
+
+    it('posts outbound tunnel messages to the B2B send endpoint', async () => {
+      const sessionId = 'outbound-session-456'
+      const post = vi.fn((_url: string, _init?: RequestInit) =>
+        Promise.resolve(
+          new Response(new ReadableStream(), {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+        ),
+      )
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: null,
+              sessionType: 'b2b_outbound',
+              remoteGrantId: 'grant-send',
+              remoteHandle: '@ken',
+              remoteDisplayName: 'Ken Lay',
+              approvalState: null,
+              messages: [
+                { role: 'user', content: 'previous message' },
+                { role: 'assistant', content: 'previous response' },
+              ],
+            }),
+        },
+        {
+          match: (u: string, init?: RequestInit) =>
+            u === '/api/chat/b2b/send' && init?.method === 'POST',
+          response: post,
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+
+      await tick()
+      await component.loadSession(sessionId)
+      const ta = await screen.findByRole('textbox')
+      await fireEvent.input(ta, { target: { value: 'Ask the tunnel' } })
+      await fireEvent.keyDown(ta, { key: 'Enter', shiftKey: false })
+
+      await waitFor(() => expect(post).toHaveBeenCalled())
+      const init = post.mock.calls[0]?.[1] as RequestInit
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        grantId: 'grant-send',
+        message: 'Ask the tunnel',
+      })
+    })
+
     it('shows error message when loadSession fails with non-OK status', async () => {
       const mock = createMockFetch([
         { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },

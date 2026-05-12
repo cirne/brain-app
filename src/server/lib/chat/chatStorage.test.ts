@@ -112,6 +112,83 @@ describe('chatStorage', () => {
     expect(doc?.messages).toEqual([])
   })
 
+  it('ensureSessionStub stores b2b session metadata', async () => {
+    const { ensureSessionStub, listSessions, loadSession } = await import('@server/lib/chat/chatStorage.js')
+    const sessionId = 'bb1e8400-e29b-41d4-a716-446655440006'
+    await ensureSessionStub(sessionId, {
+      sessionType: 'b2b_outbound',
+      remoteGrantId: 'bqg_kean_lay',
+      remoteHandle: 'demo-ken-lay',
+      remoteDisplayName: 'Kenneth Lay',
+    })
+
+    const list = await listSessions()
+    expect(list[0]).toEqual(
+      expect.objectContaining({
+        sessionId,
+        sessionType: 'b2b_outbound',
+        remoteGrantId: 'bqg_kean_lay',
+        remoteHandle: 'demo-ken-lay',
+        remoteDisplayName: 'Kenneth Lay',
+        approvalState: null,
+      }),
+    )
+
+    const doc = await loadSession(sessionId)
+    expect(doc).toEqual(
+      expect.objectContaining({
+        sessionId,
+        sessionType: 'b2b_outbound',
+        remoteGrantId: 'bqg_kean_lay',
+        remoteHandle: 'demo-ken-lay',
+      }),
+    )
+  })
+
+  it('findB2BSession enforces one session per tunnel', async () => {
+    const { ensureSessionStub, findB2BSession, listSessions } = await import('@server/lib/chat/chatStorage.js')
+    await ensureSessionStub('bb2e8400-e29b-41d4-a716-446655440006', {
+      sessionType: 'b2b_outbound',
+      remoteGrantId: 'bqg_once',
+      remoteHandle: 'demo-ken-lay',
+      remoteDisplayName: 'Kenneth Lay',
+    })
+
+    await expect(
+      ensureSessionStub('bb3e8400-e29b-41d4-a716-446655440006', {
+        sessionType: 'b2b_outbound',
+        remoteGrantId: 'bqg_once',
+        remoteHandle: 'demo-ken-lay',
+        remoteDisplayName: 'Kenneth Lay',
+      }),
+    ).rejects.toThrow()
+
+    expect(await findB2BSession('bqg_once', 'b2b_outbound')).toEqual(
+      expect.objectContaining({ sessionId: 'bb2e8400-e29b-41d4-a716-446655440006' }),
+    )
+    expect(await listSessions()).toHaveLength(1)
+  })
+
+  it('updateApprovalState updates inbound approval state', async () => {
+    const { ensureSessionStub, listSessions, updateApprovalState } = await import('@server/lib/chat/chatStorage.js')
+    const sessionId = 'bb4e8400-e29b-41d4-a716-446655440006'
+    await ensureSessionStub(sessionId, {
+      sessionType: 'b2b_inbound',
+      remoteGrantId: 'bqg_pending',
+      remoteHandle: 'demo-steve-kean',
+      remoteDisplayName: 'Steven Kean',
+      approvalState: 'pending',
+    })
+
+    expect(await updateApprovalState(sessionId, 'approved')).toBe(true)
+    expect((await listSessions())[0]).toEqual(
+      expect.objectContaining({
+        sessionType: 'b2b_inbound',
+        approvalState: 'approved',
+      }),
+    )
+  })
+
   it('ensureSessionStub is idempotent', async () => {
     const { ensureSessionStub, listSessions } = await import('@server/lib/chat/chatStorage.js')
     const sessionId = 'cc0e8400-e29b-41d4-a716-446655440007'

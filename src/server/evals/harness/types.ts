@@ -21,6 +21,16 @@ export type EvalExpect =
       substrings: string[]
       caseInsensitive?: boolean
     }
+  | {
+      kind: 'finalTextExcludes'
+      substring: string
+      caseInsensitive?: boolean
+    }
+  | {
+      kind: 'finalTextExcludesAll'
+      substrings: string[]
+      caseInsensitive?: boolean
+    }
   /** Every name must appear in the ordered tool start list (e.g. search_index, write). */
   | { kind: 'toolNamesIncludeAll'; names: string[] }
   /** At least one of these tool names was invoked. */
@@ -32,6 +42,15 @@ export type EnronV1Expect = EvalExpect
 export type EnronV1Task = {
   id: string
   userMessage: string
+  expect: EvalExpect
+}
+
+export type B2BV1Task = {
+  id: string
+  asker: 'kean' | 'lay' | 'skilling'
+  owner: 'kean' | 'lay' | 'skilling'
+  userMessage: string
+  privacyPolicy?: string
   expect: EvalExpect
 }
 

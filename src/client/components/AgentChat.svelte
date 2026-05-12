@@ -66,6 +66,8 @@
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import type { AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import type { ApprovalState, ChatSessionType } from '@client/lib/chatSessionTypes.js'
+  import InboundApproval from '@components/InboundApproval.svelte'
 
   let {
     context = { type: 'none' } as SurfaceContext,
@@ -315,6 +317,30 @@
     return sessions.get(id)?.chatTitle ?? null
   })
 
+  const currentSession = $derived.by((): SessionState | null => {
+    const id = displayedSessionId
+    if (!id) return null
+    return sessions.get(id) ?? null
+  })
+
+  const b2bHeaderIdentity = $derived.by((): { label: string; subtitle: string } | null => {
+    const row = currentSession
+    if (!row) return null
+    if (row.sessionType !== 'b2b_outbound' && row.sessionType !== 'b2b_inbound') return null
+    const label =
+      row.remoteDisplayName?.trim() ||
+      row.remoteHandle?.trim() ||
+      chatTitle?.trim() ||
+      headerFallbackTitle
+    return {
+      label,
+      subtitle:
+        row.sessionType === 'b2b_outbound'
+          ? $t('chat.b2b.viaTunnel')
+          : $t('chat.b2b.askingYourBrain'),
+    }
+  })
+
   const streaming = $derived.by((): boolean => {
     const id = displayedSessionId
     if (!id) return false
@@ -337,6 +363,23 @@
   const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
   const showComposerContextBar = $derived(
     contextBarFiles.length > 0 || contextBarChoices.length > 0,
+  )
+
+  const latestAssistantText = $derived.by((): string => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m?.role !== 'assistant') continue
+      const fromPart = m.parts?.find((p) => p.type === 'text' && p.content.trim())
+      const text = fromPart?.type === 'text' ? fromPart.content : m.content
+      if (text?.trim()) return text.trim()
+    }
+    return ''
+  })
+
+  const showInboundApproval = $derived(
+    currentSession?.sessionType === 'b2b_inbound' &&
+      currentSession.approvalState === 'pending' &&
+      !!currentSession.sessionId,
   )
 
   /** Tracks the actual rendered height of the floating context bar for transcript padding. */
@@ -556,6 +599,11 @@
       const doc = (await res.json()) as {
         sessionId?: string
         title?: string | null
+        sessionType?: ChatSessionType
+        remoteGrantId?: string | null
+        remoteHandle?: string | null
+        remoteDisplayName?: string | null
+        approvalState?: ApprovalState | null
         messages?: ChatMessage[]
       }
       if (sessionLoadLatest.isStale(token)) {
@@ -569,6 +617,11 @@
         abortController: null,
         sessionId: sid,
         chatTitle: doc.title ?? null,
+        sessionType: doc.sessionType ?? 'own',
+        remoteGrantId: doc.remoteGrantId ?? null,
+        remoteHandle: doc.remoteHandle ?? null,
+        remoteDisplayName: doc.remoteDisplayName ?? null,
+        approvalState: doc.approvalState ?? null,
         pendingQueuedMessages: [],
         hearReplies: readHearRepliesPreference(),
         notificationIdMarkReadOnFinish: null,
@@ -646,6 +699,8 @@
     const mentionedFiles =
       initialBootstrapKickoff || interviewKickoffHidden ? [] : extractMentionedFiles(text)
     const isFirstMessage = st.messages.length === 0
+    const outboundGrantId =
+      st.sessionType === 'b2b_outbound' ? st.remoteGrantId?.trim() || null : null
 
     const hideUserBubble = initialBootstrapKickoff || interviewKickoffHidden
     const userBubbleContent = sendOpts?.userBubbleText ?? text
@@ -672,20 +727,27 @@
     await tick()
     conversationEl?.scrollToBottom()
 
-    const body = buildChatBody({
-      message: text,
-      sessionId: st.sessionId,
-      context,
-      mentionedFiles,
-      isFirstMessage,
-      initialBootstrapKickoff,
-      interviewKickoff: interviewKickoffHidden,
-      hearReplies: st.hearReplies === true,
-      userMessageDisplay: sendOpts?.userBubbleText?.trim()
-        ? sendOpts.userBubbleText.trim()
-        : undefined,
-      notificationKickoff: sendOpts?.notificationKickoff,
-    })
+    const endpoint = outboundGrantId ? '/api/chat/b2b/send' : chatEndpoint
+    const body = outboundGrantId
+      ? {
+          grantId: outboundGrantId,
+          message: text,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }
+      : buildChatBody({
+          message: text,
+          sessionId: st.sessionId,
+          context,
+          mentionedFiles,
+          isFirstMessage,
+          initialBootstrapKickoff,
+          interviewKickoff: interviewKickoffHidden,
+          hearReplies: st.hearReplies === true,
+          userMessageDisplay: sendOpts?.userBubbleText?.trim()
+            ? sendOpts.userBubbleText.trim()
+            : undefined,
+          notificationKickoff: sendOpts?.notificationKickoff,
+        })
 
     if (!hideUserBubble) onUserSendMessage?.()
 
@@ -694,7 +756,7 @@
     let closedWithDeferredFinish = false
 
     try {
-      const res = await apiFetch(chatEndpoint, {
+      const res = await apiFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -811,6 +873,12 @@
     } catch {
       /* ignore */
     }
+  }
+
+  async function handleInboundApprovalDone() {
+    const sid = currentSession?.sessionId
+    notifyChatSessionsChanged()
+    if (sid) await loadSession(sid)
   }
 
   async function dismissNotification(id: string) {
@@ -1042,30 +1110,44 @@
     <div inert={conversationHidden || undefined}>
       <PaneL2Header>
         {#snippet center()}
+          {@const b2bIdentity = b2bHeaderIdentity}
           <div class="header-left flex min-w-0 items-center gap-2 overflow-hidden">
-            <span
-              class={cn(
-                'chat-title text-[11px] font-semibold uppercase leading-none tracking-[0.06em] text-muted',
-                chatTitle
-                  ? 'custom-title min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap normal-case tracking-[0.02em]'
-                  : 'shrink-0',
-              )}
-              aria-label={streaming &&
-              !(streamingBusyLabel ?? '').trim() &&
-              !(chatTitle ?? '').trim()
-                ? $t('chat.messageRow.assistantWorkingAria')
-                : undefined}
-            >
-              {#if streaming}
-                {#if (streamingBusyLabel ?? '').trim()}
-                  {streamingBusyLabel}
+            {#if b2bIdentity}
+              <span class="flex min-w-0 flex-col gap-0.5">
+                <span
+                  class="chat-title custom-title min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold leading-none tracking-[0.02em] text-muted"
+                >
+                  {b2bIdentity.label}
+                </span>
+                <span class="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-none text-muted/70">
+                  {b2bIdentity.subtitle}
+                </span>
+              </span>
+            {:else}
+              <span
+                class={cn(
+                  'chat-title text-[11px] font-semibold uppercase leading-none tracking-[0.06em] text-muted',
+                  chatTitle
+                    ? 'custom-title min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap normal-case tracking-[0.02em]'
+                    : 'shrink-0',
+                )}
+                aria-label={streaming &&
+                !(streamingBusyLabel ?? '').trim() &&
+                !(chatTitle ?? '').trim()
+                  ? $t('chat.messageRow.assistantWorkingAria')
+                  : undefined}
+              >
+                {#if streaming}
+                  {#if (streamingBusyLabel ?? '').trim()}
+                    {streamingBusyLabel}
+                  {:else}
+                    {(chatTitle ?? '').trim() || headerFallbackTitle}
+                  {/if}
                 {:else}
-                  {(chatTitle ?? '').trim() || headerFallbackTitle}
+                  {chatTitle ?? headerFallbackTitle}
                 {/if}
-              {:else}
-                {chatTitle ?? headerFallbackTitle}
-              {/if}
-            </span>
+              </span>
+            {/if}
             {#if !hidePaneContextChip}
               {#if context.type === 'wiki'}
                 <span class="context-chip overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted opacity-80"
@@ -1212,6 +1294,14 @@
         <div class="shrink-0 px-[length:var(--chat-transcript-px)] pb-1">
           <EmptyChatNotificationsStrip notifications={emptyChatNotificationsPayload} />
         </div>
+      {/if}
+
+      {#if showInboundApproval && currentSession?.sessionId}
+        <InboundApproval
+          sessionId={currentSession.sessionId}
+          initialAnswer={latestAssistantText}
+          onDone={handleInboundApprovalDone}
+        />
       {/if}
 
       {#if centerEmptyInPane}

@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import type { ChatMessage, ChatSessionDocV1 } from './chatTypes.js'
+import type { ApprovalState, ChatMessage, ChatSessionDocV1, ChatSessionType } from './chatTypes.js'
 import { chatDataDirResolved } from '@server/lib/platform/brainHome.js'
 import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
 
@@ -66,16 +66,11 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
   const db = getTenantDb()
   const sess = db
     .prepare(
-      `SELECT session_id, title, created_at_ms, updated_at_ms FROM chat_sessions WHERE lower(session_id) = lower(?)`,
+      `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
+        approval_state, created_at_ms, updated_at_ms
+       FROM chat_sessions WHERE lower(session_id) = lower(?)`,
     )
-    .get(sessionId) as
-    | {
-        session_id: string
-        title: string | null
-        created_at_ms: number
-        updated_at_ms: number
-      }
-    | undefined
+    .get(sessionId) as ChatSessionRow | undefined
   if (!sess) return null
   const msgRows = db
     .prepare(
@@ -89,6 +84,11 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
     createdAt: msToIso(sess.created_at_ms),
     updatedAt: msToIso(sess.updated_at_ms),
     title: sess.title,
+    sessionType: sess.session_type,
+    remoteGrantId: sess.remote_grant_id,
+    remoteHandle: sess.remote_handle,
+    remoteDisplayName: sess.remote_display_name,
+    approvalState: sess.approval_state,
     messages,
   }
 }
@@ -99,6 +99,47 @@ export type ChatSessionListItem = {
   updatedAt: string
   title: string | null
   preview?: string
+  sessionType: ChatSessionType
+  remoteGrantId: string | null
+  remoteHandle: string | null
+  remoteDisplayName: string | null
+  approvalState: ApprovalState | null
+}
+
+type ChatSessionRow = {
+  session_id: string
+  title: string | null
+  preview: string | null
+  session_type: ChatSessionType
+  remote_grant_id: string | null
+  remote_handle: string | null
+  remote_display_name: string | null
+  approval_state: ApprovalState | null
+  created_at_ms: number
+  updated_at_ms: number
+}
+
+export type EnsureSessionStubOptions = {
+  sessionType?: ChatSessionType
+  remoteGrantId?: string | null
+  remoteHandle?: string | null
+  remoteDisplayName?: string | null
+  approvalState?: ApprovalState | null
+}
+
+function rowToListItem(r: ChatSessionRow, preview?: string): ChatSessionListItem {
+  return {
+    sessionId: r.session_id,
+    createdAt: msToIso(r.created_at_ms),
+    updatedAt: msToIso(r.updated_at_ms),
+    title: r.title,
+    preview,
+    sessionType: r.session_type,
+    remoteGrantId: r.remote_grant_id,
+    remoteHandle: r.remote_handle,
+    remoteDisplayName: r.remote_display_name,
+    approvalState: r.approval_state,
+  }
 }
 
 function firstAssistantPreviewLine(messages: ChatMessage[]): string | undefined {
@@ -144,26 +185,14 @@ function recomputePreview(db: TenantDb, sessionId: string): string | null {
 export async function listSessions(limit?: number): Promise<ChatSessionListItem[]> {
   const db = getTenantDb()
   const cap = typeof limit === 'number' && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined
+  const projection = `session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
+    approval_state, created_at_ms, updated_at_ms`
   const sql =
     cap !== undefined
-      ? `SELECT session_id, title, preview, created_at_ms, updated_at_ms FROM chat_sessions ORDER BY updated_at_ms DESC LIMIT ?`
-      : `SELECT session_id, title, preview, created_at_ms, updated_at_ms FROM chat_sessions ORDER BY updated_at_ms DESC`
+      ? `SELECT ${projection} FROM chat_sessions ORDER BY updated_at_ms DESC LIMIT ?`
+      : `SELECT ${projection} FROM chat_sessions ORDER BY updated_at_ms DESC`
   const rows =
-    cap !== undefined
-      ? (db.prepare(sql).all(cap) as {
-          session_id: string
-          title: string | null
-          preview: string | null
-          created_at_ms: number
-          updated_at_ms: number
-        }[])
-      : (db.prepare(sql).all() as {
-          session_id: string
-          title: string | null
-          preview: string | null
-          created_at_ms: number
-          updated_at_ms: number
-        }[])
+    cap !== undefined ? (db.prepare(sql).all(cap) as ChatSessionRow[]) : (db.prepare(sql).all() as ChatSessionRow[])
 
   return rows.map(r => {
     let preview = r.preview ?? undefined
@@ -181,25 +210,70 @@ export async function listSessions(limit?: number): Promise<ChatSessionListItem[
       }
       preview = previewFromMessages(messages)
     }
-    return {
-      sessionId: r.session_id,
-      createdAt: msToIso(r.created_at_ms),
-      updatedAt: msToIso(r.updated_at_ms),
-      title: r.title,
-      preview,
-    }
+    return rowToListItem(r, preview)
   })
 }
 
 /** Create an on-disk session file with no messages so GET /api/chat/sessions lists it immediately. */
-export async function ensureSessionStub(sessionId: string): Promise<void> {
+export async function ensureSessionStub(sessionId: string, options: EnsureSessionStubOptions = {}): Promise<void> {
   await ensureChatDir()
   const db = getTenantDb()
   const now = Date.now()
+  const existing = db.prepare(`SELECT session_id FROM chat_sessions WHERE lower(session_id) = lower(?)`).get(sessionId)
+  if (existing) return
+  const sessionType = options.sessionType ?? 'own'
+  const remoteGrantId = options.remoteGrantId?.trim() || null
+  if (sessionType !== 'own' && remoteGrantId === null) {
+    throw new Error('remote_grant_id_required_for_b2b_session')
+  }
   db.prepare(
-    `INSERT OR IGNORE INTO chat_sessions (session_id, title, preview, created_at_ms, updated_at_ms)
-     VALUES (?, NULL, NULL, ?, ?)`,
-  ).run(sessionId, now, now)
+    `INSERT INTO chat_sessions (
+       session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
+       approval_state, created_at_ms, updated_at_ms
+     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    sessionId,
+    sessionType,
+    remoteGrantId,
+    options.remoteHandle?.trim() || null,
+    options.remoteDisplayName?.trim() || null,
+    options.approvalState ?? null,
+    now,
+    now,
+  )
+}
+
+export async function findB2BSession(
+  remoteGrantId: string,
+  sessionType: Extract<ChatSessionType, 'b2b_outbound' | 'b2b_inbound'>,
+): Promise<ChatSessionListItem | null> {
+  const grantId = remoteGrantId.trim()
+  if (!grantId) return null
+  const db = getTenantDb()
+  const row = db
+    .prepare(
+      `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
+        approval_state, created_at_ms, updated_at_ms
+       FROM chat_sessions
+       WHERE session_type = ? AND remote_grant_id = ?
+       LIMIT 1`,
+    )
+    .get(sessionType, grantId) as ChatSessionRow | undefined
+  if (!row) return null
+  return rowToListItem(row, row.preview ?? undefined)
+}
+
+export async function updateApprovalState(sessionId: string, state: ApprovalState): Promise<boolean> {
+  const db = getTenantDb()
+  const now = Date.now()
+  const r = db
+    .prepare(
+      `UPDATE chat_sessions
+       SET approval_state = ?, updated_at_ms = ?
+       WHERE lower(session_id) = lower(?) AND session_type = 'b2b_inbound'`,
+    )
+    .run(state, now, sessionId)
+  return r.changes > 0
 }
 
 /** Persist title as soon as set_chat_title runs (before the turn is saved). */

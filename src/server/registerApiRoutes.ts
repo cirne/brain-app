@@ -3,6 +3,7 @@ import chatRoute from './routes/chat.js'
 import skillsRoute from './routes/skills.js'
 import wikiRoute from './routes/wiki.js'
 import brainQueryRoute from './routes/brainQuery.js'
+import b2bChatRoute from './routes/b2bChat.js'
 import filesRoute from './routes/files.js'
 import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
@@ -37,6 +38,9 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/config', appConfigRoute)
   app.route('/api/account', accountRoute)
   app.route('/api/chat', chatRoute)
+  if (B2B_ENABLED) {
+    app.route('/api/chat/b2b', b2bChatRoute)
+  }
   app.route('/api/transcribe', transcribeRoute)
   app.route('/api/devices', devicesRoute)
   app.route('/api/ingest', ingestRoute)

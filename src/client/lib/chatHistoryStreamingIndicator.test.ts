@@ -14,4 +14,9 @@ describe('chatRowShowsAgentWorking', () => {
     expect(chatRowShowsAgentWorking({ type: 'email', sessionId: 'x' }, new Set(['x']))).toBe(false)
     expect(chatRowShowsAgentWorking({ type: 'doc', sessionId: 'x' }, new Set(['x']))).toBe(false)
   })
+
+  it('mirrors chat behavior for tunnel rows', () => {
+    expect(chatRowShowsAgentWorking({ type: 'tunnel', sessionId: 'a' }, new Set(['a']))).toBe(true)
+    expect(chatRowShowsAgentWorking({ type: 'tunnel', sessionId: 'a' }, new Set(['b']))).toBe(false)
+  })
 })

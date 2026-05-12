@@ -65,6 +65,7 @@ Run only what applies to the packages identified above. **Run `nvm use` at this 
 **Node app**
 
 - `npm run lint`
+- When **`package-lock.json`** or **`shared/npm-known-malware.json`** changes (or new npm deps are added): `npm run check:npm-malware` (also runs inside `npm run ci`)
 - `npm run typecheck`
 - `npm run test`
 
