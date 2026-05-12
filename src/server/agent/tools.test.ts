@@ -58,6 +58,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailDraftForward: vi.fn(async () => ({ id: 'draft-1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
   ripmailDraftEdit: vi.fn(),
   ripmailDraftView: vi.fn(() => ({ id: 'draft-1', subject: 'Test', body: 'body content', to: ['bob@example.com'], cc: ['cc@example.com'], createdAt: '', updatedAt: '' })),
+  ripmailDraftDelete: vi.fn(),
   ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'draft-1', dryRun: false })),
   ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
   ripmailCalendarListCalendars: vi.fn(async () => []),
@@ -934,6 +935,19 @@ Sel: {{selection}} File: {{open_file}}`,
       expect(result.details.id).toBe('draft-1')
       const modelText = toolResultFirstText(result)
       expect(modelText).toContain('preview card')
+    })
+  })
+
+  describe('delete_draft tool', () => {
+    it('calls ripmailDraftDelete with home and draft id', async () => {
+      const { ripmailDraftDelete } = await import('@server/ripmail/index.js')
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const tool = tools.find((t) => t.name === 'delete_draft')!
+      const result = await tool.execute('dd-1', { draft_id: 'draft-xyz' })
+      expect(ripmailDraftDelete).toHaveBeenCalledWith(expect.any(String), 'draft-xyz')
+      expect(result.details).toMatchObject({ ok: true, draft_id: 'draft-xyz' })
+      expect(String(toolResultFirstText(result))).toContain('deleted')
     })
   })
 

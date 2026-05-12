@@ -1,16 +1,18 @@
 /**
  * Draft lifecycle — new, reply, forward, edit, view.
  * Drafts are stored as JSON under <ripmail_home>/drafts/.
- * Callers supply final **subject** and **body**; there is no server-side compose LLM in this layer.
+ * For **reply**, callers pass only the new message; this module appends quoted **thread history**
+ * from the index: every message in the same `thread_id` from oldest through the message you reply
+ * to (standard reply-all-quote behavior, without asking the LLM to reproduce bodies).
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { ensureBraintunnelCollaboratorSubject } from '@shared/braintunnelMailMarker.js'
-import type { Draft } from './types.js'
+import type { Draft, ReadMailResult } from './types.js'
 import type { RipmailDb } from './db.js'
-import { readMail } from './mailRead.js'
+import { listMessageIdsInThreadThrough, readMail } from './mailRead.js'
 import { getImapSources, loadRipmailConfig } from './sync/config.js'
 
 type DraftSourceAction = 'reply' | 'forward'
@@ -63,6 +65,7 @@ export interface NewDraftOptions {
 
 export interface ReplyDraftOptions {
   messageId: string
+  /** New reply text only (quoted original is appended from the index). */
   body: string
   subject?: string
   /** Defaults to true. Set false to reply to sender only. */
@@ -107,6 +110,84 @@ function addUniqueAddress(target: string[], seen: Set<string>, rawAddress: strin
   target.push(address)
 }
 
+function stripHtmlToPlainText(html: string): string {
+  return html
+    .replace(/<\/(p|div|h[1-6]|tr)\b[^>]*>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function formatReplyAttributionLine(original: ReadMailResult): string {
+  const dt = new Date(original.date)
+  const dateStr = Number.isNaN(dt.getTime())
+    ? original.date.trim()
+    : dt.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+  const email = original.fromAddress.trim()
+  const name = original.fromName?.trim()
+  const who = name ? `${name} <${email}>` : email
+  return `On ${dateStr}, ${who} wrote:`
+}
+
+function quotePlainLines(body: string): string {
+  const normalized = body.replace(/\r\n/g, '\n').trimEnd()
+  if (!normalized) return '>'
+  return normalized
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n')
+}
+
+function resolveQuotedBodyText(original: ReadMailResult): string {
+  const plain = (original.bodyText ?? '').trim()
+  if (plain) return plain
+  const html = original.bodyHtml?.trim()
+  if (html) return stripHtmlToPlainText(html)
+  return ''
+}
+
+/**
+ * Builds reply body: new text, then for each indexed message in the thread (oldest → replied-to),
+ * a standard "On … wrote:" line and `>`-quoted plaintext. Exported for tests.
+ */
+export function buildReplyDraftBodyWithQuotedThread(
+  db: RipmailDb,
+  newMessageBody: string,
+  threadId: string,
+  throughMessageId: string,
+): string {
+  const top = newMessageBody.trimEnd()
+  let idList = listMessageIdsInThreadThrough(db, threadId, throughMessageId)
+  if (idList.length === 0) {
+    const one = readMail(db, throughMessageId, { includeAttachments: false, includeHtml: true })
+    if (!one) return top
+    idList = [throughMessageId]
+  }
+
+  const sections: string[] = []
+  for (const id of idList) {
+    const msg = readMail(db, id, { includeAttachments: false, includeHtml: true })
+    if (!msg) continue
+    const attribution = formatReplyAttributionLine(msg)
+    const raw = resolveQuotedBodyText(msg)
+    const quotedBlock = quotePlainLines(raw.length > 0 ? raw : '(no text in original message)')
+    sections.push(`${attribution}\n${quotedBlock}`)
+  }
+  return sections.length > 0 ? `${top}\n\n${sections.join('\n\n')}` : top
+}
+
 function resolveMailboxOwnerAddress(
   ripmailHome: string,
   preferredSourceId?: string,
@@ -147,7 +228,7 @@ export function draftNew(_db: RipmailDb, ripmailHome: string, opts: NewDraftOpti
  */
 export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftOptions): Draft {
   const messageId = opts.messageId.trim()
-  const original = readMail(db, messageId, { plainBody: false, includeAttachments: false })
+  const original = readMail(db, messageId, { includeAttachments: false, includeHtml: true })
   if (!original) throw new DraftSourceMessageNotFoundError('reply', messageId)
 
   const fromAddress = original.fromAddress.trim()
@@ -181,10 +262,11 @@ export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftO
       addUniqueAddress(ccRecipients, ccSeen, address)
     }
   }
+  const fullBody = buildReplyDraftBodyWithQuotedThread(db, opts.body, original.threadId, original.messageId)
   const draft: Draft = {
     id: randomUUID(),
     subject,
-    body: opts.body,
+    body: fullBody,
     to: toRecipients,
     ...(ccRecipients.length > 0 ? { cc: ccRecipients } : {}),
     inReplyToMessageId: original.messageId,
@@ -283,4 +365,13 @@ export function draftList(ripmailHome: string): Draft[] {
     })
     .filter((d): d is Draft => d != null)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+/**
+ * Remove a draft file from disk.
+ */
+export function draftDelete(ripmailHome: string, draftId: string): void {
+  const p = draftPath(ripmailHome, draftId)
+  if (!existsSync(p)) throw new Error(`Draft not found: ${draftId}`)
+  unlinkSync(p)
 }

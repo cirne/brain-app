@@ -96,6 +96,38 @@ function resolveMessageId(db: RipmailDb, messageId: string): string | null {
   return null
 }
 
+function bareMessageIdForCompare(stored: string): string {
+  const t = stored.trim()
+  return t.startsWith('<') && t.endsWith('>') ? t.slice(1, -1).trim() : t
+}
+
+/**
+ * Stored `message_id` values for one mail thread in chronological order (oldest → newest), through
+ * `throughMessageId` inclusive. Used when composing reply bodies with standard quoted history.
+ */
+export function listMessageIdsInThreadThrough(
+  db: RipmailDb,
+  threadId: string,
+  throughMessageId: string,
+): string[] {
+  const resolvedThrough = resolveMessageId(db, throughMessageId)
+  if (!resolvedThrough) return []
+  const throughBare = bareMessageIdForCompare(resolvedThrough)
+
+  const rows = db
+    .prepare(
+      `SELECT message_id FROM messages WHERE thread_id = ? ORDER BY date ASC, message_id ASC`,
+    )
+    .all(threadId) as Array<{ message_id: string }>
+
+  if (rows.length === 0) return []
+
+  const bareList = rows.map((r) => bareMessageIdForCompare(r.message_id))
+  const idx = bareList.findIndex((b) => b === throughBare)
+  if (idx < 0) return []
+  return rows.slice(0, idx + 1).map((r) => r.message_id)
+}
+
 export function readMail(
   db: RipmailDb,
   messageId: string,

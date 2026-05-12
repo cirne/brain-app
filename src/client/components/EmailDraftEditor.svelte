@@ -18,7 +18,10 @@
     to?: string[]
     cc?: string[]
     bcc?: string[]
+    /** Legacy name; prefer inReplyToMessageId / forwardMessageId from API. */
     sourceMessageId?: string
+    inReplyToMessageId?: string
+    forwardMessageId?: string
   }
 
   let {
@@ -85,7 +88,13 @@
     bccLine = addrsToLine(d.bcc)
     ccBccOpen = Boolean(ccLine.trim() || bccLine.trim())
     bodyMd = typeof d.body === 'string' ? d.body : ''
-    sourceThreadId = typeof d.sourceMessageId === 'string' ? d.sourceMessageId.trim() : null
+    sourceThreadId = (() => {
+      const a = typeof d.sourceMessageId === 'string' ? d.sourceMessageId.trim() : ''
+      const b = typeof d.inReplyToMessageId === 'string' ? d.inReplyToMessageId.trim() : ''
+      const c = typeof d.forwardMessageId === 'string' ? d.forwardMessageId.trim() : ''
+      const pick = a || b || c
+      return pick.length > 0 ? pick : null
+    })()
     editorKey += 1
     const id = (typeof d.id === 'string' ? d.id.trim() : '') || (draftId?.trim() ?? '')
     if (id) pushContext(id)

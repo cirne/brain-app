@@ -22,6 +22,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'archive_emails',
   'draft_email',
   'edit_draft',
+  'delete_draft',
   'send_draft',
   'ask_collaborator',
   'find_person',

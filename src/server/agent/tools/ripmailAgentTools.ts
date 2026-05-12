@@ -38,6 +38,7 @@ import {
   ripmailDraftForward,
   ripmailDraftEdit,
   ripmailDraftView,
+  ripmailDraftDelete,
   ripmailSend,
 } from '@server/ripmail/index.js'
 import {
@@ -1066,11 +1067,14 @@ export function createRipmailAgentTools(wikiDir: string) {
   const draftEmail = defineTool({
     name: 'draft_email',
     description:
-      'Create an email draft for **regular mailbox mail**. action=new composes a fresh email (requires **to**, **subject**, and **body**). action=reply drafts a reply (requires **message_id** and **body**; subject defaults to Re: original unless you pass **subject**). action=forward forwards an existing message (requires **message_id**, **to**, and **body**). For reply/forward, **message_id** must be the exact `messageId` from `list_inbox`, `search_index`, or `read_mail_message`; the tool fails if the message is not in the index, so re-search instead of guessing. Replies default to **reply-all** recipients from the source message (sender + relevant To/Cc, excluding your mailbox and duplicates); pass **reply_all: false** to force sender-only. For action=new/forward, if you are unsure about an address from a person name, use **find_person** (`ripmail who`) before drafting instead of guessing. **body** must be the final message text users will read — there is no separate server compose step. If the user **@mentions** a collaborator and wants the **Ask Brain** path, use **ask_collaborator** when that tool is available. When the workspace has more than one Gmail account, optional **from** picks the send mailbox. For **Braintunnel collaborator** email set **b2b_query: true** so the subject line is normalized to include the `[braintunnel]` marker (after any Re:/Fwd:); you still choose the substantive subject text. **grant_id** (`bqg_…`) is assistant-only validation context — never put it in **body** unless the user asks. Returns draft id, recipients, and subject; **do not repeat the full body in chat** unless the user asks.',
+      'Create an email draft for **regular mailbox mail**. action=new composes a fresh email (requires **to**, **subject**, and **body**). action=reply drafts a reply (requires **message_id** and **body**; subject defaults to Re: original unless you pass **subject**). For **action=reply** only, **body** is **your new reply text** — the app **appends** quoted plaintext for **each message in the mail thread** (same thread id) from oldest through the message you reply to, with standard `On … wrote:` / `>` quoting (same idea as desktop mail apps: full thread through that message); **do not** paste or recreate those bodies in **body**. action=forward forwards an existing message (requires **message_id**, **to**, and **body**). For reply/forward, **message_id** must be the exact `messageId` from `list_inbox`, `search_index`, or `read_mail_message`; the tool fails if the message is not in the index, so re-search instead of guessing. Replies default to **reply-all** recipients from the source message (sender + relevant To/Cc, excluding your mailbox and duplicates); pass **reply_all: false** to force sender-only. For action=new/forward, if you are unsure about an address from a person name, use **find_person** (`ripmail who`) before drafting instead of guessing. For **action=new** and **forward**, **body** is the full outgoing text. If the user **@mentions** a collaborator and wants the **Ask Brain** path, use **ask_collaborator** when that tool is available. When the workspace has more than one Gmail account, optional **from** picks the send mailbox. For **Braintunnel collaborator** email set **b2b_query: true** so the subject line is normalized to include the `[braintunnel]` marker (after any Re:/Fwd:); you still choose the substantive subject text. **grant_id** (`bqg_…`) is assistant-only validation context — never put it in **body** unless the user asks. Returns draft id, recipients, and subject; **do not repeat the full body in chat** unless the user asks.',
     label: 'Draft Email',
     parameters: Type.Object({
       action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
-      body: Type.String({ description: 'Final email body text (what the recipient reads)' }),
+      body: Type.String({
+        description:
+          'For action=new or forward: full message body. For action=reply: **new reply text only** — quoted original is appended from the index.',
+      }),
       subject: Type.Optional(
         Type.String({
           description:
@@ -1218,6 +1222,24 @@ export function createRipmailAgentTools(wikiDir: string) {
     },
   })
 
+  const deleteDraft = defineTool({
+    name: 'delete_draft',
+    description:
+      'Permanently remove a draft from disk when the user wants to **discard** it without sending. Do not use this to "cancel" a send — only when the user clearly wants to abandon the draft (wrong recipient, scratch compose, etc.). Requires the **draft_id** from **draft_email** or **edit_draft**.',
+    label: 'Delete Draft',
+    parameters: Type.Object({
+      draft_id: Type.String({ description: 'Draft ID to delete' }),
+    }),
+    async execute(_toolCallId: string, params: { draft_id: string }) {
+      const home = ripmailHomeForBrain()
+      ripmailDraftDelete(home, params.draft_id)
+      return {
+        content: [{ type: 'text' as const, text: 'Draft deleted.' }],
+        details: { ok: true, draft_id: params.draft_id },
+      }
+    },
+  })
+
   const sendDraft = defineTool({
     name: 'send_draft',
     description: 'Send a draft email. Only call this after showing the draft to the user and getting confirmation. For collaborator mail with **`[braintunnel]`** in the subject matching an active Ask Brain grant, the **asker** workspace receives an immediate in-app **`brain_query_reply_sent`** notification so they can refresh and read inbound mail.',
@@ -1333,6 +1355,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     archiveEmails,
     draftEmail,
     editDraft,
+    deleteDraft,
     sendDraft,
     findPerson,
   }

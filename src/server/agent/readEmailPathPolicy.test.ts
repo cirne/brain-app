@@ -36,6 +36,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailDraftForward: vi.fn(async () => ({ id: 'd1', subject: 'Fwd: Test', body: '', to: [], createdAt: '', updatedAt: '' })),
   ripmailDraftEdit: vi.fn(),
   ripmailDraftView: vi.fn(() => ({ id: 'd1', subject: 'Test', body: 'hi', to: [], createdAt: '', updatedAt: '' })),
+  ripmailDraftDelete: vi.fn(),
   ripmailSend: vi.fn(async () => ({ ok: true, draftId: 'd1', dryRun: false })),
   ripmailCalendarRange: vi.fn(async () => ({ events: [], sourcesConfigured: false })),
   ripmailCalendarListCalendars: vi.fn(async () => []),

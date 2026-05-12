@@ -127,6 +127,7 @@
     "archiveEmails": "Archive mail",
     "draftEmail": "Draft email",
     "editDraft": "Edit draft",
+    "deleteDraft": "Delete draft",
     "sendDraft": "Send mail",
     "askCollaborator": "Ask Brain",
     "findPerson": "Find contact",

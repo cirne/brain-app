@@ -60,7 +60,7 @@ import { rulesList, rulesShow, rulesAdd, rulesEdit, rulesRemove, rulesMove, rule
 import { sourcesList, sourcesStatus, sourcesAddLocalDir, sourcesAddGoogleDrive, sourcesEdit, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
 import { archive, unarchive } from './archive.js'
 import { calendarRange, calendarListCalendars, calendarCreateEvent, calendarUpdateEvent } from './calendar.js'
-import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList } from './draft.js'
+import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList, draftDelete } from './draft.js'
 import { send } from './send.js'
 import { refresh } from './sync/index.js'
 import { listGoogleCalendarsForSource, cancelGoogleCalendarEventRemote, deleteGoogleCalendarEventRemote } from './sync/googleCalendar.js'
@@ -419,6 +419,11 @@ export async function ripmailDraftForward(ripmailHome: string, opts: import('./d
 /** Edit draft. */
 export function ripmailDraftEdit(ripmailHome: string, draftId: string, opts: import('./draft.js').EditDraftOptions) {
   return draftEdit(ripmailHome, draftId, opts)
+}
+
+/** Delete draft file on disk. */
+export function ripmailDraftDelete(ripmailHome: string, draftId: string) {
+  return draftDelete(ripmailHome, draftId)
 }
 
 /** View draft. */

@@ -90,6 +90,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     archiveEmails,
     draftEmail,
     editDraft,
+    deleteDraft,
     sendDraft,
     findPerson,
   } = createRipmailAgentTools(wikiDir)
@@ -137,6 +138,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     archiveEmails,
     draftEmail,
     editDraft,
+    deleteDraft,
     sendDraft,
     ...(askCollaboratorTool ? [askCollaboratorTool] : []),
     findPerson,
