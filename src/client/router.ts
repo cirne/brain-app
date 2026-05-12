@@ -8,6 +8,8 @@ export type Overlay =
   | { type: 'file'; path?: string }
   /** Google Drive or localDir document id (ripmail `read`); {@link IndexedFileViewer}. */
   | { type: 'indexed-file'; id?: string; source?: string }
+  /** Visual artifact bytes resolved by `/api/files/artifact?ref=`; {@link VisualArtifactImageViewer}. */
+  | { type: 'visual-artifact'; ref?: string; label?: string }
   | { type: 'email'; id?: string }
   /** Ripmail draft id (local `drafts/*.md`); editable in overlay before send. */
   | { type: 'email-draft'; id?: string }
@@ -342,6 +344,10 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
       if (overlay.id) q.set('idx', overlay.id)
       if (overlay.source) q.set('src', overlay.source)
       break
+    case 'visual-artifact':
+      if (overlay.ref) q.set('ref', overlay.ref)
+      if (overlay.label) q.set('label', overlay.label)
+      break
     case 'email':
       if (overlay.id) q.set('m', overlay.id)
       break
@@ -399,6 +405,15 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
       const src = sp.get('src')?.trim() || undefined
       if (!idx) return { type: 'indexed-file' }
       return src ? { type: 'indexed-file', id: idx, source: src } : { type: 'indexed-file', id: idx }
+    }
+    case 'visual-artifact': {
+      const ref = sp.get('ref')?.trim() || undefined
+      const label = sp.get('label')?.trim() || undefined
+      return {
+        type: 'visual-artifact',
+        ...(ref ? { ref } : {}),
+        ...(label ? { label } : {}),
+      }
     }
     case 'email': {
       const id = sp.get('m') ?? sp.get('id') ?? undefined

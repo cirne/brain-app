@@ -5,6 +5,7 @@ export function titleForOverlay(o: Overlay): string {
   if (o.type === 'wiki' || o.type === 'wiki-dir') return 'Docs'
   if (o.type === 'file') return 'File'
   if (o.type === 'indexed-file') return 'File'
+  if (o.type === 'visual-artifact') return 'Image'
   if (o.type === 'email') return 'Inbox'
   if (o.type === 'email-draft') return 'Draft'
   if (o.type === 'mail-search') return 'Mail search'

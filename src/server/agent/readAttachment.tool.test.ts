@@ -35,6 +35,7 @@ vi.mock('@server/ripmail/index.js', () => ({
     if (key === 2) return 'extracted\n'
     return '(not found)'
   }),
+  ripmailAttachmentVisualArtifacts: vi.fn(async () => []),
   ripmailWho: vi.fn(async () => ({ contacts: [] })),
   ripmailInbox: vi.fn(async () => ({ items: [], counts: { notify: 0, inform: 0, ignore: 0, actionRequired: 0 } })),
   ripmailStatus: vi.fn(async () => ({ indexedMessages: 0, sources: [], isRunning: false })),
@@ -131,4 +132,120 @@ describe('read_attachment / read_mail_message attachments', () => {
     expect(Array.isArray(j.attachments)).toBe(true)
     expect(j.attachments.length).toBeGreaterThan(0)
   })
+
+  it('read_mail_message emits visual artifact metadata for visual attachments', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const readMail = tools.find((t) => t.name === 'read_mail_message')!
+
+    const result = await readMail.execute('t2b', { id: 'x@id' })
+    const text = toolResultFirstText(result)
+    const j = JSON.parse(text) as { visualArtifacts?: Array<{ kind: string; label: string; ref?: string }> }
+
+    expect(j.visualArtifacts?.[0]).toMatchObject({ kind: 'pdf', label: 'a.pdf' })
+    expect(j.visualArtifacts?.[0]?.ref).toMatch(/^va1\./)
+    expect(result.details).toMatchObject({ visualArtifacts: expect.any(Array) })
+  })
+
+  it('read_attachment carries visual artifact details when the attachment is visual', async () => {
+    const { ripmailAttachmentVisualArtifacts } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailAttachmentVisualArtifacts).mockResolvedValueOnce([
+      {
+        kind: 'image',
+        mime: 'image/png',
+        ref: 'va1.image',
+        label: 'photo.png',
+        origin: {
+          kind: 'mailAttachment',
+          messageId: 'msg@example.com',
+          attachmentIndex: 1,
+          filename: 'photo.png',
+        },
+        readStatus: 'available',
+      },
+    ])
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const readAtt = tools.find((t) => t.name === 'read_attachment')!
+
+    const result = await readAtt.execute('t3', { id: 'msg@example.com', attachment: 'photo.png' })
+
+    expect(result.details).toMatchObject({
+      visualArtifacts: [expect.objectContaining({ kind: 'image', label: 'photo.png' })],
+    })
+  })
+
+  it('present_visual_artifact resolves refs and returns visual artifact details', async () => {
+    const { ripmailReadIndexedFile, ripmailAttachmentVisualArtifacts } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailAttachmentVisualArtifacts).mockResolvedValueOnce([
+      {
+        kind: 'image',
+        mime: 'image/png',
+        ref: 'va1.roundtrip',
+        label: 'photo.png',
+        origin: {
+          kind: 'mailAttachment',
+          messageId: 'msg@example.com',
+          attachmentIndex: 1,
+          filename: 'photo.png',
+        },
+        readStatus: 'available',
+      },
+    ])
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const present = tools.find((t) => t.name === 'present_visual_artifact')!
+    const { encodeVisualArtifactRef } = await import('@shared/visualArtifacts.js')
+    const ref = encodeVisualArtifactRef({
+      v: 1,
+      type: 'mailAttachment',
+      messageId: 'msg@example.com',
+      attachmentIndex: 1,
+    })
+
+    const result = await present.execute('t-present', { ref })
+    expect(toolResultFirstText(result)).toContain('Showing the requested')
+    expect(result.details).toMatchObject({
+      visualArtifacts: [expect.objectContaining({ kind: 'image', label: 'photo.png' })],
+    })
+    expect(ripmailAttachmentVisualArtifacts).toHaveBeenCalledWith(
+      expect.any(String),
+      'msg@example.com',
+      1,
+    )
+    expect(ripmailReadIndexedFile).not.toHaveBeenCalled()
+  })
+
+  it('present_visual_artifact uses indexed file reads for indexedFile refs', async () => {
+    const { ripmailReadIndexedFile, ripmailAttachmentVisualArtifacts } = await import('@server/ripmail/index.js')
+    vi.mocked(ripmailReadIndexedFile).mockResolvedValueOnce({
+      id: 'file-1',
+      sourceKind: 'localDir',
+      title: 'chart.png',
+      bodyText: '',
+      visualArtifacts: [
+        {
+          kind: 'image',
+          mime: 'image/png',
+          ref: 'va1.idx',
+          label: 'chart.png',
+          origin: { kind: 'indexedFile', id: 'file-1', sourceKind: 'localDir', title: 'chart.png' },
+          readStatus: 'available',
+        },
+      ],
+    })
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const present = tools.find((t) => t.name === 'present_visual_artifact')!
+    const { encodeVisualArtifactRef } = await import('@shared/visualArtifacts.js')
+    const ref = encodeVisualArtifactRef({ v: 1, type: 'indexedFile', id: 'file-1' })
+
+    const result = await present.execute('t-present-idx', { ref })
+    expect(result.details).toMatchObject({
+      visualArtifacts: [expect.objectContaining({ label: 'chart.png' })],
+    })
+    expect(ripmailReadIndexedFile).toHaveBeenCalledWith(expect.any(String), 'file-1', { fullBody: false })
+    expect(ripmailAttachmentVisualArtifacts).not.toHaveBeenCalled()
+  })
+
 })

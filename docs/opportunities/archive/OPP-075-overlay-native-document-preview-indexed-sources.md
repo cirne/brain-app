@@ -68,7 +68,7 @@ Define a **single ripmail capability** analogous to **attachment bytes** for mai
 ## Non-goals (this OPP)
 
 - Replacing **text extraction** for `read_indexed_file` / FTS / agent tools — **both** stacks coexist.
-- **OPP-017** ([multimodal PDFs / vision](../OPP-017-multimodal-pdf-scanned-images.md)) — sending images to the **model** is complementary, not required for **human** PDF preview.
+- **OPP-017** ([Assistant-native visuals](../OPP-017-assistant-native-visuals-mail-attachments-pdfs-local-files.md)) — vision and in-chat **artifact** surfaces are complementary, not required for **human** PDF preview in this overlay.
 - OCR or ML layout-to-Markdown as part of “preview” — out of scope unless a separate initiative owns it.
 
 ---
@@ -84,6 +84,6 @@ Define a **single ripmail capability** analogous to **attachment bytes** for mai
 ## See also
 
 - [archived OPP-045 — Google Drive indexed source](OPP-045-google-drive.md) (**stub** [../OPP-045-google-drive.md](../OPP-045-google-drive.md))
-- [OPP-017 — Multimodal PDFs / vision](../OPP-017-multimodal-pdf-scanned-images.md)
+- [OPP-017 — Assistant-native visuals (mail, attachments, PDFs, local files)](../OPP-017-assistant-native-visuals-mail-attachments-pdfs-local-files.md)
 - [external-data-sources.md](../../architecture/external-data-sources.md)
 - Ripmail unified sources: [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md)

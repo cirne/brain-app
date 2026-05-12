@@ -11,13 +11,13 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { RipmailDb } from './db.js'
 import type { InboxItem, InboxResult, UserRule, RulesFile } from './types.js'
 
 const DEFAULT_CANDIDATE_CAP = 80
-const DEFAULT_RULES_FILE = new URL('./rules/default_rules.v3.json', import.meta.url)
+const DEFAULT_RULES_FILE = new URL('./rules/default_rules.v4.json', import.meta.url)
 
 // ---------------------------------------------------------------------------
 // Rules loading
@@ -25,16 +25,66 @@ const DEFAULT_RULES_FILE = new URL('./rules/default_rules.v3.json', import.meta.
 
 const DEFAULT_RULES_JSON: RulesFile = JSON.parse(readFileSync(DEFAULT_RULES_FILE, 'utf8')) as RulesFile
 
+/** Exposed for tests and callers that stamp custom `rules.json` fixtures. */
+export function getBundledRulesetRevision(): number {
+  return DEFAULT_RULES_JSON.metadata?.bundledRulesetRevision ?? 0
+}
+
+function shouldReplaceTenantRulesWithBundled(bundled: RulesFile, tenant: RulesFile): boolean {
+  const m = bundled.metadata
+  if (!m?.overwriteExistingTenantsWithBundledDefault) return false
+  const bundledRev = m.bundledRulesetRevision ?? 0
+  const tenantRev = tenant.metadata?.lastAppliedBundledRulesetRevision ?? 0
+  return tenantRev < bundledRev
+}
+
+function materializedBundledRulesForTenantDisk(bundled: RulesFile): RulesFile {
+  const rev = bundled.metadata?.bundledRulesetRevision ?? 0
+  return {
+    version: bundled.version,
+    rules: bundled.rules,
+    context: bundled.context ?? [],
+    metadata: {
+      lastAppliedBundledRulesetRevision: rev,
+    },
+  }
+}
+
+/**
+ * Normalize before writing `rules.json` from user/API edits: pin `lastAppliedBundledRulesetRevision`
+ * so a tenant-created file is not mistaken for an old pack on the next deploy.
+ */
+export function prepareRulesFileForPersistence(file: RulesFile): RulesFile {
+  const rev = getBundledRulesetRevision()
+  const last = file.metadata?.lastAppliedBundledRulesetRevision
+  return {
+    ...file,
+    context: file.context ?? [],
+    metadata: {
+      lastAppliedBundledRulesetRevision: last ?? rev,
+    },
+  }
+}
+
 export function loadRulesFile(ripmailHome: string): RulesFile {
+  const bundled = DEFAULT_RULES_JSON
   const path = join(ripmailHome, 'rules.json')
-  if (!existsSync(path)) return DEFAULT_RULES_JSON
+  if (!existsSync(path)) return bundled
+  let tenant: RulesFile | null = null
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8')) as RulesFile
-    if (!raw.rules || !Array.isArray(raw.rules)) return DEFAULT_RULES_JSON
-    return raw
+    if (raw.rules && Array.isArray(raw.rules)) tenant = raw
   } catch {
-    return DEFAULT_RULES_JSON
+    /* malformed rules.json — fall through to bundled default */
   }
+  if (!tenant) return bundled
+
+  if (shouldReplaceTenantRulesWithBundled(bundled, tenant)) {
+    const materialized = materializedBundledRulesForTenantDisk(bundled)
+    writeFileSync(path, JSON.stringify(materialized, null, 2), 'utf8')
+    return materialized
+  }
+  return tenant
 }
 
 export function rulesFingerprint(file: RulesFile): string {

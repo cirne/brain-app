@@ -22,6 +22,7 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenMailSearchResults,
+    onOpenVisualArtifact,
     toolDisplayMode = 'compact',
   }: {
     msg: ChatMessage
@@ -41,6 +42,7 @@
       _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
       _sourceId: string,
     ) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
     toolDisplayMode?: ChatToolDisplayMode
   } = $props()
 
@@ -81,6 +83,7 @@
           {onSwitchToCalendar}
           {onOpenMessageThread}
           {onOpenMailSearchResults}
+          {onOpenVisualArtifact}
         />
       {:else if part.type === 'text' && part.content}
         <StreamingAgentMarkdown class="msg-content" content={part.content} />

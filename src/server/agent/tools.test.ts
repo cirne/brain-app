@@ -31,6 +31,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailReadMail: vi.fn(async () => null),
   ripmailReadIndexedFile: vi.fn(async () => null),
   ripmailAttachmentRead: vi.fn(async () => ''),
+  ripmailAttachmentVisualArtifacts: vi.fn(async () => []),
   ripmailWho: vi.fn(async () => ({ contacts: [{ personId: 1, primaryAddress: 'alice@example.com', addresses: [], sentCount: 0, receivedCount: 42 }] })),
   ripmailInbox: vi.fn(async () => ({
     items: [
@@ -123,6 +124,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('read_mail_message')
     expect(names).toContain('read_indexed_file')
     expect(names).toContain('read_attachment')
+    expect(names).toContain('present_visual_artifact')
     expect(names).toContain('manage_sources')
     expect(names).toContain('refresh_sources')
     expect(names).toContain('list_inbox')

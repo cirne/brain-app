@@ -227,6 +227,47 @@ describe('GET /api/inbox/:id', () => {
     })
   })
 
+  it('returns visual artifacts for display rendering when present', async () => {
+    ripmailReadMailForDisplayMock.mockResolvedValue({
+      messageId: 'msg-image',
+      fromAddress: 'x@test.com',
+      toAddresses: ['y@test.com'],
+      ccAddresses: [],
+      subject: 'Image',
+      date: '2026-04-12',
+      bodyKind: 'html',
+      bodyText: '',
+      bodyHtml: '<img src="cid:image001">',
+      rawPath: '',
+      threadId: 'msg-image',
+      sourceId: 's1',
+      isArchived: false,
+      visualArtifacts: [
+        {
+          kind: 'image',
+          mime: 'image/jpeg',
+          ref: 'va1.image',
+          label: 'image.jpg',
+          origin: {
+            kind: 'mailAttachment',
+            messageId: 'msg-image',
+            attachmentIndex: 1,
+            filename: 'image.jpg',
+          },
+          readStatus: 'available',
+        },
+      ],
+    })
+
+    const res = await app.request('/api/inbox/msg-image')
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.visualArtifacts).toEqual([
+      expect.objectContaining({ kind: 'image', ref: 'va1.image', label: 'image.jpg' }),
+    ])
+  })
+
   it('returns 404 when message not found', async () => {
     ripmailReadMailForDisplayMock.mockResolvedValue(null)
     const res = await app.request('/api/inbox/no-such-id')

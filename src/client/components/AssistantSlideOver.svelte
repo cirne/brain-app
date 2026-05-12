@@ -35,6 +35,7 @@
     toolOnOpenDraft,
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
+    toolOnOpenVisualArtifact,
     onOpenWikiAbout,
     onMobileWikiOverlayBack,
   }: Props = $props()
@@ -74,6 +75,7 @@
   {toolOnOpenDraft}
   {toolOnOpenFullInbox}
   {toolOnOpenMessageThread}
+  {toolOnOpenVisualArtifact}
   {onOpenWikiAbout}
   onMobileWikiOverlayBack={variant === 'mobile' ? onMobileWikiOverlayBack : undefined}
 />

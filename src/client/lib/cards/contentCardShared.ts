@@ -6,6 +6,7 @@ import {
   type InboxListItemPreview,
 } from '@shared/ripmailInboxFlatten.js'
 import { pickReadEmailFields, type ReadEmailToolDetails } from '@shared/readEmailPreview.js'
+import type { VisualArtifact } from '@shared/visualArtifacts.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
@@ -102,6 +103,10 @@ export type ContentCardPreview =
       kind: 'feedback_draft'
       /** Issue markdown (YAML front matter + body); rendered with {@link renderMarkdown}. */
       markdown: string
+    }
+  | {
+      kind: 'visual_artifacts'
+      artifacts: VisualArtifact[]
     }
 
 /**

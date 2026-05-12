@@ -14,8 +14,8 @@ import {
   ripmailSearch,
   ripmailReadMail,
   ripmailReadIndexedFile,
-
   ripmailAttachmentRead,
+  ripmailAttachmentVisualArtifacts,
   ripmailWho,
   ripmailInbox,
   ripmailRulesList,
@@ -46,6 +46,8 @@ import {
   mergeSearchIndexStdoutHints,
 } from '@server/agent/searchIndexCoerce.js'
 import { extractRipmailIndexedMarkdownTitle } from '@shared/readEmailPreview.js'
+import { decodeVisualArtifactRef } from '@shared/visualArtifacts.js'
+import { visualArtifactsFromAttachments } from '@server/ripmail/visualArtifacts.js'
 import { assertOptionalBrainQueryGrantId } from '@shared/braintunnelMailMarker.js'
 import { applyInboxResolution, selectSearchResultTier, stripReadEmailResult, stripSearchIndexResult } from './ripmailCli.js'
 import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
@@ -62,6 +64,15 @@ const execAsync = promisify(exec)
 const READ_MAIL_BODY_MAX_CHARS = 5000
 const DEFAULT_REFRESH_SOURCES_MAX_WAIT_MS = 10_000
 const REFRESH_SOURCES_INBOX_SINCE = '24h'
+
+function visualArtifactModelHint(visualArtifacts: Array<{ label?: unknown; readStatus?: unknown }> | undefined): string {
+  if (!visualArtifacts?.length) return ''
+  const labels = visualArtifacts
+    .map((artifact) => (typeof artifact.label === 'string' ? artifact.label.trim() : 'visual artifact'))
+    .filter(Boolean)
+  if (!labels.length) return ''
+  return `\n\n[visual artifacts available for UI/vision workflows: ${labels.join(', ')}]`
+}
 
 function inboxCountsForItems(items: InboxItem[]): InboxResult['counts'] {
   const counts: InboxResult['counts'] = { notify: 0, inform: 0, ignore: 0, actionRequired: 0 }
@@ -153,11 +164,55 @@ async function ripmailReadIndexedFileToolExecute(params: {
     readId = await assertAgentReadPathAllowed(readId)
   }
   const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), readId, { fullBody: true })
-  const text = result ? `${result.title}\n\n${result.bodyText}` : ''
-  const details = buildReadFileToolDetailsFromIndexedStdout(text, params.id.trim())
+  const text = result ? `${result.title}\n\n${result.bodyText}${visualArtifactModelHint(result.visualArtifacts)}` : ''
+  const details = {
+    ...buildReadFileToolDetailsFromIndexedStdout(text, params.id.trim()),
+    ...(result?.visualArtifacts?.length ? { visualArtifacts: result.visualArtifacts } : {}),
+  }
   return {
     content: [{ type: 'text' as const, text: text || `(file not found: ${readId})` }],
     details,
+  }
+}
+
+/** Re-surface a visual artifact by ref (mail attachment or indexed file). */
+async function ripmailPresentVisualArtifactToolExecute(params: {
+  ref: string
+  caption?: string
+}): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
+  const decoded = decodeVisualArtifactRef(params.ref)
+  if (!decoded) {
+    return {
+      content: [{ type: 'text' as const, text: 'Invalid visual artifact ref.' }],
+      details: {},
+    }
+  }
+  const home = ripmailHomeForBrain()
+  let visualArtifacts =
+    decoded.type === 'mailAttachment'
+      ? await ripmailAttachmentVisualArtifacts(home, decoded.messageId, decoded.attachmentIndex)
+      : (await ripmailReadIndexedFile(home, decoded.id, { fullBody: false }))?.visualArtifacts ?? []
+  if (!visualArtifacts.length) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: 'No visual artifact is available for that ref (missing, too large, or unsupported type).',
+        },
+      ],
+      details: {},
+    }
+  }
+  const hint = visualArtifactModelHint(visualArtifacts)
+  const cap = params.caption?.trim() ? `\n\nCaption: ${params.caption.trim()}` : ''
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: `Showing the requested image or document preview in the chat UI.${hint}${cap}`,
+      },
+    ],
+    details: { visualArtifacts },
   }
 }
 
@@ -177,11 +232,25 @@ async function ripmailReadMailToolExecute(params: {
   }
 
   const parsed: Record<string, unknown> = { ...result }
+  if (result.attachments?.length) {
+    const visualArtifacts = visualArtifactsFromAttachments(result.messageId, result.attachments)
+    if (visualArtifacts.length > 0) {
+      parsed.visualArtifacts = visualArtifacts
+      parsed.attachments = result.attachments.map((attachment) => {
+        const visualArtifact = visualArtifacts.find(
+          (artifact) =>
+            artifact.origin.kind === 'mailAttachment' &&
+            artifact.origin.attachmentIndex === attachment.index,
+        )
+        return visualArtifact ? { ...attachment, visualArtifact } : attachment
+      })
+    }
+  }
   const textOut = stripReadEmailResult(JSON.stringify(parsed), READ_MAIL_BODY_MAX_CHARS)
 
   return {
     content: [{ type: 'text' as const, text: textOut }],
-    details: {},
+    details: Array.isArray(parsed.visualArtifacts) ? { visualArtifacts: parsed.visualArtifacts } : {},
   }
 }
 
@@ -478,10 +547,32 @@ export function createRipmailAgentTools(wikiDir: string) {
     }),
     async execute(_toolCallId: string, params: { id: string; attachment: string | number }) {
       const text = await ripmailAttachmentRead(ripmailHomeForBrain(), params.id, params.attachment)
+      const visualArtifacts = await ripmailAttachmentVisualArtifacts(ripmailHomeForBrain(), params.id, params.attachment)
       return {
-        content: [{ type: 'text' as const, text }],
-        details: {},
+        content: [{ type: 'text' as const, text: `${text}${visualArtifactModelHint(visualArtifacts)}` }],
+        details: visualArtifacts.length > 0 ? { visualArtifacts } : {},
       }
+    },
+  })
+
+  const presentVisualArtifact = defineTool({
+    name: 'present_visual_artifact',
+    label: 'Present visual',
+    description:
+      '**Optional UI helper.** When the user should see an image or PDF preview card again, pass the exact **`ref`** string from **`read_mail_message`**, **`read_attachment`**, or **`read_indexed_file`** (`visualArtifacts[].ref` or attachment `visualArtifact.ref`). **Do not invent or rewrite the ref** — copy it verbatim. **`read_mail_message` already embeds previews** for visual attachments; use this mainly to re-show a known ref in a later turn or after a failed copy. **Caption** is optional helper text for the UI only.',
+    parameters: Type.Object({
+      ref: Type.String({
+        description: 'Full `va1.` ref copied from tool JSON (visualArtifacts or attachment metadata).',
+      }),
+      caption: Type.Optional(
+        Type.String({ description: 'Optional short label shown with the preview (not sent as email).' }),
+      ),
+    }),
+    async execute(_toolCallId: string, params: { ref: string; caption?: string }) {
+      return ripmailPresentVisualArtifactToolExecute({
+        ref: params.ref,
+        caption: params.caption,
+      })
     },
   })
 
@@ -1216,6 +1307,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     readMailMessage,
     readIndexedFile,
     readAttachment,
+    presentVisualArtifact,
     manageSources,
     refreshSources,
     listInbox,

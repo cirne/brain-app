@@ -10,6 +10,7 @@ export function overlaySupportsMobileChatBridge(overlay: Overlay | undefined): b
     case 'wiki':
     case 'file':
     case 'indexed-file':
+    case 'visual-artifact':
     case 'wiki-dir':
     case 'mail-search':
       return true

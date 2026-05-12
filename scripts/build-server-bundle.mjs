@@ -61,7 +61,7 @@ if (existsSync(promptsSrc)) {
   cpSync(promptsSrc, join(outdir, 'prompts'), { recursive: true })
 }
 
-/** inbox.ts loads `./rules/default_rules.v3.json` via import.meta.url → sibling of bundled index.js. */
+/** inbox.ts loads `./rules/default_rules.v4.json` via import.meta.url → sibling of bundled index.js. */
 const ripmailRulesSrc = join(root, 'src/server/ripmail/rules')
 if (existsSync(ripmailRulesSrc)) {
   cpSync(ripmailRulesSrc, join(outdir, 'rules'), { recursive: true })

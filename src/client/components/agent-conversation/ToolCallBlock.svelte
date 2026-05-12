@@ -29,6 +29,7 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenMailSearchResults,
+    onOpenVisualArtifact,
     displayMode = 'compact',
   }: {
     toolCall: ToolCall
@@ -44,10 +45,15 @@
       _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
       _sourceId: string,
     ) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
     displayMode?: 'compact' | 'detailed'
   } = $props()
 
   const preview = $derived(matchContentPreview(toolCall))
+  /** Compact rows stay minimal; inline image/PDF cards only for the dedicated present tool (not read_mail / read_attachment). */
+  const showCompactVisualArtifactCard = $derived(
+    preview?.kind === 'visual_artifacts' && toolCall.name === 'present_visual_artifact',
+  )
   const policy = $derived(getToolUiPolicy(toolCall.name))
   const displayName = $derived(loadSkillToolDisplayLabel(toolCall) ?? policy.label ?? toolCall.name)
   const toolIcon = $derived(getToolIcon(toolCall.name))
@@ -163,6 +169,22 @@
           {@render summaryBody(false)}
         </div>
       {/if}
+      {#if showCompactVisualArtifactCard}
+        <div class="tool-content-preview-shell box-border min-w-0 max-w-full border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-surface px-3 py-2.5">
+          <ContentPreviewCards
+            {preview}
+            {onOpenWiki}
+            {onOpenFile}
+            {onOpenIndexedFile}
+            {onOpenEmail}
+            {onOpenDraft}
+            {onOpenFullInbox}
+            {onSwitchToCalendar}
+            {onOpenMessageThread}
+            {onOpenVisualArtifact}
+          />
+        </div>
+      {/if}
     {:else}
       <details class={cn('tool-call m-0 min-w-0 max-w-full overflow-hidden text-[13px] [&>summary]:flex [&>summary]:cursor-pointer [&>summary]:select-none [&>summary]:items-start [&>summary]:gap-1.5 [&>summary]:p-1 [&>summary]:leading-[1.45] [&>summary]:list-none [&>summary]:[list-style:none] [&>summary::-webkit-details-marker]:hidden', toolCall.isError && 'error')} open={false}>
         <summary>
@@ -188,6 +210,7 @@
             {onOpenFullInbox}
             {onSwitchToCalendar}
             {onOpenMessageThread}
+            {onOpenVisualArtifact}
           />
         </div>
       {/if}

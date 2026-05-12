@@ -24,6 +24,7 @@ describe('mailBodyDisplay', () => {
     expect(wrapped).toContain('Good morning\n&gt; quoted reply &lt;not-html&gt;\nSee ')
     expect(wrapped).toContain('<a href="https://ex.com"')
     expect(wrapped).toContain('--mail-bg')
+    expect(wrapped).toContain('--mail-bg: #f4f1eb')
     expect(wrapped).toContain('color-scheme: light')
     expect(wrapped).not.toContain('prefers-color-scheme')
     expect(wrapped).toContain('border-radius: 0 !important')
@@ -89,6 +90,32 @@ describe('mailBodyDisplay', () => {
     expect(wrapped).toContain('<p class="x">HTML body</p>')
     expect(wrapped).not.toContain('&lt;p class="x"&gt;')
     expect(wrapped).not.toContain('<div class="mail-plain-body">')
+  })
+
+  it('rewrites cid image sources to visual artifact URLs inside HTML mail', () => {
+    const wrapped = emailDisplayBodyToIframeSrcdoc({
+      bodyKind: 'html',
+      bodyText: '',
+      bodyHtml: '<p>photo</p><img src="cid:image001.jpg@abc" alt="photo">',
+      visualArtifacts: [
+        {
+          kind: 'image',
+          mime: 'image/jpeg',
+          ref: 'va1.photo',
+          label: 'photo.jpg',
+          origin: {
+            kind: 'mailAttachment',
+            messageId: 'msg-1',
+            attachmentIndex: 1,
+            filename: 'photo.jpg',
+          },
+          readStatus: 'available',
+        },
+      ],
+    })
+
+    expect(wrapped).toContain('src="/api/files/artifact?ref=va1.photo"')
+    expect(wrapped).not.toContain('cid:image001')
   })
 
   it('emailDisplayBodyToIframeSrcdoc falls back to explicit text when HTML body is missing', () => {

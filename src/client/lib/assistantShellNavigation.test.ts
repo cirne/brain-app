@@ -190,6 +190,8 @@ describe('assistantShellNavigation', () => {
       const r = makeRoute({ zone: 'hub', overlay: { type: 'hub' } })
       const wiki: Overlay = { type: 'wiki', path: 'p.md' }
       expect(hubActiveForOpenOverlay(r, wiki, true)).toBe(false)
+      const visualArtifact: Overlay = { type: 'visual-artifact', ref: 'va1.image' }
+      expect(hubActiveForOpenOverlay(r, visualArtifact, true)).toBe(false)
     })
 
     it('follows hub route when not mobile bridge case', () => {

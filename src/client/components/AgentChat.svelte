@@ -65,6 +65,7 @@
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import type { AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
@@ -79,6 +80,7 @@
     onOpenMessageThread,
     onSwitchToCalendar,
     onOpenMailSearchResults,
+    onOpenVisualArtifact,
     onOpenFromAgent,
     onOpenDraftFromAgent,
     onNewChat,
@@ -176,6 +178,7 @@
       _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
       _sourceId: string,
     ) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
     /** LLM `open` — fired from SSE `tool_start` */
     onOpenFromAgent?: (
       _target: { type: string; path?: string; id?: string; date?: string; source?: string },
@@ -1233,6 +1236,7 @@
                   {onOpenMessageThread}
                   {onSwitchToCalendar}
                   {onOpenMailSearchResults}
+                  {onOpenVisualArtifact}
                   {onOpenWikiAbout}
                   streamingWrite={streamingWritePreview}
                   {multiTenant}
@@ -1263,6 +1267,7 @@
                 {onOpenMessageThread}
                 {onSwitchToCalendar}
                 {onOpenMailSearchResults}
+                {onOpenVisualArtifact}
                 {onOpenWikiAbout}
                 streamingWrite={streamingWritePreview}
                 {multiTenant}
@@ -1292,6 +1297,7 @@
                 {onOpenMessageThread}
                 {onSwitchToCalendar}
                 {onOpenMailSearchResults}
+                {onOpenVisualArtifact}
                 {onOpenWikiAbout}
                 streamingWrite={streamingWritePreview}
                 {multiTenant}
@@ -1322,6 +1328,7 @@
               {onOpenMessageThread}
               {onSwitchToCalendar}
               {onOpenMailSearchResults}
+              {onOpenVisualArtifact}
               {onOpenWikiAbout}
               streamingWrite={streamingWritePreview}
               {multiTenant}

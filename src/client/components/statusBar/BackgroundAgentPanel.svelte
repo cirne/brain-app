@@ -35,6 +35,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
   }
 
   let {
@@ -50,6 +51,7 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenVisualArtifact,
   }: Props = $props()
 
   let agent = $state<BackgroundAgentDoc | null>(null)
@@ -426,6 +428,7 @@
                     {onOpenFullInbox}
                     {onSwitchToCalendar}
                     {onOpenMessageThread}
+                    {onOpenVisualArtifact}
                   />
                 </div>
               </li>
@@ -559,6 +562,7 @@
                       {onOpenFullInbox}
                       {onSwitchToCalendar}
                       {onOpenMessageThread}
+                      {onOpenVisualArtifact}
                     />
                   </div>
                 </li>

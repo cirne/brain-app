@@ -1,89 +1,61 @@
-# OPP-109: Layered spam and bulk-mail classification
+# OPP-109: Inbox triage — algorithmic pre-filter + batched LLM (refresh scope)
 
 **Status:** Open  
-**See also:** [archived OPP-084](archive/OPP-084-adaptive-rules-learning-agent.md) (adaptive rules / learning agent — historical), [OPP-085](OPP-085-rule-action-extensions.md) (rule actions), **`src/server/ripmail/inbox.ts`** (deterministic `inbox()`), **`src/server/ripmail/rules/default_rules.v3.json`**.
+**See also:** [archived OPP-084](archive/OPP-084-adaptive-rules-learning-agent.md) (adaptive rules / learning agent), [OPP-085](OPP-085-rule-action-extensions.md) (rule actions), **`src/server/ripmail/inbox.ts`** (`inbox()` + `loadRulesFile()`), **`src/server/ripmail/rules/default_rules.v4.json`** (bundled default pack + metadata).
 
 ---
 
 ## Problem
 
-Braintunnel’s **inbox pipeline** today is largely **deterministic regex / search-shaped rules** over indexed mail. That catches some patterns well but behaves like **Swiss cheese** against modern spam and graymail: authentication failures, reputation, URL tricks, and statistical signals are either weak or absent, while obvious junk still reaches the surfaced inbox.
-
-Operators and users compare this to **Gmail-scale** filtering and expect comparable *quality*, not parity with Google’s unreplicable cross-user graph—only **much better-than-regex** discrimination with **acceptable local cost**.
+Deterministic **regex / search-shaped** rules and coarse heuristics miss nuance for modern **graymail**, while **aggressive defaults** (broad category matches, substring `from` rules, etc.) create **false negatives** for real mail. Operators still want **explainable** triage (`notify` / `inform` / `ignore`) and **predictable cost**.
 
 ---
 
-## Context: what large providers do (approximately)
+## Direction (revised)
 
-Providers do **not** rely on a single technique such as **k-means clustering** as the headline. Public descriptions and anti-abuse practice converge on **layered pipelines**:
+Ripmail **refresh** already pays a large fixed cost (OAuth / IMAP connect, often on the order of **~10s**). On top of that, **incremental** polls usually yield a **small** set of new or re-scored messages. Use that window for **one batched LLM call per refresh** (no tools) that returns **strict JSON** mapping candidate message ids to triage — cheap relative to sync when **N** is modest.
 
-1. **Authentication and policy** — SPF, DKIM, DMARC (especially **alignment** between From and authenticated domain). Failures are cheap, high-value signals before content.
-2. **Reputation** — Sending IP/domain reputation, abuse reporting, temporal patterns; at scale, **cross-mailbox** prevalence (hard to replicate purely locally).
-3. **Supervised classifiers** — Historically Naive Bayes / logistic regression on tokenized text; at scale, boosted trees and neural models on subjects, snippets, URLs, headers. Primary framing is **classification**, not clustering.
-4. **Heuristic rules** — SpamAssassin-style cumulative scores for headers, MIME oddities, obfuscated links, mismatched display names.
-5. **User feedback** — “Spam” / “not spam” retrains models continuously (core to why Gmail feels adaptive).
+**Do not** send full message bodies: use **selected headers** (e.g. `From`, `Subject`, `List-Id`, `Precedence`, auth result lines when indexed) plus a **short preview** (~**200** characters of plain/snippet) per message. That keeps tokens down and latency predictable.
 
----
+### Tiered pipeline
 
-## Goal
+1. **Cheap algorithmic pass first (quick wins)** — runs on the same candidate set, no LLM:
+   - **SPF / DKIM / DMARC** signals when available in stored headers (`Authentication-Results`, etc.).
+   - **Structural / list mail** hints: `List-Id`, `List-Unsubscribe`, `Precedence`, obvious mailer-daemon / postmaster patterns.
+   - **Optional:** conservative URL/domain checks (punycode, display-name vs link host mismatch); **optional** DNS blocklists only with clear policy (latency + false positives).
+   - **Narrow bundled `rules.json`** for rules that stay deterministic (see default pack + metadata).
 
-Improve **spam vs ham** and **bulk vs personal** separation for Braintunnel’s indexed mail **without** requiring an **LLM call per message** for baseline behavior.
+2. **Batched LLM triage** — **one** structured call per refresh batch:
+   - Model: **small / fast** profile (e.g. fast tier env).
+   - Input: compact rows (ids + headers subset + ~200 char preview).
+   - Output: JSON only (validated), e.g. `{ "decisions": [ { "messageId": "…", "action": "notify|inform|ignore" } ] }` — **no tool calls**.
+   - Persist results with **`decisionSource`** / provenance so Hub and `list_inbox` stay debuggable.
 
-Concrete outcomes:
+3. **Large batches** — When a run would exceed a **budget** (too many candidates, e.g. first sync or huge backlog):
+   - **Skip** the LLM tier for that pass **or** process only the **tail** (newest first) within the cap.
+   - Rely on tier 1 + existing **`inbox()`** fallback heuristics for the remainder; document the behavior.
 
-- **Fewer obvious false negatives** (spam in the primary surfaced set).
-- **Predictable latency** — cheap tiers run on sync / inbox scan; expensive or stochastic steps optional.
-- **Explainability** — decisions remain inspectable enough for inbox debug (rules, scores, reasons), aligned with deterministic-first culture in **`inbox()`**.
+### `rules.json` and deploy resets
 
----
+Bundled defaults live in **`default_rules.v4.json`** with **`metadata`**:
 
-## Proposed directions (fast tiers first)
+- **`bundledRulesetRevision`** — monotonic; bump when shipping a new default pack.
+- **`overwriteExistingTenantsWithBundledDefault`** — when **true**, any tenant whose persisted `lastAppliedBundledRulesetRevision` is **less than** the bundled revision gets **`rules.json` replaced** on the next `loadRulesFile()` (early-stage product: ship aggressive resets without migration scripts). When **absent / false**, new defaults apply only when **`rules.json` is missing** or unreadable.
 
-These are ordered by typical **signal-per-microsecond**. Multiple can compose into a **cumulative score** (SpamAssassin-style) rather than replacing rules wholesale.
-
-| Tier | Technique | Role |
-|------|-----------|------|
-| **0** | **Auth signals** — SPF/DKIM/DMARC disposition and alignment where headers exist | Strong prior before body tokenization |
-| **1** | **URL / domain features** — Parsed links; punycode; redirect chains; hyphenation; mismatch of visible vs href text | Cheap content signal without full LLM |
-| **2** | **Optional DNS reputation** — Curated URIBL/SBL-style lookups | Higher maintenance / false-positive risk; likely opt-in |
-| **3** | **Heuristic header + structural rules** — List-Id, Precedence, Reply-To vs From mismatches, HTML-only tiny body, etc. | Extends today's JSON rules vocabulary |
-| **4** | **Small local supervised model** — Linear model or compact classifier on **subject + snippet** (+ optional hashed tokens), trained from **user labels** | Sub-millisecond-ish inference; personalizes without cloud |
-| **5** | **Bayesian / logistic baseline** — Classic per-token probabilities from local labeled mail | Fallback if richer ML is undesirable |
-
-**Separate from spam:** treat **marketing / transactional bulk** as a **distribution** bucket (newsletters, receipts) via headers + recurring senders + unsubscribe signals—not only “spam.”
+User/API saves **stamp** `lastAppliedBundledRulesetRevision` so custom rules are not mistaken for stale pack state.
 
 ---
 
-## LLM tier (optional, bounded)
+## Non-goals
 
-Reserve **agent / LLM** usage for:
-
-- **Uncertainty band only** — e.g. mid-score messages where rules and the small model disagree.
-- **Offline assists** — suggest new rules or explain “why flagged” after the fact (`list_inbox` diagnostics, tooling).
-- **Explicit user-triggered** actions — never on the critical path for indexing unless product explicitly opts in.
-
-This composes cleanly with **[archived OPP-084](archive/OPP-084-adaptive-rules-learning-agent.md)** if that direction is revived: learning **produces** tiers 0–4 artifacts; the LLM does not score every arrival.
-
----
-
-## Non-goals (for this opportunity)
-
-- **Parity with Gmail’s hidden global signals** — not realistic for a local-first indexer without a backing reputation service owned by Braintunnel.
-- **Blocking at SMTP/IMAP edge** — in scope only if product later exposes server-side rejection; Braintunnel today is index + surfaced inbox.
-- **Guaranteed zero false positives** — reputation and blocklists trade sensitivity for FP rate; defaults should stay conservative.
-
----
-
-## Implementation notes
-
-- **Hook point:** **`inbox()`** in **`src/server/ripmail/inbox.ts`** and rule packs under **`src/server/ripmail/rules/`** (today **`default_rules.v3.json`**).
-- **Data:** Persisted **`inbox_decisions`** / scan metadata already support fingerprinting rule sets; extending with **score breakdowns** or **signal tags** (JSON) aids Hub debug and regression tests (**`src/server/ripmail/ripmail.test.ts`**).
-- **Privacy / offline:** Prefer **DNS or local lookups** with clear policy; avoid shipping raw message bodies to third parties unless product explicitly enables it.
+- **Gmail-scale global graph** — not required; local-first quality target is “**much better than regex**,” not parity with Google’s cross-user signals.
+- **LLM on every message for all time** — cap by refresh scope and batch size; **no** tools in the triage call.
+- **Guaranteed zero false positives** for optional DNS / blocklist tiers.
 
 ---
 
 ## Success criteria (draft)
 
-- **Measurable:** reduction in “obvious spam” in default surfaced inbox on a labeled fixture set or internal corpus; no large regression on ham.
-- **Performance:** deterministic path remains fast enough for batch inbox scan(s) documented in **`AGENTS.md`** expectations.
-- **Operability:** user or dev can answer “why hidden?” from stored decision metadata.
+- Fewer **obvious** false positives from **bloated default rules**; narrow deterministic pack + **reset metadata** as needed.
+- Refresh path: **bounded** LLM cost (batch JSON once, short previews); **graceful degrade** when candidate count ≫ threshold.
+- Decisions remain **inspectable** (`decisionSource`, rule id when deterministic path wins).

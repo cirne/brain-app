@@ -142,6 +142,97 @@ describe('ToolCallBlock.svelte', () => {
       expect(container.querySelector('.tool-result')).toBeNull()
     })
 
+    it('does not render visual artifact cards in compact mode for read_mail_message', () => {
+      const toolCall = makeToolCall({
+        name: 'read_mail_message',
+        args: { id: 'msg-1' },
+        result: '{}',
+        details: {
+          visualArtifacts: [
+            {
+              kind: 'image',
+              mime: 'image/png',
+              ref: 'va1.embed',
+              label: 'photo.png',
+              origin: {
+                kind: 'mailAttachment',
+                messageId: 'msg-1',
+                attachmentIndex: 1,
+                filename: 'photo.png',
+              },
+              readStatus: 'available',
+            },
+          ],
+        },
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
+    })
+
+    it('does not render visual artifact cards in compact mode for read_attachment', () => {
+      const toolCall = makeToolCall({
+        name: 'read_attachment',
+        args: { id: 'msg-1', attachment: 'photo.png' },
+        result: 'photo.png',
+        details: {
+          visualArtifacts: [
+            {
+              kind: 'image',
+              mime: 'image/png',
+              ref: 'va1.photo',
+              label: 'photo.png',
+              origin: {
+                kind: 'mailAttachment',
+                messageId: 'msg-1',
+                attachmentIndex: 1,
+                filename: 'photo.png',
+              },
+              readStatus: 'available',
+            },
+          ],
+        },
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      expect(container.querySelector('details.tool-call')).toBeNull()
+      expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
+    })
+
+    it('renders visual artifact previews in compact mode only for present_visual_artifact', () => {
+      const toolCall = makeToolCall({
+        name: 'present_visual_artifact',
+        args: { ref: 'va1.ref' },
+        result: 'Showing…',
+        details: {
+          visualArtifacts: [
+            {
+              kind: 'image',
+              mime: 'image/png',
+              ref: 'va1.photo',
+              label: 'photo.png',
+              origin: {
+                kind: 'mailAttachment',
+                messageId: 'msg-1',
+                attachmentIndex: 1,
+                filename: 'photo.png',
+              },
+              readStatus: 'available',
+            },
+          ],
+        },
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      expect(container.querySelector('.tool-content-preview-shell')).toBeTruthy()
+      expect(screen.getByRole('img', { name: 'photo.png' })).toHaveAttribute(
+        'src',
+        '/api/files/artifact?ref=va1.photo',
+      )
+    })
+
     it('renders tool name in summary', () => {
       const toolCall = makeToolCall({
         name: 'web_search',

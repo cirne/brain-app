@@ -52,5 +52,18 @@
   "wikiPreviewCard": {
     "ariaOpenDoc": "Open doc: {{path}}",
     "ariaOpenWikiPreview": "Open wiki preview for {{path}}"
+  },
+  "visualArtifactImageViewer": {
+    "actualSize": "Actual size",
+    "defaultTitle": "Image preview",
+    "fit": "Fit",
+    "imageSize": "Image size",
+    "loadError": "Could not load preview for {{label}}."
+  },
+  "visualArtifactsPreviewCard": {
+    "ariaOpenImagePreview": "Open image preview: {{label}}",
+    "ariaOpenPdfPreview": "Open PDF preview: {{label}}",
+    "loadError": "Could not load preview for {{label}}.",
+    "openPdfNewTab": "Open PDF in a new tab"
   }
 }

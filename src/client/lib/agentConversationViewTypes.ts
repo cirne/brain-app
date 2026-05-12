@@ -42,6 +42,7 @@ export type AgentConversationViewProps = {
     _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
     _sourceId: string,
   ) => void
+  onOpenVisualArtifact?: (_ref: string, _label?: string) => void
   /** Empty-state “your wiki” link → wiki vault landing (same as Wiki in the top bar). */
   onOpenWikiAbout?: () => void
   /** Only used by the default chat transcript (empty state override). */

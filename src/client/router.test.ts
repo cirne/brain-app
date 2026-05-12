@@ -248,6 +248,14 @@ describe('parseRoute', () => {
     })
   })
 
+  it('parses visual artifact overlay', () => {
+    expect(
+      parseRoute('http://localhost/c?panel=visual-artifact&ref=va1.test%2Bref&label=Chart'),
+    ).toEqual({
+      overlay: { type: 'visual-artifact', ref: 'va1.test+ref', label: 'Chart' },
+    })
+  })
+
   it('session + inbox overlay', () => {
     const id = '550e8400-e29b-41d4-a716-446655440000'
     primeChatSessionTail(id)
@@ -564,6 +572,12 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('visual artifact encodes ref and label', () => {
+    expect(routeToUrl({ overlay: { type: 'visual-artifact', ref: 'va1.test+ref', label: 'Chart' } })).toBe(
+      '/c?panel=visual-artifact&ref=va1.test%2Bref&label=Chart',
+    )
+  })
+
   it('calendar', () => {
     expect(routeToUrl({ overlay: { type: 'calendar', date: '2026-04-13' } })).toBe(
       '/c?panel=calendar&date=2026-04-13',
@@ -663,6 +677,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { overlay: { type: 'email-draft' as const } },
     { overlay: { type: 'email-draft' as const, id: 'draft-msg:x' } },
     { overlay: { type: 'mail-search' as const, id: 'search-1', query: 'Donna Wilcox' } },
+    { overlay: { type: 'visual-artifact' as const, ref: 'va1.test+ref', label: 'Chart' } },
     { overlay: { type: 'calendar' as const } },
     { overlay: { type: 'calendar' as const, date: '2026-04-13' } },
     {

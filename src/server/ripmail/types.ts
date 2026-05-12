@@ -5,6 +5,7 @@
  * ripmail/src/refresh.rs, etc.) so callers that previously parsed JSON stdout
  * can switch to typed function calls with minimal changes.
  */
+import type { VisualArtifact } from '@shared/visualArtifacts.js'
 
 // ---------------------------------------------------------------------------
 // Search
@@ -72,6 +73,7 @@ export interface AttachmentMeta {
   extracted: boolean
   /** 1-based index for attachment read */
   index: number
+  visualArtifact?: VisualArtifact
 }
 
 export interface ReadMailResult {
@@ -90,6 +92,7 @@ export interface ReadMailResult {
   isArchived: boolean
   category?: string
   attachments?: AttachmentMeta[]
+  visualArtifacts?: VisualArtifact[]
 }
 
 export interface ReadMailDisplayResult extends Omit<ReadMailResult, 'attachments' | 'bodyHtml' | 'bodyText'> {
@@ -107,6 +110,9 @@ export interface ReadIndexedFileResult {
   sourceKind: string
   title: string
   bodyText: string
+  mime?: string
+  size?: number
+  visualArtifacts?: VisualArtifact[]
 }
 
 // ---------------------------------------------------------------------------
@@ -194,15 +200,37 @@ export interface UserRule {
   threadScope: boolean
 }
 
+/** Optional `rules.json` metadata (bundled defaults + per-tenant stamping). */
+export interface RulesFileMetadata {
+  /**
+   * When **true** on the **bundled** default pack (`default_rules.v*.json`): existing tenants
+   * whose `lastAppliedBundledRulesetRevision` is strictly less than `bundledRulesetRevision`
+   * have on-disk `rules.json` replaced with the bundled rule set on the next `loadRulesFile` call.
+   * When absent or false, bundled defaults apply only when `rules.json` is missing or unreadable.
+   */
+  overwriteExistingTenantsWithBundledDefault?: boolean
+  /**
+   * Monotonic revision for the bundled pack; bump alongside rule changes that should trigger
+   * a reset when combined with `overwriteExistingTenantsWithBundledDefault`.
+   */
+  bundledRulesetRevision?: number
+  /**
+   * Revision last applied to this tenant file (persisted). Used with bundled revision to decide resets.
+   */
+  lastAppliedBundledRulesetRevision?: number
+}
+
 export interface RulesFile {
   version: number
   rules: UserRule[]
   context: unknown[]
+  metadata?: RulesFileMetadata
 }
 
 export interface RulesListResult {
   version: number
   rules: UserRule[]
+  metadata?: RulesFileMetadata
 }
 
 // ---------------------------------------------------------------------------

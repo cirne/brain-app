@@ -911,6 +911,23 @@ import AppShell from '@components/app/AppShell.svelte'
     shell.agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
   }
 
+  function openVisualArtifact(ref: string, label?: string) {
+    const trimmedRef = ref.trim()
+    if (!trimmedRef) return
+    const trimmedLabel = label?.trim()
+    const overlay: Overlay = {
+      type: 'visual-artifact',
+      ref: trimmedRef,
+      ...(trimmedLabel ? { label: trimmedLabel } : {}),
+    }
+    const flags = routeSurfaceFlagsForOverlay(overlay)
+    navigateShell({
+      overlay, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {}),
+      })
+    shell.route = parseRoute()
+  }
+
   /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
   function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
     const prevOverlay = shell.route.overlay
@@ -1619,6 +1636,7 @@ import AppShell from '@components/app/AppShell.svelte'
                     toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                     toolOnOpenFullInbox={openFullInboxFromChat}
                     toolOnOpenMessageThread={openMessageThreadFromChat}
+                    toolOnOpenVisualArtifact={openVisualArtifact}
                     onOpenWikiAbout={openHubWikiAbout}
                     onMobileWikiOverlayBack={mobileWikiOverlayBack}
                     onClose={closeOverlay}
@@ -1689,6 +1707,7 @@ import AppShell from '@components/app/AppShell.svelte'
                     toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                     toolOnOpenFullInbox={openFullInboxFromChat}
                     toolOnOpenMessageThread={openMessageThreadFromChat}
+                    toolOnOpenVisualArtifact={openVisualArtifact}
                     onOpenWikiAbout={openHubWikiAbout}
                     onMobileWikiOverlayBack={mobileWikiOverlayBack}
                     onClose={closeOverlay}
@@ -1729,6 +1748,7 @@ import AppShell from '@components/app/AppShell.svelte'
               onOpenMessageThread={openMessageThreadFromChat}
               onSwitchToCalendar={switchToCalendar}
               onOpenMailSearchResults={openMailSearchResultsFromChat}
+              onOpenVisualArtifact={openVisualArtifact}
               onOpenFromAgent={onOpenFromAgent}
               onOpenDraftFromAgent={openEmailDraftFromChat}
               onNewChat={closeOverlay}
@@ -1777,6 +1797,7 @@ import AppShell from '@components/app/AppShell.svelte'
                     toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                     toolOnOpenFullInbox={openFullInboxFromChat}
                     toolOnOpenMessageThread={openMessageThreadFromChat}
+                    toolOnOpenVisualArtifact={openVisualArtifact}
                     onOpenWikiAbout={openHubWikiAbout}
                     onMobileWikiOverlayBack={mobileWikiOverlayBack}
                     onClose={closeOverlay}
@@ -1816,6 +1837,7 @@ import AppShell from '@components/app/AppShell.svelte'
               toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
               toolOnOpenFullInbox={openFullInboxFromChat}
               toolOnOpenMessageThread={openMessageThreadFromChat}
+              toolOnOpenVisualArtifact={openVisualArtifact}
               onOpenWikiAbout={openHubWikiAbout}
               onClose={closeOverlay}
               detailFullscreen={shell.detailPaneFullscreen}

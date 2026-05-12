@@ -17,6 +17,36 @@ function tc(p: Partial<ToolCall> & Pick<ToolCall, 'name'>): ToolCall {
 }
 
 describe('matchContentPreview', () => {
+  it('uses visual artifact details as the preview when present', () => {
+    const prev = matchContentPreview(
+      tc({
+        name: 'read_attachment',
+        details: {
+          visualArtifacts: [
+            {
+              kind: 'image',
+              mime: 'image/png',
+              ref: 'va1.image',
+              label: 'photo.png',
+              origin: {
+                kind: 'mailAttachment',
+                messageId: 'm1',
+                attachmentIndex: 1,
+                filename: 'photo.png',
+              },
+              readStatus: 'available',
+            },
+          ],
+        },
+        result: 'extracted text',
+      }),
+    )
+
+    expect(prev?.kind).toBe('visual_artifacts')
+    if (prev?.kind !== 'visual_artifacts') return
+    expect(prev.artifacts[0].label).toBe('photo.png')
+  })
+
   it('parses search_index JSON into mail_search_hits', () => {
     const json = JSON.stringify({
       results: [

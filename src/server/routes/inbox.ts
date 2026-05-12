@@ -242,6 +242,7 @@ inbox.get('/:id', async (c) => {
       bodyKind: msg.bodyKind,
       bodyText: msg.bodyText,
       ...(msg.bodyHtml ? { bodyHtml: msg.bodyHtml } : {}),
+      ...(msg.visualArtifacts?.length ? { visualArtifacts: msg.visualArtifacts } : {}),
     })
   } catch {
     return c.json({ error: 'Not found' }, 404)

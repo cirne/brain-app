@@ -4,6 +4,7 @@
     BookOpen,
     FileText,
     FolderOpen,
+    Image as ImageIcon,
     Calendar as CalendarIcon,
     ChevronLeft,
     Forward,
@@ -31,6 +32,7 @@
   import Calendar from '@components/Calendar.svelte'
   import MessageThread from '@components/MessageThread.svelte'
   import MailSearchResultsPanel from '@components/MailSearchResultsPanel.svelte'
+  import VisualArtifactImageViewer from '@components/VisualArtifactImageViewer.svelte'
   import YourWikiDetail from '@components/YourWikiDetail.svelte'
   import HubConnectorSourcePanel from '@components/hub-connector/HubConnectorSourcePanel.svelte'
   import HubWikiAboutPanel from '@components/HubWikiAboutPanel.svelte'
@@ -124,6 +126,7 @@
     toolOnOpenDraft?: (_draftId: string, _subject?: string) => void
     toolOnOpenFullInbox?: () => void
     toolOnOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    toolOnOpenVisualArtifact?: (_ref: string, _label?: string) => void
     /** Reserved for future empty-state hooks (previously used by add-folders panel). */
     onOpenWikiAbout?: () => void
     /** Mobile wiki overlay: pop in-doc stack before closing (Assistant shell). */
@@ -157,6 +160,7 @@
     toolOnOpenDraft,
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
+    toolOnOpenVisualArtifact,
     onOpenWikiAbout: _onOpenWikiAbout,
     onMobileWikiOverlayBack,
   }: Props = $props()
@@ -357,7 +361,8 @@
               (overlay.type === 'email' && emailHeaderTitle) ||
               (overlay.type === 'email-draft' && emailDraftHeaderTitle) ||
               overlay.type === 'mail-search' ||
-              (overlay.type === 'messages' && messagesHeaderTitle))
+              (overlay.type === 'messages' && messagesHeaderTitle) ||
+              overlay.type === 'visual-artifact')
               && 'slide-title-wiki normal-case font-normal tracking-normal',
             mobilePanel && 'text-sm',
           )}
@@ -395,6 +400,11 @@
             <span class="slide-title-email flex flex-1 min-w-0 items-center gap-2 overflow-hidden">
               <MessageSquare size={mobilePanel ? 20 : 14} strokeWidth={2} aria-hidden="true" class="shrink-0 text-muted" />
               <span class={cn('slide-title-email-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground', mobilePanel ? 'text-[15px]' : 'text-[13px]')}>{messagesHeaderTitle}</span>
+            </span>
+          {:else if overlay.type === 'visual-artifact'}
+            <span class="slide-title-email flex flex-1 min-w-0 items-center gap-2 overflow-hidden">
+              <ImageIcon size={mobilePanel ? 20 : 14} strokeWidth={2} aria-hidden="true" class="shrink-0 text-muted" />
+              <span class={cn('slide-title-email-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground', mobilePanel ? 'text-[15px]' : 'text-[13px]')}>{overlay.label?.trim() || $t('cards.visualArtifactImageViewer.defaultTitle')}</span>
             </span>
           {:else if overlay.type === 'your-wiki' && yourWikiHdr.current?.doc}
             <div class="your-wiki-header-center flex flex-1 min-w-0 items-center gap-3">
@@ -751,6 +761,8 @@
       />
     {:else if overlay.type === 'messages'}
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
+    {:else if overlay.type === 'visual-artifact' && overlay.ref}
+      <VisualArtifactImageViewer ref={overlay.ref} label={overlay.label} />
     {:else if overlay.type === 'your-wiki'}
       <YourWikiDetail
         onOpenWiki={(path) => {
@@ -763,6 +775,7 @@
         onOpenFullInbox={toolOnOpenFullInbox}
         onSwitchToCalendar={onCalendarNavigate}
         onOpenMessageThread={toolOnOpenMessageThread}
+        onOpenVisualArtifact={toolOnOpenVisualArtifact}
       />
     {:else if overlay.type === 'hub-source'}
       <HubConnectorSourcePanel sourceId={overlay.id} onClose={onClose} />
@@ -810,6 +823,7 @@
   .slide-body :global(.calendar),
   .slide-body :global(.mail-search-panel),
   .slide-body :global(.hub-bg-agents-detail),
+  .slide-body :global(.visual-artifact-viewer),
   .slide-body :global(.hub-connector-source) {
     flex: 1;
     min-height: 0;

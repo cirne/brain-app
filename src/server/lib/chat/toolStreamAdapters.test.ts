@@ -35,4 +35,33 @@ describe('shapeReadEmailStreamDetails', () => {
       }),
     )
   })
+
+  it('preserves visual artifact details from read JSON', () => {
+    const state = createAssistantTurnState()
+    applyToolStart(state, {
+      id: 'tc1',
+      name: 'read_mail_message',
+      args: { id: 'msg-123' },
+      done: false,
+    })
+    const json = JSON.stringify({
+      subject: 'Hello',
+      from: 'a@b.com',
+      snippet: 'Hi',
+      visualArtifacts: [
+        {
+          kind: 'image',
+          mime: 'image/png',
+          ref: 'va1.image',
+          label: 'photo.png',
+          origin: { kind: 'mailAttachment', messageId: 'msg-123', attachmentIndex: 1, filename: 'photo.png' },
+          readStatus: 'available',
+        },
+      ],
+    })
+
+    const details = shapeReadEmailStreamDetails(json, 'tc1', state) as { visualArtifacts?: unknown[] }
+
+    expect(details.visualArtifacts).toHaveLength(1)
+  })
 })

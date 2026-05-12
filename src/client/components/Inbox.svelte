@@ -5,6 +5,7 @@
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { navigate, parseRoute, readTailFromCache, type Overlay, type SurfaceContext } from '@client/router.js'
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
+  import { elementTextExceedsLineClamp } from '@client/lib/inboxThreadHeaderClamp.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import {
@@ -14,6 +15,7 @@
   import { locationShowsEmailThread } from '@client/lib/inboxEmailLocation.js'
   import { getInboxThreadHeaderCell } from '@client/lib/inboxSlideHeaderContext.js'
   import { t } from '@client/lib/i18n/index.js'
+  import type { VisualArtifact } from '@shared/visualArtifacts.js'
 
   type Email = {
     id: string
@@ -44,6 +46,7 @@
     bodyKind: 'html' | 'text'
     bodyText: string
     bodyHtml?: string
+    visualArtifacts?: VisualArtifact[]
   }
 
   type ThreadContent = {
@@ -167,10 +170,13 @@
   let composing = $state(false)
   let composeError = $state<string | null>(null)
 
+  const HEADER_META_CLAMP_LINES = 3
+
   /** Thread header rows with long values (To/Cc/…) — collapsed to 3 lines with optional expand. */
   let headerExpanded = $state<Record<string, boolean>>({})
   let headerOverflow = $state<Record<string, boolean>>({})
   const headerValueRefs: Record<string, HTMLElement> = {}
+  let threadMetaRoot = $state<HTMLElement | null>(null)
 
   function headerValueRef(node: HTMLElement, key: string) {
     headerValueRefs[key] = node
@@ -183,6 +189,26 @@
 
   function toggleHeaderRow(key: string) {
     headerExpanded = { ...headerExpanded, [key]: !headerExpanded[key] }
+  }
+
+  function measureThreadHeaderOverflow(resetExpansion: boolean) {
+    if (!threadContent) return
+    const rows = emailHeadersForDisplay(threadContent.headers)
+    if (resetExpansion) {
+      headerExpanded = {}
+      headerOverflow = {}
+    }
+    void tick().then(() => {
+      requestAnimationFrame(() => {
+        const next: Record<string, boolean> = {}
+        for (const row of rows) {
+          const el = headerValueRefs[row.key]
+          if (!el) continue
+          next[row.key] = elementTextExceedsLineClamp(el, HEADER_META_CLAMP_LINES)
+        }
+        headerOverflow = next
+      })
+    })
   }
 
   let contacts = $state<Contact[]>([])
@@ -320,6 +346,7 @@
         bodyKind: message.bodyKind,
         bodyText: message.bodyText,
         bodyHtml: message.bodyHtml,
+        visualArtifacts: message.visualArtifacts,
       },
     }
   }
@@ -549,24 +576,21 @@
     })
   })
 
-  /** Measure which header values exceed 3 lines (line-clamp) so we can show Show more. */
+  /** Measure which header values need expand (reliable vs scrollHeight on line-clamped boxes). */
   $effect(() => {
     if (!threadContent) return
-    const rows = emailHeadersForDisplay(threadContent.headers)
     void selectedThread
-    headerExpanded = {}
-    headerOverflow = {}
-    void tick().then(() => {
-      requestAnimationFrame(() => {
-        const next: Record<string, boolean> = {}
-        for (const row of rows) {
-          const el = headerValueRefs[row.key]
-          if (!el) continue
-          next[row.key] = el.scrollHeight > el.clientHeight
-        }
-        headerOverflow = next
-      })
+    measureThreadHeaderOverflow(true)
+  })
+
+  $effect(() => {
+    const root = threadMetaRoot
+    if (!root || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      measureThreadHeaderOverflow(false)
     })
+    ro.observe(root)
+    return () => ro.disconnect()
   })
 
   const inboxThreadHeaderCell = getInboxThreadHeaderCell()
@@ -723,6 +747,7 @@
             <p class="thread-error m-0 text-sm leading-snug text-danger" role="alert">{threadLoadError}</p>
           {:else if threadContent}
             <div
+              bind:this={threadMetaRoot}
               class="thread-meta mb-4 flex flex-col gap-1 bg-surface-2 px-4 py-3"
               aria-label={$t('inbox.inboxPanel.thread.headersAriaLabel')}
             >

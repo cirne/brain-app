@@ -10,6 +10,10 @@ import type {
   ReadIndexedFileResult,
   AttachmentMeta,
 } from './types.js'
+import {
+  visualArtifactsFromAttachments,
+  visualArtifactFromIndexedFileResult,
+} from './visualArtifacts.js'
 
 interface MessageRow {
   message_id: string
@@ -111,16 +115,27 @@ export function readMail(
 
   if (!row) return null
 
-  const attachments = opts?.includeAttachments !== false ? listAttachments(db, row.message_id) : undefined
-
-  let bodyText: string | undefined = row.body_text ?? undefined
-  if (opts?.plainBody === false) bodyText = undefined
-  const bodyHtml = opts?.includeHtml && row.body_html?.trim() ? row.body_html : undefined
-
   // Normalize messageId: strip angle brackets to match Rust CLI output shape
   const normalizedMessageId = row.message_id.startsWith('<') && row.message_id.endsWith('>')
     ? row.message_id.slice(1, -1)
     : row.message_id
+  const attachments = opts?.includeAttachments !== false ? listAttachments(db, row.message_id) : undefined
+  const visualArtifacts = visualArtifactsFromAttachments(normalizedMessageId, attachments)
+  const enrichedAttachments =
+    attachments && visualArtifacts.length > 0
+      ? attachments.map((attachment) => {
+          const visualArtifact = visualArtifacts.find(
+            (artifact) =>
+              artifact.origin.kind === 'mailAttachment' &&
+              artifact.origin.attachmentIndex === attachment.index,
+          )
+          return visualArtifact ? { ...attachment, visualArtifact } : attachment
+        })
+      : attachments
+
+  let bodyText: string | undefined = row.body_text ?? undefined
+  if (opts?.plainBody === false) bodyText = undefined
+  const bodyHtml = opts?.includeHtml && row.body_html?.trim() ? row.body_html : undefined
 
   return {
     messageId: normalizedMessageId,
@@ -137,7 +152,8 @@ export function readMail(
     rawPath: row.raw_path,
     isArchived: row.is_archived === 1,
     category: row.category ?? undefined,
-    attachments,
+    attachments: enrichedAttachments,
+    ...(visualArtifacts.length > 0 ? { visualArtifacts } : {}),
   }
 }
 
@@ -150,7 +166,7 @@ export function readMailForDisplay(
   _ripmailHome: string,
   messageId: string,
 ): ReadMailDisplayResult | null {
-  const msg = readMail(db, messageId, { includeAttachments: false, includeHtml: true })
+  const msg = readMail(db, messageId, { includeAttachments: true, includeHtml: true })
   if (!msg) return null
 
   return {
@@ -169,6 +185,7 @@ export function readMailForDisplay(
     bodyKind: msg.bodyHtml ? 'html' : 'text',
     bodyText: msg.bodyText ?? '',
     ...(msg.bodyHtml ? { bodyHtml: msg.bodyHtml } : {}),
+    ...(msg.visualArtifacts?.length ? { visualArtifacts: msg.visualArtifacts } : {}),
   }
 }
 
@@ -194,18 +211,20 @@ export function readIndexedFile(
   if (diRow) {
     const body = String(diRow['body'] ?? '')
     const maxChars = opts?.fullBody ? Infinity : 4000
-    return {
+    const result: ReadIndexedFileResult = {
       id: String(diRow['ext_id'] ?? id),
       sourceKind: String(diRow['source_kind'] ?? diRow['kind'] ?? ''),
       title: String(diRow['title'] ?? ''),
       bodyText: body.slice(0, maxChars),
     }
+    const visualArtifacts = visualArtifactFromIndexedFileResult(result)
+    return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result
   }
 
   // localDir: look up in files table by abs_path or rel_path
   const fileRow = db
     .prepare(
-      `SELECT f.abs_path, f.source_id, f.title, f.body_text, s.kind AS source_kind
+      `SELECT f.abs_path, f.source_id, f.title, f.body_text, f.mime, f.size, s.kind AS source_kind
        FROM files f
        LEFT JOIN sources s ON s.id = f.source_id
        WHERE f.abs_path = ? OR f.rel_path = ?
@@ -224,12 +243,16 @@ export function readIndexedFile(
       }
     }
     const maxChars = opts?.fullBody ? Infinity : 4000
-    return {
+    const result: ReadIndexedFileResult = {
       id: String(fileRow['abs_path'] ?? id),
       sourceKind: String(fileRow['source_kind'] ?? 'localDir'),
       title: String(fileRow['title'] ?? id),
       bodyText: body.slice(0, maxChars),
+      ...(typeof fileRow['mime'] === 'string' && fileRow['mime'] ? { mime: String(fileRow['mime']) } : {}),
+      ...(typeof fileRow['size'] === 'number' ? { size: Number(fileRow['size']) } : {}),
     }
+    const visualArtifacts = visualArtifactFromIndexedFileResult(result)
+    return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result
   }
 
   return null

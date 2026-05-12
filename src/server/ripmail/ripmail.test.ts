@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 const _require = createRequire(import.meta.url)
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 
 import { openMemoryRipmailDb, openRipmailDb, closeRipmailDb } from './db.js'
@@ -19,7 +19,7 @@ import { search } from './search.js'
 import { readMail, readMailForDisplay } from './mailRead.js'
 import { who } from './who.js'
 import { status } from './status.js'
-import { inbox } from './inbox.js'
+import { inbox, loadRulesFile, getBundledRulesetRevision } from './inbox.js'
 import { archive } from './archive.js'
 import { rulesList, rulesAdd, rulesEdit, rulesRemove, rulesValidate } from './rules.js'
 import { sourcesList, sourcesAddLocalDir, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
@@ -384,7 +384,8 @@ describe('inbox', () => {
 
   it('user rule takes precedence over fallback', () => {
     writeFileSync(join(tmpHome, 'rules.json'), JSON.stringify({
-      version: 4,
+      version: 5,
+      metadata: { lastAppliedBundledRulesetRevision: getBundledRulesetRevision() },
       rules: [{
         kind: 'search',
         id: 'test-rule',
@@ -416,7 +417,7 @@ describe('inbox', () => {
     expect(r.items.some((i) => i.messageId === mid)).toBe(false)
   })
 
-  it('commerce promo subject Sell… matches def-mkt-fts ignore despite 2FA boilerplate in body', () => {
+  it('commerce promo subject Sell… falls back to ignore (heuristic) when marketing body cues present', () => {
     insertMessage(db, {
       subject: 'Sell what people are buying',
       fromAddress: 'email@e.therealreal.com',
@@ -428,8 +429,7 @@ describe('inbox', () => {
     const item = r.items.find((i) => i.subject === 'Sell what people are buying')
     expect(item).toBeDefined()
     expect(item?.action).toBe('ignore')
-    expect(item?.winningRuleId).toBe('def-mkt-fts')
-    expect(item?.matchedRuleIds).toContain('def-mkt-fts')
+    expect(item?.decisionSource).toBe('fallback')
   })
 
   it('verification-code mail falls back to inform without OTP notify rule', () => {
@@ -444,6 +444,47 @@ describe('inbox', () => {
     expect(item?.action).toBe('inform')
     expect(item?.winningRuleId).toBeUndefined()
     expect(item?.decisionSource).toBe('fallback')
+  })
+
+  it('replaces on-disk rules when bundled revision is newer than lastApplied', () => {
+    writeFileSync(join(tmpHome, 'rules.json'), JSON.stringify({
+      version: 4,
+      rules: [{
+        kind: 'search',
+        id: 'stale-custom',
+        action: 'notify',
+        query: 'something',
+        fromOrToUnion: false,
+        threadScope: true,
+      }],
+      context: [],
+    }))
+    const loaded = loadRulesFile(tmpHome)
+    expect(loaded.rules.some((r) => r.id === 'stale-custom')).toBe(false)
+    expect(loaded.rules.some((r) => r.id === 'def-cat-spam')).toBe(true)
+    const disk = JSON.parse(readFileSync(join(tmpHome, 'rules.json'), 'utf8')) as {
+      metadata?: { lastAppliedBundledRulesetRevision?: number }
+    }
+    expect(disk.metadata?.lastAppliedBundledRulesetRevision).toBe(getBundledRulesetRevision())
+  })
+
+  it('preserves custom on-disk rules when lastApplied matches bundled revision', () => {
+    const rev = getBundledRulesetRevision()
+    writeFileSync(join(tmpHome, 'rules.json'), JSON.stringify({
+      version: 5,
+      metadata: { lastAppliedBundledRulesetRevision: rev },
+      rules: [{
+        kind: 'search',
+        id: 'keep-me',
+        action: 'notify',
+        query: 'unique-query-xyz',
+        fromOrToUnion: false,
+        threadScope: true,
+      }],
+      context: [],
+    }))
+    const loaded = loadRulesFile(tmpHome)
+    expect(loaded.rules.some((r) => r.id === 'keep-me')).toBe(true)
   })
 })
 
@@ -496,6 +537,14 @@ describe('rules', () => {
     rulesRemove(tmpHome, { ruleId: rule.id })
     const list = rulesList(tmpHome)
     expect(list.rules.some((r) => r.id === rule.id)).toBe(false)
+  })
+
+  it('persists lastAppliedBundledRulesetRevision when saving rules', () => {
+    rulesAdd(tmpHome, { action: 'notify', query: 'pat', description: 't' })
+    const raw = JSON.parse(readFileSync(join(tmpHome, 'rules.json'), 'utf8')) as {
+      metadata?: { lastAppliedBundledRulesetRevision?: number }
+    }
+    expect(raw.metadata?.lastAppliedBundledRulesetRevision).toBe(getBundledRulesetRevision())
   })
 
   it('validate detects duplicate ids', () => {

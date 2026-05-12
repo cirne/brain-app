@@ -1,0 +1,60 @@
+{
+  "version": 5,
+  "metadata": {
+    "overwriteExistingTenantsWithBundledDefault": true,
+    "bundledRulesetRevision": 1
+  },
+  "rules": [
+    {
+      "kind": "search",
+      "id": "def-cat-spam",
+      "action": "ignore",
+      "query": "",
+      "category": "spam",
+      "fromOrToUnion": false,
+      "threadScope": true,
+      "description": "Provider spam/junk category (sync metadata)"
+    },
+    {
+      "kind": "search",
+      "id": "def-from-mailer-daemon",
+      "action": "ignore",
+      "query": "",
+      "fromAddress": "mailer-daemon",
+      "fromOrToUnion": false,
+      "threadScope": true,
+      "description": "mailer-daemon"
+    },
+    {
+      "kind": "search",
+      "id": "def-from-postmaster",
+      "action": "ignore",
+      "query": "",
+      "fromAddress": "postmaster",
+      "fromOrToUnion": false,
+      "threadScope": true,
+      "description": "postmaster"
+    },
+    {
+      "kind": "search",
+      "id": "def-from-bounce",
+      "action": "ignore",
+      "query": "",
+      "fromAddress": "bounce",
+      "fromOrToUnion": false,
+      "threadScope": true,
+      "description": "bounce addresses"
+    },
+    {
+      "kind": "search",
+      "id": "def-unsubscribe-subject",
+      "action": "ignore",
+      "query": "",
+      "subject": "unsubscribe",
+      "fromOrToUnion": false,
+      "threadScope": true,
+      "description": "Unsubscribe in subject"
+    }
+  ],
+  "context": []
+}

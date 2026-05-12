@@ -4,14 +4,15 @@
  * Plaintext bodies are escaped and wrapped with newline-preserving CSS. HTML bodies are not escaped —
  * combine with `sandbox` (no `allow-scripts`) on the iframe.
  * Injects base theme colors (`IFRAME_DOC_BASE_STYLE`) because srcdoc is isolated from host CSS variables.
- * Always uses a light canvas (`color-scheme: light`): HTML newsletters almost always rely on inline white
- * backgrounds and dark text; if the iframe followed the app/OS dark preference and forced pale text via
- * a blanket selector, pale text would sit on those unchanged white sections (unreadable).
+ * Always uses a light canvas (`color-scheme: light`): HTML newsletters often rely on dark text and set
+ * their own white backgrounds. The default canvas matches Braintunnel's warm light surface so media-only
+ * mail does not sit in a stark white box; sender HTML can still override it with inline/body backgrounds.
  */
+import { visualArtifactFetchUrl, type VisualArtifact } from '@shared/visualArtifacts.js'
 
 const IFRAME_DOC_BASE_STYLE = `<style>
   :root {
-    --mail-bg: #ffffff;
+    --mail-bg: #f4f1eb;
     --mail-text: #111111;
     --mail-text-2: #6b7280;
     --mail-accent: #2563eb;
@@ -61,6 +62,7 @@ export type EmailDisplayBody = {
   bodyKind: 'html' | 'text'
   bodyText: string
   bodyHtml?: string
+  visualArtifacts?: VisualArtifact[]
 }
 
 /** Insert overflow/layout guard into a full HTML document so passthrough mail still has no inner scrolling. */
@@ -77,13 +79,31 @@ function injectIframeDocGuard(html: string): string {
   return html
 }
 
-function htmlBodyToIframeSrcdoc(raw: string): string {
+function availableVisualArtifactUrls(artifacts: VisualArtifact[] | undefined): string[] {
+  return (artifacts ?? [])
+    .filter((artifact) => artifact.readStatus === 'available' && artifact.ref && artifact.kind === 'image')
+    .map((artifact) => visualArtifactFetchUrl(artifact.ref!))
+}
+
+function rewriteCidImages(raw: string, artifacts: VisualArtifact[] | undefined): string {
+  const urls = availableVisualArtifactUrls(artifacts)
+  if (urls.length === 0 || !/\bcid:/i.test(raw)) return raw
+  let next = 0
+  return raw.replace(/\bsrc=(["'])cid:[^"']+\1/gi, (match, quote: string) => {
+    const url = urls[Math.min(next, urls.length - 1)]
+    next += 1
+    return url ? `src=${quote}${url}${quote}` : match
+  })
+}
+
+function htmlBodyToIframeSrcdoc(raw: string, artifacts?: VisualArtifact[]): string {
   const t = raw.trim()
   if (!t) return ''
+  const rewritten = rewriteCidImages(raw, artifacts)
   const passthrough = /^<!DOCTYPE\s+html/i.test(t) || /<\s*html[\s>]/i.test(t)
   return passthrough
-    ? injectIframeDocGuard(raw)
-    : `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body>${raw}</body></html>`
+    ? injectIframeDocGuard(rewritten)
+    : `<!DOCTYPE html><html><head>${IFRAME_FRAGMENT_HEAD}</head><body>${rewritten}</body></html>`
 }
 
 function plaintextBodyToIframeSrcdoc(raw: string): string {
@@ -94,7 +114,7 @@ function plaintextBodyToIframeSrcdoc(raw: string): string {
 
 export function emailDisplayBodyToIframeSrcdoc(body: EmailDisplayBody): string {
   if (body.bodyKind === 'html' && body.bodyHtml?.trim()) {
-    return htmlBodyToIframeSrcdoc(body.bodyHtml)
+    return htmlBodyToIframeSrcdoc(body.bodyHtml, body.visualArtifacts)
   }
   return plaintextBodyToIframeSrcdoc(body.bodyText)
 }

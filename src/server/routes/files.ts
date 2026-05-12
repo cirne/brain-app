@@ -4,8 +4,10 @@
  */
 import { existsSync } from 'node:fs'
 import { Hono } from 'hono'
+import { decodeVisualArtifactRef } from '@shared/visualArtifacts.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
-import { ripmailReadIndexedFile } from '@server/ripmail/index.js'
+import { prepareRipmailDb, ripmailReadIndexedFile } from '@server/ripmail/index.js'
+import { resolveVisualArtifactResponse } from '@server/ripmail/visualArtifacts.js'
 import { assertAgentReadPathAllowed, ripmailReadIdLooksLikeFilesystemPath } from '@server/agent/agentToolPolicy.js'
 import {
   buildReadPathAllowlist,
@@ -14,6 +16,27 @@ import {
 } from '@server/lib/chat/agentPathPolicy.js'
 
 const files = new Hono()
+
+// GET /api/files/artifact?ref= — visual artifact bytes resolved through tenant ripmail DB.
+files.get('/artifact', async c => {
+  const ref = c.req.query('ref')
+  if (!ref?.trim()) {
+    return c.json({ error: 'missing ref' }, 400)
+  }
+  const payload = decodeVisualArtifactRef(ref)
+  if (!payload) {
+    return c.json({ error: 'invalid artifact ref' }, 400)
+  }
+  try {
+    const home = ripmailHomeForBrain()
+    const db = await prepareRipmailDb(home)
+    return await resolveVisualArtifactResponse(c, db, home, payload)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[api/files/artifact]', msg)
+    return c.json({ error: msg }, 500)
+  }
+})
 
 /** Normalize `ripmail read --json` for Drive vs localDir (viewer JSON; not frontmatter). */
 function normalizeIndexedRipmailJson(j: Record<string, unknown>, queryId: string) {

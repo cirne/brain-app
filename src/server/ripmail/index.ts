@@ -46,11 +46,13 @@ export type {
   RefreshOptions,
   RefreshResult,
 } from './types.js'
+export type { VisualArtifact } from '@shared/visualArtifacts.js'
 
 import { prepareRipmailDb } from './db.js'
 import { search } from './search.js'
 import { readMail, readMailForDisplay, readIndexedFile } from './mailRead.js'
 import { attachmentList, attachmentRead } from './attachments.js'
+import { visualArtifactsFromAttachments } from './visualArtifacts.js'
 import { who } from './who.js'
 import { status, statusParsed } from './status.js'
 import { inbox } from './inbox.js'
@@ -135,6 +137,23 @@ export async function ripmailAttachmentRead(
 ) {
   const db = await prepareRipmailDb(ripmailHome)
   return attachmentRead(db, messageId, key, ripmailHome)
+}
+
+/** Return visual artifacts for a single mail attachment without extracting its text. */
+export async function ripmailAttachmentVisualArtifacts(
+  ripmailHome: string,
+  messageId: string,
+  key: string | number,
+) {
+  const db = await prepareRipmailDb(ripmailHome)
+  const attachments = attachmentList(db, messageId)
+  const wanted =
+    typeof key === 'number'
+      ? attachments.filter((a) => a.index === key)
+      : /^\d+$/.test(key.trim())
+        ? attachments.filter((a) => a.index === Number(key.trim()))
+        : attachments.filter((a) => a.filename.toLowerCase() === key.trim().toLowerCase())
+  return visualArtifactsFromAttachments(messageId, wanted)
 }
 
 /** Find contacts. */

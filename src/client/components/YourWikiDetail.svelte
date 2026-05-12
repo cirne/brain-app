@@ -19,6 +19,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_chat: string, _label: string) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
     /** When true, omit the intro paragraph (e.g. onboarding already explains Your Wiki on the left). */
     hideSectionLead?: boolean
     /**
@@ -49,6 +50,7 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenVisualArtifact,
     hideSectionLead = false,
     showLoopControls = true,
     autoScrollActivity = false,
@@ -257,6 +259,7 @@
       {onOpenFullInbox}
       {onSwitchToCalendar}
       {onOpenMessageThread}
+      {onOpenVisualArtifact}
     />
   </div>
 </div>

@@ -17,6 +17,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_chat: string, _label: string) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
   }
 
   let {
@@ -28,6 +29,7 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenVisualArtifact,
   }: Props = $props()
 
   let agents = $state<BackgroundAgentDoc[]>([])
@@ -167,6 +169,7 @@
               {onOpenFullInbox}
               {onSwitchToCalendar}
               {onOpenMessageThread}
+              {onOpenVisualArtifact}
             />
           {/if}
         </div>

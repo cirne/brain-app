@@ -11,6 +11,7 @@
   import FindPersonHitsPreviewCard from '@components/cards/FindPersonHitsPreviewCard.svelte'
   import FeedbackDraftPreviewCard from '@components/cards/FeedbackDraftPreviewCard.svelte'
   import DraftPreviewCard from '@components/cards/DraftPreviewCard.svelte'
+  import VisualArtifactsPreviewCard from '@components/cards/VisualArtifactsPreviewCard.svelte'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
 
   let {
@@ -23,6 +24,7 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenVisualArtifact,
   }: {
     preview: ContentCardPreview
     onOpenWiki?: (_path: string) => void
@@ -33,6 +35,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenVisualArtifact?: (_ref: string, _label?: string) => void
   } = $props()
 </script>
 
@@ -106,4 +109,6 @@
     snippet={preview.snippet}
     onOpen={() => onOpenDraft?.(preview.draftId, preview.subject)}
   />
+{:else if preview.kind === 'visual_artifacts'}
+  <VisualArtifactsPreviewCard artifacts={preview.artifacts} {onOpenVisualArtifact} />
 {/if}

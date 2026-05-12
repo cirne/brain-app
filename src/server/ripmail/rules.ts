@@ -7,12 +7,13 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import type { UserRule, RulesFile, RulesListResult } from './types.js'
-import { loadRulesFile } from './inbox.js'
+import { loadRulesFile, prepareRulesFileForPersistence } from './inbox.js'
 import type { RipmailDb } from './db.js'
 
 function saveRulesFile(ripmailHome: string, file: RulesFile): void {
   const path = join(ripmailHome, 'rules.json')
-  writeFileSync(path, JSON.stringify(file, null, 2), 'utf8')
+  const stamped = prepareRulesFileForPersistence(file)
+  writeFileSync(path, JSON.stringify(stamped, null, 2), 'utf8')
 }
 
 function rulesFingerprint(file: RulesFile): string {
@@ -60,7 +61,7 @@ export interface RulesValidateOptions { sample?: boolean; source?: string }
 
 export function rulesList(ripmailHome: string, _opts?: RulesListOptions): RulesListResult {
   const file = loadRulesFile(ripmailHome)
-  return { version: file.version, rules: file.rules }
+  return { version: file.version, rules: file.rules, metadata: file.metadata }
 }
 
 export function rulesShow(ripmailHome: string, opts: RulesShowOptions): UserRule | null {

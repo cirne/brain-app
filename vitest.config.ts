@@ -33,6 +33,7 @@ export default defineConfig({
            */
           include: [
             'src/client/components/**/*.test.ts',
+            'src/client/lib/inboxThreadHeaderClamp.test.ts',
             'src/client/lib/tiptapFloatingMenuVisibility.test.ts',
             'src/client/lib/tiptapFloatingMenuEscape.test.ts',
           ],
@@ -49,6 +50,7 @@ export default defineConfig({
             'node_modules',
             'src/server/evals/**',
             'src/client/components/**/*.test.ts',
+            'src/client/lib/inboxThreadHeaderClamp.test.ts',
             'src/client/lib/tiptapFloatingMenuVisibility.test.ts',
             'src/client/lib/tiptapFloatingMenuEscape.test.ts',
           ],

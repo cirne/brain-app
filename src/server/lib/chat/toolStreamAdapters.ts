@@ -25,7 +25,11 @@ export function shapeReadEmailStreamDetails(
       typeof (argsObj as { id?: unknown }).id === 'string'
         ? (argsObj as { id: string }).id
         : ''
-    return buildReadEmailPreviewDetails(parsed, aid)
+    const details = buildReadEmailPreviewDetails(parsed, aid)
+    if (Array.isArray(parsed.visualArtifacts)) {
+      return { ...details, visualArtifacts: parsed.visualArtifacts }
+    }
+    return details
   } catch {
     return undefined
   }

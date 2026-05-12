@@ -22,6 +22,7 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenMailSearchResults,
+    onOpenVisualArtifact,
     onOpenWikiAbout,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
@@ -213,6 +214,7 @@
           {onSwitchToCalendar}
           {onOpenMessageThread}
           {onOpenMailSearchResults}
+          {onOpenVisualArtifact}
         />
       {/each}
     </div>

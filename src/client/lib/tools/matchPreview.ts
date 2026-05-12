@@ -8,6 +8,7 @@ import type {
   MailSearchHitPreview,
   MessagePreviewRow,
 } from '../cards/contentCardShared.js'
+import type { VisualArtifact } from '@shared/visualArtifacts.js'
 import {
   editDiffUnifiedFromDetails,
   wikiPathForReadToolArg,
@@ -80,6 +81,20 @@ function normalizeSearchIndexToolResultText(result: string): string {
 }
 
 const INDEXED_FILE_SOURCE_KINDS = new Set(['googleDrive', 'localDir', 'file'])
+
+function visualArtifactsFromDetails(details: unknown): VisualArtifact[] {
+  if (!details || typeof details !== 'object') return []
+  const raw = (details as { visualArtifacts?: unknown }).visualArtifacts
+  if (!Array.isArray(raw)) return []
+  return raw.filter((artifact): artifact is VisualArtifact => (
+    artifact != null &&
+    typeof artifact === 'object' &&
+    typeof (artifact as { kind?: unknown }).kind === 'string' &&
+    typeof (artifact as { mime?: unknown }).mime === 'string' &&
+    typeof (artifact as { label?: unknown }).label === 'string' &&
+    typeof (artifact as { readStatus?: unknown }).readStatus === 'string'
+  ))
+}
 
 function subjectLooksLikeFileName(subject: string): boolean {
   const s = subject.trim()
@@ -163,6 +178,10 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
   const name = tool.name
   const args = tool.args ?? {}
   const result = tool.result ?? ''
+  const visualArtifacts = visualArtifactsFromDetails(tool.details)
+  if (visualArtifacts.length > 0) {
+    return { kind: 'visual_artifacts', artifacts: visualArtifacts }
+  }
 
   if (name === 'list_inbox') {
     const fromDetails = flattenInboxFromRipmailData(tool.details)

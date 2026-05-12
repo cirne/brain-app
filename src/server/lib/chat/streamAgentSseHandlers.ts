@@ -178,7 +178,18 @@ async function resolveToolEndDetails(
   let details: unknown | undefined = detailsSoFar
   if (ev.toolName === 'read_mail_message') {
     const shaped = shapeReadEmailStreamDetails(resultText, ev.toolCallId, deps.assistantState)
-    if (shaped !== undefined) details = shaped
+    if (shaped !== undefined) {
+      if (
+        details != null &&
+        typeof details === 'object' &&
+        shaped != null &&
+        typeof shaped === 'object'
+      ) {
+        details = { ...(details as Record<string, unknown>), ...(shaped as Record<string, unknown>) }
+      } else {
+        details = shaped
+      }
+    }
   } else if (ev.toolName === 'edit') {
     const snapBefore = deps.editBeforeSnapshot.get(ev.toolCallId)
     deps.editBeforeSnapshot.delete(ev.toolCallId)

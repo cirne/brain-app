@@ -14,6 +14,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailReadMail: vi.fn(async () => null),
   ripmailReadIndexedFile: vi.fn(async () => null),
   ripmailAttachmentRead: vi.fn(async () => ''),
+  ripmailAttachmentVisualArtifacts: vi.fn(async () => []),
   ripmailWho: vi.fn(async () => ({ contacts: [] })),
   ripmailInbox: vi.fn(async () => ({ items: [], counts: { notify: 0, inform: 0, ignore: 0, actionRequired: 0 } })),
   ripmailStatus: vi.fn(async () => ({ indexedMessages: 0, sources: [], isRunning: false })),
