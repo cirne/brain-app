@@ -53,22 +53,36 @@
 
   function navInboxEmail(overlay: Extract<Overlay, { type: 'email' }>) {
     const r = parseRoute()
+    if (r.zone === 'inbox') {
+      navigate({ zone: 'inbox', overlay })
+      return
+    }
+    if (r.zone === 'settings') {
+      navigate({ zone: 'settings', overlay })
+      return
+    }
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
-      zone: r.zone === 'settings' ? r.zone : undefined,
-      ...(r.zone === 'settings' ? {} : sid ? { sessionId: sid } : {}),
+      ...(sid ? { sessionId: sid } : {}),
       overlay,
     })
   }
 
   function navEmailDraft(overlay: Extract<Overlay, { type: 'email-draft' }>) {
     const r = parseRoute()
+    if (r.zone === 'inbox') {
+      navigate({ zone: 'inbox', overlay })
+      return
+    }
+    if (r.zone === 'settings') {
+      navigate({ zone: 'settings', overlay })
+      return
+    }
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
-      zone: r.zone === 'settings' ? r.zone : undefined,
-      ...(r.zone === 'settings' ? {} : sid ? { sessionId: sid } : {}),
+      ...(sid ? { sessionId: sid } : {}),
       overlay,
     })
   }

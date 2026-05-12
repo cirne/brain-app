@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { get } from 'svelte/store'
+import { resetConnectionStatusForTests } from '../connectionStatus.js'
 import { startHubEventsConnection } from './hubEventsClient.js'
 import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from './hubEventsStores.js'
 import type { BackgroundAgentDoc } from '../statusBar/backgroundAgentTypes.js'
@@ -61,11 +62,19 @@ describe('hubEventsClient', () => {
     vi.useFakeTimers()
     MockEventSource.clear()
     vi.stubGlobal('EventSource', MockEventSource)
+    resetConnectionStatusForTests()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ unlocked: true }), { status: 200 })),
+      ),
+    )
   })
 
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    resetConnectionStatusForTests()
     yourWikiDocFromEvents.set(null)
     backgroundAgentsFromEvents.set([])
   })

@@ -54,6 +54,22 @@ export function shouldReplaceWikiOverlay(route: Route): boolean {
 }
 
 /**
+ * When true, opening wiki/email from universal search or chat history should use wiki-primary (`/wiki/…`)
+ * or hub + email overlay instead of `/c` + split empty chat + detail.
+ */
+export function emptyChatColumnDetailOpenPrefersPrimarySurface(
+  route: Route,
+  opts: { transcriptEmpty: boolean; streaming: boolean },
+): boolean {
+  if (route.zone !== undefined) return false
+  if (route.flow) return false
+  if (route.overlay?.type === 'chat-history') return false
+  if (!opts.transcriptEmpty) return false
+  if (opts.streaming) return false
+  return true
+}
+
+/**
  * Mobile + doc/email thread: use chat shell (not /hub) so AgentChat is mounted
  * with a composer below the slide-over.
  */
@@ -63,7 +79,12 @@ export function hubActiveForOpenOverlay(
   isMobile: boolean,
 ): boolean {
   if (isMobile && overlaySupportsMobileChatBridge(overlay)) return false
-  return Boolean(route.zone === 'hub' || route.zone === 'settings' || route.overlay?.type === 'hub')
+  return Boolean(
+    route.zone === 'hub' ||
+      route.zone === 'settings' ||
+      route.zone === 'inbox' ||
+      route.overlay?.type === 'hub',
+  )
 }
 
 /**
@@ -74,7 +95,7 @@ export function closeOverlayStrategy(
   useDesktopSplitDetail: boolean,
 ): CloseOverlayStrategy {
   if (!route.overlay) return 'none'
-  if (route.zone === 'wiki') return 'immediate'
+  if (route.zone === 'wiki' || route.zone === 'inbox') return 'immediate'
   const t = route.overlay.type
   if (t === 'hub' || t === 'chat-history') return 'immediate'
   if (useDesktopSplitDetail) return 'animated_desktop'

@@ -10,6 +10,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import SettingsWikiPage from '@components/settings/SettingsWikiPage.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
+  import Inbox from '@components/Inbox.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
   import Wiki from '@components/Wiki.svelte'
@@ -21,6 +22,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import AgentChat from '@components/AgentChat.svelte'
   import ChatHistory from '@components/ChatHistory.svelte'
   import ChatHistoryPage from '@components/ChatHistoryPage.svelte'
+  import AssistantHistoryRailHeader from '@components/AssistantHistoryRailHeader.svelte'
   import WorkspaceSplit from '@components/WorkspaceSplit.svelte'
   import {
     parseRoute,
@@ -74,11 +76,13 @@ import AppShell from '@components/app/AppShell.svelte'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import { postOnboardingFinalize } from '@client/lib/onboarding/onboardingApi.js'
+  import { primarySurfaceRouteForOverlay } from '@client/lib/primarySurfaceRoute.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import {
     chatSessionPatch,
     closeOverlayStrategy,
+    emptyChatColumnDetailOpenPrefersPrimarySurface,
     formatLocalDateYmd,
     hubActiveForOpenOverlay as hubActiveForOpenOverlayFromRoute,
     isNewChat,
@@ -108,8 +112,8 @@ import AppShell from '@components/app/AppShell.svelte'
     Settings,
     Trash2,
     Volume2,
-    VolumeX
-      } from 'lucide-svelte'
+    VolumeX,
+  } from 'lucide-svelte'
 
   type AssistantProps = {
     /** When false, hide brain-to-brain UI (`BRAIN_B2B_ENABLED` unset vs `1`/`true`). */
@@ -357,12 +361,12 @@ import AppShell from '@components/app/AppShell.svelte'
     let cancelled = false
     void (async () => {
       const idsShort =
-        (await fetchChatSessionListDeduped(fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT))?.map((s) => s.sessionId) ??
+        (await fetchChatSessionListDeduped(CHAT_HISTORY_SIDEBAR_FETCH_LIMIT))?.map((s) => s.sessionId) ??
         []
       let hit = matchSessionIdByFlatPrefix(tail, idsShort)
       if (!hit) {
         const idsFull =
-          (await fetchChatSessionListDeduped(fetch, CHAT_HISTORY_PAGE_LIST_LIMIT))?.map((s) => s.sessionId) ??
+          (await fetchChatSessionListDeduped(CHAT_HISTORY_PAGE_LIST_LIMIT))?.map((s) => s.sessionId) ??
           []
         hit = matchSessionIdByFlatPrefix(tail, idsFull)
       }
@@ -525,6 +529,13 @@ import AppShell from '@components/app/AppShell.svelte'
       closeWikiPrimary()
       return
     }
+    if (shell.route.zone === 'inbox') {
+      navigateShell({ zone: 'inbox' as RouteZone }, { replace: true })
+      shell.route = parseRoute()
+      shell.inboxTargetId = undefined
+      shell.agentContext = { type: 'chat' }
+      return
+    }
     if (shell.route.zone === 'settings') {
       navigateShell({ zone: 'settings' as RouteZone }, { replace: true })
     } else if (shell.route.zone === 'hub') {
@@ -557,6 +568,9 @@ import AppShell from '@components/app/AppShell.svelte'
     }
     if (shell.route.zone === 'settings') {
       return { zone: 'settings', useChatSession: false }
+    }
+    if (shell.route.zone === 'inbox') {
+      return { zone: 'inbox', useChatSession: false }
     }
     return { zone: 'hub', useChatSession: false }
   }
@@ -792,6 +806,44 @@ import AppShell from '@components/app/AppShell.svelte'
     }
   }
 
+  /**
+   * Empty chat + search/history: full-width mail surface (`/inbox?…`), not `/c` split nor `/hub` | mail.
+   * Uses {@link primarySurfaceRouteForOverlay} so more doc types can share the same pattern later.
+   */
+  function openEmailFromSearchPrimarySurface(id: string, subject: string, from: string) {
+    const r = primarySurfaceRouteForOverlay({ type: 'email', id })
+    if (!r) {
+      openEmailFromSearch(id, subject, from)
+      return
+    }
+    shell.inboxTargetId = id
+    navigateShell({
+      zone: r.zone,
+      overlay: r.overlay,
+    })
+    shell.route = parseRoute()
+    shell.agentContext = { type: 'email', threadId: id, subject, from }
+    if (id && subject.trim()) {
+      void upsertEmailNavHistory(id, subject, from)
+    }
+  }
+
+  function shellOpenPrefersPrimaryDetailSurface(): boolean {
+    const st =
+      refs.agentChat?.getShellRoutingEmptyDetailState() ?? { transcriptEmpty: false, streaming: false }
+    return emptyChatColumnDetailOpenPrefersPrimarySurface(shell.route, st)
+  }
+
+  function openWikiFromShell(path: string) {
+    if (shellOpenPrefersPrimaryDetailSurface()) navigateWikiPrimary(path)
+    else openWikiDoc(path)
+  }
+
+  function openEmailFromShell(id: string, subject: string, from: string) {
+    if (shellOpenPrefersPrimaryDetailSurface()) openEmailFromSearchPrimarySurface(id, subject, from)
+    else openEmailFromSearch(id, subject, from)
+  }
+
   function openEmailFromChat(threadId: string, subject?: string, from?: string) {
     openEmailFromSearch(threadId, subject ?? '', from ?? '')
   }
@@ -955,12 +1007,12 @@ import AppShell from '@components/app/AppShell.svelte'
   }
 
   function selectDocFromHistory(path: string) {
-    openWikiDoc(path)
+    openWikiFromShell(path)
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
   function selectEmailFromHistory(id: string) {
-    openEmailFromSearch(id, '', '')
+    openEmailFromShell(id, '', '')
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
@@ -1112,7 +1164,8 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.flow ||
       shell.route.zone === 'hub' ||
       shell.route.zone === 'settings' ||
-      shell.route.zone === 'wiki'
+      shell.route.zone === 'wiki' ||
+      shell.route.zone === 'inbox'
     )
       return
     const navRoute: Route = {
@@ -1137,6 +1190,7 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone !== 'hub' &&
       shell.route.zone !== 'settings' &&
       shell.route.zone !== 'wiki' &&
+      shell.route.zone !== 'inbox' &&
       shell.route.overlay?.type !== 'hub'
     if (!onChat || !sid) {
       return
@@ -1202,7 +1256,9 @@ import AppShell from '@components/app/AppShell.svelte'
   let chatHearReplies = $state(false)
 
   /** Mobile chat/hub/settings columns: compact L1 per OPP-092 (wiki-primary keeps labeled icons). */
-  const appMobileNavCompact = $derived(shell.isMobile && shell.route.zone !== 'wiki')
+  const appMobileNavCompact = $derived(
+    shell.isMobile && shell.route.zone !== 'wiki' && shell.route.zone !== 'inbox',
+  )
   const appMobileNavCenterTitle = $derived(
     appMobileNavCompact
       ? mobileCompactNavCenterTitle(shell.route, shell.agentContext, shell.chatTitleForUrl, effectiveChatSessionId)
@@ -1213,9 +1269,9 @@ import AppShell from '@components/app/AppShell.svelte'
 
 {#if shell.showSearch}
   <Search
-    onOpenWiki={(path) => { openWikiDoc(path); shell.showSearch = false }}
+    onOpenWiki={(path) => { openWikiFromShell(path); shell.showSearch = false }}
     onWikiHome={navigateWikiPrimary}
-    onOpenEmail={(id, subject, from) => { openEmailFromSearch(id, subject, from); shell.showSearch = false }}
+    onOpenEmail={(id, subject, from) => { openEmailFromShell(id, subject, from); shell.showSearch = false }}
     onClose={() => shell.showSearch = false}
   />
 {/if}
@@ -1290,7 +1346,7 @@ import AppShell from '@components/app/AppShell.svelte'
     {/if}
   {/snippet}
 
-<AppShell>
+<AppShell stackTopNavFirst={shell.isMobile}>
   {#snippet topNav()}
   <AppTopNav
     isMobile={shell.isMobile}
@@ -1331,6 +1387,7 @@ import AppShell from '@components/app/AppShell.svelte'
         in:historySidebarTransition={{ mobile: shell.isMobile, reduce: shell.reduceSidebarMotion }}
         out:historySidebarTransition={{ mobile: shell.isMobile, reduce: shell.reduceSidebarMotion }}
       >
+        <AssistantHistoryRailHeader onClose={() => { shell.sidebarOpen = false }} />
         <div class="rail-inner flex min-h-0 flex-1 flex-col">
           <div class="rail-panel rail-panel--chat flex min-h-0 flex-1 flex-col">
             <ChatHistory
@@ -1440,6 +1497,21 @@ import AppShell from '@components/app/AppShell.svelte'
                   </div>
                 {/snippet}
               </WikiPrimaryShell>
+            </div>
+          {:else if shell.route.zone === 'inbox'}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                {#if !shell.route.overlay || shell.route.overlay.type === 'email'}
+                  <Inbox
+                    initialId={shell.route.overlay?.type === 'email' ? shell.route.overlay.id : undefined}
+                    targetId={shell.inboxTargetId}
+                    onNavigate={onInboxNavigateSlide}
+                    onContextChange={setContext}
+                    onOpenSearch={() => { shell.showSearch = true }}
+                    onSummarizeInbox={onSummarizeInbox}
+                  />
+                {/if}
+              </div>
             </div>
           {:else if shell.route.zone === 'hub' || shell.route.overlay?.type === 'hub'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">

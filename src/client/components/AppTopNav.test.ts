@@ -44,6 +44,19 @@ describe('AppTopNav.svelte', () => {
       expect(screen.getByText('Braintunnel')).toBeInTheDocument()
     })
 
+    it('shows Braintunnel in the collapsed history lockup, not centered', () => {
+      render(AppTopNav, { props: { ...baseProps, sidebarOpen: false } })
+
+      expect(document.querySelector('.brand-name')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Braintunnel, Open sidebar' })).toBeInTheDocument()
+    })
+
+    it('hides center brand (.brand-name) when chat history sidebar is open — brand sits in sidebar rail', () => {
+      render(AppTopNav, { props: { ...baseProps, sidebarOpen: true } })
+
+      expect(document.querySelector('.brand-name')).toBeNull()
+    })
+
     it('orders top actions search, wiki home, new chat, then settings (reading / tab order)', () => {
       const onWikiHome = vi.fn()
       const onOpenSettings = vi.fn()
@@ -107,41 +120,48 @@ describe('AppTopNav.svelte', () => {
   })
 
   describe('sidebar toggle', () => {
-    it('shows "Open sidebar" button when sidebar is closed', () => {
+    it('shows "Braintunnel, Open sidebar" lockup when sidebar is closed', () => {
       render(AppTopNav, {
         props: { ...baseProps, sidebarOpen: false },
       })
 
-      expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Braintunnel, Open sidebar' })).toBeInTheDocument()
     })
 
-    it('shows "Close sidebar" button when sidebar is open', () => {
+    it('hides the top-nav history menu control when the rail is open (close is on the rail)', () => {
       render(AppTopNav, {
         props: { ...baseProps, sidebarOpen: true },
       })
 
-      expect(screen.getByRole('button', { name: 'Close sidebar' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Braintunnel, Open sidebar' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Close sidebar' })).not.toBeInTheDocument()
     })
 
-    it('calls onToggleSidebar when open sidebar button is clicked', async () => {
+    it('calls onToggleSidebar when collapsed brand lockup is clicked', async () => {
       const onToggleSidebar = vi.fn()
       render(AppTopNav, {
         props: { ...baseProps, sidebarOpen: false, onToggleSidebar },
       })
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
+      await fireEvent.click(screen.getByRole('button', { name: 'Braintunnel, Open sidebar' }))
 
       expect(onToggleSidebar).toHaveBeenCalledTimes(1)
     })
 
-    it('calls onToggleSidebar when close sidebar button is clicked', async () => {
+    it('mobile compact center title toggles the rail when it is open', async () => {
       const onToggleSidebar = vi.fn()
       render(AppTopNav, {
-        props: { ...baseProps, sidebarOpen: true, onToggleSidebar },
+        props: {
+          ...baseProps,
+          sidebarOpen: true,
+          isMobile: true,
+          mobileCenterTitle: 'Inbox triage',
+          mobileOverflow: () => {},
+          onToggleSidebar,
+        },
       })
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Close sidebar' }))
-
+      await fireEvent.click(screen.getByRole('button', { name: 'Inbox triage - Close sidebar' }))
       expect(onToggleSidebar).toHaveBeenCalledTimes(1)
     })
   })
@@ -152,7 +172,7 @@ describe('AppTopNav.svelte', () => {
         props: { ...baseProps, showChatHistoryButton: false },
       })
 
-      expect(screen.queryByRole('button', { name: 'Open sidebar' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Braintunnel, Open sidebar' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Close sidebar' })).not.toBeInTheDocument()
     })
 

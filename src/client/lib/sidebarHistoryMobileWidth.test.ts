@@ -10,7 +10,5 @@ describe('mobile chat history drawer width', () => {
     expect(style).toMatch(/--sidebar-history-mobile-w:\s*90vw/)
     const assistant = readFileSync(join(root, 'components/Assistant.svelte'), 'utf8')
     expect(assistant).toMatch(/sidebar-history-mobile\b/)
-    const topNav = readFileSync(join(root, 'components/AppTopNav.svelte'), 'utf8')
-    expect(topNav).toMatch(/sidebar-history-mobile\b/)
   })
 })

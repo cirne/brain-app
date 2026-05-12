@@ -1,4 +1,5 @@
 import type { ChatSessionListItem } from './chatSessionTypes.js'
+import { apiFetch } from './apiFetch.js'
 
 /** Hosted multi-tenant: first request after reload can 401 before `brain_session` is visible — retry briefly. */
 export const CHAT_SESSIONS_RETRY_DELAYS_MS = [120, 350, 800] as const
@@ -20,8 +21,8 @@ const inflightChatSessionLists = new Map<number, Promise<ChatSessionListItem[] |
  * Returns `null` when the request fails or is not OK.
  */
 export async function fetchChatSessionListDeduped(
-  fetchImpl: typeof fetch,
   limit: number,
+  fetchImpl: typeof fetch = apiFetch,
 ): Promise<ChatSessionListItem[] | null> {
   let p = inflightChatSessionLists.get(limit)
   if (!p) {
@@ -44,7 +45,7 @@ export function formatChatSessionsFetchError(res: Response): string {
 }
 
 export async function fetchChatSessionsWith401Retry(
-  fetchImpl: typeof fetch,
+  fetchImpl: typeof fetch = apiFetch,
   retryDelaysMs: readonly number[] = CHAT_SESSIONS_RETRY_DELAYS_MS,
   listLimit: number = CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
 ): Promise<Response | undefined> {

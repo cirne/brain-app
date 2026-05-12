@@ -16,11 +16,17 @@ describe('settingsWorkspaceSplit', () => {
     expect(overlaySuppressesWorkspaceSplitDetail({ type: 'email', id: 'x' })).toBe(false)
   })
 
-  it('routeShowsWorkspaceSplitDetail respects wiki zone', () => {
+  it('routeShowsWorkspaceSplitDetail respects full-width primary zones', () => {
     expect(
       routeShowsWorkspaceSplitDetail({
         zone: 'wiki',
         overlay: { type: 'wiki', path: 'a.md' },
+      }),
+    ).toBe(false)
+    expect(
+      routeShowsWorkspaceSplitDetail({
+        zone: 'inbox',
+        overlay: { type: 'email', id: 'm1' },
       }),
     ).toBe(false)
     expect(

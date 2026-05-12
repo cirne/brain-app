@@ -11,6 +11,7 @@
     fetchChatSessionsWith401Retry,
     formatChatSessionsFetchError,
   } from '@client/lib/chatHistorySessions.js'
+  import { apiFetch } from '@client/lib/apiFetch.js'
   import type { ChatSessionListItem } from '@client/lib/chatSessionTypes.js'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
 
@@ -68,7 +69,7 @@
     }
     try {
       const res = await fetchChatSessionsWith401Retry(
-        fetch,
+        apiFetch,
         undefined,
         CHAT_HISTORY_PAGE_LIST_LIMIT,
       )

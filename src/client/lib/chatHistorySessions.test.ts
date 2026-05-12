@@ -90,8 +90,8 @@ describe('CHAT_HISTORY_SIDEBAR_LIMIT', () => {
 describe('fetchChatSessionListDeduped', () => {
   it('dedupes concurrent callers with the same limit (one fetch)', async () => {
     const fetchImpl = vi.fn(() => Promise.resolve(new Response('[]', { status: 200 })))
-    const p1 = fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
-    const p2 = fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
+    const p1 = fetchChatSessionListDeduped(CHAT_HISTORY_SIDEBAR_FETCH_LIMIT, fetchImpl as unknown as typeof fetch)
+    const p2 = fetchChatSessionListDeduped(CHAT_HISTORY_SIDEBAR_FETCH_LIMIT, fetchImpl as unknown as typeof fetch)
     const [a, b] = await Promise.all([p1, p2])
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(a).toEqual([])
@@ -100,8 +100,8 @@ describe('fetchChatSessionListDeduped', () => {
 
   it('uses separate fetches for different limits', async () => {
     const fetchImpl = vi.fn(() => Promise.resolve(new Response('[]', { status: 200 })))
-    await fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
-    await fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, 500)
+    await fetchChatSessionListDeduped(CHAT_HISTORY_SIDEBAR_FETCH_LIMIT, fetchImpl as unknown as typeof fetch)
+    await fetchChatSessionListDeduped(500, fetchImpl as unknown as typeof fetch)
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 })

@@ -112,7 +112,7 @@
       error = null
     }
     try {
-      const raw = await fetchChatSessionListDeduped(fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
+      const raw = await fetchChatSessionListDeduped(CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
       if (mySeq !== refreshSeq) return
 
       if (!raw) {

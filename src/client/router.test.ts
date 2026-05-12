@@ -323,6 +323,19 @@ describe('parseRoute chat history', () => {
   })
 })
 
+describe('parseRoute inbox primary', () => {
+  it('parses /inbox', () => {
+    expect(parseRoute('http://localhost/inbox')).toEqual({ zone: 'inbox' })
+  })
+
+  it('parses /inbox with email thread', () => {
+    expect(parseRoute('http://localhost/inbox?panel=email&m=tid%40example.com')).toEqual({
+      zone: 'inbox',
+      overlay: { type: 'email', id: 'tid@example.com' },
+    })
+  })
+})
+
 describe('parseRoute your-wiki / hub', () => {
   it('parses your-wiki panel', () => {
     expect(parseRoute('http://localhost/c?panel=your-wiki')).toEqual({
@@ -569,6 +582,13 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('inbox primary returns /inbox', () => {
+    expect(routeToUrl({ zone: 'inbox' })).toBe('/inbox')
+    expect(routeToUrl({ zone: 'inbox', overlay: { type: 'email', id: 'mid' } })).toBe(
+      '/inbox?panel=email&m=mid',
+    )
+  })
+
   it('hub returns /hub', () => {
     expect(routeToUrl({ zone: 'hub' })).toBe('/hub')
     expect(routeToUrl({ zone: 'hub', overlay: { type: 'hub' } })).toBe('/hub')
@@ -660,6 +680,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
     { flow: 'enron-demo' as const },
+    { zone: 'inbox' },
+    { zone: 'inbox', overlay: { type: 'email' as const, id: 'msg:x@y.com' } },
     { zone: 'hub' },
     { zone: 'hub', overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'settings' },

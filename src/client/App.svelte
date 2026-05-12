@@ -11,6 +11,8 @@
   import OnboardingFirstRunPanel from '@components/onboarding/OnboardingFirstRunPanel.svelte'
   import { needsDedicatedOnboardingSurface } from '@client/lib/onboarding/onboardingShellPolicy.js'
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
+  import { connectionStatus } from '@client/lib/connectionStatus.js'
+  import ConnectionLostOverlay from '@components/ConnectionLostOverlay.svelte'
 
   let route = $state<Route>(parseRoute())
   /** DEV: prevents duplicate PATCH when replay-onboarding effect runs twice. */
@@ -159,6 +161,16 @@
     })()
   })
 
+  $effect(() => {
+    if (!appReady) return
+    const unsub = connectionStatus.subscribe((s) => {
+      if (s === 'session-expired') {
+        void fetchVaultStatusSafe()
+      }
+    })
+    return () => unsub()
+  })
+
   onMount(() => {
     const onPop = () => {
       route = parseRoute()
@@ -175,15 +187,19 @@
 
 {#if !appReady}
   <div class="p-8 text-center text-sm text-muted">Loading…</div>
-{:else if showEnronDemoPage}
+{:else}
+  {#if $connectionStatus === 'server-unavailable'}
+    <ConnectionLostOverlay />
+  {/if}
+  {#if showEnronDemoPage}
   <div class="flex h-full min-h-0 flex-col">
     <EnronDemoLogin />
   </div>
-{:else if showHostedSignIn}
+  {:else if showHostedSignIn}
   <div class="flex h-full min-h-0 flex-col">
     <HostedSignIn />
   </div>
-{:else if showDedicatedOnboarding}
+  {:else if showDedicatedOnboarding}
   <FullDiskAccessGate>
     <div class="box-border flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg)]">
       <section
@@ -198,7 +214,7 @@
     </div>
   </FullDiskAccessGate>
   <DesktopAppUpdate />
-{:else}
+  {:else}
   <FullDiskAccessGate>
     <Assistant
       brainQueryEnabled={vaultStatus?.brainQueryEnabled ?? false}
@@ -207,4 +223,5 @@
     />
   </FullDiskAccessGate>
   <DesktopAppUpdate />
+  {/if}
 {/if}

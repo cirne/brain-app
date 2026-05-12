@@ -14,6 +14,7 @@ function compactNavFallbackTitle(
 ): string {
   if (route.zone === 'settings') return 'Settings'
   if (route.zone === 'hub') return 'Braintunnel Hub'
+  if (route.zone === 'inbox') return 'Inbox'
   const t = chatTitle?.trim()
   if (t) return t
   if (isNewChat(route, effectiveChatSessionId)) return 'Braintunnel'

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   chatSessionPatch,
   closeOverlayStrategy,
+  emptyChatColumnDetailOpenPrefersPrimarySurface,
   formatLocalDateYmd,
   hubActiveForOpenOverlay,
   isStaleAgentSessionVersusChatBar,
@@ -110,6 +111,56 @@ describe('assistantShellNavigation', () => {
     })
   })
 
+  describe('emptyChatColumnDetailOpenPrefersPrimarySurface', () => {
+    const ok = { transcriptEmpty: true, streaming: false }
+
+    it('is true on chat column when transcript empty and not streaming', () => {
+      expect(
+        emptyChatColumnDetailOpenPrefersPrimarySurface(
+          makeRoute({ sessionId: 'u1', overlay: { type: 'wiki', path: 'a.md' } }),
+          ok,
+        ),
+      ).toBe(true)
+      expect(emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({}), ok)).toBe(true)
+    })
+
+    it('is false for inbox primary', () => {
+      expect(emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({ zone: 'inbox' }), ok)).toBe(false)
+    })
+
+    it('is false when transcript has messages or streaming', () => {
+      expect(emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({}), { ...ok, transcriptEmpty: false })).toBe(
+        false,
+      )
+      expect(emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({}), { ...ok, streaming: true })).toBe(
+        false,
+      )
+    })
+
+    it('is false for hub, settings, or wiki primary', () => {
+      expect(emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({ zone: 'hub' }), ok)).toBe(false)
+      expect(emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({ zone: 'settings' }), ok)).toBe(false)
+      expect(
+        emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({ zone: 'wiki' }), ok),
+      ).toBe(false)
+    })
+
+    it('is false when route.flow is set', () => {
+      expect(
+        emptyChatColumnDetailOpenPrefersPrimarySurface(
+          makeRoute({ flow: 'welcome', onboardingStep: 'not-started' }),
+          ok,
+        ),
+      ).toBe(false)
+    })
+
+    it('is false on full-screen chat history', () => {
+      expect(
+        emptyChatColumnDetailOpenPrefersPrimarySurface(makeRoute({ overlay: { type: 'chat-history' } }), ok),
+      ).toBe(false)
+    })
+  })
+
   describe('shouldReplaceWikiOverlay', () => {
     it('is true for wiki overlays', () => {
       expect(
@@ -153,6 +204,12 @@ describe('assistantShellNavigation', () => {
       expect(hubActiveForOpenOverlay(r, cal, true)).toBe(true)
     })
 
+    it('follows inbox primary like hub when not mobile bridge case', () => {
+      const r = makeRoute({ zone: 'inbox' })
+      const wiki: Overlay = { type: 'wiki', path: 'p.md' }
+      expect(hubActiveForOpenOverlay(r, wiki, false)).toBe(true)
+    })
+
     it('is true when hub overlay open even if hubActive false', () => {
       const r = makeRoute({ overlay: { type: 'hub' } })
       const wiki: Overlay = { type: 'wiki', path: 'p.md' }
@@ -184,6 +241,18 @@ describe('assistantShellNavigation', () => {
       expect(
         closeOverlayStrategy(
           makeRoute({ overlay: { type: 'chat-history' } }),
+          true,
+        ),
+      ).toBe('immediate')
+    })
+
+    it('immediate for inbox primary with overlay', () => {
+      expect(
+        closeOverlayStrategy(
+          makeRoute({
+            zone: 'inbox',
+            overlay: { type: 'email', id: 'x' },
+          }),
           true,
         ),
       ).toBe('immediate')

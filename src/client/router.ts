@@ -35,8 +35,8 @@ export type Overlay =
     }
   | { type: 'chat-history' }
 
-/** Primary surface of the current route. Absent (or `undefined`) means the default chat column (`/c`). */
-export type RouteZone = 'hub' | 'settings' | 'wiki'
+/** Primary surface of the current route. Absent (`undefined`) means the default chat column (`/c`). */
+export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox'
 
 /** Dedicated first-run path segment under `/onboarding/…` (matches persisted onboarding states). */
 export type OnboardingUrlStep = 'not-started' | 'confirming-handle' | 'indexing'
@@ -78,7 +78,7 @@ export type Route = {
   onboardingStep?: OnboardingUrlStep
   /**
    * Primary surface when not the default chat column.
-   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`.
+   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`.
    * Absent means chat (`/c`).
    */
   zone?: RouteZone
@@ -452,6 +452,18 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
   }
 }
 
+function inboxRouteFromSearch(href: string): Route | null {
+  const url = new URL(href, 'http://localhost')
+  if (url.pathname !== '/inbox') {
+    return null
+  }
+  const overlay = overlayFromSearchParams(url.searchParams)
+  if (!overlay) {
+    return { zone: 'inbox' }
+  }
+  return { zone: 'inbox', overlay }
+}
+
 function hubRouteFromSearch(href: string): Route | null {
   const url = new URL(href, 'http://localhost')
   if (url.pathname !== '/hub') {
@@ -561,6 +573,11 @@ export function parseRoute(href: string = location.href): Route {
     }
   }
 
+  const inboxParsed = inboxRouteFromSearch(href)
+  if (inboxParsed) {
+    return inboxParsed
+  }
+
   const hubParsed = hubRouteFromSearch(href)
   if (hubParsed) {
     return hubParsed
@@ -654,6 +671,15 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     const q = overlayToSearchParams(o)
     const qs = q.toString()
     return qs ? `/wiki?${qs}` : '/wiki'
+  }
+
+  if (zone === 'inbox') {
+    if (!o) {
+      return '/inbox'
+    }
+    const q = overlayToSearchParams(o)
+    const qs = q.toString()
+    return qs ? `/inbox?${qs}` : '/inbox'
   }
 
   if (zone === 'hub') {

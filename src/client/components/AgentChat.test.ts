@@ -45,6 +45,17 @@ vi.mock('@client/lib/agentStream.js', async (importOriginal) => {
 const mockedConsume = vi.mocked(consumeAgentChatStream)
 
 describe('AgentChat.svelte', () => {
+  it('getShellRoutingEmptyDetailState is empty and not streaming for initial pending session', async () => {
+    const { component } = render(AgentChat, {
+      props: { context: { type: 'none' } },
+    })
+    await tick()
+    expect(component.getShellRoutingEmptyDetailState()).toEqual({
+      transcriptEmpty: true,
+      streaming: false,
+    })
+  })
+
   beforeEach(() => {
     mockedConsume.mockResolvedValue({
       sawDone: true,

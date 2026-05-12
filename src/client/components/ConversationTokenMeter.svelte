@@ -76,7 +76,7 @@
 <style>
   .token-meter-ring {
     background: conic-gradient(
-      from -90deg,
+      from 0deg,
       var(--token-meter-fill, var(--accent)) calc(var(--ring-frac, 0) * 360deg),
       var(--bg-3, #2a2a2e) 0
     );

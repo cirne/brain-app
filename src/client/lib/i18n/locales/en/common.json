@@ -43,6 +43,11 @@
       "restartToUpdate": "Restart to update"
     }
   },
+  "connectionLost": {
+    "title": "Connection lost",
+    "lead": "Unable to reach Braintunnel. Check your network or try again.",
+    "retry": "Retry"
+  },
   "home": {
     "sections": {
       "today": "Today",

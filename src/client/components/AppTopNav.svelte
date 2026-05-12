@@ -2,16 +2,15 @@
   import type { Snippet } from 'svelte'
   import {
     BookOpen,
-    BrainCircuit,
     EllipsisVertical,
     MessageSquarePlus,
     Search,
     Settings,
-    X,
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
   import AnchoredActionMenu from '@components/shell/AnchoredActionMenu.svelte'
+  import BrainTunnelBrandToggle from '@components/BrainTunnelBrandToggle.svelte'
 
   type Props = {
     /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
@@ -69,12 +68,10 @@
     mobileOverflowAlert = false,
   }: Props = $props()
 
-  /** Sidebar open (wide header + list): desktop or mobile. */
-  const navOpen = $derived(sidebarOpen)
-  /** Center title only when there is no left nav (e.g. onboarding); otherwise title lives in the sidebar control. */
-  const showCenterBrand = $derived(!showChatHistoryButton)
-
   const mobileCompactNav = $derived(Boolean(isMobile && mobileOverflow))
+
+  /** Center brand only when chat history chrome is omitted (onboarding); otherwise the rail + left toggle carry the wordmark. */
+  const showCenterBrand = $derived(!showChatHistoryButton)
 
   let overflowOpen = $state(false)
   let overflowTriggerEl = $state<HTMLButtonElement | null>(null)
@@ -96,47 +93,19 @@
 <nav
   class="tabs flex h-tab shrink-0 items-stretch border-b border-border bg-surface-2"
 >
-  {#if showChatHistoryButton}
+  {#if showChatHistoryButton && !sidebarOpen}
     <div
       class={cn(
-        'nav-left flex min-h-full shrink-0 items-center justify-between gap-2 bg-surface-2 [box-sizing:border-box]',
-        navOpen
-          ? 'nav-left--wide w-sidebar-history min-w-sidebar-history px-3 max-md:w-sidebar-history-mobile max-md:min-w-sidebar-history-mobile'
-          : 'nav-left--collapsed w-auto min-w-10 px-1.5',
+        'nav-left nav-left--collapsed flex min-h-full shrink-0 items-center bg-surface-2 [box-sizing:border-box]',
+        'w-auto min-w-0 px-1.5',
       )}
     >
-      {#if navOpen}
-        <div class="nav-brand-lockup flex min-w-0 items-center gap-2 text-foreground [&_svg]:shrink-0 [&_svg]:text-muted">
-          <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
-          <span
-            class="nav-brand-title overflow-hidden truncate whitespace-nowrap text-[15px] font-semibold tracking-[0.02em] max-md:text-lg"
-          >{$t('common.brand.name')}</span>
-        </div>
-        <button
-          type="button"
-          class="nav-sidebar-close flex h-9 w-9 shrink-0 items-center justify-center text-muted transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:h-10 max-md:w-10 [&_svg]:max-md:h-5 [&_svg]:max-md:w-5"
-          onclick={onToggleSidebar}
-          title={$t('nav.sidebar.close')}
-          aria-label={$t('nav.sidebar.close')}
-        >
-          <X size={18} strokeWidth={2} aria-hidden="true" />
-        </button>
-      {:else}
-        <button
-          class="menu-btn flex h-full min-h-tab min-w-0 items-center justify-start gap-2 py-0 pl-0.5 pr-1 text-muted transition-colors duration-150 hover:text-foreground [&_svg]:shrink-0 [&_svg]:max-md:h-5 [&_svg]:max-md:w-5"
-          type="button"
-          onclick={onToggleSidebar}
-          title={$t('nav.sidebar.open')}
-          aria-label={$t('nav.sidebar.open')}
-        >
-          <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
-          {#if !mobileCompactNav}
-            <span
-              class="nav-brand-title min-w-0 overflow-hidden truncate whitespace-nowrap text-[15px] font-semibold tracking-[0.02em] max-md:text-lg"
-            >{$t('common.brand.name')}</span>
-          {/if}
-        </button>
-      {/if}
+      <BrainTunnelBrandToggle
+        onclick={onToggleSidebar}
+        showTitle={!(mobileCompactNav && Boolean(mobileCenterTitle))}
+        ariaLabel={`${$t('common.brand.name')}, ${$t('nav.sidebar.open')}`}
+        titleAttr={$t('nav.sidebar.open')}
+      />
     </div>
   {/if}
   <div
@@ -151,7 +120,9 @@
         type="button"
         class="mobile-nav-title min-w-0 flex-1 truncate border-none bg-transparent p-0 text-left text-[15px] font-semibold tracking-[0.02em] text-foreground cursor-pointer"
         onclick={showChatHistoryButton ? onToggleSidebar : undefined}
-        aria-label={showChatHistoryButton ? `${mobileCenterTitle} - ${$t('nav.sidebar.open')}` : mobileCenterTitle}
+        aria-label={showChatHistoryButton
+          ? `${mobileCenterTitle} - ${sidebarOpen ? $t('nav.sidebar.close') : $t('nav.sidebar.open')}`
+          : mobileCenterTitle}
       >{mobileCenterTitle}</button>
     {:else if showCenterBrand}
       <span class="brand-name text-[15px] font-semibold tracking-[0.02em] text-foreground max-md:text-lg">{$t('common.brand.name')}</span>

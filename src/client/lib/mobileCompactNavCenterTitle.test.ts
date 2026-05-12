@@ -52,6 +52,12 @@ describe('mobileCompactNavCenterTitle', () => {
     ).toBe('Braintunnel Hub')
   })
 
+  it('uses Inbox when /inbox is the primary surface', () => {
+    expect(
+      mobileCompactNavCenterTitle({ zone: 'inbox' }, { type: 'chat' }, undefined, null),
+    ).toBe('Inbox')
+  })
+
   it('uses Settings when Settings is the primary surface', () => {
     expect(
       mobileCompactNavCenterTitle({ zone: 'settings' }, { type: 'chat' }, undefined, null),

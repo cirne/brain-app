@@ -32,6 +32,7 @@
     emit({ type: 'chat:sessions-changed' })
   }
   import { consumeAgentChatStream } from '@client/lib/agentChat/streamClient.js'
+  import { apiFetch } from '@client/lib/apiFetch.js'
   import {
     collectStreamingSessionIds,
     createPendingSessionKey,
@@ -324,6 +325,11 @@
   export function getConversationTokenMeterTotal(): number {
     return conversationTokenTotal
   }
+
+  /** For shell routing (search / history rail): whether the chat column is an empty transcript and not streaming. */
+  export function getShellRoutingEmptyDetailState(): { transcriptEmpty: boolean; streaming: boolean } {
+    return { transcriptEmpty: messages.length === 0, streaming }
+  }
   const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
   const showComposerContextBar = $derived(
     contextBarFiles.length > 0 || contextBarChoices.length > 0,
@@ -418,7 +424,7 @@
 
   async function fetchSkills() {
     try {
-      const res = await fetch('/api/skills')
+      const res = await apiFetch('/api/skills')
       if (!res.ok) return
       const data: unknown = await res.json()
       if (!Array.isArray(data)) return
@@ -442,7 +448,7 @@
 
   async function fetchWikiFiles() {
     try {
-      const res = await fetch('/api/wiki')
+      const res = await apiFetch('/api/wiki')
       if (!res.ok) return
       const data: unknown = await res.json()
       wikiFiles = parseWikiListApiBody(data).files.map((f) => f.path)
@@ -517,7 +523,7 @@
 
     const { token, signal } = sessionLoadLatest.begin()
     try {
-      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`, { signal })
+      const res = await apiFetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`, { signal })
       if (sessionLoadLatest.isStale(token)) {
         return
       }
@@ -684,7 +690,7 @@
     let closedWithDeferredFinish = false
 
     try {
-      const res = await fetch(chatEndpoint, {
+      const res = await apiFetch(chatEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -790,7 +796,7 @@
     const nid = sessions.get(sessionKey)?.notificationIdMarkReadOnFinish?.trim()
     if (!nid) return
     try {
-      const res = await fetch(`/api/notifications/${encodeURIComponent(nid)}`, {
+      const res = await apiFetch(`/api/notifications/${encodeURIComponent(nid)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state: 'read' }),
@@ -805,7 +811,7 @@
 
   async function dismissNotification(id: string) {
     try {
-      const res = await fetch(`/api/notifications/${encodeURIComponent(id)}`, {
+      const res = await apiFetch(`/api/notifications/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state: 'dismissed' }),
@@ -826,7 +832,7 @@
 
   async function refreshEmptyChatNotifications(signal?: AbortSignal) {
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/notifications?state=unread&limit=${EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT}`,
         signal ? { signal } : {},
       )
@@ -1001,7 +1007,7 @@
     const { serverId } = pendingDelete
     try {
       if (serverId) {
-        const res = await fetch(`/api/chat/${encodeURIComponent(serverId)}`, { method: 'DELETE' })
+        const res = await apiFetch(`/api/chat/${encodeURIComponent(serverId)}`, { method: 'DELETE' })
         if (!res.ok) return
       }
     } catch {

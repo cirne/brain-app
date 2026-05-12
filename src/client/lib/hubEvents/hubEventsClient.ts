@@ -1,4 +1,5 @@
 import type { BackgroundAgentDoc } from '../statusBar/backgroundAgentTypes.js'
+import { notifyConnected, notifyPossibleConnectionIssue } from '../connectionStatus.js'
 import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from './hubEventsStores.js'
 
 const INITIAL_BACKOFF_MS = 1000
@@ -58,11 +59,13 @@ export function startHubEventsConnection(): () => void {
 
     es.onopen = () => {
       backoffMs = INITIAL_BACKOFF_MS
+      notifyConnected()
     }
 
     es.onerror = () => {
       es?.close()
       es = null
+      notifyPossibleConnectionIssue()
       scheduleReconnect()
     }
   }
