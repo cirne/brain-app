@@ -5,8 +5,7 @@ import { loadEvalEnvAndLlmCli } from './parseEvalLlmCli.js'
 
 loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/evals/wikiV1cli.ts [options]
 
-Loads ./.env (same as dev server). Default task file: eval/tasks/wiki-v1.jsonl
-(override with EVAL_WIKI_TASKS, or EVAL_TASKS as fallback).
+Loads ./.env (same as dev server). Default tasks concatenate eval/tasks/wiki-v1.jsonl and eval/tasks/wiki-kean-v1.jsonl (one wiki-v1 report; use EVAL_WIKI_TASKS or EVAL_TASKS for a single-file override).
 
 Each JSONL case runs in a subprocess with --brain-wiki-root under ./.data-eval/wiki-eval-cases/<task-id>/ (reset before the run; left on disk for inspection — Enron fixture wiki seeded with starter + me.md / assistant.md).
 

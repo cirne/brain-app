@@ -15,6 +15,11 @@ const EVAL_BUILDOUT_STUBS: Record<string, string> = {
   'topics/wiki-bo-janet-weekly-snippet.md': '## Chat capture\n\n(stub)\n',
   'topics/wiki-bo-shapiro-notes.md': '## Chat capture\n\n(stub)\n',
   'topics/wiki-bo-dubuque-brief.md': '## Chat capture\n\n(stub)\n',
+  /** Steve Kean (kean-s) wiki-eval subset — see eval/tasks/wiki-kean-v1.jsonl */
+  'topics/eval-kean-pr2-payroll-note.md': '## Chat capture\n\n(stub)\n',
+  'people/eval-kean-joann-hill.md': '## Chat capture\n\n(stub)\n',
+  'topics/eval-kean-dec-2001-closure-touch.md': '## Chat capture\n\n(stub)\n',
+  'topics/eval-kean-expense-queue-context.md': '## Chat capture\n\n(stub)\n',
 }
 
 async function ensureEvalBuildoutStubs(wikiRoot: string): Promise<void> {

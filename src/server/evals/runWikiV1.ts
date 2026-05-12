@@ -36,6 +36,19 @@ export function resolveWikiTaskFilePath(root: string): string {
   return join(root, 'eval', 'tasks', 'wiki-v1.jsonl')
 }
 
+/** Default pipeline loads `wiki-v1.jsonl` then `wiki-kean-v1.jsonl` (Steve Kean / kean-s subset). */
+export function resolveWikiEvalBundlePaths(root: string): string[] {
+  const w = process.env.EVAL_WIKI_TASKS?.trim()
+  const t = process.env.EVAL_TASKS?.trim()
+  if (w) {
+    return [resolve(w)]
+  }
+  if (t) {
+    return [resolve(t)]
+  }
+  return [join(root, 'eval', 'tasks', 'wiki-v1.jsonl'), join(root, 'eval', 'tasks', 'wiki-kean-v1.jsonl')]
+}
+
 function zeroUsage(): RunAgentEvalCaseResult['usage'] {
   return {
     input: 0,
@@ -193,13 +206,27 @@ async function runWikiEvalCaseSubprocess(
 
 export async function runWikiV1Main(): Promise<number> {
   const evalRoot = getEvalRepoRoot()
-  const tasksPathAbs = resolveWikiTaskFilePath(evalRoot)
+  const bundlePaths = resolveWikiEvalBundlePaths(evalRoot)
+  /** Subprocess worker must load the JSONL file that declares this task id. */
+  const taskSourceAbsById = new Map<string, string>()
+  for (const abs of bundlePaths) {
+    const batch = await loadWikiV1TasksFromFile(abs)
+    for (const t of batch) {
+      if (taskSourceAbsById.has(t.id)) {
+        console.error(`[eval:wiki-v1] duplicate task id across wiki bundles: ${JSON.stringify(t.id)}`)
+        process.exit(1)
+      }
+      taskSourceAbsById.set(t.id, abs)
+    }
+  }
+  const tasksPathAbsForType = bundlePaths[0]!
   return runLlmJsonlEvalMain<WikiV1Task>({
     logPrefix: '[eval:wiki-v1]',
     outSlug: 'wiki-v1',
-    resolveTaskFilePath: root => resolveWikiTaskFilePath(root),
+    resolveTaskBundlePaths: root => resolveWikiEvalBundlePaths(root),
+    resolveTaskFilePath: () => tasksPathAbsForType,
     loadTasks: loadWikiV1TasksFromFile,
-    runCase: task => runWikiEvalCaseSubprocess(task, tasksPathAbs),
+    runCase: task => runWikiEvalCaseSubprocess(task, taskSourceAbsById.get(task.id) ?? tasksPathAbsForType),
     defaultMaxConcurrency: 12,
     formatCaseLogLine: r =>
       `${r.id}  ${Math.round(r.wallMs)}ms  tokens=${r.usage.totalTokens} cost~${r.usage.costTotal.toFixed(4)}  tools=${r.toolNames.join(',')}`,

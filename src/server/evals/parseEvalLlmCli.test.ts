@@ -1,6 +1,10 @@
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { applyEvalCliParsedValues, extractBrainWikiRootFromArgv } from './parseEvalLlmCli.js'
+import {
+  applyEvalCliParsedValues,
+  applyEvalNewRelicDefaults,
+  extractBrainWikiRootFromArgv,
+} from './parseEvalLlmCli.js'
 
 describe('extractBrainWikiRootFromArgv', () => {
   it('reads --brain-wiki-root value (parseArgs does not bind this key)', () => {
@@ -25,6 +29,37 @@ describe('extractBrainWikiRootFromArgv', () => {
 
   it('reads equals form', () => {
     expect(extractBrainWikiRootFromArgv(['--brain-wiki-root=/eq/path'])).toBe('/eq/path')
+  })
+})
+
+describe('applyEvalNewRelicDefaults', () => {
+  let prevNr: string | undefined
+  let prevFlag: string | undefined
+
+  beforeEach(() => {
+    prevNr = process.env.NEW_RELIC_ENABLED
+    prevFlag = process.env.BRAIN_EVAL_ENABLE_NEW_RELIC
+  })
+
+  afterEach(() => {
+    if (prevNr === undefined) delete process.env.NEW_RELIC_ENABLED
+    else process.env.NEW_RELIC_ENABLED = prevNr
+    if (prevFlag === undefined) delete process.env.BRAIN_EVAL_ENABLE_NEW_RELIC
+    else process.env.BRAIN_EVAL_ENABLE_NEW_RELIC = prevFlag
+  })
+
+  it('sets NEW_RELIC_ENABLED=false when BRAIN_EVAL_ENABLE_NEW_RELIC is unset', () => {
+    delete process.env.BRAIN_EVAL_ENABLE_NEW_RELIC
+    delete process.env.NEW_RELIC_ENABLED
+    applyEvalNewRelicDefaults()
+    expect(process.env.NEW_RELIC_ENABLED).toBe('false')
+  })
+
+  it('does not change NEW_RELIC_ENABLED when BRAIN_EVAL_ENABLE_NEW_RELIC=1', () => {
+    process.env.BRAIN_EVAL_ENABLE_NEW_RELIC = '1'
+    process.env.NEW_RELIC_ENABLED = 'true'
+    applyEvalNewRelicDefaults()
+    expect(process.env.NEW_RELIC_ENABLED).toBe('true')
   })
 })
 

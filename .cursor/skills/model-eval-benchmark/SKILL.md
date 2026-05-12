@@ -1,6 +1,6 @@
 ---
 name: model-eval-benchmark
-description: Runs brain-app JSONL agent evals (Enron v1, wiki v1) and compares model runs on pass rate, wall time, tokens, and estimated cost from report JSON. Use when benchmarking LLMs, comparing providers, price/performance analysis, or after changing supported-llm-models.json / BRAIN_LLM (+ optional BRAIN_FAST_LLM).
+description: Runs brain-app JSONL agent evals (Enron v1, mail compose v1, wiki v1) and compares model runs on pass rate, wall time, tokens, and estimated cost from report JSON. Use when benchmarking LLMs, comparing providers, price/performance analysis, or after changing supported-llm-models.json / BRAIN_LLM (+ optional BRAIN_FAST_LLM).
 ---
 
 # Model eval benchmark (brain-app)
@@ -27,7 +27,7 @@ Reports are JSON under `data-eval/eval-runs/` (gitignored).
 
 ## Commands
 
-**Full eval** (Vitest harness for `src/server/evals/**/*.test.ts`, then JSONL: Enron v1 + Wiki v1 — one report JSON per suite):
+**Full eval** (Vitest harness for `src/server/evals/**/*.test.ts`, then JSONL: Enron v1 + **Mail compose v1** + Wiki v1 — one report JSON **per suite**):
 
 ```sh
 nvm use
@@ -36,16 +36,16 @@ npm run eval:run -- --provider <KnownProvider> --model <model-id>
 
 Flags after `--` apply to the **JSONL phase** only. For JSONL help without running Vitest: `npm run eval:run -- --help`.
 
-**JSONL only** (advanced): run `enronV1cli.ts` or `wikiV1cli.ts` with `npx tsx --tsconfig tsconfig.server.json …` from repo root; see [`eval/README.md`](../../../eval/README.md).
+**JSONL only** (advanced): run `enronV1cli.ts`, `mailComposeV1cli.ts`, or `wikiV1cli.ts` with `npx tsx --tsconfig tsconfig.server.json …` from repo root; see [`eval/README.md`](../../../eval/README.md).
 
-Optional env: `EVAL_MAX_CONCURRENCY`, `EVAL_TASKS` / `EVAL_WIKI_TASKS`, `BRAIN_HOME` (defaults to Kean tenant under `./data` when unset and `BRAIN_DATA_ROOT=./data`).
+Optional env: `EVAL_MAX_CONCURRENCY`, `EVAL_TASKS`, `EVAL_MAIL_COMPOSE_TASKS`, `EVAL_WIKI_TASKS`, `BRAIN_HOME` (defaults to Kean tenant under `./data` when unset and `BRAIN_DATA_ROOT=./data`).
 
 **Implementation note:** The npm scripts use `tsx --tsconfig tsconfig.server.json` so `@server/...` imports resolve. If you invoke the CLI by hand, include the same `--tsconfig` or imports break.
 
 ## Report files
 
 - Pattern: `data-eval/eval-runs/<slug>-<sanitized-model-id>-<iso-timestamp>.json`
-- `slug` = `enron-v1` or `wiki-v1`
+- `slug` = `enron-v1`, **`mail-compose-v1`**, or `wiki-v1`
 - `effectiveLlm` and `env` in the JSON record which **provider/model** was used (after CLI overrides)
 
 ## Building a comparison table

@@ -28,6 +28,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |
 | [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) | **Git tags** `ripmail-rust-before-typescript-port` and **`ripmail-rust-snapshot-2026-05-10`** — recover **Rust** `ripmail/` crate tree; **CI/release cutover** notes; **[OPP-105 archive](../opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md)** · **[archived OPP-103](../opportunities/archive/OPP-103-ripmail-ts-port.md)** |
 | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) | Eval harness (`./data` Kean tenant), Enron fixtures, ripmail `.eml` rules — **living doc** |
+| [enron-eval-suite.md](./enron-eval-suite.md) | **Enron JSONL eval suite:** regression workflow, corpus briefs (shared + per-persona), eval helpers vs E2E snapshots, multi-tenant expansion |
 | [enron-demo-tenant.md](./enron-demo-tenant.md) | **OPP-051 Phase 0:** hosted Enron fixture tenants, Bearer mint, CLI pre-seed + optional operator reseed, Docker/staging/automation |
 | [local-mlx-llm.md](./local-mlx-llm.md) | **Apple Silicon:** run Qwen (etc.) via `mlx-lm` OpenAI-compatible server; `BRAIN_LLM=mlx-local/mlx-community/...`, `MLX_LOCAL_*` env |
 | [integrations.md](./integrations.md) | Ripmail (TS module), `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (mail index vs `chat.db`) |

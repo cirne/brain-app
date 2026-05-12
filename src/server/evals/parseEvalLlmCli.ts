@@ -7,6 +7,17 @@ import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
 import { getDefaultLlmModelForProvider } from './supportedLlmModels.js'
 
 /**
+ * Turn off the New Relic Node agent for eval CLIs unless **`BRAIN_EVAL_ENABLE_NEW_RELIC=1`**.
+ * Avoids IMDS / vendor metadata noise (`169.254.169.254`, `metadata.google.internal`) and
+ * extra collector sessions when running LLM JSONL or Vitest eval slices.
+ */
+export function applyEvalNewRelicDefaults(): void {
+  if (process.env.BRAIN_EVAL_ENABLE_NEW_RELIC === '1') return
+  process.env.NEW_RELIC_ENABLED = 'false'
+}
+
+applyEvalNewRelicDefaults()
+/**
  * `node:util` parseArgs maps option `brainWikiRoot` to CLI `--brainWikiRoot` for string values.
  * `--brain-wiki-root` is incorrectly parsed as a boolean and the path becomes a positional — so read the path from argv.
  */
@@ -99,4 +110,5 @@ export function loadEvalEnvAndLlmCli(helpText: string): void {
   if (fromArgv?.trim()) {
     process.env.BRAIN_WIKI_ROOT = resolve(fromArgv.trim())
   }
+  applyEvalNewRelicDefaults()
 }

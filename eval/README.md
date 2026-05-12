@@ -24,6 +24,8 @@ Message dates are **1999–2002**; use **absolute date ranges** in search/eval t
 
 Braintunnel demo handles (stored slugs; leading `@` is accepted in UI and normalized away): **`demo-steve-kean`**, **`demo-ken-lay`**, **`demo-jeff-skilling`**. Archive maildir ids (`kean-s`, etc.) are fixture-only.
 
+**Persona briefs (eval + agent authoring):** [briefs/enron-shared.md](briefs/enron-shared.md) (corpus **through 2001-12-31**, assistant **today** **2002-01-01** for demos + default eval clock). Per persona: [briefs/persona-demo-steve-kean.md](briefs/persona-demo-steve-kean.md), [briefs/persona-demo-ken-lay.md](briefs/persona-demo-ken-lay.md), [briefs/persona-demo-jeff-skilling.md](briefs/persona-demo-jeff-skilling.md). See [docs/architecture/enron-eval-suite.md](../docs/architecture/enron-eval-suite.md) for how briefs feed tasks.
+
 ### Related: end-to-end testing
 
 | Command | What it exercises |
@@ -36,7 +38,7 @@ Braintunnel demo handles (stored slugs; leading `@` is accepted in UI and normal
 Runs the **whole eval pipeline** with **`BRAIN_DATA_ROOT=./data`**:
 
 1. **Vitest** — `vitest.eval.config.ts` → `src/server/evals/**/*.test.ts`.
-2. **JSONL LLM suites** — Enron v1, then Wiki v1. Reports under **`data-eval/eval-runs/`**.
+2. **JSONL LLM suites** — Enron v1, **Mail compose v1** (`draft_email`), then Wiki v1 (**wiki-v1.jsonl** ∪ **wiki-kean-v1.jsonl** unless `EVAL_WIKI_TASKS` overrides). Reports under **`data-eval/eval-runs/`**.
 
 **Prerequisites:**
 
@@ -59,12 +61,69 @@ Tasks in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl). Harness matches product
 | `EVAL_CASE_ID` / `--id` | Single task id |
 | `EVAL_TASKS` | Override Enron JSONL path |
 | `EVAL_ASSISTANT_NOW` | Clock for relative mail windows (Enron v1 defaults `2002-01-01` when unset) |
-| `EVAL_AGENT_TRACE` | `1` for per-case trace lines |
+| `EVAL_AGENT_TRACE` | `1` for per-case `[eval:agent]` JSON lines (tool / turn timeline on stdout) |
 | `BRAIN_RIPMAIL_SUBPROCESS_LOG` | `errors` to quiet successful ripmail subprocess logs |
+
+## Authoring a new eval: explore, then assert
+
+The corpus is **large** and **not memorized** while you write tasks. You usually **cannot** predict the exact **tool order**, **tool bodies**, or **final wording** from a user message alone. Treat it as a **two-phase** workflow.
+
+### Phase 1 — Run without meaningful asserts (explore)
+
+1. **Add a new task** — stable `id` (e.g. `enron-NNN-short-slug`), realistic **`userMessage`** (vague, product-shaped; no tool names), seed + `BRAIN_HOME` as needed (see [persona briefs](briefs/enron-shared.md)).
+2. **Use a vacuous `expect`** so the harness records behavior but does not fail on scoring yet:
+   ```json
+   "expect": { "any": [] }
+   ```
+   An empty `any` list is treated as **always pass** (see [`checkExpect`](../src/server/evals/harness/checkExpect.ts)).
+3. **Run a single case** (skips the slow Vitest phase when you pass `--id`):
+
+   ```bash
+   nvm use
+   EVAL_AGENT_TRACE=1 npm run eval:run -- --id your-case-id
+   ```
+
+   Optional: point at a scratch file while iterating — `EVAL_TASKS=/abs/or/relative/path/to/scratch.jsonl` (same CLI).
+
+4. **Inspect output**
+   - **Stdout:** with `EVAL_AGENT_TRACE=1`, `[eval:agent]` JSON lines show **tool starts/ends** and turn boundaries.
+   - **Report:** under `data-eval/eval-runs/*.json` (gitignored). Each Enron case includes **`toolNames`**, **`finalText`**, **`toolTextConcat`**, **`usage`**, **`failReasons`** (empty when `expect` passed), and **`error`** if the run threw.
+
+5. **If something is wrong** — bad retrieval, wrong tool, brittle prompt, or product bug — **fix the agent or the task** *before* you invest in expectations. Do not “paper over” a broken trace with loose asserts.
+
+### Phase 2 — Lock expectations (validate)
+
+After the trace matches intent:
+
+1. Replace `"expect": { "any": [] }` with **`toolResultIncludes`**, **`finalTextIncludes`** / **`finalTextIncludesOneOf`**, **`toolNamesIncludeAll`** / **`toolNamesIncludeOneOf`**, or composed **`all`** / **`any`** — see [`types.ts`](../src/server/evals/harness/types.ts).
+2. Prefer **stable** anchors (**message ids**, exact substrings from **verified** tool output, tool **names** in order) over subjective phrasing.
+3. **Wiki:** follow [briefs/enron-shared.md — Wiki state and eval assertions](briefs/enron-shared.md#wiki-state-and-eval-assertions): only assert on paths the case **creates** or setup establishes.
+4. Run **`--id`** until green, then run the **full** JSONL suite (or full `npm run eval:run`) so you do not regress other cases.
+5. **LLM-as-judge** (or other soft scorers) — use **in addition to** or **only after** substring checks are impractical; keep judge prompts versioned if you add them (see [OPP-065](../docs/opportunities/OPP-065-wiki-eval-llm-as-judge.md)).
+
+### Related
+
+- [Persona + shared briefs](briefs/enron-shared.md) — mail-only vs wiki setup, date anchor **2002-01-01**.
+- [Enron eval suite architecture](../docs/architecture/enron-eval-suite.md) — workflow and guardrails.
+
+## Mail compose v1 (`draft_email`)
+
+Single-turn tasks in [`tasks/mail-compose-v1.jsonl`](tasks/mail-compose-v1.jsonl) exercise **search/read → `draft_email`** (reply or new) on the **Steve Kean** default tenant (`usr_enrondemo00000000001` / `kean-s`), same as Enron v1. Prompts ask for **draft only** (no send). Real sends stay **dry-run** via default `EVAL_RIPMAIL_SEND_DRY_RUN=1`.
+
+| Env | Purpose |
+|-----|---------|
+| `EVAL_MAIL_COMPOSE_TASKS` | Optional absolute/relative path to override the JSONL file |
+| (others) | Same as Enron table: `BRAIN_HOME`, `EVAL_CASE_ID` / `--id`, `EVAL_AGENT_TRACE`, `EVAL_ASSISTANT_NOW`, … |
+
+**CLI (JSONL only):** `npx tsx --tsconfig tsconfig.server.json src/server/evals/mailComposeV1cli.ts [--id compose-001-…]`
+
+**Report:** `data-eval/eval-runs/mail-compose-v1-<model>-<timestamp>.json`
+
+Author new cases with the same **explore → assert** flow as [`#authoring-a-new-eval-explore-then-assert`](#authoring-a-new-eval-explore-then-assert); assert on **`draft_email`** tool text (`To:`, `Subject:`, message ids in the transcript) not on pre-existing wiki.
 
 ## Wiki buildout + cleanup (wiki v1)
 
-[`tasks/wiki-v1.jsonl`](tasks/wiki-v1.jsonl). Per-case **`BRAIN_WIKI_ROOT`** under **`.data-eval/wiki-eval-cases/<task-id>/`**.
+[`tasks/wiki-v1.jsonl`](tasks/wiki-v1.jsonl) loads first; **unless** **`EVAL_WIKI_TASKS`** or **`EVAL_TASKS`** overrides the path, [`tasks/wiki-kean-v1.jsonl`](tasks/wiki-kean-v1.jsonl) is **concatenated** (Steve Kean / `kean-s` persona arcs on the default tenant — see [briefs/persona-demo-steve-kean.md](briefs/persona-demo-steve-kean.md)). Cases share one **`wiki-v1-*.json`** report slug. Per-case **`BRAIN_WIKI_ROOT`** under **`.data-eval/wiki-eval-cases/<task-id>/`**.
 
 Example (wiki buildout-only file):
 

@@ -32,6 +32,11 @@ export type LlmJsonlEvalConfig<TTask extends { id: string }> = {
   logPrefix: string
   /** Used in report filename: `${outSlug}-<model-segment>-<timestamp>.json` (model from effective `BRAIN_LLM`) */
   outSlug: string
+  /**
+   * Default: load a single file from {@link resolveTaskFilePath}.
+   * When provided, each path is loaded in order and concatenated (e.g. wiki v1 + persona subset). Task ids must be unique.
+   */
+  resolveTaskBundlePaths?: (root: string) => string[]
   resolveTaskFilePath: (root: string) => string
   loadTasks: (absPath: string) => Promise<TTask[]>
   runCase: (task: TTask) => Promise<RunAgentEvalCaseResult>
@@ -51,6 +56,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   const {
     logPrefix,
     outSlug,
+    resolveTaskBundlePaths,
     resolveTaskFilePath,
     loadTasks,
     runCase,
@@ -70,18 +76,37 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   const rip = join(brain, 'ripmail', 'ripmail.db')
   process.env.BRAIN_HOME = brain
 
-  const tasksPath = resolveTaskFilePath(root)
+  const bundlePaths =
+    typeof resolveTaskBundlePaths === 'function' ? resolveTaskBundlePaths(root) : [resolveTaskFilePath(root)]
+  let tasksReportLabel = bundlePaths[0]
+  if (bundlePaths.length > 1) {
+    tasksReportLabel = `${bundlePaths.length} bundles: ${bundlePaths.map(p => p.replace(root + '/', '')).join(' + ')}`
+  }
 
-  if (!existsSync(tasksPath)) {
-    console.error(`${logPrefix} Task file not found: ${tasksPath}`)
-    process.exit(1)
+  for (const tasksPath of bundlePaths) {
+    if (!existsSync(tasksPath)) {
+      console.error(`${logPrefix} Task file not found: ${tasksPath}`)
+      process.exit(1)
+    }
   }
   if (!existsSync(rip)) {
     console.error(`${logPrefix} ripmail index missing. ${ripIndexHint} (expected ${rip})`)
     process.exit(1)
   }
 
-  const allTasks = await loadTasks(tasksPath)
+  const allTasks: TTask[] = []
+  const seenIds = new Set<string>()
+  for (const tasksPath of bundlePaths) {
+    const batch = await loadTasks(tasksPath)
+    for (const t of batch) {
+      if (seenIds.has(t.id)) {
+        console.error(`${logPrefix} Duplicate task id across bundles: ${JSON.stringify(t.id)}`)
+        process.exit(1)
+      }
+      seenIds.add(t.id)
+      allTasks.push(t)
+    }
+  }
   if (allTasks.length === 0) {
     console.error(`${logPrefix} No tasks in file.`)
     process.exit(1)
@@ -103,7 +128,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   const limit = pLimit(maxConc)
 
   const startedAt = new Date().toISOString()
-  console.log(`${logPrefix} ${tasksPath}  (${tasks.length} cases, concurrency ${maxConc})`)
+  console.log(`${logPrefix} ${tasksReportLabel}  (${tasks.length} cases, concurrency ${maxConc})`)
   console.log(`${logPrefix} BRAIN_HOME=${brain}`)
 
   const tAll = performance.now()
@@ -145,7 +170,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
     startedAt,
     finishedAt: new Date().toISOString(),
     brainHome: brain,
-    taskFile: tasksPath,
+    taskFile: bundlePaths.length === 1 ? bundlePaths[0] : bundlePaths,
     maxConcurrency: maxConc,
     /** Same defaults as the chat agent when env vars are unset. */
     effectiveLlm: {

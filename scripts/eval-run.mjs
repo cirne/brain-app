@@ -10,7 +10,13 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(root, '..')
 const dataRoot = process.env.BRAIN_DATA_ROOT ?? join(repoRoot, 'data')
-const env = { ...process.env, BRAIN_DATA_ROOT: dataRoot }
+const nrEvalOptIn = process.env.BRAIN_EVAL_ENABLE_NEW_RELIC === '1'
+const env = {
+  ...process.env,
+  BRAIN_DATA_ROOT: dataRoot,
+  // Belt-and-suspenders: child processes can load `newrelic` before eval CLIs run `loadEvalEnvAndLlmCli`.
+  ...(nrEvalOptIn ? {} : { NEW_RELIC_ENABLED: 'false' }),
+}
 const passThrough = process.argv.slice(2)
 const helpOnly =
   passThrough.length === 1 && (passThrough[0] === '--help' || passThrough[0] === '-h')
