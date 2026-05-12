@@ -1,7 +1,8 @@
 /**
- * Fan-out server push for Hub / Your Wiki status: subscribers are SSE streams registered
- * per vault session ({@link registerHubSseSubscriber}). Notifications run after
- * {@link writeBackgroundRun} via {@link notifyBackgroundRunWritten}.
+ * Fan-out server push for Hub / Your Wiki / in-app notifications: subscribers are SSE streams
+ * registered per vault session ({@link registerHubSseSubscriber}). Background runs flush via
+ * {@link notifyBackgroundRunWritten}; notification table changes flush via
+ * {@link notifyNotificationsChanged}.
  */
 import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
 import { listBackgroundRuns } from '@server/lib/chat/backgroundAgentStore.js'
@@ -19,11 +20,16 @@ const subscribers = new Set<Subscriber>()
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const pendingDocs = new Map<string, BackgroundRunDoc>()
 
+/** Debounced per workspace — independent keys from `debounceTimers` (doc.id includes colons). */
+const notificationDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
 /** Test hook: clear subscribers and timers */
 export function resetHubSseBrokerForTests(): void {
   for (const t of debounceTimers.values()) clearTimeout(t)
   debounceTimers.clear()
   pendingDocs.clear()
+  for (const t of notificationDebounceTimers.values()) clearTimeout(t)
+  notificationDebounceTimers.clear()
   subscribers.clear()
 }
 
@@ -56,6 +62,31 @@ async function flushNotify(workspaceHandle: string, doc: BackgroundRunDoc): Prom
   const agents = await listBackgroundRuns()
   const data = JSON.stringify({ agents })
   await Promise.allSettled(targets.map((s) => s.writeSSE({ event: 'background_agents', data })))
+}
+
+async function flushNotificationsChanged(workspaceHandle: string): Promise<void> {
+  const targets = [...subscribers].filter((s) => s.workspaceHandle === workspaceHandle)
+  if (targets.length === 0) return
+  await Promise.allSettled(
+    targets.map((s) => s.writeSSE({ event: 'notifications_changed', data: '{}' })),
+  )
+}
+
+/**
+ * Called after tenant notification rows change. Debounced per workspace so bursts (e.g. mail sync)
+ * collapse to one SSE signal; clients refetch `GET /api/notifications`.
+ */
+export function notifyNotificationsChanged(): void {
+  const ws = workspaceHandleForBackgroundNotify()
+  const prev = notificationDebounceTimers.get(ws)
+  if (prev !== undefined) clearTimeout(prev)
+  notificationDebounceTimers.set(
+    ws,
+    setTimeout(() => {
+      notificationDebounceTimers.delete(ws)
+      void flushNotificationsChanged(ws)
+    }, HUB_SSE_DEBOUNCE_MS),
+  )
 }
 
 /**

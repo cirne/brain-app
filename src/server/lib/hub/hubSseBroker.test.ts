@@ -3,6 +3,7 @@ import {
   resetHubSseBrokerForTests,
   registerHubSseSubscriber,
   notifyBackgroundRunWritten,
+  notifyNotificationsChanged,
   HUB_SSE_DEBOUNCE_MS,
 } from './hubSseBroker.js'
 import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
@@ -67,5 +68,22 @@ describe('hubSseBroker', () => {
     await vi.advanceTimersByTimeAsync(HUB_SSE_DEBOUNCE_MS + 5)
 
     expect(payloads.length).toBe(0)
+  })
+
+  it('debounces rapid notifyNotificationsChanged for the same workspace', async () => {
+    const payloads: string[] = []
+    registerHubSseSubscriber('_single', async ({ event, data }) => {
+      payloads.push(`${event}:${data}`)
+    })
+
+    notifyNotificationsChanged()
+    notifyNotificationsChanged()
+
+    await vi.advanceTimersByTimeAsync(HUB_SSE_DEBOUNCE_MS + 5)
+    for (let i = 0; i < 30 && payloads.length === 0; i++) {
+      await Promise.resolve()
+    }
+
+    expect(payloads).toEqual(['notifications_changed:{}'])
   })
 })

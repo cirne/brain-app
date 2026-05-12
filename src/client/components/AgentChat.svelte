@@ -33,6 +33,7 @@
   }
   import { consumeAgentChatStream } from '@client/lib/agentChat/streamClient.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
+  import { subscribeHubNotificationsRefresh } from '@client/lib/hubEvents/hubEventsClient.js'
   import {
     collectStreamingSessionIds,
     createPendingSessionKey,
@@ -890,8 +891,6 @@
     }
   }
 
-  const EMPTY_CHAT_NOTIFICATIONS_POLL_MS = 20_000
-
   $effect(() => {
     const eligible =
       showEmptyChatNotifications === true && !hideInput && messages.length === 0 && !streaming
@@ -901,15 +900,16 @@
     }
     const ac = new AbortController()
     void refreshEmptyChatNotifications(ac.signal)
-    const pollId = setInterval(() => {
+    const unsubHub = subscribeHubNotificationsRefresh(() => {
       void refreshEmptyChatNotifications()
-    }, EMPTY_CHAT_NOTIFICATIONS_POLL_MS)
+    })
+    /** SSE covers live updates; visibility covers tab sleep / missed events while hidden. */
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void refreshEmptyChatNotifications()
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      clearInterval(pollId)
+      unsubHub()
       document.removeEventListener('visibilitychange', onVisibility)
       ac.abort()
     }

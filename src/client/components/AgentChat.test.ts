@@ -27,6 +27,24 @@ vi.mock('@client/lib/pressToTalkEnabled.js', () => ({
   isPressToTalkEnabled: vi.fn(() => false),
 }))
 
+const hubNotifSubscribersTest = vi.hoisted(() => ({
+  cbs: [] as Array<() => void>,
+}))
+
+vi.mock('@client/lib/hubEvents/hubEventsClient.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@client/lib/hubEvents/hubEventsClient.js')>()
+  return {
+    ...mod,
+    subscribeHubNotificationsRefresh: vi.fn((cb: () => void) => {
+      hubNotifSubscribersTest.cbs.push(cb)
+      return () => {
+        const i = hubNotifSubscribersTest.cbs.indexOf(cb)
+        if (i >= 0) hubNotifSubscribersTest.cbs.splice(i, 1)
+      }
+    }),
+  }
+})
+
 class ResizeObserverMock {
   observe() {}
   unobserve() {}
@@ -62,6 +80,7 @@ describe('AgentChat.svelte', () => {
       touchedWiki: false,
       deferredFinishConversation: false,
     })
+    hubNotifSubscribersTest.cbs.length = 0
   })
 
   afterEach(() => {
@@ -1089,6 +1108,41 @@ describe('AgentChat.svelte', () => {
   })
 
   describe('empty-chat notifications', () => {
+    it('refetches strip when hub notifications refresh callback runs', async () => {
+      const apiRow = {
+        id: 'nid-1',
+        sourceKind: 'mail_notify',
+        payload: { messageId: 'mid@x', subject: 'Ping' },
+        state: 'unread',
+        idempotencyKey: null,
+        createdAtMs: 1,
+        updatedAtMs: 1,
+      }
+      let getCount = 0
+      stubFetchForAgentChat({
+        extra: [
+          {
+            match: (u: string) => u.startsWith('/api/notifications?'),
+            response: () => {
+              getCount++
+              return jsonResponse(getCount >= 2 ? [] : [apiRow])
+            },
+          },
+        ],
+      })
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await waitFor(() => {
+        expect(screen.getByTestId('empty-chat-notif-act')).toHaveTextContent('Ping')
+      })
+      expect(getCount).toBe(1)
+      expect(hubNotifSubscribersTest.cbs.length).toBe(1)
+      hubNotifSubscribersTest.cbs[0]!()
+      await waitFor(() => {
+        expect(screen.queryByTestId('empty-chat-notifications-strip')).not.toBeInTheDocument()
+      })
+      expect(getCount).toBe(2)
+    })
+
     it('fetches unread strip when thread is empty', async () => {
       const apiRow = {
         id: 'nid-1',

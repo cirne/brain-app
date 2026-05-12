@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { get } from 'svelte/store'
 import { resetConnectionStatusForTests } from '../connectionStatus.js'
-import { startHubEventsConnection } from './hubEventsClient.js'
+import {
+  resetHubNotificationsRefreshSubscribersForTests,
+  startHubEventsConnection,
+  subscribeHubNotificationsRefresh,
+} from './hubEventsClient.js'
 import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from './hubEventsStores.js'
 import type { BackgroundAgentDoc } from '../statusBar/backgroundAgentTypes.js'
 
@@ -63,6 +67,7 @@ describe('hubEventsClient', () => {
     MockEventSource.clear()
     vi.stubGlobal('EventSource', MockEventSource)
     resetConnectionStatusForTests()
+    resetHubNotificationsRefreshSubscribersForTests()
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -75,6 +80,7 @@ describe('hubEventsClient', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
     resetConnectionStatusForTests()
+    resetHubNotificationsRefreshSubscribersForTests()
     yourWikiDocFromEvents.set(null)
     backgroundAgentsFromEvents.set([])
   })
@@ -245,6 +251,42 @@ describe('hubEventsClient', () => {
       stop()
       vi.advanceTimersByTime(10_000)
       expect(MockEventSource.instances).toHaveLength(1)
+    })
+  })
+
+  describe('notifications_changed', () => {
+    it('invokes subscribers on notifications_changed', () => {
+      const cb = vi.fn()
+      subscribeHubNotificationsRefresh(cb)
+      const stop = startHubEventsConnection()
+      const es = MockEventSource.latest()!
+
+      es.simulateMessage('notifications_changed', {})
+      expect(cb).toHaveBeenCalledTimes(1)
+      stop()
+    })
+
+    it('invokes subscribers on EventSource open (reconnect refresh)', () => {
+      const cb = vi.fn()
+      subscribeHubNotificationsRefresh(cb)
+      const stop = startHubEventsConnection()
+      const es = MockEventSource.latest()!
+
+      es.simulateOpen()
+      expect(cb).toHaveBeenCalledTimes(1)
+      stop()
+    })
+
+    it('unsubscribe stops notifications_changed delivery', () => {
+      const cb = vi.fn()
+      const unsub = subscribeHubNotificationsRefresh(cb)
+      const stop = startHubEventsConnection()
+      const es = MockEventSource.latest()!
+      unsub()
+
+      es.simulateMessage('notifications_changed', {})
+      expect(cb).not.toHaveBeenCalled()
+      stop()
     })
   })
 

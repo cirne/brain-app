@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { notifyNotificationsChanged } from '@server/lib/hub/hubSseBroker.js'
 import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
 
 export type NotificationState = 'unread' | 'read' | 'dismissed'
@@ -65,6 +66,8 @@ export function createNotification(input: CreateNotificationInput): Notification
     `INSERT INTO notifications (id, source_kind, payload_json, state, idempotency_key, created_at_ms, updated_at_ms)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(id, input.sourceKind, payloadJson, state, idem, now, now)
+
+  notifyNotificationsChanged()
 
   return {
     id,
@@ -174,6 +177,7 @@ export function updateNotificationPayload(id: string, payload: unknown): Notific
     id,
   )
   if (r.changes === 0) return null
+  notifyNotificationsChanged()
   return getNotificationById(id)
 }
 
@@ -192,6 +196,7 @@ export function updateNotificationSourceKindAndPayload(
     .prepare(`UPDATE notifications SET source_kind = ?, payload_json = ?, updated_at_ms = ? WHERE id = ?`)
     .run(sk, payloadJson, now, id)
   if (r.changes === 0) return null
+  notifyNotificationsChanged()
   return getNotificationById(id)
 }
 
@@ -247,6 +252,7 @@ export function patchNotificationState(id: string, state: NotificationState): No
       }
     | undefined
   if (!row) return null
+  notifyNotificationsChanged()
   return {
     id: row.id,
     sourceKind: row.source_kind,
@@ -262,4 +268,5 @@ export function patchNotificationState(id: string, state: NotificationState): No
 export function deleteAllNotifications(): void {
   const db = getTenantDb()
   db.prepare(`DELETE FROM notifications`).run()
+  notifyNotificationsChanged()
 }

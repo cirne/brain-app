@@ -27,7 +27,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/background-status` | Unified snapshot: mail lanes + milestones + wiki supervisor (+ orchestrator failures) — **[background-task-orchestration](./background-task-orchestration.md)** |
 | `/api/auth/demo` | **Multi-tenant + `BRAIN_ENRON_DEMO_SECRET`:** `POST …/enron` mints session when demo tenants are pre-seeded; `GET …/enron/seed-status` exposes ingest snapshot (e.g. operator reseed) — [enron-demo-tenant.md](./enron-demo-tenant.md) |
 | `/api/background` | Background agent run history and control (wiki expansion) |
-| `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
+| `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots, push event `notifications_changed` (client refetches `/api/notifications`), for Hub + shell (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
 | `/api/dev` | **Dev only** — diagnostics |
 
 ## Client-side URL paths (SPA routes)

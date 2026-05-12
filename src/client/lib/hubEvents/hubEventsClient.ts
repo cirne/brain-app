@@ -5,6 +5,31 @@ import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from './hubEventsSt
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30_000
 
+const hubNotificationsRefreshSubscribers = new Set<() => void>()
+
+/** Subscribe to unread-notification refresh: SSE `notifications_changed` and reconnect `onopen`. */
+export function subscribeHubNotificationsRefresh(cb: () => void): () => void {
+  hubNotificationsRefreshSubscribers.add(cb)
+  return () => {
+    hubNotificationsRefreshSubscribers.delete(cb)
+  }
+}
+
+function notifyHubNotificationsRefreshSubscribers(): void {
+  for (const cb of hubNotificationsRefreshSubscribers) {
+    try {
+      cb()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Vitest / test isolation */
+export function resetHubNotificationsRefreshSubscribersForTests(): void {
+  hubNotificationsRefreshSubscribers.clear()
+}
+
 /**
  * Long-lived SSE to `/api/events`. Idempotent stop via returned disposer.
  * Reconnects with exponential backoff after errors (vault locked, server restart).
@@ -57,9 +82,14 @@ export function startHubEventsConnection(): () => void {
 
     es.addEventListener('ping', () => {})
 
+    es.addEventListener('notifications_changed', () => {
+      notifyHubNotificationsRefreshSubscribers()
+    })
+
     es.onopen = () => {
       backoffMs = INITIAL_BACKOFF_MS
       notifyConnected()
+      notifyHubNotificationsRefreshSubscribers()
     }
 
     es.onerror = () => {

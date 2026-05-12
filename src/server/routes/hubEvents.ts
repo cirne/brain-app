@@ -9,7 +9,7 @@ const hubEvents = new Hono()
 
 const HEARTBEAT_MS = 20_000
 
-/** Hub / Your Wiki + background agents — server push (see docs/architecture/runtime-and-routes.md). */
+/** Hub / Your Wiki + background agents + notification signals — server push (see docs/architecture/runtime-and-routes.md). */
 hubEvents.get('/', (c) => {
   return streamSSE(c, async (stream) => {
     const ws = tryGetTenantContext()?.workspaceHandle ?? '_single'
