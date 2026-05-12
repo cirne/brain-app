@@ -79,6 +79,7 @@ export async function buildBackgroundStatusPayload(input: {
       indexedTotal: indexed,
       ftsReady: mail.ftsReady,
       messageAvailableForProgress: mail.messageAvailableForProgress,
+      backfillListedTarget: mail.backfillListedTarget ?? null,
       configured: mail.configured,
       dateRange: mail.dateRange,
       phase1Complete,

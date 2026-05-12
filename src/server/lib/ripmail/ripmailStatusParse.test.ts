@@ -252,7 +252,8 @@ describe('parseRipmailStatusJson', () => {
           "isRunning": true,
           "lockHeldByLiveProcess": true,
           "lockAgeMs": 8000,
-          "lastSyncAt": null
+          "lastSyncAt": null,
+          "totalMessages": 25885
         }
       },
       "search": { "indexedMessages": 250, "ftsReady": 250 },
@@ -265,6 +266,7 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.backfillRunning).toBe(true)
     expect(p!.syncRunning).toBe(true)
     expect(p!.syncLockAgeMs).toBe(8000)
+    expect(p!.backfillListedTarget).toBe(25885)
   })
 
   it('returns null for invalid JSON', () => {

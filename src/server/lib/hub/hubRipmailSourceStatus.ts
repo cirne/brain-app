@@ -23,6 +23,8 @@ export type HubSourceMailStatusOk = {
     staleLockInDb: boolean
     refreshRunning: boolean
     backfillRunning: boolean
+    /** Gmail historical lane: `messages.list` total for the in-flight backfill; null when unknown. */
+    backfillListedTarget: number | null
     lastSyncAt: string | null
     /** From `freshness.lastSyncAgo.human` when present. */
     lastSyncAgoHuman: string | null
@@ -130,6 +132,7 @@ export function parseHubSourceMailStatusFromStdout(
       staleLockInDb: parsed.staleLockInDb,
       refreshRunning,
       backfillRunning,
+      backfillListedTarget: parsed.backfillListedTarget,
       lastSyncAt: parsed.lastSyncedAt,
       lastSyncAgoHuman: readLastSyncAgoHuman(root),
     },
@@ -161,7 +164,10 @@ export async function getHubSourceMailStatus(sourceId: string): Promise<HubSourc
         },
         backfill: {
           isRunning: parsed.backfillRunning,
-          lockHeldByLiveProcess: false,
+          lastSyncAt: parsed.lastSyncedAt,
+          totalMessages: parsed.backfillListedTarget ?? 0,
+          lockAgeMs: parsed.syncLockAgeMs,
+          lockHeldByLiveProcess: parsed.backfillRunning,
         },
         staleLockInDb: parsed.staleLockInDb,
       },

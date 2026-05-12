@@ -16,6 +16,7 @@ export function onboardingMailStatusFromBackground(
     syncLockAgeMs: m.syncLockAgeMs,
     ftsReady: m.ftsReady ?? m.indexedTotal,
     messageAvailableForProgress: m.messageAvailableForProgress ?? m.indexedTotal,
+    backfillListedTarget: m.backfillListedTarget ?? null,
     pendingBackfill: m.pendingBackfill,
     deepHistoricalPending: m.deepHistoricalPending ?? false,
     staleMailSyncLock: m.staleMailSyncLock,

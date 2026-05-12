@@ -31,6 +31,11 @@ export type ParsedRipmailStatus = {
    */
   deepHistoricalPending: boolean
   /**
+   * Gmail historical lane: number of message IDs listed for the current backfill (`messages.list` total),
+   * stored in `sync_summary` id=2 while the lane runs. Null when not in a historical fetch.
+   */
+  backfillListedTarget: number | null
+  /**
    * Onboarding “downloaded / available” denominator: sum of `mailboxes[].messageCount` when non-zero, else
    * `sync.refresh.totalMessages`, else `sync.backfill.totalMessages`. Null when no usable total yet.
    */
@@ -253,6 +258,9 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
       messageAvailableForProgress = backfillTot
     }
 
+    const backfillListedTarget =
+      backfillRunning && backfillTot != null && backfillTot > 0 ? backfillTot : null
+
     return {
       indexedTotal: resolveIndexedTotal(sync, j.mailboxes, search),
       lastSyncedAt,
@@ -269,6 +277,7 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
       initialSyncHangSuspected: hang,
       pendingRefresh,
       deepHistoricalPending: pendingRefresh,
+      backfillListedTarget,
       messageAvailableForProgress,
     }
   } catch {

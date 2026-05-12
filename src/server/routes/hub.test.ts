@@ -31,6 +31,8 @@ vi.mock('@server/ripmail/index.js', () => ({
     staleLockInDb: false,
     initialSyncHangSuspected: false,
     pendingRefresh: false,
+    deepHistoricalPending: false,
+    backfillListedTarget: null,
     messageAvailableForProgress: 100,
   })),
   ripmailDbPath: vi.fn(() => '/tmp/test-ripmail-home/ripmail.db'),
@@ -52,7 +54,7 @@ vi.mock('@server/lib/hub/hubRipmailSourceStatus.js', async (importOriginal) => {
       ok: true,
       sourceId: 'a_gmail_com',
       mailbox: { messageCount: 500, earliestDate: '2024-01-01', latestDate: '2026-04-30', newestIndexedAgo: '1h ago', needsBackfill: false, lastUid: 999 },
-      index: { totalIndexed: 500, syncRunning: false, staleLockInDb: false, refreshRunning: false, backfillRunning: false, lastSyncAt: '2026-04-30', lastSyncAgoHuman: null },
+      index: { totalIndexed: 500, syncRunning: false, staleLockInDb: false, refreshRunning: false, backfillRunning: false, backfillListedTarget: null, lastSyncAt: '2026-04-30', lastSyncAgoHuman: null },
     }),
   }
 })

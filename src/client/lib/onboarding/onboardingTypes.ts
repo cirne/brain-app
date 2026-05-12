@@ -16,6 +16,8 @@ export type OnboardingMailStatus = {
   ftsReady: number | null
   /** Denominator for mail download progress (e.g. mailbox row count or sync target). */
   messageAvailableForProgress: number | null
+  /** Gmail historical lane listed-ID target while `backfillRunning`. */
+  backfillListedTarget?: number | null
   /** Ripmail still has mail to pull; sync is idle — good time to kick `refresh`. */
   pendingBackfill?: boolean
   /** Gmail extended historical sync (~1y) may still add mail while lanes look idle. */
@@ -39,6 +41,7 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
     syncLockAgeMs: null,
     ftsReady: null,
     messageAvailableForProgress: null,
+    backfillListedTarget: null,
     pendingBackfill: false,
     deepHistoricalPending: false,
     staleMailSyncLock: false,

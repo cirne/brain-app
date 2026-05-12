@@ -14,6 +14,7 @@ import { statusParsed } from './status.js'
 import {
   clearSyncSummaryRunning,
   markFirstBackfillCompleted,
+  setBackfillListedTarget,
   setSyncSummaryRunning,
 } from './sync/persist.js'
 
@@ -70,6 +71,17 @@ describe('statusParsed', () => {
     clearSyncSummaryRunning(db)
     p = statusParsed(db, home)
     expect(p.syncRunning).toBe(false)
+  })
+
+  it('surfaces backfillListedTarget from sync_summary id=2 while historical lane runs', () => {
+    const db = openRipmailDb(home)
+    setSyncSummaryRunning(db, 'backfill')
+    setBackfillListedTarget(db, 25885)
+    const p = statusParsed(db, home)
+    expect(p.backfillRunning).toBe(true)
+    expect(p.backfillListedTarget).toBe(25885)
+    clearSyncSummaryRunning(db)
+    expect(statusParsed(db, home).backfillListedTarget).toBeNull()
   })
 
   it('pendingRefresh is false once messages exist while deepHistoricalPending stays true until 1y meta', () => {

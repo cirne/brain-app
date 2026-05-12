@@ -77,6 +77,14 @@ export function statusParsed(db: RipmailDb, ripmailHome: string): ParsedRipmailS
   /** Gate (small-inbox advance): block only before first indexed Gmail slice lands. */
   const pendingRefresh = deepHistoricalPending && msgCount === 0
 
+  const backfillListedTarget =
+    backfillRunning &&
+    row2 != null &&
+    typeof row2.total_messages === 'number' &&
+    row2.total_messages > 0
+      ? row2.total_messages
+      : null
+
   return {
     indexedTotal: msgCount,
     lastSyncedAt: lastSyncAt,
@@ -90,6 +98,7 @@ export function statusParsed(db: RipmailDb, ripmailHome: string): ParsedRipmailS
     initialSyncHangSuspected: false,
     pendingRefresh,
     deepHistoricalPending,
+    backfillListedTarget,
     messageAvailableForProgress: msgCount > 0 ? msgCount : null,
   }
 }

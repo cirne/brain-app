@@ -16,6 +16,7 @@ import {
   updateSyncState,
   updateSourceLastSynced,
   markFirstBackfillCompleted,
+  setBackfillListedTarget,
 } from './persist.js'
 import type { GoogleOAuthTokens } from './config.js'
 import type { RipmailHistoricalSince } from '../types.js'
@@ -166,6 +167,7 @@ export async function syncGmailSource(
     if (hist && isHistoricalSince(hist)) {
       const afterEpoch = historicalSinceToAfterEpochSeconds(hist)
       messageIds = await listHistoricalMessageIds(gmail, afterEpoch, opts?.abort)
+      setBackfillListedTarget(db, messageIds.length)
       brainLogger.info(
         { sourceId, historicalSince: hist, listedIds: messageIds.length },
         'ripmail:gmail:historical-list',

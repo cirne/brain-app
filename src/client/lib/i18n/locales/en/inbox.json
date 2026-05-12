@@ -139,6 +139,7 @@
     "status": {
       "refreshAndBackfillRunning": "Refresh and backfill are running…",
       "backfillRunning": "Backfill is running…",
+      "backfillProgress": "Indexed {{indexed}} of about {{target}} messages in this backfill…",
       "refreshRunning": "Refresh is running…"
     },
     "summary": {

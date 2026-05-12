@@ -40,6 +40,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
             staleLockInDb: false,
             refreshRunning: false,
             backfillRunning: false,
+            backfillListedTarget: null,
             lastSyncAt: null,
             lastSyncAgoHuman: null,
           },

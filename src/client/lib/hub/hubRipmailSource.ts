@@ -22,6 +22,7 @@ export type HubMailStatusIndex = {
   staleLockInDb: boolean
   refreshRunning: boolean
   backfillRunning: boolean
+  backfillListedTarget: number | null
   lastSyncAt: string | null
   lastSyncAgoHuman: string | null
 }

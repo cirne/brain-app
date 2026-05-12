@@ -28,6 +28,8 @@ export type OnboardingMailStatusPayload = {
   ftsReady: number | null
   /** Denominator for indexed / total during onboarding (same as parsed mail status). */
   messageAvailableForProgress: number | null
+  /** Gmail historical lane target (`messages.list` count) while backfill runs. */
+  backfillListedTarget?: number | null
   /** Mailbox still needs data and no sync is active — resume candidate (see backfill supervisor). */
   pendingBackfill: boolean
   /** Gmail OAuth: ~1y historical slice not recorded complete; more mail may arrive while idle. */
@@ -110,6 +112,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     syncLockAgeMs: null,
     ftsReady: null,
     messageAvailableForProgress: null,
+    backfillListedTarget: null,
     pendingBackfill: false,
     deepHistoricalPending: false,
     staleMailSyncLock: false,
@@ -143,6 +146,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
       syncLockAgeMs: parsed.syncLockAgeMs,
       ftsReady: parsed.ftsReady,
       messageAvailableForProgress: parsed.messageAvailableForProgress,
+      backfillListedTarget: parsed.backfillListedTarget,
       pendingBackfill: parsed.pendingRefresh,
       deepHistoricalPending: parsed.deepHistoricalPending,
       staleMailSyncLock: parsed.staleLockInDb,

@@ -87,6 +87,14 @@
           {$t('inbox.hubConnectorMailSections.status.refreshAndBackfillRunning')}
         {:else if mailStatus.index.backfillRunning}
           {$t('inbox.hubConnectorMailSections.status.backfillRunning')}
+          {#if mailStatus.index.backfillListedTarget != null && mailStatus.index.backfillListedTarget > 0 && mailStatus.mailbox}
+            <span class="mt-1 block font-normal text-muted">
+              {$t('inbox.hubConnectorMailSections.status.backfillProgress', {
+                indexed: mailStatus.mailbox.messageCount.toLocaleString(),
+                target: mailStatus.index.backfillListedTarget.toLocaleString(),
+              })}
+            </span>
+          {/if}
         {:else}
           {$t('inbox.hubConnectorMailSections.status.refreshRunning')}
         {/if}

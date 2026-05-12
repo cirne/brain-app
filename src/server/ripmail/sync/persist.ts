@@ -203,7 +203,7 @@ export function setSyncSummaryRunning(db: RipmailDb, lane: 'refresh' | 'backfill
   seedSyncSummaryRows(db)
   if (lane === 'refresh') {
     db.prepare(
-      `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 2`,
+      `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL, total_messages = 0 WHERE id = 2`,
     ).run()
     db.prepare(
       `UPDATE sync_summary SET is_running = 1, sync_lock_started_at = datetime('now') WHERE id = 1`,
@@ -213,9 +213,16 @@ export function setSyncSummaryRunning(db: RipmailDb, lane: 'refresh' | 'backfill
       `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1`,
     ).run()
     db.prepare(
-      `UPDATE sync_summary SET is_running = 1, sync_lock_started_at = datetime('now') WHERE id = 2`,
+      `UPDATE sync_summary SET is_running = 1, sync_lock_started_at = datetime('now'), total_messages = 0 WHERE id = 2`,
     ).run()
   }
+}
+
+/** After `messages.list` for a historical lane: id=2 `total_messages` = listed ID count (Hub / status progress). */
+export function setBackfillListedTarget(db: RipmailDb, listedCount: number): void {
+  seedSyncSummaryRows(db)
+  const n = Math.max(0, Math.floor(listedCount))
+  db.prepare(`UPDATE sync_summary SET total_messages = ? WHERE id = 2`).run(n)
 }
 
 export function clearSyncSummaryRunning(db: RipmailDb): void {
@@ -223,4 +230,5 @@ export function clearSyncSummaryRunning(db: RipmailDb): void {
   db.prepare(
     `UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id IN (1, 2)`,
   ).run()
+  db.prepare(`UPDATE sync_summary SET total_messages = 0 WHERE id = 2`).run()
 }

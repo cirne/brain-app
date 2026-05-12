@@ -60,6 +60,58 @@ describe('parseHubSourceMailStatusFromStdout', () => {
     expect(r!.index.totalIndexed).toBe(100)
     expect(r!.index.lastSyncAgoHuman).toBe('1 day ago')
     expect(r!.index.lastSyncAt).toContain('2026-04-18')
+    expect(r!.index.backfillListedTarget).toBeNull()
+  })
+
+  it('reports backfill live + listed target when nested backfill lane matches Rust shape', () => {
+    const stdout = JSON.stringify({
+      sync: {
+        staleLockInDb: false,
+        refresh: {
+          isRunning: false,
+          lastSyncAt: '2026-04-18T12:00:00Z',
+          totalMessages: 400,
+          lockHeldByLiveProcess: true,
+          lockAgeMs: null,
+        },
+        backfill: {
+          isRunning: true,
+          lastSyncAt: null,
+          totalMessages: 25885,
+          lockHeldByLiveProcess: true,
+          lockAgeMs: 5000,
+        },
+      },
+      search: { indexedMessages: 472, ftsReady: 472 },
+      mailboxes: [{ mailboxId: 'lewiscirne_gmail_com', messageCount: 472, needsBackfill: false }],
+      freshness: {},
+    })
+    const r = parseHubSourceMailStatusFromStdout(stdout, 'lewiscirne_gmail_com')
+    expect(r).not.toBeNull()
+    expect(r!.index.backfillRunning).toBe(true)
+    expect(r!.index.backfillListedTarget).toBe(25885)
+    expect(r!.mailbox?.messageCount).toBe(472)
+  })
+
+  it('treats backfill as not running when lockHeldByLiveProcess is false (regression)', () => {
+    const stdout = JSON.stringify({
+      sync: {
+        staleLockInDb: false,
+        refresh: { isRunning: false, lockHeldByLiveProcess: true, totalMessages: 0 },
+        backfill: {
+          isRunning: true,
+          totalMessages: 100,
+          lockHeldByLiveProcess: false,
+        },
+      },
+      search: { indexedMessages: 0 },
+      mailboxes: [],
+      freshness: {},
+    })
+    const r = parseHubSourceMailStatusFromStdout(stdout, 'x')
+    expect(r).not.toBeNull()
+    expect(r!.index.backfillRunning).toBe(false)
+    expect(r!.index.backfillListedTarget).toBeNull()
   })
 
   it('returns null mailbox when id not in list', () => {

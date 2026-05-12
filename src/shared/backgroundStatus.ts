@@ -24,6 +24,8 @@ export type BackgroundStatusResponse = {
     ftsReady: number | null
     /** Same semantics as {@link ParsedRipmailStatus} / in-process status (denominator for progress when present). */
     messageAvailableForProgress: number | null
+    /** Gmail historical fetch: listed ID target while backfill lane is active. */
+    backfillListedTarget?: number | null
     configured: boolean
     dateRange: { from: string | null; to: string | null }
     phase1Complete: boolean
