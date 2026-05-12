@@ -764,7 +764,7 @@
             </div>
             {#key selectedThread}
               <iframe
-                class="thread-body-iframe block min-h-[80px] w-full overflow-hidden border-none bg-surface [color-scheme:light_dark]"
+                class="thread-body-iframe block min-h-[80px] w-full overflow-hidden border-none bg-surface [color-scheme:light]"
                 title={$t('inbox.inboxPanel.thread.iframeTitle')}
                 sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 srcdoc={threadIframeSrcdoc}

@@ -24,9 +24,8 @@ describe('mailBodyDisplay', () => {
     expect(wrapped).toContain('Good morning\n&gt; quoted reply &lt;not-html&gt;\nSee ')
     expect(wrapped).toContain('<a href="https://ex.com"')
     expect(wrapped).toContain('--mail-bg')
-    expect(wrapped).toContain('prefers-color-scheme: dark')
-    expect(wrapped).toContain('body *')
-    expect(wrapped).toContain('color: var(--mail-accent) !important')
+    expect(wrapped).toContain('color-scheme: light')
+    expect(wrapped).not.toContain('prefers-color-scheme')
     expect(wrapped).toContain('border-radius: 0 !important')
   })
 

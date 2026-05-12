@@ -76,7 +76,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import { postOnboardingFinalize } from '@client/lib/onboarding/onboardingApi.js'
-  import { primarySurfaceRouteForOverlay } from '@client/lib/primarySurfaceRoute.js'
+  import { primarySurfaceRouteForOverlay, routeUsesFullWidthPrimaryWorkspace } from '@client/lib/primarySurfaceRoute.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import {
@@ -102,7 +102,11 @@ import AppShell from '@components/app/AppShell.svelte'
   import { readHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
-  import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
+  import { primaryComposerMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
+  import {
+    inboxThreadSurfaceForCompose,
+    primaryDockOverlayToKeepForChatSplit,
+  } from '@client/lib/primarySurfaceDockNavigation.js'
   import { overlayForWikiPrimaryShortcut } from '@client/lib/wikiPrimaryShortcutOverlay.js'
   import { t } from '@client/lib/i18n/index.js'
   import type { WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
@@ -331,7 +335,11 @@ import AppShell from '@components/app/AppShell.svelte'
 
   const wikiDockPlaceholder = $derived(contextPlaceholder(shell.agentContext))
   const wikiDockComposerSessionKey = $derived.by(() => {
+    const z = shell.route.zone
     const o = shell.route.overlay
+    if (z === 'inbox' && o?.type === 'email' && o.id) {
+      return `inbox-email-${o.id}`
+    }
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return 'wiki-primary'
     const p = 'path' in o ? (o.path ?? '') : ''
     return `wiki-primary-${o.type}-${p}`
@@ -835,13 +843,19 @@ import AppShell from '@components/app/AppShell.svelte'
   }
 
   function openWikiFromShell(path: string) {
-    if (shellOpenPrefersPrimaryDetailSurface()) navigateWikiPrimary(path)
-    else openWikiDoc(path)
+    if (shellOpenPrefersPrimaryDetailSurface() || routeUsesFullWidthPrimaryWorkspace(shell.route)) {
+      navigateWikiPrimary(path)
+    } else {
+      openWikiDoc(path)
+    }
   }
 
   function openEmailFromShell(id: string, subject: string, from: string) {
-    if (shellOpenPrefersPrimaryDetailSurface()) openEmailFromSearchPrimarySurface(id, subject, from)
-    else openEmailFromSearch(id, subject, from)
+    if (shellOpenPrefersPrimaryDetailSurface() || routeUsesFullWidthPrimaryWorkspace(shell.route)) {
+      openEmailFromSearchPrimarySurface(id, subject, from)
+    } else {
+      openEmailFromSearch(id, subject, from)
+    }
   }
 
   function openEmailFromChat(threadId: string, subject?: string, from?: string) {
@@ -1057,56 +1071,72 @@ import AppShell from '@components/app/AppShell.svelte'
     applyVoiceTranscriptToChat(
       text,
       wikiDockDraft,
-      (t) => void wikiPrimaryComposeSend(t),
-      (t) => {
-        wikiDockComposerRef?.appendText(t)
+      (msg) => void primarySurfaceDockComposeSend(msg),
+      (msg) => {
+        wikiDockComposerRef?.appendText(msg)
       },
     )
   }
 
   /**
-   * Leave wiki-primary, open the main chat column, start a new session, and send the first message
-   * (same `newChatWithMessage` path as the main composer).
-   * On desktop with a wide workspace, keep the current wiki file or folder open in the right detail
-   * stack (`/c?panel=wiki&path=…` or `panel=wiki-dir`) so chat and doc stay side by side.
+   * Leave wiki- or inbox-primary composer dock → main chat (`/c`), new session, first message.
+   * Wide desktop: keep wiki or email in the right detail stack (`?panel=` on `/c`).
    */
-  async function wikiPrimaryComposeSend(text: string) {
-    const t = wikiPrimaryChatMessageOrNull(text)
-    if (!t) return
+  async function primarySurfaceDockComposeSend(text: string) {
+    const trimmed = primaryComposerMessageOrNull(text)
+    if (!trimmed) return
+
+    const z = shell.route.zone
     const o = shell.route.overlay
-    const keepDetailForSplit =
-      !shell.isMobile &&
-      shell.workspaceColumnWidth >= WORKSPACE_DESKTOP_SPLIT_MIN_PX &&
-      o &&
-      (o.type === 'wiki' || o.type === 'wiki-dir')
+    if (!o) return
+
+    const isWikiDock = z === 'wiki' && (o.type === 'wiki' || o.type === 'wiki-dir')
+    const isInboxEmailDock = z === 'inbox' && o.type === 'email' && o.id
+
+    if (!isWikiDock && !isInboxEmailDock) return
+
+    const overlayToKeep = primaryDockOverlayToKeepForChatSplit(
+      shell.route,
+      { isMobile: shell.isMobile, workspaceColumnWidth: shell.workspaceColumnWidth },
+      WORKSPACE_DESKTOP_SPLIT_MIN_PX,
+    )
+
+    const emailSurfForNarrow =
+      !overlayToKeep && isInboxEmailDock ? inboxThreadSurfaceForCompose(o, shell.agentContext) : null
 
     shell.chatTitleForUrl = null
-    navigateShell(
-      {
-        ...(keepDetailForSplit ? { overlay: o } : {})
-      },
-      { replace: true },
-    )
+    navigateShell(overlayToKeep ? { overlay: overlayToKeep } : {}, { replace: true })
     shell.route = parseRoute()
 
-    if (keepDetailForSplit && o) {
+    if (overlayToKeep) {
       shell.wikiWriteStreaming = null
       shell.wikiEditStreaming = null
       shell.inboxTargetId = undefined
-      if (o.type === 'wiki' && o.path) {
-        const title = wikiMarkdownBasenameDisplayTitle(o.path)
-        shell.agentContext = { type: 'wiki', path: o.path, title }
-      } else if (o.type === 'wiki-dir') {
-        const dirPath = o.path?.trim() ?? ''
-        const title = dirPath
-          ? (dirPath.split('/').pop() ?? dirPath)
-          : get(t)('nav.wiki.label', 'Wiki')
-        shell.agentContext = { type: 'wiki-dir', path: dirPath, title }
-      } else {
-        shell.agentContext = { type: 'chat' }
+
+      if (isWikiDock && (o.type === 'wiki' || o.type === 'wiki-dir')) {
+        if (o.type === 'wiki' && o.path) {
+          const title = wikiMarkdownBasenameDisplayTitle(o.path)
+          shell.agentContext = { type: 'wiki', path: o.path, title }
+        } else if (o.type === 'wiki-dir') {
+          const dirPath = o.path?.trim() ?? ''
+          const title = dirPath
+            ? dirPath.split('/').pop() ?? dirPath
+            : get(t)('nav.wiki.label', 'Wiki')
+          shell.agentContext = { type: 'wiki-dir', path: dirPath, title }
+        } else {
+          shell.agentContext = { type: 'chat' }
+        }
+      } else if (isInboxEmailDock && o.id) {
+        const cur = shell.agentContext
+        if (!(cur.type === 'email' && cur.threadId === o.id)) {
+          shell.agentContext = { type: 'email', threadId: o.id, subject: '(loading)', from: '' }
+        }
       }
     } else {
       alignShellWithBareChatRoute(shell)
+      if (emailSurfForNarrow) {
+        shell.agentContext = emailSurfForNarrow
+      }
     }
 
     shell.chatIsEmpty = false
@@ -1114,13 +1144,17 @@ import AppShell from '@components/app/AppShell.svelte'
     const chat = await waitUntilDefinedOrMaxTicks({
       get: () => refs.agentChat,
       tick,
-      maxIterations: 48
-      })
-    if (chat) await chat.newChatWithMessage(t, { skipOverlayClose: true })
+      maxIterations: 48,
+    })
+    if (chat) await chat.newChatWithMessage(trimmed, { skipOverlayClose: true })
   }
 
   $effect(() => {
-    if (shell.route.zone !== 'wiki') return
+    const z = shell.route.zone
+    const o = shell.route.overlay
+    const wikiPrimary = z === 'wiki' && o && (o.type === 'wiki' || o.type === 'wiki-dir')
+    const inboxEmailPrimary = z === 'inbox' && o?.type === 'email' && o.id
+    if (!wikiPrimary && !inboxEmailPrimary) return
     void fetchWikiDockWikiFiles()
     void fetchWikiDockSkills()
     return registerWikiFileListRefetch(fetchWikiDockWikiFiles)
@@ -1484,7 +1518,7 @@ import AppShell from '@components/app/AppShell.svelte'
                           queuedMessages={[]}
                           wikiFiles={wikiDockWikiFiles}
                           skills={wikiDockSkills}
-                          onSend={(t) => void wikiPrimaryComposeSend(t)}
+                          onSend={(t) => void primarySurfaceDockComposeSend(t)}
                           onDraftChange={(d) => {
                             wikiDockDraft = d
                           }}
@@ -1500,18 +1534,48 @@ import AppShell from '@components/app/AppShell.svelte'
             </div>
           {:else if shell.route.zone === 'inbox'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-                {#if !shell.route.overlay || shell.route.overlay.type === 'email'}
-                  <Inbox
-                    initialId={shell.route.overlay?.type === 'email' ? shell.route.overlay.id : undefined}
-                    targetId={shell.inboxTargetId}
-                    onNavigate={onInboxNavigateSlide}
-                    onContextChange={setContext}
-                    onOpenSearch={() => { shell.showSearch = true }}
-                    onSummarizeInbox={onSummarizeInbox}
-                  />
-                {/if}
-              </div>
+              {#if !shell.route.overlay || shell.route.overlay.type === 'email'}
+                <div class="inbox-primary-main flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                    <Inbox
+                      initialId={shell.route.overlay?.type === 'email' ? shell.route.overlay.id : undefined}
+                      targetId={shell.inboxTargetId}
+                      onNavigate={onInboxNavigateSlide}
+                      onContextChange={setContext}
+                      onOpenSearch={() => { shell.showSearch = true }}
+                      onSummarizeInbox={onSummarizeInbox}
+                    />
+                  </div>
+                  {#if shell.route.overlay?.type === 'email' && shell.route.overlay.id}
+                    <div
+                      class="wiki-primary-composer-dock shrink-0 bg-surface [padding-bottom:env(safe-area-inset-bottom,0px)]"
+                    >
+                      <div
+                        class="wiki-primary-composer-stack mx-auto box-border w-full max-w-chat px-[clamp(12px,3vw,40px)] pb-3 pt-2 md:px-[clamp(16px,4%,40px)]"
+                      >
+                        <UnifiedChatComposer
+                          bind:this={wikiDockComposerRef}
+                          transparentSurround={true}
+                          voiceEligible={wikiDockVoiceEligible}
+                          sessionResetKey={wikiDockComposerSessionKey}
+                          placeholder={wikiDockPlaceholder}
+                          streaming={false}
+                          queuedMessages={[]}
+                          wikiFiles={wikiDockWikiFiles}
+                          skills={wikiDockSkills}
+                          onSend={(t) => void primarySurfaceDockComposeSend(t)}
+                          onDraftChange={(d) => {
+                            wikiDockDraft = d
+                          }}
+                          onTranscribe={onWikiDockVoiceTranscribe}
+                          onRequestFocusText={() => void wikiDockComposerRef?.focus()}
+                          hearReplies={wikiDockHearReplies}
+                        />
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </div>
           {:else if shell.route.zone === 'hub' || shell.route.overlay?.type === 'hub'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">

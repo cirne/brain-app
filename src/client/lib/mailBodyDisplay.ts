@@ -3,8 +3,10 @@
  * Ensures the browser parses markup as HTML (charset, viewport, links open in a new tab).
  * Plaintext bodies are escaped and wrapped with newline-preserving CSS. HTML bodies are not escaped —
  * combine with `sandbox` (no `allow-scripts`) on the iframe.
- * Injects base theme colors (`IFRAME_DOC_BASE_STYLE`) because srcdoc is isolated from host CSS variables;
- * values mirror `src/client/style.css` until the message’s own CSS or inline styles override.
+ * Injects base theme colors (`IFRAME_DOC_BASE_STYLE`) because srcdoc is isolated from host CSS variables.
+ * Always uses a light canvas (`color-scheme: light`): HTML newsletters almost always rely on inline white
+ * backgrounds and dark text; if the iframe followed the app/OS dark preference and forced pale text via
+ * a blanket selector, pale text would sit on those unchanged white sections (unreadable).
  */
 
 const IFRAME_DOC_BASE_STYLE = `<style>
@@ -15,29 +17,8 @@ const IFRAME_DOC_BASE_STYLE = `<style>
     --mail-accent: #2563eb;
     --mail-border: #e0e0e0;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --mail-bg: #0f0f0f;
-      --mail-text: #e8e8e8;
-      --mail-text-2: #999999;
-      --mail-accent: #4a9eff;
-      --mail-border: #2e2e2e;
-    }
-    /* Beat common inline / class colors from light-mode HTML mail (overrides only when not !important on sender side). */
-    body * {
-      color: var(--mail-text) !important;
-    }
-    a,
-    a:link,
-    a:visited,
-    a:hover,
-    a:active,
-    a * {
-      color: var(--mail-accent) !important;
-    }
-  }
   html {
-    color-scheme: light dark;
+    color-scheme: light;
     margin: 0 !important;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
