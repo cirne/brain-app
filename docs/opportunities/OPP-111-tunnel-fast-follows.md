@@ -4,7 +4,7 @@
 
 **Prerequisite:** [OPP-110](OPP-110-chat-native-brain-to-brain.md) (archived — core tunnel spec) · **Policy context:** [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
 
-This opportunity bundles **post-v1 tunnel polish** that does not need to ship in the same milestone as the core tunnel cutover, but should be designed as a coherent “second lap”: **(A)** compounding tunnel answers into **your** wiki on the asker side, and **(B)** honest, controllable UX when **others** tunnel **in** to your brain (inbound requests).
+This opportunity bundles **post-v1 tunnel polish** that does not need to ship in the same milestone as the core tunnel cutover, but should be designed as a coherent “second lap”: **(A)** compounding tunnel answers into **your** wiki on the asker side, and **(B)** a **triage-first answering-side** experience — send gating, clear delivery semantics, and UI that does not pretend peer-boundary replies are the same as **My Brain** chat.
 
 ---
 
@@ -38,7 +38,7 @@ This does **not** change OPP-110’s fundamentals; it **composes** tunnel output
 
 - **Never** expose wiki tools to the remote tunnel agent for “convenience.” If the user wants their own notes to shape **their next question in the tunnel**, that’s switching back to **My Brain** or reading the wiki themselves — not plumbing their vault into the remote agent.
 - **Provenance:** users may want it clear that a paragraph came from **another brain** via policy-filtered synthesis, not from their own research — optional template in the saved page.
-- **Parity with inbound:** the answering side may also want to log **outbound** knowledge locally; that can mirror the same patterns on **their** wiki (separate from cross-tenant capture).
+- **Parity (answering side):** the host may also want to log **what left toward a peer** locally; that can mirror the same patterns on **their** wiki (separate from cross-tenant capture).
 
 ### Technical sketch (wiki capture, light)
 
@@ -47,43 +47,81 @@ This does **not** change OPP-110’s fundamentals; it **composes** tunnel output
 
 ---
 
-## B. Inbound tunnel UX — send control and a non-misleading chat surface
+## B. Answering-side UX — review queue, send control, honest surfaces
+
+*Engineering and policy docs may still say **inbound** (requests arriving at your tenant). **Product copy** should favor task language — **Pending**, **Requests**, **Review** — not “inbound” or networking metaphors.*
 
 ### Problem
 
-Early inbound implementations may **auto-send** the restricted agent’s reply to the remote peer as soon as it is generated. Productively, the **host** should decide:
+1. **Send gate.** Early implementations may **auto-send** the restricted agent’s reply to the remote peer as soon as it is generated. Many users need the opposite default: **nothing crosses the tunnel until they release it** (or a deliberate trust mode allows auto-send). The host should choose **auto-send** vs **review before send** per relationship or default — see [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md).
 
-- **Auto-send on** (default or power-user): behavior closer to “my brain answered them immediately,” low friction.
-- **Auto-send off:** the host **reviews and approves** (or edits) what goes back **before** it crosses the boundary to the requester.
+2. **Wrong surface metaphor.** Modeling the answering workflow as **another chat thread in the sidebar — one row per asker** invites the wrong habit. The **common case** is **clear the queue**: open, confirm (or lightly edit), send, next. That is closer to **triage** or **sign-and-ship** than to an open-ended **My Brain** session. Putting **N peers** in the left nav as separate “inbound chats” optimizes the rare case (long back-and-forth with one person) and clutters the frequent one (**many short approvals**).
 
-Independently, the **inbound** thread view today risks looking like a **normal My Brain chat** (same composer, same message list patterns). It is **not** the same model:
+3. **Misleading chrome.** If the **same** transcript layout and composer as **My Brain** appear on the answering side, users assume typing = **what the peer receives**, or that the assistant’s draft is **private** until they “send” a chat message — none of which is guaranteed unless the UI says so. **Tunnel replies** are **policy-shaped egress**, often **agent-drafted first**; the composer might mean **steer the local agent**, **edit the pending egress text**, or **human-only message** — three different meanings that must not be collapsed.
 
-- Outbound messages are **not** arbitrary “you typed this and it went to Slack.” They are **tunnel replies** constrained by policy, possibly **agent-drafted** first.
-- It is unclear to users (and to implementors) what the **composer** means on inbound: does typing **replace** the agent draft? **Append** instructions for the next agent turn? Send **raw human text** instead of an agent answer? **Private notes** visible only on the host tenant?
+Without a deliberate model, the UI **lies**; people may leak, withhold, or distrust the feature by accident.
 
-Without a deliberate model, the UI **lies** — users infer the wrong mental model and may leak or withhold content by accident.
+### Design vision: two surfaces, two metaphors
 
-### Proposed directions
+| Surface | Job | Metaphor |
+|--------|-----|----------|
+| **Chat** (sidebar **My Brain** + **Tunnels**) | Ongoing dialogue: you with your assistant; **you** with **another brain** via a tunnel (one rolling thread per peer, per archived OPP-110). | Conversation |
+| **Review** (single queue entry; see below) | **What leaves your tenant toward someone who was granted access**: pending drafts, approve/edit/decline, **already sent** for verification when you trust auto-send. | Inbox / outbox triage — **short stack**, not one nav item per person |
 
-1. **Header control: auto-send vs. approve-to-send**
-   - Per **inbound tunnel thread** (or per counterparty / global default — TBD): toggle such as **“Auto-send replies”** / **“Review before sending”**.
-   - When **off**, agent output stays **pending** until the host confirms (**Send to bridge**, **Approve**, or equivalent). Optional: **Edit** then send, if policy allows editing before egress (define what “edit” means vs. regenerating).
-   - Clear states in the transcript: **draft / pending approval / sent / failed** so the host can scan history.
+**Principle:** Do not require the host to **hunt** “which sidebar thread is asking for approval?” Scatter is for **Tunnels** (relationship lines you chose to open). **Requests of your brain** that need a **human gate** should aggregate into **one working queue** (with filters), analogous to the **brief / prioritized items** story in [IDEA-anticipatory-assistant-brief.md](../ideas/IDEA-anticipatory-assistant-brief.md) — *emotionally small*, badge-driven, deep-linkable.
 
-2. **Honest inbound layout**
-   - Visually distinguish **their question** vs **your brain’s proposed answer** vs **what actually crossed the tunnel** (after approval).
-   - If the composer is **operator input to the local agent** (steer the next reply), label it that way — do not pretend it is “the message they receive” unless it is literally a human-only egress path.
-   - If human-only messages to the peer are a **first-class** path, make that explicit (second button, mode switch, or separate strip) so it is never confused with wiki or My Brain side chat.
+### Navigation and hierarchy
 
-3. **Open design questions** (to resolve during implementation)
+- **One** primary entry for the answering workflow — e.g. **Pending**, **Review**, or **Requests** (copy-test against **Needs you** / **For you to send**). **Badge** = count of items requiring **human action** (approve, edit, or decline — not passive “unread chat”).
+- **Do not** list **one sidebar row per requesting peer** for this workflow. Optional **“Open full thread”** from a queue row can jump to **read-only or history** for that **relationship + turn**, without owning the main nav.
+- **Collapsible integration:** the same pending items may **surface** as rows on **empty chat** (brief strip) so landing in Chat still says “here is what needs you” without duplicating a second Gmail-scale inbox.
 
-   - **Single composer vs. split:** one field with mode toggle vs. **Draft preview** + **Notes to agent** + primary **Send approved reply**.
-   - **Editing agent text:** inline edit of the pending bubble vs. “Regenerate with instruction.”
-   - **Notification path when approvals are off:** badge on Inbound, optional desktop/OS notice — out of scope for this doc except “don’t strand pending replies.”
-   - **Defaults:** auto-send on for trusted ties vs. off for new tunnel relationships — product policy + [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md).
+### User flow (happy path + branches)
+
+**Triage (default)**
+
+1. User opens **Review** (or taps a brief line, e.g. *“@alex asked … — draft ready”*).
+2. **Dense list:** peer, **snippet** of their question, **state** (needs you / sent / couldn’t send), **time**. Sort: **action required first**.
+3. **Primary action** on a row: **Send** / **Approve & send** when the draft is acceptable.
+4. Secondary: **Edit & send**, **Decline** (or **can’t answer**), later **Snooze** if the notification model supports it.
+
+**Steer or rewrite (secondary)**
+
+1. Open row → **detail pane** (not “just another chat”).
+2. Show **three layers** clearly: **their question** (verbatim) · **your assistant’s proposed reply** · **what will cross** / **what crossed** the tunnel after approval.
+3. **Instructions to your agent** (regenerate, tone, constraints) live in a **labeled** control — never ambiguous with “message to peer.” **Inline edit** of pending egress vs **Regenerate** — product choice; both should make **what ships** obvious before confirm.
+
+**Trust / auto-send**
+
+- When **auto-send** is on for a grant, the queue still shows **Sent** (and optional **View**) so “trust but verify” stays **one tap**, not a Hub audit log.
+
+**Empty state**
+
+- Calm, **warm workstation** tone ([DESIGN.md](../../DESIGN.md)): nothing pending should feel like **completion**, not an empty chat thread.
+
+### Send control (policy + UI)
+
+- **Per grant / counterparty / global default (TBD):** **Auto-send after filter** vs **Review before sending** (plain-language labels in UI).
+- When review is required, agent output stays **pending** until the host **releases** it. States in data and UI: at least **draft / awaiting you / sent / failed** so history scans unambiguously.
+- **Defaults** (new grant vs trusted tie) are a **product + policy** decision; align with the **trust ladder** described in [IDEA-anticipatory-assistant-brief.md](../ideas/IDEA-anticipatory-assistant-brief.md).
+
+### Terminology (UI)
+
+| Avoid in user-facing copy | Prefer |
+|---------------------------|--------|
+| Inbound, outbound, egress | **Pending**, **Sent**, **What they’ll receive**, **Review before sending** |
+| Reverse tunnel | **Someone asked your assistant** (one line of context), or **Requests** |
+| *(Engineering)* | Keep **inbound** in code, logs, and architecture docs where precise |
+
+### Open implementation questions
+
+- **Queue ↔ thread:** single **notification / item** model vs mirroring chat rows — must **deep-link** into the detail view and **mark handled** without stranding users ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md#notification-inbox-and-human-in-the-loop-prerequisite-for-secure-brain-to-brain)).
+- **Composer layout:** single field with **mode** vs **Draft preview** + **Notes to agent** + primary **Send**.
+- **Human-only path** to peer, if first-class: explicit **second control** or mode — never confused with My Brain or wiki.
+- **Badges:** optional OS notification when **awaiting you**; in-app badge on **Review** is authoritative if push is off.
 
 ---
 
 ## Relationship to OPP-110
 
-**[OPP-110](OPP-110-chat-native-brain-to-brain.md)** is **archived** (2026-05-12); it defines tunnel threads, message storage, and trust boundaries. Implement this opportunity as a **focused second lap**: wiki capture on the asker side **and** **send gating + UI honesty** on the host side — without widening cross-brain trust or implying vault access the remote agent does not have.
+**[OPP-110](OPP-110-chat-native-brain-to-brain.md)** is **archived** (2026-05-12); it defines tunnel threads, message storage, and trust boundaries. Implement this opportunity as a **focused second lap**: wiki capture on the asker side **and**, on the host side, **a triage-first review queue + send gating + honest egress semantics** — without widening cross-brain trust or implying vault access the remote agent does not have.
