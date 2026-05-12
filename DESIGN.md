@@ -114,6 +114,8 @@ Yes—the app ships **light as default** in CSS (`:root`), then follows **`prefe
 
 The runtime source of truth remains `src/client/style.css`. This file documents the intended values and should be kept aligned with the `:root` variables and Tailwind v4 `@theme` aliases.
 
+**Tailwind v4 — custom spacing:** The YAML `spacing` block (xs … xl) is design intent, not something to mirror as `--spacing-xs`, `--spacing-lg`, etc. inside `@theme`. Those names **override Tailwind’s spacing scale** and collide with other utilities that reuse the same keys (for example `max-w-lg` may compile to a tiny pixel width instead of `32rem`). Keep spec spacing in **prefixed `:root` variables** (e.g. `--bt-space-lg`) and use them in component CSS or arbitrary values; reserve `@theme` for colors, radii, fonts, and other tokens that do not hijack Tailwind’s built‑in scales.
+
 - `rounded.sm` / `md` / `lg` map to `--radius-sm` / `--radius-md` / `--radius-lg` in **`@theme`** in `src/client/style.css` (Tailwind surfaces them on the root for utilities and plain `var(--radius-*)` use). Tailwind utilities (`rounded-sm`, etc.) compile to `border-radius: var(--radius-*)`.
 - `surface`, `surface-1`, `surface-2`, and `surface-3` map to the Tailwind utilities `bg-surface`, `bg-surface-1`, `bg-surface-2`, and `bg-surface-3`.
 - `surface-selected`: mix of **accent** into **`--bg-2`** (`--surface-selected` in CSS) → `bg-surface-selected`. Use on **lists whose parent rail is `surface-2`** (e.g. active chat row) where `accent-dim` would disappear into the rail. Keep `accent-dim` for mentions, dropdown hovers, and other soft washes off the rail.
@@ -166,6 +168,7 @@ Primary actions: `primary` fill with `on-primary`. Prefer shared `.bt-btn` varia
 
 - Do keep **one ember-accent story** across agent, wiki, and mail chrome (muted stone neutrals everywhere else).
 - Do use semantic Tailwind utilities from `@theme` before raw hex.
+- Do **not** define `--spacing-*` keys in `@theme` to match YAML spacing; use prefixed `:root` spacing variables (see **Tailwind v4 — custom spacing** above).
 - Do treat **dark mode as first-class** (system); light is the default ledger, not an afterthought.
 - Do not paste raw SVG icons; use Lucide per project guidance.
 - Do not add extra brand colors for ordinary states.
