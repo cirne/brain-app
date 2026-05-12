@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 053 -->
-**Next bug id:** **BUG-053**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 054 -->
+**Next bug id:** **BUG-054**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The table below mixes **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -33,6 +33,7 @@ User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039
 | BUG-046 | Wiki: unify shared reads into general **`GET /api/wiki/:path`** (**open**) | **Tracking.** Eliminate parallel **`shared-by-handle`** / **`shared/:ownerId`** read endpoints by resolving **`me/`** vs **`@handle/`** inside the existing catch-all reader with minimal diff; aliases/redirect optional. Tracks [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md). See [bugs/BUG-046-wiki-unify-general-read-route-for-shared-peer-paths.md](bugs/BUG-046-wiki-unify-general-read-route-for-shared-peer-paths.md). |
 | BUG-048 | Brain access: “Trusted” shows as “Other policy” (text snapshots) | **Open — model issue.** Per-grant **`privacy_policy`** text is **matched** to templates for UI buckets; snapshots can disagree across inbound/outbound or from the current template → wrong card. **Direction (archived epic):** [archived OPP-100](opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md) — **stub** [OPP-100](opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md). See [bugs/BUG-048-brain-access-policy-bucket-mismatch-text-snapshots.md](bugs/BUG-048-brain-access-policy-bucket-mismatch-text-snapshots.md). |
 | BUG-050 | Agent wiki reads: ENOENT during mail compose (travel context) | **Open.** Wiki tool reads returned **ENOENT** while drafting mail grounded in trip/travel pages — may overlap [BUG-043](bugs/archive/BUG-043-read-file-at-mention-wiki-path-enoent.md) (fixed) if paths or deploy were stale; verify. User feedback **#16**. See [bugs/BUG-050-agent-wiki-read-enoent-during-compose.md](bugs/BUG-050-agent-wiki-read-enoent-during-compose.md). |
+| BUG-053 | Hub SSE: **`GET /api/events`** 401 (`vaultGate`) when session should exist | **`EventSource`** to **`/api/events`** triggers **`auth_required`** in some environments (seen in Playwright / console). **`vaultGateMiddleware`** requires **`brain_session`**; hub client uses plain **`new EventSource('/api/events')`** — verify cookie on wire vs **`fetch`+SSE / `withCredentials`**. Cousin UX to archived [BUG-030](bugs/archive/BUG-030-inbox-open-email-401-agent-vs-panel-load.md). See [bugs/BUG-053-hub-events-sse-401-session-cookie-event-source.md](bugs/BUG-053-hub-events-sse-401-session-cookie-event-source.md). |
 
 ## Fixed (archived)
 

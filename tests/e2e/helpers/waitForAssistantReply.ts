@@ -20,6 +20,36 @@ export type WaitForAssistantReplyOptions = {
   assistantMessage?: Locator
 }
 
+/**
+ * Snapshot for stdout and `test.info().attach` when a reply does not contain the tools the spec expected
+ * (e.g. `draft_email` missing while `search_index` ran).
+ */
+export function formatAssistantReplyDiagnostics(
+  snapshot: AssistantReplySnapshot,
+  opts?: { assistantTextMaxChars?: number },
+): Record<string, unknown> {
+  const max = opts?.assistantTextMaxChars ?? 6000
+  const text = snapshot.assistantText
+  const truncated = text.length > max
+  return {
+    toolCount: snapshot.tools.length,
+    tools: snapshot.tools.map((t) => ({
+      name: t.name,
+      done: t.done,
+      error: t.error,
+      displayLabel: t.displayLabel,
+      ...(t.summary !== undefined ? { summary: t.summary } : {}),
+    })),
+    assistantTextChars: text.length,
+    assistantTextTruncated: truncated,
+    assistantText: truncated ? `${text.slice(0, max)}\n…(truncated, ${max} max chars)` : text,
+    draft_email_rows: snapshot.tools.filter((t) => t.name === 'draft_email'),
+    mail_discovery_tool_names: snapshot.tools
+      .map((t) => t.name)
+      .filter((n) => /search|mail|index|inbox|draft/i.test(n)),
+  }
+}
+
 async function readSummaryLine(toolRow: Locator): Promise<string | undefined> {
   const plain = toolRow.locator('.tool-summary-plain').first()
   if ((await plain.count()) > 0) {

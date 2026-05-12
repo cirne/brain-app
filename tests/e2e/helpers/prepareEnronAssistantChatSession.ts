@@ -23,7 +23,7 @@ export async function prepareEnronAssistantChatSession(
 ): Promise<{ sessionCookie: string }> {
   const { timeoutMs, logStep } = options
   const demoUser = options.demoUser ?? DEFAULT_ENRON_DEMO_PERSONA
-  const mintOpts = { demoUser }
+  const mintOpts = { demoUser, timeoutMs }
   const log = logStep ?? ((_msg: string, _extra?: unknown) => {})
 
   log('mint demo session cookie', { demoUser })

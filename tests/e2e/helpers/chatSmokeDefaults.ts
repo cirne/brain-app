@@ -6,6 +6,14 @@ export const CHAT_SMOKE_TIMEOUTS = {
   assistantAnswerTimeoutMs: 22_000,
 } as const
 
+/** Enron multi-tenant flows (grant directory, collaborator tools, multi-phase browser contexts). */
+export const ENRON_B2B_AGENT_TIMEOUTS = {
+  testTimeoutMs: 180_000,
+  uiTimeoutMs: 20_000,
+  chatPostTimeoutMs: 35_000,
+  assistantAnswerTimeoutMs: 75_000,
+} as const
+
 export function createStepLogger(prefix: string): {
   logStep(msg: string, extra?: unknown): void
   reset(): void
