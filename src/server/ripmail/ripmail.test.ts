@@ -151,6 +151,37 @@ describe('search', () => {
     expect(r.results[0]!.fromAddress).toContain('billing')
   })
 
+  it('rolling afterDate resolves from rollingAnchorDate (UTC-stable)', () => {
+    const prevTz = process.env.TZ
+    process.env.TZ = 'UTC'
+    try {
+      insertMessage(db, {
+        subject: 'Inside rolling window',
+        bodyText: 'x',
+        fromAddress: 'in@corp.com',
+        date: '2001-12-20T09:00:00Z',
+      })
+      insertMessage(db, {
+        subject: 'Outside rolling window',
+        bodyText: 'x',
+        fromAddress: 'out@corp.com',
+        date: '2001-06-01T09:00:00Z',
+      })
+      const anchor = new Date(Date.UTC(2002, 0, 1, 12, 0, 0))
+      const r = search(db, {
+        query: 'rolling',
+        afterDate: '30d',
+        rollingAnchorDate: anchor,
+        includeAll: true,
+      })
+      expect(r.results.some((m) => m.subject === 'Inside rolling window')).toBe(true)
+      expect(r.results.some((m) => m.subject === 'Outside rolling window')).toBe(false)
+    } finally {
+      if (prevTz === undefined) delete process.env.TZ
+      else process.env.TZ = prevTz
+    }
+  })
+
   it('normalizes messageId — no angle brackets in results', () => {
     const r = search(db, { query: 'Budget', includeAll: true })
     for (const res of r.results) {

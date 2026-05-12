@@ -21,6 +21,48 @@ export interface SendResult {
   message?: string
 }
 
+export function normalizeMessageIdForHeader(messageId: string): string {
+  const trimmed = messageId.trim()
+  if (!trimmed) return ''
+  const bare = trimmed.startsWith('<') && trimmed.endsWith('>') ? trimmed.slice(1, -1).trim() : trimmed
+  return bare ? `<${bare}>` : ''
+}
+
+export function buildReplyReferenceHeaders(draft: Pick<Draft, 'inReplyToMessageId'>): {
+  inReplyTo?: string
+  references?: string[]
+} {
+  const inReplyTo = draft.inReplyToMessageId ? normalizeMessageIdForHeader(draft.inReplyToMessageId) : ''
+  if (!inReplyTo) return {}
+  return {
+    inReplyTo,
+    references: [inReplyTo],
+  }
+}
+
+export function buildGmailRawMessage(params: {
+  from: string
+  to: string
+  subject: string
+  body: string
+  cc?: string
+  bcc?: string
+  inReplyToMessageId?: string
+}): string {
+  const lines = [`From: ${params.from}`, `To: ${params.to}`]
+  if (params.cc) lines.push(`Cc: ${params.cc}`)
+  if (params.bcc) lines.push(`Bcc: ${params.bcc}`)
+  lines.push(`Subject: ${params.subject}`)
+  if (params.inReplyToMessageId) {
+    const inReplyTo = normalizeMessageIdForHeader(params.inReplyToMessageId)
+    if (inReplyTo) {
+      lines.push(`In-Reply-To: ${inReplyTo}`)
+      lines.push(`References: ${inReplyTo}`)
+    }
+  }
+  return `${lines.join('\r\n')}\r\n\r\n${params.body}`
+}
+
 function loadDraft(ripmailHome: string, draftId: string): Draft | null {
   const p = join(ripmailHome, 'drafts', `${draftId}.json`)
   if (!existsSync(p)) return null
@@ -62,6 +104,7 @@ async function sendViaSmtp(
     auth: { user: smtpConfig.user, pass: smtpConfig.pass },
   })
 
+  const replyHeaders = buildReplyReferenceHeaders(draft)
   await transport.sendMail({
     from: smtpConfig.user,
     to: (draft.to ?? []).join(', '),
@@ -69,6 +112,8 @@ async function sendViaSmtp(
     bcc: (draft.bcc ?? []).join(', ') || undefined,
     subject: draft.subject,
     text: draft.body,
+    inReplyTo: replyHeaders.inReplyTo,
+    references: replyHeaders.references,
   })
 }
 
@@ -96,8 +141,19 @@ async function sendViaGmailApi(
   const gmail = google.gmail({ version: 'v1', auth: oauth2 })
 
   const to = (draft.to ?? []).join(', ')
+  const cc = (draft.cc ?? []).join(', ') || undefined
+  const bcc = (draft.bcc ?? []).join(', ') || undefined
+  const rawMessage = buildGmailRawMessage({
+    from: source.email ?? '',
+    to,
+    cc,
+    bcc,
+    subject: draft.subject,
+    body: draft.body,
+    inReplyToMessageId: draft.inReplyToMessageId,
+  })
   const raw = Buffer.from(
-    `From: ${source.email ?? ''}\r\nTo: ${to}\r\nSubject: ${draft.subject}\r\n\r\n${draft.body}`,
+    rawMessage,
   ).toString('base64url')
 
   await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })

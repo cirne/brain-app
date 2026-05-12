@@ -12,14 +12,14 @@ export interface FilterClause {
   params: unknown[]
 }
 
-/** Resolve a date string: rolling specs like '7d', '30d', '1y' → ISO date */
-export function resolveDate(spec: string): string {
+/** Resolve a date string: rolling specs like '7d', '30d', '1y' → ISO date (YYYY-MM-DD). */
+export function resolveDate(spec: string, anchor: Date = new Date()): string {
   const s = spec.trim()
   const m = s.match(/^(\d+)(d|w|m|y)$/)
   if (!m) return s
   const n = parseInt(m[1]!, 10)
   const unit = m[2]!
-  const now = new Date()
+  const now = new Date(anchor.getTime())
   switch (unit) {
     case 'd':
       now.setDate(now.getDate() - n)
@@ -48,6 +48,7 @@ function likePattern(s: string): string {
 export function buildMessageFilterClause(opts: SearchOptions): FilterClause {
   const conditions: string[] = []
   const params: unknown[] = []
+  const rollingAnchor = opts.rollingAnchorDate ?? new Date()
 
   const fromTrimmed = opts.from?.trim()
   const toTrimmed = opts.to?.trim()
@@ -82,14 +83,14 @@ export function buildMessageFilterClause(opts: SearchOptions): FilterClause {
 
   const afterTrimmed = opts.afterDate?.trim()
   if (afterTrimmed) {
-    const resolved = resolveDate(afterTrimmed)
+    const resolved = resolveDate(afterTrimmed, rollingAnchor)
     conditions.push(`m.date >= ?`)
     params.push(resolved)
   }
 
   const beforeTrimmed = opts.beforeDate?.trim()
   if (beforeTrimmed) {
-    const resolved = resolveDate(beforeTrimmed)
+    const resolved = resolveDate(beforeTrimmed, rollingAnchor)
     conditions.push(`m.date <= ?`)
     params.push(resolved)
   }

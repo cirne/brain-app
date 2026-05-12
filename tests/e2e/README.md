@@ -33,6 +33,8 @@ npm run test:e2e:playwright
 
 Uses `http://127.0.0.1:3000` unless you set `PLAYWRIGHT_BASE_URL`.
 
+By default Playwright runs with **8 workers** (`fullyParallel`). Override only via CLI, e.g. `npm run test:e2e:playwright -- --workers=2` (CI uses `--workers=1` against the shared dev server).
+
 Tests **skip** if `BRAIN_ENRON_DEMO_SECRET` is still missing after loading `.env`.
 
 ## CI

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveOnboardingSessionTimezone } from './agentFactory.js'
+import { ENRON_DEMO_TENANT_USER_ID_DEFAULT } from '@server/lib/auth/enronDemo.js'
+import { buildDateContext, resolveOnboardingSessionTimezone } from './agentFactory.js'
 
 describe('resolveOnboardingSessionTimezone', () => {
   it('uses trimmed client TZ for all variants when provided', () => {
@@ -23,5 +24,23 @@ describe('resolveOnboardingSessionTimezone', () => {
     })
     expect(resolveOnboardingSessionTimezone('interview')).toBe('Test/HostZone')
     spy.mockRestore()
+  })
+})
+
+describe('buildDateContext', () => {
+  it('pins calendar date and demo note for Enron demo tenant ids', () => {
+    const s = buildDateContext('America/Chicago', { tenantUserId: ENRON_DEMO_TENANT_USER_ID_DEFAULT })
+    expect(s).toContain('## Current date & time')
+    expect(s).toContain('2002-01-01')
+    expect(s).toContain('Tuesday')
+    expect(s).toMatch(/Demo \/ fixture workspace/)
+    expect(s).toMatch(/authoritative reference/i)
+  })
+
+  it('when tenant is explicitly omitted, does not claim Enron demo fixture (no demo paragraph)', () => {
+    const s = buildDateContext('UTC', { tenantUserId: null })
+    expect(s).toContain('## Current date & time')
+    expect(s).not.toContain('Demo / fixture workspace')
+    expect(s).not.toContain('2002-01-01')
   })
 })

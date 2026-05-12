@@ -3,7 +3,7 @@ import type { Agent } from '@mariozechner/pi-agent-core'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
-import { createOnboardingAgent, formatOnboardingPromptClock, resolveOnboardingSessionTimezone } from './agentFactory.js'
+import { buildDateContext, createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
 
 /**
  * First user turn for guided onboarding: embed a **fresh** `ripmail whoami` payload before
@@ -28,14 +28,12 @@ export function buildInterviewKickoffUserMessage(whoamiRaw: string, instructions
 }
 
 export function buildOnboardingInterviewSystemPrompt(timezone: string, ripmailWhoami: string): string {
-  const { todayYmd, localTime, tz } = formatOnboardingPromptClock(timezone || 'UTC')
+  const dateContext = buildDateContext(timezone || 'UTC')
   const who = parseWhoamiProfileSubject(ripmailWhoami)
   const name = who?.displayName ?? 'the account holder'
   const email = who?.primaryEmail ?? '(see whoami)'
   return renderPromptTemplate('onboarding-agent/system.hbs', {
-    todayYmd,
-    localTime,
-    tz,
+    dateContext: new Handlebars.SafeString(dateContext),
     name,
     email,
     ripmailWhoami: new Handlebars.SafeString(ripmailWhoami),

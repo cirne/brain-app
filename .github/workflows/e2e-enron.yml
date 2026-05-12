@@ -99,7 +99,7 @@ jobs:
           exit 1
 
       - name: npm run test:e2e:playwright
-        run: npm run test:e2e:playwright
+        run: npm run test:e2e:playwright -- --workers=1
         env:
           BRAIN_ENRON_DEMO_SECRET: ${{ env.BRAIN_ENRON_DEMO_CI_SECRET }}
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000

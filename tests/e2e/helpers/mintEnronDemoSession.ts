@@ -1,10 +1,12 @@
 import type { APIRequestContext } from '@playwright/test'
+import type { EnronDemoPersona } from './enronDemo'
+import { DEFAULT_ENRON_DEMO_PERSONA } from './enronDemo'
 
 const AUTH_HEADER = (secret: string) => ({ Authorization: `Bearer ${secret}` })
 
 export type MintEnronDemoSessionOptions = {
-  /** Registry key: kean | lay | skilling */
-  demoUser?: string
+  /** Which demo tenant to impersonate (`kean` default — Steve Kean). */
+  demoUser?: EnronDemoPersona
 }
 
 /**
@@ -17,7 +19,7 @@ export async function mintEnronDemoSession(
   secret: string,
   options?: MintEnronDemoSessionOptions,
 ): Promise<{ cookie: string }> {
-  const demoUser = options?.demoUser ?? 'kean'
+  const demoUser = options?.demoUser ?? DEFAULT_ENRON_DEMO_PERSONA
   const headers = {
     ...AUTH_HEADER(secret),
     'Content-Type': 'application/json',

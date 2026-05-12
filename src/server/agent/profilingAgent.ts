@@ -7,7 +7,12 @@ import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { loadRipmailConfig, getImapSources } from '@server/ripmail/sync/config.js'
 import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
-import { createOnboardingAgent, formatOnboardingPromptClock, resolveOnboardingSessionTimezone } from './agentFactory.js'
+import {
+  buildDateContext,
+  createOnboardingAgent,
+  formatOnboardingPromptClock,
+  resolveOnboardingSessionTimezone,
+} from './agentFactory.js'
 
 const MAX_WHOAMI_PROMPT_CHARS = 8000
 
@@ -100,7 +105,8 @@ export function buildProfilingSystemPrompt(
   whoamiSubject: WhoamiProfileSubject | null = parseWhoamiProfileSubject(ripmailWhoami),
   userPeoplePage: UserPeoplePageRef | null = null,
 ): string {
-  const { todayYmd, localTime, tz } = formatOnboardingPromptClock(timezone)
+  const dateContext = buildDateContext(timezone)
+  const { todayYmd } = formatOnboardingPromptClock(timezone)
   const name = whoamiSubject?.displayName ?? 'the account holder'
   const email = whoamiSubject?.primaryEmail ?? '(see whoami below)'
   const userPageNote = userPeoplePage
@@ -111,9 +117,8 @@ export function buildProfilingSystemPrompt(
     : `If identity is unclear, omit a people-page link.`
 
   return renderPromptTemplate('profiling/system.hbs', {
+    dateContext: new Handlebars.SafeString(dateContext),
     todayYmd,
-    localTime,
-    tz,
     name,
     email,
     ripmailWhoami: new Handlebars.SafeString(ripmailWhoami),

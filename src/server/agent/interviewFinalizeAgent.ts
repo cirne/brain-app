@@ -3,7 +3,7 @@ import { loadSession } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
-import { createFinalizeAgent } from './agentFactory.js'
+import { buildDateContext, createFinalizeAgent } from './agentFactory.js'
 import { collectAgentPromptMetrics } from '@server/evals/harness/collectAgentPromptMetrics.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 
@@ -45,20 +45,12 @@ export async function runInterviewFinalize(options: { sessionId: string; timezon
   const name = who?.displayName ?? 'the user'
   const email = who?.primaryEmail ?? ''
   const tz = timezone || 'UTC'
-  const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
-  const localTime = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date())
+  const dateContext = buildDateContext(tz)
 
   const systemPrompt = renderPromptTemplate('onboarding-agent/finalize.hbs', {
     name,
     email,
-    todayYmd,
-    localTime,
-    tz,
+    dateContext: new Handlebars.SafeString(dateContext),
     ripmailWhoami: new Handlebars.SafeString(ripmailWhoami),
     transcript: new Handlebars.SafeString(transcript),
   })

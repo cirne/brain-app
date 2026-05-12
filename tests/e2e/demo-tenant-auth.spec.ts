@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test'
-import { mintEnronDemoSession } from './helpers/mintEnronDemoSession'
-
-function enronDemoSecret(): string | undefined {
-  return process.env.BRAIN_ENRON_DEMO_SECRET?.trim()
-}
+import {
+  addBrainSessionCookieToContext,
+  ENRON_DEMO_PERSONAS,
+  getEnronDemoSecret,
+  mintEnronDemoSession,
+} from './helpers'
 
 test.describe('Enron demo tenant (Bearer mint)', () => {
   test.beforeEach(() => {
     test.skip(
-      !enronDemoSecret(),
+      !getEnronDemoSecret(),
       'Set BRAIN_ENRON_DEMO_SECRET in repo .env (loaded by playwright.config) or in the environment',
     )
   })
@@ -17,7 +18,7 @@ test.describe('Enron demo tenant (Bearer mint)', () => {
     request,
     baseURL,
   }) => {
-    const secret = enronDemoSecret()!
+    const secret = getEnronDemoSecret()!
     const { cookie } = await mintEnronDemoSession(request, baseURL!, secret)
     expect(cookie.length).toBeGreaterThan(8)
   })
@@ -27,14 +28,14 @@ test.describe('Enron demo tenant (Bearer mint)', () => {
     expect(res.ok()).toBeTruthy()
     const body = (await res.json()) as { ok?: boolean; users?: Array<{ key: string }> }
     expect(body.ok).toBe(true)
-    expect(body.users?.map(u => u.key).sort()).toEqual(['kean', 'lay', 'skilling'])
+    expect(body.users?.map(u => u.key).sort()).toEqual([...ENRON_DEMO_PERSONAS].sort())
   })
 
   test('GET /api/auth/demo/enron/seed-status is authorized with bearer', async ({
     request,
     baseURL,
   }) => {
-    const secret = enronDemoSecret()!
+    const secret = getEnronDemoSecret()!
     const res = await request.get(`${baseURL}/api/auth/demo/enron/seed-status?demoUser=kean`, {
       headers: { Authorization: `Bearer ${secret}` },
     })
@@ -46,22 +47,11 @@ test.describe('Enron demo tenant (Bearer mint)', () => {
   })
 
   test('browser context can attach brain_session and load app', async ({ browser, request, baseURL }) => {
-    const secret = enronDemoSecret()!
+    const secret = getEnronDemoSecret()!
     const { cookie } = await mintEnronDemoSession(request, baseURL!, secret)
 
     const context = await browser.newContext()
-    const host = new URL(baseURL!).hostname
-    await context.addCookies([
-      {
-        name: 'brain_session',
-        value: cookie,
-        domain: host,
-        path: '/',
-        httpOnly: true,
-        secure: false,
-        sameSite: 'Lax',
-      },
-    ])
+    await addBrainSessionCookieToContext(context, baseURL!, cookie)
     const page = await context.newPage()
     const nav = await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' })
     expect(nav?.ok()).toBeTruthy()

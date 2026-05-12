@@ -86,6 +86,16 @@ export function isEnronDemoRegisteredTenantId(tenantUserId: string): boolean {
 }
 
 /**
+ * “Today” instant for Enron demo tenants: assistant prompt clock and ripmail rolling filters (`180d`, …)
+ * resolve relative to this anchor so corpus dates stay reachable.
+ */
+export const ENRON_DEMO_CLOCK_ANCHOR_MS = Date.UTC(2002, 0, 1, 18, 0, 0)
+
+export function enronDemoClockAnchorDate(): Date {
+  return new Date(ENRON_DEMO_CLOCK_ANCHOR_MS)
+}
+
+/**
  * Legacy helper: effective tenant id when a single-tenant override is set, otherwise Kean's id.
  * Prefer resolving via {@link resolveEnronDemoUserByKey}.
  */

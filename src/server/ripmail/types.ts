@@ -23,6 +23,11 @@ export interface SearchOptions {
   subject?: string
   afterDate?: string
   beforeDate?: string
+  /**
+   * When set, rolling `after` / `before` values (`180d`, `1y`, …) resolve relative to this instant
+   * instead of wall clock (Enron demo tenants align searches with the corpus-era prompt clock).
+   */
+  rollingAnchorDate?: Date
   category?: string
   /** When true, from and to filters are combined with OR. */
   fromOrToUnion?: boolean

@@ -125,6 +125,45 @@ describe('ToolCallBlock.svelte', () => {
     })
   })
 
+  describe('automation hooks (data-tool-*)', () => {
+    it('sets data-tool-name, data-tool-done, data-tool-error when pending', () => {
+      const toolCall = makeToolCall({ name: 'web_search', done: false })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      const part = container.querySelector('.tool-part[data-tool-name="web_search"]')
+      expect(part).toBeTruthy()
+      expect(part).toHaveAttribute('data-tool-done', 'false')
+      expect(part).toHaveAttribute('data-tool-error', 'false')
+    })
+
+    it('sets data-tool-done true when completed', () => {
+      const toolCall = makeToolCall({
+        name: 'search_index',
+        args: { query: 'weekly' },
+        result: '{}',
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      const part = container.querySelector('.tool-part[data-tool-name="search_index"]')
+      expect(part).toBeTruthy()
+      expect(part).toHaveAttribute('data-tool-done', 'true')
+      expect(part).toHaveAttribute('data-tool-error', 'false')
+    })
+
+    it('sets data-tool-error when isError', () => {
+      const toolCall = makeToolCall({
+        name: 'web_search',
+        done: true,
+        isError: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      const part = container.querySelector('.tool-part[data-tool-name="web_search"]')
+      expect(part).toHaveAttribute('data-tool-error', 'true')
+    })
+  })
+
   describe('completed state (done)', () => {
     it('renders completed tool as compact row by default', () => {
       const toolCall = makeToolCall({

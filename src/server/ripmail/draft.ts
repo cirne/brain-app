@@ -11,6 +11,7 @@ import { ensureBraintunnelCollaboratorSubject } from '@shared/braintunnelMailMar
 import type { Draft } from './types.js'
 import type { RipmailDb } from './db.js'
 import { readMail } from './mailRead.js'
+import { getImapSources, loadRipmailConfig } from './sync/config.js'
 
 type DraftSourceAction = 'reply' | 'forward'
 
@@ -64,6 +65,8 @@ export interface ReplyDraftOptions {
   messageId: string
   body: string
   subject?: string
+  /** Defaults to true. Set false to reply to sender only. */
+  replyAll?: boolean
   braintunnelCollaborator?: boolean
   sourceId?: string
 }
@@ -89,6 +92,34 @@ export interface EditDraftOptions {
   removeTo?: string[]
   removeCc?: string[]
   removeBcc?: string[]
+}
+
+function normalizeAddress(addr: string): string {
+  return addr.trim().toLowerCase()
+}
+
+function addUniqueAddress(target: string[], seen: Set<string>, rawAddress: string): void {
+  const address = rawAddress.trim()
+  if (!address) return
+  const key = normalizeAddress(address)
+  if (!key || seen.has(key)) return
+  seen.add(key)
+  target.push(address)
+}
+
+function resolveMailboxOwnerAddress(
+  ripmailHome: string,
+  preferredSourceId?: string,
+  fallbackSourceId?: string,
+): string | undefined {
+  const sourceHint = preferredSourceId?.trim() || fallbackSourceId?.trim()
+  if (!sourceHint) return undefined
+  const config = loadRipmailConfig(ripmailHome)
+  const sources = getImapSources(config)
+  const source = sources.find((candidate) => candidate.id === sourceHint || candidate.email === sourceHint)
+  const email = source?.email?.trim()
+  if (email) return email
+  return sourceHint.includes('@') ? sourceHint : undefined
 }
 
 /**
@@ -128,11 +159,34 @@ export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftO
   const rawSubject = opts.subject ?? defaultSubject
   const subject =
     opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(rawSubject) : rawSubject
+  const replyAll = opts.replyAll !== false
+  const ownerAddress = normalizeAddress(
+    resolveMailboxOwnerAddress(ripmailHome, opts.sourceId, original.sourceId) ?? '',
+  )
+  const senderAddress = normalizeAddress(fromAddress)
+  const toRecipients: string[] = []
+  const toSeen = new Set<string>()
+  addUniqueAddress(toRecipients, toSeen, fromAddress)
+  const ccRecipients: string[] = []
+  const ccSeen = new Set<string>()
+  if (replyAll) {
+    for (const address of original.toAddresses) {
+      const key = normalizeAddress(address)
+      if (!key || key === senderAddress || key === ownerAddress) continue
+      addUniqueAddress(toRecipients, toSeen, address)
+    }
+    for (const address of original.ccAddresses) {
+      const key = normalizeAddress(address)
+      if (!key || key === senderAddress || key === ownerAddress || toSeen.has(key)) continue
+      addUniqueAddress(ccRecipients, ccSeen, address)
+    }
+  }
   const draft: Draft = {
     id: randomUUID(),
     subject,
     body: opts.body,
-    to: [fromAddress],
+    to: toRecipients,
+    ...(ccRecipients.length > 0 ? { cc: ccRecipients } : {}),
     inReplyToMessageId: original.messageId,
     sourceId: opts.sourceId,
     createdAt: now,

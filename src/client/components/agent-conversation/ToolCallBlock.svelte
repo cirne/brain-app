@@ -139,7 +139,12 @@
 {/snippet}
 
 {#if toolCall.done}
-  <div class="tool-part m-0 mt-1 mb-3 flex min-w-0 max-w-full flex-col gap-2.5">
+  <div
+    class="tool-part m-0 mt-1 mb-3 flex min-w-0 max-w-full flex-col gap-2.5"
+    data-tool-name={toolCall.name}
+    data-tool-done="true"
+    data-tool-error={toolCall.isError ? 'true' : 'false'}
+  >
     {#if displayMode === 'compact'}
       {#if drilldown && canOpenDrilldown}
         <button
@@ -217,7 +222,13 @@
     {/if}
   </div>
 {:else}
-  <div class="tool-part m-0 mt-1 mb-3 flex min-w-0 max-w-full flex-col gap-2.5" role="status">
+  <div
+    class="tool-part m-0 mt-1 mb-3 flex min-w-0 max-w-full flex-col gap-2.5"
+    role="status"
+    data-tool-name={toolCall.name}
+    data-tool-done="false"
+    data-tool-error={toolCall.isError ? 'true' : 'false'}
+  >
     <div class="tool-call tool-pending m-0 flex items-start gap-1.5 overflow-hidden p-0.5 px-1 text-[13px] opacity-90">
       {@render toolGlyph(false)}
       {#if pendingFromArgs?.mode === 'move'}

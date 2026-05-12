@@ -13,6 +13,79 @@ import {
 } from './agentToolSets.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import { ENRON_DEMO_CLOCK_ANCHOR_MS, isEnronDemoRegisteredTenantId } from '@server/lib/auth/enronDemo.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+
+export type PromptClockOptions = {
+  /** When set, overrides {@link tryGetTenantContext} for demo clock detection (tests). */
+  tenantUserId?: string | null
+}
+
+function gregorianWeekdayLongUtc(year: number, month: number, day: number): string {
+  const inst = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long' }).format(inst)
+}
+
+function formatPromptClockParts(
+  timezone: string,
+  instant: Date,
+  opts?: { forceLocalDateYmd?: string },
+): { localDate: string; localTime: string; localWeekday: string; utcOffset: string; tz: string } {
+  const tz = timezone || 'UTC'
+  const localDate =
+    opts?.forceLocalDateYmd ??
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(instant)
+  const localTime = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(instant)
+  const localWeekday = opts?.forceLocalDateYmd
+    ? gregorianWeekdayLongUtc(2002, 1, 1)
+    : new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(instant)
+  const gmtOffset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
+    .formatToParts(instant)
+    .find(p => p.type === 'timeZoneName')?.value ?? ''
+  const utcOffset = gmtOffset.replace('GMT', 'UTC')
+  return { localDate, localTime, localWeekday, utcOffset, tz }
+}
+
+function resolvePromptTenantUserId(options?: PromptClockOptions): string | undefined {
+  if (options?.tenantUserId !== undefined && options.tenantUserId !== null) {
+    return options.tenantUserId
+  }
+  if (options?.tenantUserId === null) {
+    return undefined
+  }
+  return tryGetTenantContext()?.tenantUserId
+}
+
+function isEnronDemoPromptClockTenant(tenantUserId: string | undefined): boolean {
+  if (!tenantUserId || tenantUserId === '_single') return false
+  return isEnronDemoRegisteredTenantId(tenantUserId)
+}
+
+function resolvePromptClock(
+  timezone: string,
+  options?: PromptClockOptions,
+): {
+  localDate: string
+  localTime: string
+  localWeekday: string
+  utcOffset: string
+  tz: string
+  enronDemo: boolean
+} {
+  const tz = timezone || 'UTC'
+  const tenantUserId = resolvePromptTenantUserId(options)
+  const enronDemo = isEnronDemoPromptClockTenant(tenantUserId)
+  const instant = enronDemo ? new Date(ENRON_DEMO_CLOCK_ANCHOR_MS) : new Date()
+  const parts = formatPromptClockParts(tz, instant, {
+    forceLocalDateYmd: enronDemo ? '2002-01-01' : undefined,
+  })
+  return { ...parts, enronDemo }
+}
 
 /**
  * Single place for onboarding **session IANA timezone**: system prompts and `createAgentTools` calendar enrichment.
@@ -31,17 +104,27 @@ export function resolveOnboardingSessionTimezone(
   return 'UTC'
 }
 
-export function buildDateContext(timezone: string): string {
-  const tz = timezone || 'UTC'
-  const now = new Date()
-  const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)
-  const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(now)
-  const localWeekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now)
-  const gmtOffset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
-    .formatToParts(now)
-    .find(p => p.type === 'timeZoneName')?.value ?? ''
-  const utcOffset = gmtOffset.replace('GMT', 'UTC')
-  return `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). When resolving dates or times for tools, always use this current date and the ${tz} timezone as the reference point.`
+/**
+ * Authoritative “today” block for **every** agent system prompt that needs a calendar anchor.
+ * Enron demo tenants pin the displayed calendar date to **2002-01-01** so it matches the corpus
+ * (see {@link isEnronDemoRegisteredTenantId}); otherwise uses wall-clock time.
+ */
+export function buildDateContext(timezone: string, options?: PromptClockOptions): string {
+  const { localDate, localTime, localWeekday, utcOffset, tz, enronDemo } = resolvePromptClock(timezone, options)
+
+  const core = [
+    '## Current date & time',
+    '',
+    `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this as the **authoritative reference** when resolving relative dates ("tomorrow", "next week"), rolling mail filters (\`7d\`, \`90d\`, …), and similar tool arguments. Calendar events are stored in UTC — convert using ${utcOffset} for ${tz}.`,
+  ].join('\n')
+
+  if (!enronDemo) return core
+
+  return (
+    core +
+    '\n\n' +
+    '**Demo / fixture workspace:** Treat the calendar line above as **real “today”** for this session — **even if** your training data implies a different year. Indexed mail is historical Enron corpus fixtures; wall-clock time outside this workspace does not apply.'
+  )
 }
 
 export function requireStandardBrainLlm(): Model<Api> {
@@ -55,17 +138,13 @@ export function requireStandardBrainLlm(): Model<Api> {
   return model
 }
 
-export function formatOnboardingPromptClock(timezone: string): { todayYmd: string; localTime: string; tz: string } {
-  const tz = timezone || 'UTC'
-  const now = new Date()
-  const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)
-  const localTime = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(now)
-  return { todayYmd, localTime, tz }
+/** YAML snippets and compact clocks — must stay aligned with {@link buildDateContext}. */
+export function formatOnboardingPromptClock(
+  timezone: string,
+  options?: PromptClockOptions,
+): { todayYmd: string; localTime: string; tz: string } {
+  const { localDate, localTime, tz } = resolvePromptClock(timezone, options)
+  return { todayYmd: localDate, localTime, tz }
 }
 
 export type CreateOnboardingAgentOptions = {

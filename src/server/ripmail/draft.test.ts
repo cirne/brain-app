@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeRipmailDb, openMemoryRipmailDb, type RipmailDb } from './db.js'
@@ -29,6 +29,9 @@ describe('ripmail draft reply/forward source validation', () => {
     messageId: string
     fromAddress?: string
     subject?: string
+    toAddresses?: string[]
+    ccAddresses?: string[]
+    sourceId?: string
   }) {
     db.prepare(
       `INSERT INTO messages (
@@ -37,19 +40,35 @@ describe('ripmail draft reply/forward source validation', () => {
         folder,
         uid,
         from_address,
+        to_addresses,
+        cc_addresses,
         subject,
         date,
-        raw_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        raw_path,
+        source_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       opts.messageId,
       `${opts.messageId}-thread`,
       'INBOX',
       1,
       opts.fromAddress ?? 'alice@example.com',
+      JSON.stringify(opts.toAddresses ?? []),
+      JSON.stringify(opts.ccAddresses ?? []),
       opts.subject ?? 'Hello',
       '2026-05-11T12:00:00.000Z',
       `/tmp/${opts.messageId}.eml`,
+      opts.sourceId ?? '',
+    )
+  }
+
+  function seedMailboxSource(opts: { sourceId: string; email: string }) {
+    writeFileSync(
+      join(ripmailHome, 'config.json'),
+      JSON.stringify({
+        sources: [{ id: opts.sourceId, kind: 'imap', email: opts.email }],
+      }),
+      'utf8',
     )
   }
 
@@ -114,5 +133,48 @@ describe('ripmail draft reply/forward source validation', () => {
       to: ['charlie@example.com'],
       forwardMessageId: 'msg-2',
     })
+  })
+
+  it('defaults replies to reply-all recipients while excluding sender duplicates and my mailbox', () => {
+    seedMailboxSource({ sourceId: 'work-mailbox', email: 'me@example.com' })
+    insertMessage({
+      messageId: '<msg-3>',
+      fromAddress: 'alice@example.com',
+      toAddresses: ['me@example.com', 'bob@example.com'],
+      ccAddresses: ['carol@example.com', 'alice@example.com', 'me@example.com'],
+      subject: 'Team update',
+      sourceId: 'work-mailbox',
+    })
+
+    const draft = draftReply(db, ripmailHome, {
+      messageId: 'msg-3',
+      body: 'Thanks all.',
+    })
+
+    expect(draft).toMatchObject({
+      to: ['alice@example.com', 'bob@example.com'],
+      cc: ['carol@example.com'],
+    })
+  })
+
+  it('supports sender-only replies when replyAll=false', () => {
+    seedMailboxSource({ sourceId: 'work-mailbox', email: 'me@example.com' })
+    insertMessage({
+      messageId: '<msg-4>',
+      fromAddress: 'alice@example.com',
+      toAddresses: ['me@example.com', 'bob@example.com'],
+      ccAddresses: ['carol@example.com'],
+      subject: 'Question',
+      sourceId: 'work-mailbox',
+    })
+
+    const draft = draftReply(db, ripmailHome, {
+      messageId: 'msg-4',
+      body: 'Thanks.',
+      replyAll: false,
+    })
+
+    expect(draft.to).toEqual(['alice@example.com'])
+    expect(draft.cc).toBeUndefined()
   })
 })

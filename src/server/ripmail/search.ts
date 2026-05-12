@@ -22,10 +22,14 @@ function dateRecencyBoost(daysAgo: number): number {
   return 0.6 - (d - 90) * 0.001
 }
 
-function combinedRank(isoDate: string, base: number): number {
+function rankReferenceMs(opts: SearchOptions): number {
+  return opts.rollingAnchorDate?.getTime() ?? Date.now()
+}
+
+function combinedRank(isoDate: string, base: number, referenceMs: number): number {
   const ms = Date.parse(isoDate.replace(' ', 'T'))
   if (isNaN(ms)) return base
-  const daysAgo = (Date.now() - ms) / 86_400_000
+  const daysAgo = (referenceMs - ms) / 86_400_000
   return base - dateRecencyBoost(daysAgo)
 }
 
@@ -70,7 +74,7 @@ function filterOnlySearch(db: RipmailDb, opts: SearchOptions): { rows: RankedRow
 
   const rows: RankedRow[] = rawRows.map((r) => {
     const date = String(r['date'] ?? '')
-    const rank = combinedRank(date, 0)
+    const rank = combinedRank(date, 0, rankReferenceMs(opts))
     return {
       messageId: normalizeMessageId(String(r['message_id'] ?? '')),
       threadId: normalizeMessageId(String(r['thread_id'] ?? '')),
@@ -134,7 +138,7 @@ function regexSearchMail(
       snippet: snip,
       bodyPreview: bodyPreview(body),
       rank: 0,
-      _rank: combinedRank(date, 0),
+      _rank: combinedRank(date, 0, rankReferenceMs(opts)),
     })
   }
   matched.sort((a, b) => a._rank - b._rank || b.date.localeCompare(a.date))
@@ -194,7 +198,7 @@ function regexSearchFiles(
       bodyPreview: bodyPreview(body),
       indexedRelPath: relPath,
       rank: 0,
-      _rank: combinedRank(date, 0),
+      _rank: combinedRank(date, 0, rankReferenceMs(opts)),
     })
   }
   return matched
@@ -239,7 +243,7 @@ function regexSearchGoogleDrive(
       snippet: snippetForMatch(hay, m.index, m[0].length),
       bodyPreview: bodyPreview(body),
       rank: 0,
-      _rank: combinedRank(date, 0),
+      _rank: combinedRank(date, 0, rankReferenceMs(opts)),
     })
   }
   return matched

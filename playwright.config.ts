@@ -15,6 +15,9 @@ loadRepoDotenv(dirname(fileURLToPath(import.meta.url)))
  * - Repo `.env` with non-empty `BRAIN_ENRON_DEMO_SECRET` (merged here automatically for Playwright; server loads `.env` on startup too). CI passes the secret via env instead.
  *
  * Optional: `PLAYWRIGHT_BASE_URL` if not using `http://127.0.0.1:3000`.
+ *
+ * Parallelism: default **8** workers (`fullyParallel` is on). Override anytime with CLI only, e.g.
+ * `npx playwright test --workers=4` — do not use env vars for worker count.
  */
 const baseURL = process.env.PLAYWRIGHT_BASE_URL?.trim() || 'http://127.0.0.1:3000'
 
@@ -23,7 +26,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 8,
   reporter: process.env.CI ? 'github' : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL,

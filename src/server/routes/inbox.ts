@@ -266,8 +266,16 @@ inbox.post('/:id/reply', async (c) => {
     return c.json({ error: 'body must be a non-empty string' }, 400)
   }
   let subjectArg: string | undefined
+  let replyAllArg: boolean
   try {
     subjectArg = optionalSubject(rec.subject)
+    if (rec.replyAll !== undefined && typeof rec.replyAll !== 'boolean') {
+      return c.json({ error: 'replyAll must be a boolean' }, 400)
+    }
+    if (rec.reply_all !== undefined && typeof rec.reply_all !== 'boolean') {
+      return c.json({ error: 'reply_all must be a boolean' }, 400)
+    }
+    replyAllArg = (rec.replyAll as boolean | undefined) ?? (rec.reply_all as boolean | undefined) ?? true
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 400)
   }
@@ -276,6 +284,7 @@ inbox.post('/:id/reply', async (c) => {
       messageId: id,
       body: rec.body.trim(),
       subject: subjectArg,
+      replyAll: replyAllArg,
     })
     return c.json(draft)
   } catch (err) {

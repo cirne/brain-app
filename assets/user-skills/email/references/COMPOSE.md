@@ -31,10 +31,11 @@ Prefer knowing **which `messageId`** applies before **`draft_email`** with `acti
 ## Phase 2 — **`draft_email`**
 
 - **`action=new`** — requires **`to`**, **`subject`**, and **`body`** (final outbound text; there is no server-side compose step).
-- **`action=reply`** — requires **`message_id`** and **`body`**; **`subject`** optional (defaults to `Re:` the threaded subject).
+- **`action=reply`** — requires **`message_id`** and **`body`**; **`subject`** optional (defaults to `Re:` the threaded subject). Default behavior is reply-all recipients from the source message; set `reply_all: false` when the user explicitly wants sender-only.
 - **`action=forward`** — requires **`message_id`**, **`to`**, and **`body`**; **`subject`** optional (defaults to `Fwd:` the threaded subject).
 - For reply/forward, **`message_id`** must be the exact **`messageId`** from **`list_inbox`**, **`search_index`**, or **`read_mail_message`**. If you are unsure which message the user means, re-search or read it first; drafts fail when the source message is not indexed.
 - **`from`** — optional; when multiple mailboxes exist, pass the sender email or ripmail **source id** the user names (e.g. “from work”).
+- If the user names a person but not an address, run **`find_person`** first and use the best matched email from contacts/wiki context rather than guessing.
 - **`b2b_query: true`** — Braintunnel collaborator mail; the server normalizes **`subject`** so the `[braintunnel]` marker appears after any `Re:` / `Fwd:` chain. **`grant_id`** is opaque routing context — do not put it in **`body`** unless the user asks.
 
 Do not repeat the generated body in your next turn; the UI already shows it.

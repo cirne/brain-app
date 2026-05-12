@@ -489,7 +489,20 @@ describe('POST /api/inbox/:id/reply', () => {
     expect(await res.json()).toMatchObject({ id: 'draft-2' })
     expect(ripmailDraftReplyMock).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ messageId: 'msg-1', body: 'Thank them' }),
+      expect.objectContaining({ messageId: 'msg-1', body: 'Thank them', replyAll: true }),
+    )
+  })
+
+  it('supports sender-only override via reply_all=false', async () => {
+    const res = await app.request('/api/inbox/msg-1/reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Thank them', reply_all: false }),
+    })
+    expect(res.status).toBe(200)
+    expect(ripmailDraftReplyMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ messageId: 'msg-1', body: 'Thank them', replyAll: false }),
     )
   })
 
@@ -508,6 +521,16 @@ describe('POST /api/inbox/:id/reply', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subject: 'x' }),
+    })
+    expect(res.status).toBe(400)
+    expect(ripmailDraftReplyMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when reply_all is not a boolean', async () => {
+    const res = await app.request('/api/inbox/msg-1/reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Thank them', reply_all: 'yes' }),
     })
     expect(res.status).toBe(400)
     expect(ripmailDraftReplyMock).not.toHaveBeenCalled()

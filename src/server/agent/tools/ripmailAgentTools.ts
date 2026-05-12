@@ -10,6 +10,7 @@ import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { notifyAskerBrainQueryReplySent } from '@server/lib/brainQuery/brainQueryReplySentNotify.js'
 import { syncInboxRipmailBounded } from '@server/lib/platform/syncAll.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { enronDemoClockAnchorDate, isEnronDemoRegisteredTenantId } from '@server/lib/auth/enronDemo.js'
 import {
   ripmailSearch,
   ripmailReadMail,
@@ -64,6 +65,14 @@ const execAsync = promisify(exec)
 const READ_MAIL_BODY_MAX_CHARS = 5000
 const DEFAULT_REFRESH_SOURCES_MAX_WAIT_MS = 10_000
 const REFRESH_SOURCES_INBOX_SINCE = '24h'
+
+/** Enron demo tenants: rolling `after`/`before` bounds align with {@link enronDemoClockAnchorDate}. */
+function ripmailSearchRollingAnchorDate(): Date | undefined {
+  const tid = tryGetTenantContext()?.tenantUserId
+  if (!tid || tid === '_single') return undefined
+  if (!isEnronDemoRegisteredTenantId(tid)) return undefined
+  return enronDemoClockAnchorDate()
+}
 
 function visualArtifactModelHint(visualArtifacts: Array<{ label?: unknown; readStatus?: unknown }> | undefined): string {
   if (!visualArtifacts?.length) return ''
@@ -312,7 +321,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'search_index',
     label: 'Search index',
     description:
-      'Search all ripmail-indexed content — **email, documents, and connected sources** (Google Drive, and any other sources the user has connected). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates. **Adaptive resolution:** results are field-reduced when counts are large — ≤5 results: full (includes snippet); 6–15: compact (snippet omitted); >15: minimal (snippet + fromName omitted) — read the `[resolution: …]` annotation and narrow filters if you need more detail. **`source` discipline:** Prefer **omit** `source` so all default-search connectors run. If set, pass only a **configured ripmail source id** (from system prompt **Configured ripmail sources** or **`manage_sources` op=list**) or a mailbox **email** — never a Drive folder name, vendor name, or project nickname (those go in **`pattern`**, not `source`).',
+      'Search all ripmail-indexed content — **email, documents, and connected sources** (Google Drive, and any other sources the user has connected). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after`/`before` specs (`180d`, `1y`, …) resolve from the workspace **current-date** anchor (Enron demo/fixture tenants use the corpus-era anchor that matches the system prompt clock). Otherwise exclude archive mail from past years unless you use ISO date bounds or omit dates. **Adaptive resolution:** results are field-reduced when counts are large — ≤5 results: full (includes snippet); 6–15: compact (snippet omitted); >15: minimal (snippet + fromName omitted) — read the `[resolution: …]` annotation and narrow filters if you need more detail. **`source` discipline:** Prefer **omit** `source` so all default-search connectors run. If set, pass only a **configured ripmail source id** (from system prompt **Configured ripmail sources** or **`manage_sources` op=list**) or a mailbox **email** — never a Drive folder name, vendor name, or project nickname (those go in **`pattern`**, not `source`).',
     parameters: Type.Object({
       pattern: Type.Optional(
         Type.String({
@@ -406,6 +415,7 @@ export function createRipmailAgentTools(wikiDir: string) {
         sourceIds: resolved?.trim() ? [resolved.trim()] : undefined,
         limit: 20,
         includeAll: false,
+        rollingAnchorDate: ripmailSearchRollingAnchorDate(),
       })
 
       let searchResult = await ripmailSearch(ripmailHomeForBrain(), buildSearchOpts(working))
@@ -1056,7 +1066,7 @@ export function createRipmailAgentTools(wikiDir: string) {
   const draftEmail = defineTool({
     name: 'draft_email',
     description:
-      'Create an email draft for **regular mailbox mail**. action=new composes a fresh email (requires **to**, **subject**, and **body**). action=reply drafts a reply (requires **message_id** and **body**; subject defaults to Re: original unless you pass **subject**). action=forward forwards an existing message (requires **message_id**, **to**, and **body**). For reply/forward, **message_id** must be the exact `messageId` from `list_inbox`, `search_index`, or `read_mail_message`; the tool fails if the message is not in the index, so re-search instead of guessing. **body** must be the final message text users will read — there is no separate server compose step. If the user **@mentions** a collaborator and wants the **Ask Brain** path, use **ask_collaborator** when that tool is available. When the workspace has more than one Gmail account, optional **from** picks the send mailbox. For **Braintunnel collaborator** email set **b2b_query: true** so the subject line is normalized to include the `[braintunnel]` marker (after any Re:/Fwd:); you still choose the substantive subject text. **grant_id** (`bqg_…`) is assistant-only validation context — never put it in **body** unless the user asks. Returns draft id, recipients, and subject; **do not repeat the full body in chat** unless the user asks.',
+      'Create an email draft for **regular mailbox mail**. action=new composes a fresh email (requires **to**, **subject**, and **body**). action=reply drafts a reply (requires **message_id** and **body**; subject defaults to Re: original unless you pass **subject**). action=forward forwards an existing message (requires **message_id**, **to**, and **body**). For reply/forward, **message_id** must be the exact `messageId` from `list_inbox`, `search_index`, or `read_mail_message`; the tool fails if the message is not in the index, so re-search instead of guessing. Replies default to **reply-all** recipients from the source message (sender + relevant To/Cc, excluding your mailbox and duplicates); pass **reply_all: false** to force sender-only. For action=new/forward, if you are unsure about an address from a person name, use **find_person** (`ripmail who`) before drafting instead of guessing. **body** must be the final message text users will read — there is no separate server compose step. If the user **@mentions** a collaborator and wants the **Ask Brain** path, use **ask_collaborator** when that tool is available. When the workspace has more than one Gmail account, optional **from** picks the send mailbox. For **Braintunnel collaborator** email set **b2b_query: true** so the subject line is normalized to include the `[braintunnel]` marker (after any Re:/Fwd:); you still choose the substantive subject text. **grant_id** (`bqg_…`) is assistant-only validation context — never put it in **body** unless the user asks. Returns draft id, recipients, and subject; **do not repeat the full body in chat** unless the user asks.',
     label: 'Draft Email',
     parameters: Type.Object({
       action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
@@ -1072,6 +1082,12 @@ export function createRipmailAgentTools(wikiDir: string) {
         Type.String({
           description:
             'Exact email messageId from list_inbox, search_index, or read_mail_message — required for reply and forward.',
+        }),
+      ),
+      reply_all: Type.Optional(
+        Type.Boolean({
+          description:
+            'action=reply only. Defaults to true (reply-all). Set false to reply only to the original sender.',
         }),
       ),
       from: Type.Optional(
@@ -1100,6 +1116,7 @@ export function createRipmailAgentTools(wikiDir: string) {
         subject?: string
         to?: string
         message_id?: string
+        reply_all?: boolean
         from?: string
         b2b_query?: boolean
         grant_id?: string
@@ -1129,6 +1146,7 @@ export function createRipmailAgentTools(wikiDir: string) {
           messageId,
           body: params.body,
           subject: params.subject?.trim(),
+          replyAll: params.reply_all !== false,
           sourceId: resolvedFrom ?? undefined,
           braintunnelCollaborator: b2b,
         })
