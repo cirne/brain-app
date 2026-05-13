@@ -184,6 +184,8 @@
     coldTunnelInlineOpen = false,
     onColdTunnelInlineDismiss = undefined as (() => void) | undefined,
     onColdTunnelSubmitted = undefined as ((_sessionId: string) => void | Promise<void>) | undefined,
+    /** Main shell: first-run onboarding-agent chat shows a wiki welcome banner during initial bootstrap stream. */
+    onboardingBootstrapAgent = false,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -254,6 +256,7 @@
     coldTunnelInlineOpen?: boolean
     onColdTunnelInlineDismiss?: () => void
     onColdTunnelSubmitted?: (_sessionId: string) => void | Promise<void>
+    onboardingBootstrapAgent?: boolean
   } = $props()
 
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
@@ -429,6 +432,22 @@
     const id = displayedSessionId
     if (!id) return false
     return sessions.get(id)?.streaming ?? false
+  })
+
+  /** True while an `initialBootstrapKickoff` send is in flight (cleared in `send` finally). */
+  let bootstrapWelcomeActive = $state(false)
+
+  const showBootstrapWelcomeBanner = $derived(
+    ConversationView === AgentConversation &&
+      onboardingBootstrapAgent &&
+      bootstrapWelcomeActive &&
+      streaming,
+  )
+
+  $effect(() => {
+    if (!onboardingBootstrapAgent && bootstrapWelcomeActive) {
+      bootstrapWelcomeActive = false
+    }
   })
 
   let emptyChatNotificationsPayload = $state<EmptyChatNotificationsProps | null>(null)
@@ -826,6 +845,9 @@
       streaming: true,
       abortController: ac,
     })
+    if (initialBootstrapKickoff && onboardingBootstrapAgent) {
+      bootstrapWelcomeActive = true
+    }
     notifyStreamingSessionsChanged()
     await tick()
     conversationEl?.scrollToBottom()
@@ -943,6 +965,9 @@
         }
       }
     } finally {
+      if (initialBootstrapKickoff) {
+        bootstrapWelcomeActive = false
+      }
       sessions = touchSessionImmutable(sessions, activeKey, { abortController: null, streaming: false })
       notifyStreamingSessionsChanged()
       conversationEl?.scrollToBottom()
@@ -1565,6 +1590,7 @@
                   {messages}
                   {streaming}
                   toolDisplayMode={toolDisplayMode}
+                  bootstrapWelcomeBanner={showBootstrapWelcomeBanner}
                   {onOpenWiki}
                   {onOpenFile}
                   {onOpenIndexedFile}
@@ -1600,6 +1626,7 @@
                 {messages}
                 {streaming}
                 toolDisplayMode={toolDisplayMode}
+                bootstrapWelcomeBanner={showBootstrapWelcomeBanner}
                 {onOpenWiki}
                 {onOpenFile}
                 {onOpenIndexedFile}
@@ -1634,6 +1661,7 @@
                 {messages}
                 {streaming}
                 toolDisplayMode={toolDisplayMode}
+                bootstrapWelcomeBanner={showBootstrapWelcomeBanner}
                 {onOpenWiki}
                 {onOpenFile}
                 {onOpenIndexedFile}
@@ -1669,6 +1697,7 @@
               {messages}
               {streaming}
               toolDisplayMode={toolDisplayMode}
+              bootstrapWelcomeBanner={showBootstrapWelcomeBanner}
               {onOpenWiki}
               {onOpenFile}
               {onOpenIndexedFile}

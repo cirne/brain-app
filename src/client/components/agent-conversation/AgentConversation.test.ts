@@ -588,14 +588,56 @@ describe('AgentConversation.svelte', () => {
       expect(screen.getByTestId('chat-message-row')).toHaveAttribute('data-tool-display-mode', 'detailed')
     })
 
-    it('defaults toolDisplayMode to compact on rows', () => {
+    it('defaults toolDisplayMode to focused on rows', () => {
       render(AgentConversation, {
         props: {
           messages: [createAssistantMessage('Hi')],
           streaming: false,
         },
       })
-      expect(screen.getByTestId('chat-message-row')).toHaveAttribute('data-tool-display-mode', 'compact')
+      expect(screen.getByTestId('chat-message-row')).toHaveAttribute('data-tool-display-mode', 'focused')
+    })
+  })
+
+  describe('initial bootstrap welcome banner', () => {
+    it('renders welcome copy when streaming with bootstrapWelcomeBanner true', () => {
+      render(AgentConversation, {
+        props: {
+          messages: [createAssistantMessage('')],
+          streaming: true,
+          bootstrapWelcomeBanner: true,
+        },
+      })
+
+      const banner = screen.getByTestId('initial-bootstrap-welcome')
+      expect(banner).toBeInTheDocument()
+      expect(banner).toHaveTextContent('Your second brain is taking shape.')
+      expect(banner).toHaveTextContent('personal wiki')
+      expect(banner).toHaveTextContent('most recent messages')
+    })
+
+    it('hides the banner when not streaming', () => {
+      render(AgentConversation, {
+        props: {
+          messages: [createAssistantMessage('Hi')],
+          streaming: false,
+          bootstrapWelcomeBanner: true,
+        },
+      })
+
+      expect(screen.queryByTestId('initial-bootstrap-welcome')).not.toBeInTheDocument()
+    })
+
+    it('hides the banner when bootstrapWelcomeBanner is false', () => {
+      render(AgentConversation, {
+        props: {
+          messages: [createAssistantMessage('Hi')],
+          streaming: true,
+          bootstrapWelcomeBanner: false,
+        },
+      })
+
+      expect(screen.queryByTestId('initial-bootstrap-welcome')).not.toBeInTheDocument()
     })
   })
 })

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DEDICATED_ONBOARDING_STATES,
   needsDedicatedOnboardingSurface,
+  shouldAutoKickInitialBootstrap,
 } from './onboardingShellPolicy.js'
 
 describe('onboardingShellPolicy', () => {
@@ -16,5 +17,10 @@ describe('onboardingShellPolicy', () => {
     expect(needsDedicatedOnboardingSurface('onboarding-agent')).toBe(false)
     expect(needsDedicatedOnboardingSurface('done')).toBe(false)
     expect(needsDedicatedOnboardingSurface('unknown')).toBe(false)
+  })
+
+  it('auto initial-bootstrap kickoff only before server binds bootstrap session id', () => {
+    expect(shouldAutoKickInitialBootstrap(null)).toBe(true)
+    expect(shouldAutoKickInitialBootstrap('550e8400-e29b-41d4-a716-446655440000')).toBe(false)
   })
 })

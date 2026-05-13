@@ -10,7 +10,11 @@
   import DesktopAppUpdate from '@components/desktop/DesktopAppUpdate.svelte'
   import OnboardingFirstRunPanel from '@components/onboarding/OnboardingFirstRunPanel.svelte'
   import { needsDedicatedOnboardingSurface } from '@client/lib/onboarding/onboardingShellPolicy.js'
-  import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
+  import {
+    clearOriginStorageDevReset,
+    DEV_CLIENT_RESET_QUERY_PARAM,
+    DEV_CLIENT_RESET_QUERY_VALUE,
+  } from '@client/lib/brainClientStorage.js'
   import { connectionStatus } from '@client/lib/connectionStatus.js'
   import ConnectionLostOverlay from '@components/ConnectionLostOverlay.svelte'
 
@@ -19,6 +23,8 @@
   let replayOnboardingDevLock = false
   /** DEV: client `/reset` once; avoids double `POST /reset` if `$effect` re-runs. */
   let devSoftResetLock = false
+  /** DEV: GET `/reset` → `/c?devClientReset=1` clears storage once; avoid repeat on re-navigation. */
+  let devClientResetFromQueryDone = false
   let appReady = $state(false)
   let onboardingStatus = $state<{ state: string } | null>(null)
   let vaultStatus = $state<(VaultStatus & { checked: boolean }) | null>(null)
@@ -65,6 +71,21 @@
 
   const showEnronDemoPage = $derived(route.flow === 'enron-demo')
 
+  /** After server GET `/reset` redirect: full origin storage wipe, then clean `/c` URL. */
+  $effect(() => {
+    if (!appReady || !import.meta.env.DEV) return
+    if (typeof location === 'undefined') return
+    if (devClientResetFromQueryDone) return
+    const q = new URLSearchParams(location.search)
+    if (q.get(DEV_CLIENT_RESET_QUERY_PARAM) !== DEV_CLIENT_RESET_QUERY_VALUE) return
+    devClientResetFromQueryDone = true
+    clearOriginStorageDevReset()
+    q.delete(DEV_CLIENT_RESET_QUERY_PARAM)
+    const tail = q.toString()
+    history.replaceState(null, '', tail ? `${location.pathname}?${tail}` : location.pathname)
+    route = parseRoute()
+  })
+
   /**
    * `/reset` in the SPA (client navigation) must call `POST /reset` — unlike a full reload, the server
    * handler never runs. Then land on `/c` so `onboarding-agent` initial bootstrap can open the first chat.
@@ -83,10 +104,10 @@
       try {
         await fetch('/api/dev/soft-reset', { method: 'POST', credentials: 'include' })
         await refreshVaultAndOnboardingStatus()
-        clearBrainClientStorage()
+        clearOriginStorageDevReset()
         window.location.assign('/c')
       } catch {
-        clearBrainClientStorage()
+        clearOriginStorageDevReset()
         window.location.assign('/c')
       } finally {
         devSoftResetLock = false

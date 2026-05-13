@@ -26,7 +26,7 @@ function jsonOrRedirectAfterBrowserGet(
   const accept = c.req.header('accept') ?? ''
   if (c.req.method === 'GET' && accept.includes('text/html')) {
     /** Soft reset leaves onboarding at `onboarding-agent` (main chat bootstrap); skip `/onboarding/*` mismatch. */
-    const loc = payload.mode === 'hard' ? '/' : '/c'
+    const loc = payload.mode === 'hard' ? '/' : '/c?devClientReset=1'
     return c.redirect(loc, 302)
   }
   return c.json(payload)

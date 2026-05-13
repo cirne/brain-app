@@ -116,4 +116,59 @@ describe('devTenantReset routes', () => {
       expect(top).toEqual([])
     })
   })
+
+  describe('GET /reset with session (browser redirect)', () => {
+    let dataRoot: string
+    let prevDataRoot: string | undefined
+
+    beforeEach(async () => {
+      closeBrainGlobalDbForTests()
+      prevDataRoot = process.env.BRAIN_DATA_ROOT
+      dataRoot = await mkdtemp(join(tmpdir(), 'dev-soft-reset-get-'))
+      process.env.BRAIN_DATA_ROOT = dataRoot
+      delete process.env.BRAIN_HOME
+    })
+
+    afterEach(async () => {
+      closeBrainGlobalDbForTests()
+      if (prevDataRoot !== undefined) process.env.BRAIN_DATA_ROOT = prevDataRoot
+      else delete process.env.BRAIN_DATA_ROOT
+      await rm(dataRoot, { recursive: true, force: true })
+    })
+
+    it('302 to /c with devClientReset so SPA clears origin storage', async () => {
+      process.env.NODE_ENV = 'development'
+      const tenantUserId = 'usr_ssssssssssssssssssss'
+      ensureTenantHomeDir(tenantUserId)
+      await writeHandleMeta(tenantHomeDir(tenantUserId), {
+        userId: tenantUserId,
+        handle: 'softget',
+        confirmedAt: null,
+      })
+      getBrainGlobalDb()
+
+      const sessionId = await runWithTenantContextAsync(
+        {
+          tenantUserId,
+          workspaceHandle: 'softget',
+          homeDir: tenantHomeDir(tenantUserId),
+        },
+        async () => createVaultSession(),
+      )
+      await registerSessionTenant(sessionId, tenantUserId)
+
+      const app = new Hono()
+      registerDevTenantResetRoutes(app)
+      const res = await app.request('http://localhost/reset', {
+        method: 'GET',
+        headers: {
+          cookie: `${BRAIN_SESSION_COOKIE}=${sessionId}`,
+          accept: 'text/html',
+        },
+      })
+
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe('/c?devClientReset=1')
+    })
+  })
 })

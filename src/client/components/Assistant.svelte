@@ -79,6 +79,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import { postOnboardingFinalize } from '@client/lib/onboarding/onboardingApi.js'
+  import { shouldAutoKickInitialBootstrap } from '@client/lib/onboarding/onboardingShellPolicy.js'
   import { primarySurfaceRouteForOverlay, routeUsesFullWidthPrimaryWorkspace } from '@client/lib/primarySurfaceRoute.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
@@ -247,6 +248,7 @@ import AppShell from '@components/app/AppShell.svelte'
       await tick()
       const key = chat.getDisplayedLocalSessionKey()
       if (!key || key === lastBootstrapKickoffLocalKey) return
+      if (!shouldAutoKickInitialBootstrap(initialBootstrapSessionId)) return
       if (!chat.canSendInitialBootstrapKickoff()) return
       lastBootstrapKickoffLocalKey = key
       try {
@@ -1904,6 +1906,7 @@ import AppShell from '@components/app/AppShell.svelte'
               coldTunnelInlineOpen={coldTunnelInlineOpen}
               onColdTunnelInlineDismiss={closeColdTunnelEntry}
               onColdTunnelSubmitted={(sid) => onColdTunnelSubmitted(sid)}
+              onboardingBootstrapAgent={onboardingMachineState === 'onboarding-agent'}
             >
               {#snippet mobileDetail()}
                 {#if

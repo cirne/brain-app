@@ -113,6 +113,33 @@ describe('ChatMessageRow.svelte', () => {
     expect(container.querySelector('details.tool-call')).toBeTruthy()
   })
 
+  it('focused mode collapses consecutive ephemeral tools to one compact row', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [
+        {
+          type: 'tool',
+          toolCall: { id: '1', name: 'find_person', args: { query: 'a' }, done: true, result: '{}' },
+        },
+        {
+          type: 'tool',
+          toolCall: { id: '2', name: 'find_person', args: { query: 'b' }, done: true, result: '{}' },
+        },
+      ],
+    }
+    const { container } = render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: true,
+        toolDisplayMode: 'focused',
+      },
+    })
+    expect(container.querySelectorAll('.tool-call.tool-compact').length).toBe(1)
+  })
+
   it('uses conversationRoleLabels for tunnel-style assistant header', () => {
     const msg: ChatMessage = {
       role: 'assistant',

@@ -80,6 +80,7 @@ const TOOL_DISPLAY_LABELS: Record<string, { key: string; defaultValue: string }>
   get_message_thread: { key: 'getMessageThread', defaultValue: 'Conversation' },
   suggest_reply_options: { key: 'suggestReplyOptions', defaultValue: 'Quick Replies' },
   mark_notification: { key: 'markNotification', defaultValue: 'Notification done' },
+  present_visual_artifact: { key: 'presentVisualArtifact', defaultValue: 'Show image' },
 }
 
 function humanizeToolName(name: string): string {
@@ -152,7 +153,10 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
     chat: { showInChat: false },
   },
   open: {
-    chat: { autoOpen: true },
+    chat: { autoOpen: true, stickyInTranscript: true },
+  },
+  present_visual_artifact: {
+    chat: { stickyInTranscript: true },
   },
 }
 

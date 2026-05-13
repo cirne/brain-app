@@ -67,6 +67,8 @@ Tappable follow-ups use the **`suggest_reply_options`** tool and an optional **r
 
 **Custom (inline in `tools.ts`):** e.g. `search_index`, `read_mail_message`, `read_indexed_file`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, `load_skill`, **`suggest_reply_options`** (quick-reply chips; see [chat-suggestions.md](./chat-suggestions.md)), and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
 
+**Transcript tool UI (client):** [`registryCore.ts`](../../src/client/lib/tools/registryCore.ts) merges per-tool `ToolChatPolicy` (`showInChat`, `streamToDetail`, `autoOpen`, `stickyInTranscript`, …). Settings **Focused** mode collapses consecutive non-sticky tool rows to the latest in each run; tools with `stickyInTranscript: true` (e.g. `open`, `present_visual_artifact`) stay as separate rows. Persisted chat JSON is unchanged; collapsing is presentation-only.
+
 ## Skills (slash commands and natural language)
 
 - **Slash path:** A user message that starts with `/<slug>` (e.g. `/calendar`) is handled in `[chat.ts](../../src/server/routes/chat.ts)` by loading that skill’s `SKILL.md` and injecting it as structured user turns — not the general agent message alone.

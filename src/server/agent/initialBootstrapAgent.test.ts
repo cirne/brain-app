@@ -9,7 +9,9 @@ describe('initialBootstrapAgent', () => {
     expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/people.page|substantive/i)
     expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/find_person/)
     expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/web_search/)
-    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/common names|narrow/i)
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/me\.md/)
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/Identity.*Snapshot|Snapshot.*Identity/)
+    expect(DEFAULT_INITIAL_BOOTSTRAP_KICKOFF_INSTRUCTIONS).toMatch(/projects\/.*people\/|people\/.*projects\//)
   })
   it('formatMailIndexFactsForBootstrap includes date span and lane flags', () => {
     const block = formatMailIndexFactsForBootstrap({

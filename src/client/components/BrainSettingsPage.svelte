@@ -480,6 +480,24 @@
           <input
             type="radio"
             name="settings-chat-tool-display"
+            value="focused"
+            class="mt-[0.2rem] shrink-0 accent-accent"
+            checked={chatToolDisplayMode === 'focused'}
+            onchange={() => onChatToolDisplayPrefChange('focused')}
+          />
+          <span class="settings-chat-pref-text flex flex-col gap-[0.15rem]">
+            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">
+              {$t('settings.brainSettingsPage.chat.focused.title')}
+            </span>
+            <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted">
+              {$t('settings.brainSettingsPage.chat.focused.subtitle')}
+            </span>
+          </span>
+        </label>
+        <label class="settings-chat-pref-row flex cursor-pointer items-start gap-[0.6rem] py-[0.45rem]">
+          <input
+            type="radio"
+            name="settings-chat-tool-display"
             value="compact"
             class="mt-[0.2rem] shrink-0 accent-accent"
             checked={chatToolDisplayMode === 'compact'}

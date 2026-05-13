@@ -6,7 +6,7 @@
     streaming: _streaming = false,
     isLastMessage = false,
     isLastAssistantInThread = false,
-    toolDisplayMode: _toolDisplayMode = 'compact',
+    toolDisplayMode: _toolDisplayMode = 'focused',
   }: {
     msg: ChatMessage
     streaming?: boolean
@@ -19,7 +19,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-    toolDisplayMode?: 'compact' | 'detailed'
+    toolDisplayMode?: 'compact' | 'detailed' | 'focused'
   } = $props()
 </script>
 

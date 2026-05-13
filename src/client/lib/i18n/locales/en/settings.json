@@ -40,6 +40,10 @@
       "detailed": {
         "title": "Detailed",
         "subtitle": "Expandable arguments, results, and previews inline for each tool."
+      },
+      "focused": {
+        "title": "Focused",
+        "subtitle": "One live tool row at a time; important steps stay visible in the transcript."
       }
     },
     "deleteConfirm": {

@@ -4,7 +4,10 @@ import {
   ONBOARDING_PROFILE_CHAT_STORAGE_KEY,
   ONBOARDING_SEED_CHAT_STORAGE_KEY,
 } from './onboarding/onboardingStorageKeys.js'
-import { clearBrainClientStorage } from './brainClientStorage.js'
+import {
+  clearBrainClientStorage,
+  clearOriginStorageDevReset,
+} from './brainClientStorage.js'
 import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './onboarding/seedConstants.js'
 
 function makeStore() {
@@ -20,6 +23,9 @@ function makeStore() {
     },
     removeItem: (k: string) => {
       delete store[k]
+    },
+    clear: () => {
+      for (const k of Object.keys(store)) delete store[k]
     },
   } as Storage
 }
@@ -51,5 +57,29 @@ describe('clearBrainClientStorage', () => {
     clearBrainClientStorage()
     expect(globalThis.sessionStorage.getItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY)).toBeNull()
     expect(globalThis.sessionStorage.getItem('brain-temp')).toBeNull()
+  })
+})
+
+describe('clearOriginStorageDevReset', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', makeStore())
+    vi.stubGlobal('sessionStorage', makeStore())
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('clears all localStorage keys including brain. dot prefix', () => {
+    globalThis.localStorage.setItem('brain.chat.toolDisplay', 'detailed')
+    globalThis.localStorage.setItem('brain-agent', '{}')
+    globalThis.localStorage.setItem('other-app', 'gone')
+    clearOriginStorageDevReset()
+    expect(globalThis.localStorage.length).toBe(0)
+  })
+
+  it('clears all sessionStorage keys', () => {
+    globalThis.sessionStorage.setItem('anything', 'x')
+    clearOriginStorageDevReset()
+    expect(globalThis.sessionStorage.length).toBe(0)
   })
 })

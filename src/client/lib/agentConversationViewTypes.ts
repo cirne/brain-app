@@ -69,8 +69,13 @@ export type AgentConversationViewProps = {
   /** Hosted multi-tenant onboarding: alternate lead copy in profiling transcript. */
   multiTenant?: boolean
   /**
-   * Tool rows in the transcript: compact (default) vs detailed (expandable args and results).
+   * Tool rows in the transcript: focused (default), compact, or detailed (expandable).
    * Used by the default transcript only; onboarding views ignore this prop.
    */
   toolDisplayMode?: ChatToolDisplayMode
+  /**
+   * Initial onboarding bootstrap: show welcome copy above the first assistant row while streaming.
+   * Only {@link AgentConversation} reads this; alternate conversation views omit it.
+   */
+  bootstrapWelcomeBanner?: boolean
 }

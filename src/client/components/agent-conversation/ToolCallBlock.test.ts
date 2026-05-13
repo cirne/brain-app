@@ -297,6 +297,19 @@ describe('ToolCallBlock.svelte', () => {
       expect(screen.getByText('Myproject')).toBeInTheDocument()
     })
 
+    it('compact read uses two inline indicators and strip-aligned wiki title', () => {
+      const toolCall = makeToolCall({
+        name: 'read',
+        args: { path: 'me.md' },
+        result: '# Me',
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      expect(container.querySelectorAll('[data-chat-inline-indicator]').length).toBe(2)
+      expect(container.querySelector('.wfn-title-row--strip')).toBeTruthy()
+    })
+
     it('renders move_file with from and to paths', () => {
       const toolCall = makeToolCall({
         name: 'move_file',
@@ -370,7 +383,7 @@ describe('ToolCallBlock.svelte', () => {
       const row = container.querySelector('.tool-call.error')
       expect(row).toBeTruthy()
 
-      const iconSpan = container.querySelector('.tool-icon')
+      const iconSpan = container.querySelector('.tool-transcript-icon')
       expect(iconSpan?.textContent?.trim()).toBe('!')
     })
 
@@ -425,7 +438,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      const iconSpan = container.querySelector('.tool-icon svg')
+      const iconSpan = container.querySelector('.tool-transcript-icon svg')
       expect(iconSpan).toBeTruthy()
     })
 
@@ -438,7 +451,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      const svg = container.querySelector('.tool-icon svg')
+      const svg = container.querySelector('.tool-transcript-icon svg')
       expect(svg).toBeTruthy()
     })
   })

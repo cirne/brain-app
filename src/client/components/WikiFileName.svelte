@@ -6,7 +6,12 @@
   import { isWikiRootIndexPath } from '@client/lib/wikiPathDisplay.js'
   import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
 
-  let { path, unsaved = false }: { path: string; unsaved?: boolean } = $props()
+  let {
+    path,
+    unsaved = false,
+    /** Align with {@link ChatInlineIndicator} rows in agent tool transcripts (fixed band + centered icon/text). */
+    stripAlign = false,
+  }: { path: string; unsaved?: boolean; stripAlign?: boolean } = $props()
 
   const { folder, name } = $derived.by(() => {
     const clean = path.replace(/\.md$/, '')
@@ -35,6 +40,7 @@
   class={cn(
     'wfn-title-row inline-flex min-w-0 items-center gap-1.5 overflow-hidden [font:inherit]',
     unsaved && 'opacity-90',
+    stripAlign && 'wfn-title-row--strip',
   )}
 >
   {#if isUserProfileMe}
@@ -61,3 +67,14 @@
     {/if}
   {/if}<span class="wfn-name shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
 </span>
+
+<style>
+  /* Match ChatInlineIndicator min-h-6 band; keep lead icon + title vertically centered vs tool rows. */
+  .wfn-title-row--strip {
+    min-height: 1.5rem;
+    align-items: center;
+  }
+  .wfn-title-row--strip .wfn-name {
+    line-height: 1.35;
+  }
+</style>

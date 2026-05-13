@@ -6,6 +6,7 @@
     getToolUiPolicy,
     type ChatMessage,
   } from '@client/lib/agentUtils.js'
+  import { expandPartsForToolDisplay } from '@client/lib/agent-conversation/transcriptToolParts.js'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import { t } from '@client/lib/i18n/index.js'
   import { Send } from 'lucide-svelte'
@@ -30,7 +31,7 @@
     onOpenMessageThread,
     onOpenMailSearchResults,
     onOpenVisualArtifact,
-    toolDisplayMode = 'compact',
+    toolDisplayMode = 'focused',
     conversationRoleLabels,
   }: {
     msg: ChatMessage
@@ -81,6 +82,8 @@
       (msg.role === 'assistant' &&
         assistantPlainTextForReceipt(msg).trim() === B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT.trim()),
   )
+
+  const displayParts = $derived(expandPartsForToolDisplay(msg.parts, toolDisplayMode, msg.role))
 </script>
 
 {#if awaitingPeerReviewReceipt}
@@ -126,7 +129,7 @@
         </div>
 
         <div class="relative min-w-0">
-          {#each msg.parts ?? [] as part, j (j)}
+          {#each displayParts as part, j (j)}
             {#if part.type === 'tool' && getToolUiPolicy(part.toolCall.name).showInChat}
               <ToolCallBlock
                 toolCall={part.toolCall}

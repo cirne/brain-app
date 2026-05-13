@@ -33,4 +33,11 @@ describe('WikiFileName.svelte', () => {
     })
     expect(container.querySelector('.opacity-90')).toBeTruthy()
   })
+
+  it('adds strip align class for transcript tool rows', () => {
+    const { container } = render(WikiFileName, {
+      props: { path: 'me.md', stripAlign: true },
+    })
+    expect(container.querySelector('.wfn-title-row--strip')).toBeTruthy()
+  })
 })

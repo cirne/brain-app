@@ -17,6 +17,8 @@ describe('buildOnboardingInterviewSystemPrompt', () => {
     expect(s).toContain('**Do not** ask them to name the assistant')
     expect(s).toMatch(/Warm, short, human/)
     expect(s).toContain('## Mail recon (before your first user-visible reply)')
+    expect(s).toContain('**`me.md` gate')
+    expect(s).toContain('__brain_finish_conversation__')
     expect(s).toContain('**`search_index`**')
     expect(s).toContain('**`from`**')
     expect(s).toContain('**`read_mail_message`** on several sent messages')

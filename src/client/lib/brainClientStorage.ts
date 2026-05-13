@@ -1,6 +1,13 @@
 /**
- * Remove every localStorage and sessionStorage key starting with `brain-` (dev hard-reset).
- * Future Brain keys are cleared without maintaining a hardcoded list.
+ * Query flag: server GET `/reset` redirects here so the SPA clears origin storage once (dev soft reset).
+ * @see clearOriginStorageDevReset
+ */
+export const DEV_CLIENT_RESET_QUERY_PARAM = 'devClientReset'
+export const DEV_CLIENT_RESET_QUERY_VALUE = '1'
+
+/**
+ * Remove every localStorage and sessionStorage key starting with `brain-` (legacy narrow clear).
+ * Prefer {@link clearOriginStorageDevReset} for dev soft reset so `brain.*` prefs are wiped too.
  */
 export function clearBrainClientStorage(): void {
   if (typeof localStorage !== 'undefined') {
@@ -30,5 +37,19 @@ export function clearBrainClientStorage(): void {
         /* ignore */
       }
     }
+  }
+}
+
+/** Dev soft reset: wipe all keys for this origin (local + session). */
+export function clearOriginStorageDevReset(): void {
+  try {
+    localStorage?.clear()
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage?.clear()
+  } catch {
+    /* ignore */
   }
 }

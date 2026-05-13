@@ -29,7 +29,7 @@ export type ChatSessionsChangedEvent = {
 /** Hub (or other UI) updated chat tool row display; transcript should apply the same mode. */
 export type ChatToolDisplayChangedEvent = {
   type: 'chat:tool-display-changed'
-  mode: 'compact' | 'detailed'
+  mode: 'compact' | 'detailed' | 'focused'
 }
 
 /** Ripmail search index sources changed (e.g. `manage_sources` add/remove/edit local folder). Brain Hub refetches `/api/hub/sources`. */

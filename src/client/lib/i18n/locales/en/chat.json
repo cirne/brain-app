@@ -21,6 +21,11 @@
     "jumpToLatestAria": "Jump to latest messages",
     "latest": "Latest"
   },
+  "bootstrapWelcome": {
+    "headline": "Your second brain is taking shape.",
+    "body1": "Braintunnel reads your email to build a personal wiki — notes about people, projects, interests, anything important to you. That wiki is your assistant’s memory, and it grows over time.",
+    "body2": "We’re starting with your most recent messages as we continue to download more of your mail. The more you use Braintunnel, the more complete the picture gets."
+  },
   "messageRow": {
     "you": "You",
     "assistant": "Assistant",
@@ -60,7 +65,7 @@
     "emptyChats": "No chats yet.",
     "viewAllChats": "View all chats…",
     "tunnelsHeading": "Tunnels",
-    "emptyTunnels": "No tunnels yet. Someone else must grant access from their Brain before you can chat through a tunnel.",
+    "emptyTunnels": "A Braintunnel routes your questions to another user's AI assistant.",
     "tunnelsLoadFailed": "Could not load tunnels.",
     "pendingRow": "Inbox",
     "pendingOpenAriaWithCount": "Open inbox — {{count}} waiting",
@@ -279,6 +284,7 @@
     "getMessageThread": "Conversation",
     "suggestReplyOptions": "Quick replies",
     "rejectQuestion": "Decline question",
-    "markNotification": "Notification done"
+    "markNotification": "Notification done",
+    "presentVisualArtifact": "Show image"
   }
 }

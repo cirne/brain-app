@@ -8,6 +8,8 @@ export type ToolChatPolicy = {
   streamToDetail?: 'wiki' | 'email' | 'calendar'
   autoOpen?: boolean
   label?: string
+  /** When true, transcript “Focused” mode keeps this row (does not collapse with ephemeral neighbors). */
+  stickyInTranscript?: boolean
 }
 
 export type OnboardingVariant = 'profiling' | 'buildout'

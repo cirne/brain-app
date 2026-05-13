@@ -9,6 +9,7 @@
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
   import CalendarDatePopover from './CalendarDatePopover.svelte'
+  import InitialBootstrapWelcomeBanner from './InitialBootstrapWelcomeBanner.svelte'
 
   let {
     messages,
@@ -28,11 +29,14 @@
     empty,
     streamingWrite: _streamingWrite,
     multiTenant: _multiTenant = false,
-    toolDisplayMode = 'compact',
+    toolDisplayMode = 'focused',
     conversationRoleLabels,
     tunnelOutboundEmptyChat = false,
     tunnelOutboundPeer = null,
+    bootstrapWelcomeBanner = false,
   }: AgentConversationViewProps = $props()
+
+  const showBootstrapWelcome = $derived(streaming && bootstrapWelcomeBanner)
 
   let messagesEl: HTMLElement | null = null
   let datePopover = $state<{ date: string; x: number; y: number } | null>(null)
@@ -201,6 +205,10 @@
             {tunnelOutboundPeer}
           />
         {/if}
+      {/if}
+
+      {#if showBootstrapWelcome}
+        <InitialBootstrapWelcomeBanner />
       {/if}
 
       {#each messages as msg, i (msg.id)}

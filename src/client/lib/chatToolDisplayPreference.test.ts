@@ -21,12 +21,12 @@ describe('chatToolDisplayPreference', () => {
     for (const k of Object.keys(store)) delete store[k]
   })
 
-  it('returns compact when key is missing', () => {
+  it('returns focused when key is missing', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => null,
       setItem: vi.fn(),
     } as unknown as Storage)
-    expect(readChatToolDisplayPreference()).toBe('compact')
+    expect(readChatToolDisplayPreference()).toBe('focused')
   })
 
   it('returns detailed when storage is detailed', () => {
@@ -53,14 +53,35 @@ describe('chatToolDisplayPreference', () => {
     expect(emit).toHaveBeenCalledWith({ type: 'chat:tool-display-changed', mode: 'compact' })
   })
 
-  it('returns compact when getItem throws', () => {
+  it('returns focused when storage is focused', () => {
+    store[KEY] = 'focused'
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: vi.fn(),
+    } as unknown as Storage)
+    expect(readChatToolDisplayPreference()).toBe('focused')
+  })
+
+  it('write focused persists and emits', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => {
+        store[k] = v
+      },
+    } as unknown as Storage)
+    writeChatToolDisplayPreference('focused')
+    expect(readChatToolDisplayPreference()).toBe('focused')
+    expect(emit).toHaveBeenCalledWith({ type: 'chat:tool-display-changed', mode: 'focused' })
+  })
+
+  it('returns focused when getItem throws', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => {
         throw new Error('denied')
       },
       setItem: vi.fn(),
     } as unknown as Storage)
-    expect(readChatToolDisplayPreference()).toBe('compact')
+    expect(readChatToolDisplayPreference()).toBe('focused')
   })
 
   it('does not emit when setItem throws', () => {
