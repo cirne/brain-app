@@ -14,7 +14,7 @@ Personal assistant web app: **Chat** (agent), **Wiki** (markdown vault), **Inbox
 Browser (Svelte 5)
   ↔  HTTP + SSE
 Hono (Node 22)
-  ├── /api/chat, /api/notifications, /api/wiki (+ `/api/wiki/shared/…` for cross-tenant read shares), `/api/wiki-shares`, /api/files, /api/inbox, /api/calendar, /api/search, …
+  ├── /api/chat, /api/chat/b2b (Braintunnel B2B), /api/notifications, /api/wiki (+ `/api/wiki/shared/…` for cross-tenant read shares), `/api/wiki-shares`, /api/files, /api/inbox, /api/calendar, /api/search, …
   ├── /api/skills, /api/onboarding
   ├── /api/imessage  (+ /api/messages alias)  — macOS, when chat.db readable
   └── /api/dev  — development only
@@ -43,7 +43,7 @@ Why the product exists, how we talk about it, and collaboration ideas — not ro
 | Open: narrow JTBD + category-label analysis (May 2026) | [the-product-question.md](the-product-question.md)                        |
 | Open: is the wiki worth maintaining?        | [the-wiki-question.md](the-wiki-question.md)                                         |
 | Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
-| Wiki sharing / brain-to-brain collaborators | [ideas/archive/IDEA-wiki-sharing-collaborators.md](ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064 stub](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Cross-brain access policy (draft):** [architecture/brain-to-brain-access-policy.md](architecture/brain-to-brain-access-policy.md) |
+| Wiki sharing / brain-to-brain collaborators | [ideas/archive/IDEA-wiki-sharing-collaborators.md](ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064 stub](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Chat-native B2B (Tunnels):** [architecture/braintunnel-b2b-chat.md](architecture/braintunnel-b2b-chat.md) · **Cross-brain access policy (draft):** [architecture/brain-to-brain-access-policy.md](architecture/brain-to-brain-access-policy.md) |
 | Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
 
 
@@ -92,6 +92,7 @@ Chat transport, tooling surface, Pi integration, metering hooks, and local model
 | Topic                                                    | Doc                                                                                                                             |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Agent sessions, chat + SQLite persistence (`var/brain-tenant.sqlite`), SSE, tool catalog | [architecture/agent-chat.md](architecture/agent-chat.md)                                                                        |
+| **Braintunnel B2B chat** (tunnels, `/api/chat/b2b`, cross-tenant session writes) | [architecture/braintunnel-b2b-chat.md](architecture/braintunnel-b2b-chat.md) · grants: [architecture/brain-query-delegation.md](architecture/brain-query-delegation.md) |
 | Quick replies (chips / suggestions UI)                   | [architecture/chat-suggestions.md](architecture/chat-suggestions.md)                                                            |
 | Pi stack (`pi-agent-core` / `pi-ai`, options, metering)  | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md) |
 | Local MLX LLM (Apple Silicon, `mlx_lm.server`, Qwen 3.6) | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md)                                                                  |

@@ -13,6 +13,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | Prefix | Role |
 |--------|------|
 | `/api/chat` | Agent chat — SSE (`POST /`), session list/load/delete |
+| `/api/chat/b2b` | **Braintunnel B2B** — cold query, tunnel send/approve, review queue, grant policy patches ([braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)) |
 | `/api/notifications` | App notification rows (`GET` list, `PATCH` state) — tenant SQLite — [chat-history-sqlite.md](./chat-history-sqlite.md) |
 | `/api/wiki` | Wiki CRUD, sync trigger, previews |
 | `/api/files` | Raw filesystem read via ripmail (`GET /read`) for UI preview |
@@ -27,7 +28,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/background-status` | Unified snapshot: mail lanes + milestones + wiki supervisor (+ orchestrator failures) — **[background-task-orchestration](./background-task-orchestration.md)** |
 | `/api/auth/demo` | **Multi-tenant + `BRAIN_ENRON_DEMO_SECRET`:** `POST …/enron` mints session when demo tenants are pre-seeded; `GET …/enron/seed-status` exposes ingest snapshot (e.g. operator reseed) — [enron-demo-tenant.md](./enron-demo-tenant.md) |
 | `/api/background` | Background agent run history and control (wiki expansion) |
-| `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots, push event `notifications_changed` (client refetches `/api/notifications`), for Hub + shell (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
+| `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots, `notifications_changed` (client refetches `/api/notifications`), **`tunnel_activity`** (Braintunnel B2B rail / review refresh); Hub + shell (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts), [`hubSseBroker.ts`](../../src/server/lib/hub/hubSseBroker.ts)) |
 | `/api/dev` | **Dev only** — diagnostics |
 
 ## Client-side URL paths (SPA routes)

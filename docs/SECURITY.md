@@ -60,6 +60,10 @@ These have test coverage in `src/server/lib/tenant/resolveTenantSafePath.test.ts
 
 Read-only sharing is enforced in **`wiki_shares`** ([`brain-global.sqlite`](architecture/data-and-sync.md)). Grantees see allowed owner paths via **app-managed symlinks** under each grantee’s **`wikis/@handle/…`**. **Revoke** removes those links before committing `revoked_at_ms` (or returns **500** with `revoke_projection_failed` if removal fails, leaving the share active). **`removeWikiShareProjectionForShare`** only **`unlink`**s paths where **`lstat(…).isSymbolicLink()`** is true. **`ensureSymlinkAt`** refuses to **`rm`**/`symlink` when a parent under `wikis/@peer/` is already a symlink (file rows use **`wsh_*`** fallback instead) so creation cannot delete owner content — see [wiki-share-acl-and-projection-sync.md](architecture/wiki-share-acl-and-projection-sync.md).
 
+### Braintunnel B2B chat (cross-tenant write)
+
+**Chat-native tunnels** ([architecture/braintunnel-b2b-chat.md](architecture/braintunnel-b2b-chat.md)) let the trusted server persist threads and notifications under **two tenants’** homes in one request (grant checks, inbound ownership, cold-query limits). End users never get direct filesystem access to a peer’s SQLite; safety is **server-enforced capability**, not client-side isolation.
+
 ### Mail indexing and send (`src/server/ripmail/`)
 
 **In-process TypeScript:** Sync, search, drafts, and outbound send run inside the Node server (`better-sqlite3`, nodemailer / Gmail API). There is **no** `ripmail` executable subprocess in normal server paths.

@@ -1,8 +1,8 @@
 # Anticipatory assistant brief — prioritized queue, notification infrastructure, and async approvals
 
-**Status:** Backlog — **SQLite persistence shipped (2026-05)** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (`var/brain-tenant.sqlite`: chat + **`notifications`**, mail **`notify`** mirror); **full brief/approval UX + brain-query enqueue** still unscheduled in their own OPPs  
+**Status:** Backlog — **SQLite persistence shipped (2026-05)** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (`var/brain-tenant.sqlite`: chat + **`notifications`**, mail **`notify`** mirror); **full brief UX** (unified ranked strip across domains) still backlog. **Braintunnel B2B** approve/decline ships in chat — [architecture/braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md).  
 **Index:** [IDEAS.md](../IDEAS.md)  
-**Relates to:** [VISION.md](../VISION.md), [STRATEGY.md](../STRATEGY.md), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (brain-to-brain — **this idea is a prerequisite** for human-in-the-loop and async secure usability), [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (notification §; persistence **[shipped — OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), [chat-history-sqlite.md](../architecture/chat-history-sqlite.md), [IDEA-onboarding-insight-gallery](IDEA-onboarding-insight-gallery.md) (showcase vs standing queue), [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (collaboration events), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md); empty chat surfaces such as [`ConversationEmptyState.svelte`](../../src/client/components/agent-conversation/ConversationEmptyState.svelte)
+**Relates to:** [VISION.md](../VISION.md), [STRATEGY.md](../STRATEGY.md), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (B2B grants + tunnels; **tunnel HIL** ships in chat — [braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)), [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (notification §; persistence **[shipped — OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), [chat-history-sqlite.md](../architecture/chat-history-sqlite.md), [IDEA-onboarding-insight-gallery](IDEA-onboarding-insight-gallery.md) (showcase vs standing queue), [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (collaboration events), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md); empty chat surfaces such as [`ConversationEmptyState.svelte`](../../src/client/components/agent-conversation/ConversationEmptyState.svelte)
 
 ---
 
@@ -23,7 +23,7 @@ Users open Braintunnel to **talk to an assistant**, not to re-read their whole i
 
 Traditional **notification badges** scatter attention (inbox badge, wiki badge, calendar alerts elsewhere) without **grounding** the user in language and context the agent can act on next.
 
-**Brain-to-brain gap (today):** Phase 0 brain-query can **auto-return** a privacy-filtered answer when both sides are effectively online and the pipeline completes. There is **no first-class place** to **await the owner’s review** of a **drafted outbound reply** before it is delivered—nor to **edit** that draft and **send**, or **decline** without composing mail. [IDEA-brain-query-delegation](IDEA-brain-query-delegation.md) records **human approval** as a future per-connection mode; **this idea is where that mode becomes usable** (and where **inbound** “someone asked you something” is surfaced with enough context to act).
+**Brain-to-brain (today):** **Braintunnel B2B** ships **owner review / approve** and **decline** for tunnel replies (`/api/chat/b2b`, review queue, notifications) — [architecture/braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md). **Backlog:** a **single anticipatory “brief”** that ranks tunnel items alongside mail/calendar/wiki in one strip — [IDEA-brain-query-delegation](IDEA-brain-query-delegation.md) for policy/grants; this doc is where that **unified** surface remains specified.
 
 ---
 
@@ -149,7 +149,7 @@ When the product model and MVP sources are pinned, additional OPPs may cover:
 
 - **Schema + lifecycle:** Notification/brief item CRUD, snooze, idempotency keys per source event; **brain-query pending outbound** state machine (draft → approved → delivered / denied).
 - **Client:** Empty chat rendering, dismissal affordances, deep-link starter prompts; **approval sheet** for brain-query drafts.
-- **Signals:** Thin adapters from ripmail flags, collaborator events, wiki change digest, calendar window, **`brain_query_log`** / dedicated queue for pending approvals.
+- **Signals:** Thin adapters from ripmail flags, collaborator events, wiki change digest, calendar window, **Braintunnel B2B** tunnel / notification events ([braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)).
 - **Brain-query server:** Per-grant **delivery mode** (auto vs require approval) and hooks to **enqueue** items instead of immediate `POST` response when approval is required.
 
 Until those ship, this file anchors **executive briefing + notification infrastructure + async brain-query approvals** as one conceptual package—the **central metaphor** for prioritized, cross-domain assistant alerts and **trustworthy** cross-brain collaboration.

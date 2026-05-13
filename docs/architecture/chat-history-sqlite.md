@@ -35,6 +35,8 @@ Together with WAL, this is why we are **comfortable staying on SQLite** for chat
 
 ## B2B cross-tenant writes and cell scaling
 
+**Product flow** (cold query, review queue, approve-to-send, paired sessions) is documented in **[braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)**. This section focuses on **persistence** and **scaling**.
+
 **Today.** Brain-to-brain / tunnel flows do **not** only touch the signed-in user’s SQLite. The server validates grants (and related rules), then uses **`runWithTenantContextAsync`** to switch [`AsyncLocalStorage`](../../src/server/lib/tenant/tenantContext.ts) to the **peer tenant’s** home and performs normal chat/notifications persistence there — e.g. **`runB2BQueryForGrant`** and **`POST /cold-query`** in [`b2bChat.ts`](../../src/server/routes/b2bChat.ts). Helper **[`createNotificationForTenant`](../../src/server/lib/notifications/createNotificationForTenant.ts)** exists precisely because the HTTP actor and notification recipient can differ. **Grant rows** live in **global** SQLite (`brain_query_grants`), while **chat rows stay per tenant**.
 
 **Authorization.** Safety is **trusted server + capability checks** (grant owner/asker, inbound session ownership, cold-query limits), not “only the owning user’s browser session may open this DB.” End users never get direct filesystem access to peer SQLite files.

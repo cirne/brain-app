@@ -26,6 +26,10 @@ Completed turns are stored in **`var/brain-tenant.sqlite`** per tenant (`files.t
 
 Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
+### Braintunnel B2B (Tunnels)
+
+Sessions with `sessionType` **`b2b_outbound`** or **`b2b_inbound`** share the same **`var/brain-tenant.sqlite`** and `appendTurn` machinery; the **main** agent stream stays on **`POST /api/chat`**. Cross-brain turns use **`/api/chat/b2b`** (cold query, send, approve, etc.) — see **[braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)**.
+
 ### Architectural notes
 
 The session list reads **`chat_sessions`** ordered by **`updated_at_ms`** (newest first). Optional `limit` on `GET /api/chat/sessions` is **capped at 500** at the HTTP layer. **FTS5** over titles/previews is a documented follow-on ([chat-history-sqlite.md](./chat-history-sqlite.md)).
@@ -74,4 +78,4 @@ Tappable follow-ups use the **`suggest_reply_options`** tool and an optional **r
 
 ---
 
-*See also: [integrations.md](./integrations.md) · [configuration.md*](./configuration.md)
+*See also: [integrations.md](./integrations.md) · [configuration.md](./configuration.md) · [braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)*
