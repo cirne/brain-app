@@ -89,12 +89,24 @@ export function notifyNotificationsChanged(): void {
   )
 }
 
-export async function notifyBrainTunnelActivity(dataJson: string): Promise<void> {
-  const ws = workspaceHandleForBackgroundNotify()
-  const targets = [...subscribers].filter((s) => s.workspaceHandle === ws)
+async function flushTunnelActivity(workspaceHandle: string, dataJson: string): Promise<void> {
+  const targets = [...subscribers].filter((s) => s.workspaceHandle === workspaceHandle)
   if (targets.length === 0) return
   const data = dataJson.trim().length > 0 ? dataJson : '{}'
   await Promise.allSettled(targets.map((s) => s.writeSSE({ event: 'tunnel_activity', data })))
+}
+
+/** Fan-out tunnel_activity to SSE subscribers keyed by `workspaceHandle` (recipient side of cross-tenant events). */
+export async function notifyBrainTunnelActivityForWorkspace(
+  workspaceHandle: string | undefined | null,
+  dataJson: string,
+): Promise<void> {
+  const ws = workspaceHandle?.trim() || ''
+  await flushTunnelActivity(ws.length > 0 ? ws : '_single', dataJson)
+}
+
+export async function notifyBrainTunnelActivity(dataJson: string): Promise<void> {
+  await flushTunnelActivity(workspaceHandleForBackgroundNotify(), dataJson)
 }
 
 /**

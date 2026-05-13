@@ -11,7 +11,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
   import Inbox from '@components/Inbox.svelte'
-  import ReviewQueue from '@components/ReviewQueue.svelte'
+  import Tunnels from '@components/Tunnels.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
   import Wiki from '@components/Wiki.svelte'
@@ -295,15 +295,24 @@ import AppShell from '@components/app/AppShell.svelte'
     }
   })
 
-  function openReview(sessionId?: string) {
-    navigateShell({
-      zone: 'review' as RouteZone,
-      ...(sessionId?.trim() ? { reviewSessionId: sessionId.trim() } : {}),
-    })
-    shell.route = parseRoute()
+  function navigateTunnelRoute(handle?: string) {
+    const h = handle?.trim()
+    const next: Route = { zone: 'tunnels' as RouteZone }
+    if (h) next.tunnelHandle = h
+    navigateShell(next)
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
+  function openOutboundChatFromTunnel(sessionId: string, titleHint?: string) {
+    const sid = sessionId.trim()
+    if (!sid) return
+    navigateShell({ sessionId: sid }, titleHint?.trim() ? { chatTitleForUrl: titleHint.trim() } : undefined)
+    if (shell.isMobile) shell.sidebarOpen = false
+  }
+
+  function resolveLegacyReviewToTunnel(handle: string) {
+    navigateShell({ zone: 'tunnels', tunnelHandle: handle.trim(), reviewSessionId: undefined }, { replace: true })
+  }
   /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
   let wikiPrimarySlideHeader = $state<WikiSlideHeaderState | null>(null)
 
@@ -620,8 +629,8 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.agentContext = { type: 'chat' }
       return
     }
-    if (shell.route.zone === 'review') {
-      navigateShell({ zone: 'review' as RouteZone }, { replace: true })
+    if (shell.route.zone === 'tunnels') {
+      navigateShell({ zone: 'tunnels' as RouteZone }, { replace: true })
       shell.route = parseRoute()
       shell.agentContext = { type: 'chat' }
       return
@@ -662,8 +671,8 @@ import AppShell from '@components/app/AppShell.svelte'
     if (shell.route.zone === 'inbox') {
       return { zone: 'inbox', useChatSession: false }
     }
-    if (shell.route.zone === 'review') {
-      return { zone: 'review', useChatSession: false }
+    if (shell.route.zone === 'tunnels') {
+      return { zone: 'tunnels', useChatSession: false }
     }
     return { zone: 'hub', useChatSession: false }
   }
@@ -1328,7 +1337,7 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone === 'settings' ||
       shell.route.zone === 'wiki' ||
       shell.route.zone === 'inbox' ||
-      shell.route.zone === 'review'
+      shell.route.zone === 'tunnels'
     )
       return
     const navRoute: Route = {
@@ -1354,7 +1363,7 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone !== 'settings' &&
       shell.route.zone !== 'wiki' &&
       shell.route.zone !== 'inbox' &&
-      shell.route.zone !== 'review' &&
+      shell.route.zone !== 'tunnels' &&
       shell.route.overlay?.type !== 'hub'
     if (!onChat || !sid) {
       return
@@ -1424,7 +1433,7 @@ import AppShell from '@components/app/AppShell.svelte'
     shell.isMobile &&
       shell.route.zone !== 'wiki' &&
       shell.route.zone !== 'inbox' &&
-      shell.route.zone !== 'review',
+      shell.route.zone !== 'tunnels',
   )
   const appMobileNavCenterTitle = $derived(
     appMobileNavCompact
@@ -1568,7 +1577,9 @@ import AppShell from '@components/app/AppShell.svelte'
               onOpenAllChats={openChatHistoryPage}
               onWikiHome={navigateWikiPrimary}
               brainQueryEnabled={brainQueryEnabled}
-              onOpenReview={brainQueryEnabled ? () => openReview() : undefined}
+              selectedTunnelHandle={shell.route.zone === 'tunnels' ? (shell.route.tunnelHandle ?? null) : null}
+              onSelectTunnel={brainQueryEnabled ? (h) => navigateTunnelRoute(h) : undefined}
+              onOpenTunnels={brainQueryEnabled ? () => navigateTunnelRoute() : undefined}
               onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
             />
           </div>
@@ -1713,23 +1724,17 @@ import AppShell from '@components/app/AppShell.svelte'
                 </div>
               {/if}
             </div>
-          {:else if shell.route.zone === 'review'}
+          {:else if shell.route.zone === 'tunnels'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
-                <ReviewQueue
-                  initialSessionId={shell.route.reviewSessionId ?? null}
-                  onNavigateSession={(id) => {
-                    navigateShell({
-                      zone: 'review' as RouteZone,
-                      ...(id?.trim() ? { reviewSessionId: id.trim() } : {}),
-                    })
-                    shell.route = parseRoute()
-                  }}
-                  onOpenInboundThread={(sessionId) => {
-                    navigateShell({ sessionId })
-                    shell.route = parseRoute()
-                    if (shell.isMobile) shell.sidebarOpen = false
-                  }}
+                <Tunnels
+                  routeTunnelHandle={shell.route.tunnelHandle ?? null}
+                  legacyInboundSessionId={shell.route.reviewSessionId ?? null}
+                  brainQueryEnabled={brainQueryEnabled}
+                  onPickTunnelHandle={(h) => navigateTunnelRoute(h)}
+                  onReplaceLegacyReviewRoute={(h) => resolveLegacyReviewToTunnel(h)}
+                  onOpenOutboundChat={(sid, hint) => openOutboundChatFromTunnel(sid, hint)}
+                  onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
                 />
               </div>
             </div>

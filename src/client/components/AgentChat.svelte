@@ -1111,7 +1111,7 @@
             const h = row.kickoffHints
             const inboundFromNotif = h.b2bSessionId?.trim()
             if (row.sourceKind === 'b2b_inbound_query' && inboundFromNotif) {
-              navigate({ zone: 'review', reviewSessionId: inboundFromNotif })
+              navigate({ zone: 'tunnels', reviewSessionId: inboundFromNotif })
               await patchNotificationReadNow(row.id)
               return
             }

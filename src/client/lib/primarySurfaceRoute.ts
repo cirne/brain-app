@@ -1,7 +1,7 @@
 import type { Overlay, Route, RouteZone } from '@client/router.js'
 
 /** Primary surfaces that use one full-width column (no `AgentChat | detail` split). */
-export const FULL_WIDTH_PRIMARY_ZONES: ReadonlySet<RouteZone> = new Set(['wiki', 'inbox', 'review'])
+export const FULL_WIDTH_PRIMARY_ZONES: ReadonlySet<RouteZone> = new Set(['wiki', 'inbox', 'tunnels'])
 
 export function routeUsesFullWidthPrimaryWorkspace(route: Pick<Route, 'zone'>): boolean {
   const z = route.zone

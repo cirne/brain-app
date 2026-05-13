@@ -293,6 +293,12 @@ describe('chatStorage', () => {
       },
     })
     expect(await replaceLastAwaitingPeerReviewOutboundAssistant({ sessionId, text: 'Final answer' })).toBe(true)
+    const { listTimelineMessages } = await import('@server/lib/chat/chatStorage.js')
+    const tl = listTimelineMessages(sessionId)
+    expect(tl).toHaveLength(2)
+    expect(tl[0]!.role).toBe('user')
+    expect(tl[1]!.role).toBe('assistant')
+    expect(tl[1]!.createdAtMs).toBeGreaterThanOrEqual(tl[0]!.createdAtMs)
     const doc = await loadSession(sessionId)
     expect(doc?.messages[1]?.content).toBe('Final answer')
     expect(doc?.messages[1]?.b2bDelivery).toBeUndefined()

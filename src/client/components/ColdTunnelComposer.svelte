@@ -1,8 +1,12 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { t } from '@client/lib/i18n/index.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { cn } from '@client/lib/cn.js'
+  import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
+  import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
+  import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
   import {
     fetchWorkspaceHandleSuggestions,
     looksLikeEmail,
@@ -23,13 +27,30 @@
   let loading = $state(false)
   let activeIndex = $state(0)
   let selected = $state<WorkspaceHandleEntry | null>(null)
-  let message = $state('')
   let busy = $state(false)
   let err = $state<string | null>(null)
   let listOpen = $state(false)
   let token = 0
   let rootEl: HTMLDivElement | undefined = $state(undefined)
   let searchInputEl: HTMLInputElement | undefined = $state(undefined)
+  let coldComposerRef = $state<ReturnType<typeof UnifiedChatComposer> | undefined>(undefined)
+  let coldDraftForVoice = $state('')
+
+  function onColdDraftChange(d: string): void {
+    coldDraftForVoice = d
+  }
+
+  function appendToColdComposer(text: string): void {
+    coldComposerRef?.appendText(text)
+  }
+
+  function restoreComposerDraft(trimmed: string): void {
+    queueMicrotask(() => coldComposerRef?.appendText(trimmed))
+  }
+
+  function onColdTranscribe(text: string): void {
+    applyVoiceTranscriptToChat(text, coldDraftForVoice, (t) => void sendColdQuery(t), appendToColdComposer)
+  }
 
   async function refreshSuggestions(q: string): Promise<void> {
     const raw = q.trim()
@@ -40,8 +61,8 @@
     }
     const myToken = ++token
     loading = true
-    const { token: t, results } = await fetchWorkspaceHandleSuggestions(raw, myToken)
-    if (t !== token) return
+    const { token: tk, results } = await fetchWorkspaceHandleSuggestions(raw, myToken)
+    if (tk !== token) return
     suggestions = results
     activeIndex = 0
     loading = false
@@ -61,6 +82,7 @@
     suggestions = []
     listOpen = false
     err = null
+    void tick().then(() => coldComposerRef?.focus())
   }
 
   function clearRecipient(): void {
@@ -92,8 +114,8 @@
 
   function onDocPointerDown(ev: PointerEvent): void {
     if (!listOpen || !rootEl) return
-    const t = ev.target as Node
-    if (!rootEl.contains(t)) listOpen = false
+    const el = ev.target as Node
+    if (!rootEl.contains(el)) listOpen = false
   }
 
   $effect(() => {
@@ -103,32 +125,37 @@
     return () => document.removeEventListener('pointerdown', fn, true)
   })
 
-  async function submit(): Promise<void> {
-    const msg = message.trim()
-    if (!msg) {
+  /** Shared by UnifiedChatComposer onSend + voice autosend (`applyVoiceTranscriptToChat`). */
+  async function sendColdQuery(raw: string): Promise<void> {
+    const trimmed = raw.trim()
+    if (!trimmed) {
       err = $t('chat.history.coldQuery.error')
       return
     }
+
     let body: Record<string, string>
     if (selected) {
-      body = { targetUserId: selected.userId, message: msg }
+      body = { targetUserId: selected.userId, message: trimmed }
     } else {
       const q = query.trim()
       if (!q) {
         err = $t('chat.history.coldQuery.pickRecipientHint')
+        restoreComposerDraft(trimmed)
         return
       }
       if (looksLikeEmail(q)) {
-        body = { targetEmail: q.toLowerCase(), message: msg }
+        body = { targetEmail: q.toLowerCase(), message: trimmed }
       } else {
         const handle = normalizeHandleInput(q)
         if (!handle) {
           err = $t('chat.history.coldQuery.pickRecipientHint')
+          restoreComposerDraft(trimmed)
           return
         }
-        body = { targetHandle: handle, message: msg }
+        body = { targetHandle: handle, message: trimmed }
       }
     }
+
     busy = true
     err = null
     try {
@@ -139,26 +166,31 @@
       })
       if (res.status === 409) {
         err = $t('chat.history.coldQuery.grantExists')
+        restoreComposerDraft(trimmed)
         return
       }
       if (res.status === 429) {
         err = $t('chat.history.coldQuery.rateLimited')
+        restoreComposerDraft(trimmed)
         return
       }
       if (!res.ok) {
         err = $t('chat.history.coldQuery.error')
+        restoreComposerDraft(trimmed)
         return
       }
       const j = (await res.json()) as { sessionId?: string }
       const sid = typeof j.sessionId === 'string' ? j.sessionId.trim() : ''
       if (!sid) {
         err = $t('chat.history.coldQuery.error')
+        restoreComposerDraft(trimmed)
         return
       }
       emit({ type: 'b2b:review-changed' })
       await onSubmitted(sid)
     } catch {
       err = $t('chat.history.coldQuery.error')
+      restoreComposerDraft(trimmed)
     } finally {
       busy = false
     }
@@ -288,17 +320,26 @@
     </div>
   {/if}
 
-  <div class="flex flex-col gap-1">
-    <label class="m-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted" for="cold-tunnel-msg">
+  <div class="flex min-w-0 flex-col gap-1" role="group" aria-labelledby="cold-tunnel-msg-label">
+    <span id="cold-tunnel-msg-label" class="m-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
       {$t('chat.history.coldQuery.messageLabel')}
-    </label>
-    <textarea
-      id="cold-tunnel-msg"
-      class="box-border min-h-[4.5rem] w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground"
-      bind:value={message}
-      disabled={busy}
+    </span>
+    <UnifiedChatComposer
+      bind:this={coldComposerRef}
+      voiceEligible={isPressToTalkEnabled()}
+      sessionResetKey="cold-tunnel"
       placeholder={$t('chat.history.coldQuery.messagePlaceholder')}
-    ></textarea>
+      wikiFiles={[]}
+      skills={[]}
+      streaming={false}
+      transparentSurround={true}
+      inputDisabled={busy}
+      autoFocusInputOnMount={false}
+      onDraftChange={onColdDraftChange}
+      onSend={(text) => void sendColdQuery(text)}
+      onTranscribe={onColdTranscribe}
+      onRequestFocusText={() => void tick().then(() => coldComposerRef?.focus())}
+    />
   </div>
 
   {#if err}
@@ -316,14 +357,6 @@
       }}
     >
       {$t('common.actions.cancel')}
-    </button>
-    <button
-      type="button"
-      class="rounded-md border border-border bg-accent px-3 py-[0.4rem] text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-      disabled={busy}
-      onclick={() => void submit()}
-    >
-      {$t('chat.history.coldQuery.send')}
     </button>
   </div>
 </div>

@@ -5,6 +5,7 @@ import {
   notifyBackgroundRunWritten,
   notifyNotificationsChanged,
   notifyBrainTunnelActivity,
+  notifyBrainTunnelActivityForWorkspace,
   HUB_SSE_DEBOUNCE_MS,
 } from './hubSseBroker.js'
 import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
@@ -95,5 +96,20 @@ describe('hubSseBroker', () => {
     })
     await notifyBrainTunnelActivity(JSON.stringify({ scope: 'outbound', outboundSessionId: 'x' }))
     expect(payloads).toEqual(['tunnel_activity:{"scope":"outbound","outboundSessionId":"x"}'])
+  })
+
+  it('notifyBrainTunnelActivityForWorkspace targets that handle explicitly', async () => {
+    const payloads: string[] = []
+    registerHubSseSubscriber('_single', async () => {
+      payloads.push('_single-should-not-run')
+    })
+    registerHubSseSubscriber('jeff-recipient', async ({ event, data }) => {
+      payloads.push(`${event}:${data}`)
+    })
+    await notifyBrainTunnelActivityForWorkspace(
+      'jeff-recipient',
+      JSON.stringify({ scope: 'inbox', inboundSessionId: 'sess-1' }),
+    )
+    expect(payloads).toEqual(['tunnel_activity:{"scope":"inbox","inboundSessionId":"sess-1"}'])
   })
 })

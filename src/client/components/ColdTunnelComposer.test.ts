@@ -58,7 +58,7 @@ describe('ColdTunnelComposer.svelte', () => {
     const msg = screen.getByPlaceholderText(/what do you want to ask/i)
     await fireEvent.input(msg, { target: { value: 'Hello there' } })
 
-    await fireEvent.click(screen.getByRole('button', { name: /^send$/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /send message/i }))
 
     await waitFor(() => {
       expect(mockedApiFetch).toHaveBeenCalledWith(
@@ -70,5 +70,28 @@ describe('ColdTunnelComposer.svelte', () => {
       )
       expect(onSubmitted).toHaveBeenCalledWith('sess-cold-1')
     })
+  })
+
+  it('without recipient restores message after failed send so draft is not lost', async () => {
+    const onSubmitted = vi.fn()
+    const onDismiss = vi.fn()
+
+    render(ColdTunnelComposer, {
+      props: { layout: 'inline', onDismiss, onSubmitted },
+    })
+
+    const msg = screen.getByPlaceholderText(/what do you want to ask/i)
+    await fireEvent.input(msg, { target: { value: 'Need a peer pick' } })
+    await fireEvent.click(screen.getByRole('button', { name: /send message/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/type to search/i)).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(msg).toHaveValue('Need a peer pick')
+    })
+    expect(onSubmitted).not.toHaveBeenCalled()
+    expect(mockedApiFetch).not.toHaveBeenCalled()
   })
 })

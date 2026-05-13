@@ -38,7 +38,7 @@ export type Overlay =
   | { type: 'chat-history' }
 
 /** Primary surface of the current route. Absent (`undefined`) means the default chat column (`/c`). */
-export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox' | 'review'
+export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox' | 'tunnels'
 
 /** Dedicated first-run path segment under `/onboarding/…` (matches persisted onboarding states). */
 export type OnboardingUrlStep = 'not-started' | 'confirming-handle' | 'indexing'
@@ -80,11 +80,17 @@ export type Route = {
   onboardingStep?: OnboardingUrlStep
   /**
    * Primary surface when not the default chat column.
-   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`, `'review'` → `/review/…`.
+   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`,
+   * `'tunnels'` → `/tunnels` / `/tunnels/:handle`; legacy inbound deep links use `/review/:sessionId`.
    * Absent means chat (`/c`).
    */
   zone?: RouteZone
-  /** Inbound B2B session id when `zone === 'review'` (optional deep link). */
+  /** `/tunnels/:handle` collaborator handle (decoded path segment). */
+  tunnelHandle?: string
+  /**
+   * Inbound B2B session id for legacy URLs (`/review/:sessionId`).
+   * When set with `zone: 'tunnels'`, the timeline resolves peer handle server-side then canonicalizes the bar.
+   */
   reviewSessionId?: string
 }
 
@@ -493,15 +499,26 @@ function hubRouteFromSearch(href: string): Route | null {
   return { zone: 'hub', overlay }
 }
 
-function reviewRouteFromPath(href: string): Route | null {
+function tunnelsRouteFromPath(href: string): Route | null {
+  const url = new URL(href, 'http://localhost')
+  if (url.pathname !== '/tunnels' && !url.pathname.startsWith('/tunnels/')) {
+    return null
+  }
+  const rest = url.pathname.slice('/tunnels'.length)
+  const rawSeg = rest.startsWith('/') ? rest.slice(1).split('/')[0]?.trim() ?? '' : ''
+  if (!rawSeg) return { zone: 'tunnels' }
+  return { zone: 'tunnels', tunnelHandle: safeDecodePathSegment(rawSeg) }
+}
+
+function reviewInboundDeepLinkRouteFromPath(href: string): Route | null {
   const url = new URL(href, 'http://localhost')
   if (url.pathname !== '/review' && !url.pathname.startsWith('/review/')) {
     return null
   }
   const rest = url.pathname.slice('/review'.length)
   const rawSeg = rest.startsWith('/') ? rest.slice(1).split('/')[0]?.trim() ?? '' : ''
-  if (!rawSeg) return { zone: 'review' }
-  return { zone: 'review', reviewSessionId: safeDecodePathSegment(rawSeg) }
+  if (!rawSeg) return { zone: 'tunnels' }
+  return { zone: 'tunnels', reviewSessionId: safeDecodePathSegment(rawSeg) }
 }
 
 function settingsRouteFromSearch(href: string): Route | null {
@@ -616,9 +633,14 @@ export function parseRoute(href: string = location.href): Route {
     return settingsParsed
   }
 
-  const reviewParsed = reviewRouteFromPath(href)
-  if (reviewParsed) {
-    return reviewParsed
+  const tunnelsParsed = tunnelsRouteFromPath(href)
+  if (tunnelsParsed) {
+    return tunnelsParsed
+  }
+
+  const legacyReviewParsed = reviewInboundDeepLinkRouteFromPath(href)
+  if (legacyReviewParsed) {
+    return legacyReviewParsed
   }
 
   if (seg1 === 'wiki' || seg1 === 'wikis') {
@@ -715,9 +737,13 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     return qs ? `/inbox?${qs}` : '/inbox'
   }
 
-  if (zone === 'review') {
-    const sid = route.reviewSessionId?.trim()
-    return sid ? `/review/${encodeURIComponent(sid)}` : '/review'
+  if (zone === 'tunnels') {
+    const inbound = route.reviewSessionId?.trim()
+    if (inbound) {
+      return `/review/${encodeURIComponent(inbound)}`
+    }
+    const th = route.tunnelHandle?.trim()
+    return th ? `/tunnels/${encodeURIComponent(th)}` : '/tunnels'
   }
 
   if (zone === 'hub') {

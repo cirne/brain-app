@@ -8,7 +8,7 @@ describe('primarySurfaceRoute', () => {
   it('routeUsesFullWidthPrimaryWorkspace is true for wiki and inbox zones', () => {
     expect(routeUsesFullWidthPrimaryWorkspace({ zone: 'wiki' })).toBe(true)
     expect(routeUsesFullWidthPrimaryWorkspace({ zone: 'inbox' })).toBe(true)
-    expect(routeUsesFullWidthPrimaryWorkspace({ zone: 'review' })).toBe(true)
+    expect(routeUsesFullWidthPrimaryWorkspace({ zone: 'tunnels' })).toBe(true)
     expect(routeUsesFullWidthPrimaryWorkspace({ zone: 'hub' })).toBe(false)
     expect(routeUsesFullWidthPrimaryWorkspace({})).toBe(false)
   })

@@ -58,10 +58,10 @@ describe('mobileCompactNavCenterTitle', () => {
     ).toBe('Inbox')
   })
 
-  it('uses Pending when /review is the primary surface', () => {
+  it('uses Tunnels when /tunnels is the primary surface', () => {
     expect(
-      mobileCompactNavCenterTitle({ zone: 'review' }, { type: 'chat' }, undefined, null),
-    ).toBe('Pending')
+      mobileCompactNavCenterTitle({ zone: 'tunnels' }, { type: 'chat' }, undefined, null),
+    ).toBe('Tunnels')
   })
 
   it('uses Settings when Settings is the primary surface', () => {

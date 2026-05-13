@@ -89,14 +89,27 @@ describe('/api/chat/b2b', () => {
       headers: { cookie: `brain_session=${askerSid}` },
     })
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { tunnels: Array<{ grantId: string; ownerHandle: string; sessionId: string | null }> }
-    expect(body.tunnels).toEqual([
+    const body = (await res.json()) as { tunnels: Array<Record<string, unknown>> }
+    expect(Array.isArray(body.tunnels)).toBe(true)
+    expect(body.tunnels.length).toBeGreaterThan(0)
+    expect(body.tunnels[0]).toEqual(
       expect.objectContaining({
-        grantId: grant.id,
-        ownerHandle: 'demo-ken-lay',
-        sessionId: null,
+        peerHandle: 'demo-ken-lay',
+        outboundGrantId: grant.id,
+        snippet: expect.any(String),
+        lastActivityMs: expect.any(Number),
+        pendingReviewCount: expect.any(Number),
       }),
-    ])
+    )
+
+    const tl = await app.request(
+      `http://localhost/api/chat/b2b/tunnel-timeline/${encodeURIComponent('demo-ken-lay')}`,
+      { headers: { cookie: `brain_session=${askerSid}` } },
+    )
+    expect(tl.status).toBe(200)
+    const tlJson = (await tl.json()) as { timeline?: unknown[]; peerHandle?: string }
+    expect(tlJson.peerHandle).toBe('demo-ken-lay')
+    expect(Array.isArray(tlJson.timeline)).toBe(true)
   })
 
   it('POST /ensure-session creates a stable outbound session for an active grant', async () => {
@@ -178,8 +191,8 @@ describe('/api/chat/b2b', () => {
       headers: { cookie: `brain_session=${askerSid}` },
     })
     expect(tunnelsRes.status).toBe(200)
-    const tunnelsBody = (await tunnelsRes.json()) as { tunnels: Array<{ grantId: string }> }
-    expect(tunnelsBody.tunnels.some((t) => t.grantId === grant.id)).toBe(false)
+    const tunnelsBody = (await tunnelsRes.json()) as { tunnels: Array<{ grantId?: string; outboundGrantId?: string | null }> }
+    expect(tunnelsBody.tunnels.some((t) => (t.outboundGrantId ?? t.grantId) === grant.id)).toBe(false)
   })
 
   it('POST /withdraw-as-asker removes inbound review rows on the owner tenant when revoking established grant', async () => {
@@ -682,6 +695,52 @@ describe('/api/chat/b2b', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { sessionId?: string }
     expect(j.sessionId).toMatch(/^[0-9a-f-]{36}$/i)
+  })
+
+  it('GET /tunnels lists cold inbound asker peer for recipient (no grants)', async () => {
+    const ownerId = 'usr_recv0000000000000000'
+    const askerId = 'usr_send1111111111111111'
+    const ownerSid = await sessionFor(ownerId, 'tunnel-recv-owner')
+    await registerSessionTenant(ownerSid, ownerId)
+    const askerSid = await sessionFor(askerId, 'tunnel-send-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+
+    const coldRes = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({
+        targetUserId: ownerId,
+        message: 'Question from collaborator',
+      }),
+    })
+    expect(coldRes.status).toBe(200)
+
+    const tunnelsRes = await app.request('http://localhost/api/chat/b2b/tunnels', {
+      headers: { cookie: `brain_session=${ownerSid}` },
+    })
+    expect(tunnelsRes.status).toBe(200)
+    const tunnelsBody = (await tunnelsRes.json()) as {
+      tunnels: Array<{
+        peerHandle?: string
+        outboundGrantId?: string | null
+        inboundGrantId?: string | null
+        pendingReviewCount?: number
+      }>
+    }
+    expect(tunnelsBody.tunnels.some((t) => t.peerHandle === 'tunnel-send-asker')).toBe(true)
+    const row = tunnelsBody.tunnels.find((t) => t.peerHandle === 'tunnel-send-asker')
+    expect(row).toEqual(
+      expect.objectContaining({
+        outboundGrantId: null,
+        inboundGrantId: null,
+        pendingReviewCount: expect.any(Number),
+      }),
+    )
+    expect((row?.pendingReviewCount ?? 0) >= 1).toBe(true)
   })
 
   it('POST /cold-query returns 200 before promptB2BAgentForText resolves', async () => {

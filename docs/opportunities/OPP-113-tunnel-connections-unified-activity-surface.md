@@ -1,79 +1,296 @@
-# OPP-113 — Tunnel connections: unified activity surface
+# OPP-113 — Tunnel connections: unified B2B activity surface
 
-**Status:** Open (concept)  
-**Area:** Navigation / IA / UI — B2B + email  
-**Complexity:** Large (touches nav model, primary surface, new data views, replaces Inbox)  
-**Supersedes / absorbs:** current `inbox` zone (email listing), `review` zone (B2B inbound), and Tunnels rail section in ChatHistory — into one cohesive surface.  
+**Status:** In progress — **partial implementation landed** (checkpoint in repo); **automated tests for tunnel-detail messaging and compose flows are not written yet**, pending further UI iteration and manual QA.  
+**Area:** Navigation / IA / UI — B2B tunnels  
+**Complexity:** Large (touches nav model, primary surface, new data views)  
 **Related:** [OPP-112](OPP-112-review-queue-ux-overhaul.md) (review UX; Issues 7–8 folded in), [OPP-110](archive/OPP-110-chat-native-brain-to-brain.md) (chat-native B2B), [OPP-111](archive/OPP-111-tunnel-fast-follows.md) (review queue + auto-send)
+
+---
+
+## Checkpoint — what’s landed vs next
+
+**Landed (checkpoint committed):**
+
+- Tunnels as a primary sidebar section, list + detail activity surface, timeline-oriented UI, Connect / cold-query entry improvements (including reusing the main chat `UnifiedChatComposer` patterns where applicable), and scaffolding around tunnel messages — enough to demo and manually exercise flows.
+
+**Explicitly deferred (before locking tests):**
+
+- **Vitest/component coverage** for tunnel-detail compose, draft lifecycle, and “To” semantics — intentional delay until **in-context vs sticky compose** UX is redesigned (see below) so tests don’t chase a moving UI.
+- **Manual UI QA** across two-account scenarios (grant states, outbound-not-established banners, recipient affordances).
+
+**Current pain:** The sticky bottom **“To: their brain / them” + single field** overloads multiple intents. Needed is a clearer split between **(A) user-authored outbound to their assistant** and **(B) acting on drafts your brain produced** — without cramming both into one control.
+
+---
+
+## UX refinement — dual compose model (direction)
+
+This supersedes the earlier “one compose bar, recipient pill switches brain vs human” framing for **how** compose works; the **chat-log metaphor** stays.
+
+### 1. Sticky bottom bar — outbound you type
+
+- **Purpose:** Messages **you compose yourself** outbound.
+- **Routing rule:** These **always go to the other user’s assistant** (their brain). No mixed “direct to them vs their brain” mode in this bar — that simplifies the mental model.
+- **Copy/affordances:** Tune placeholder and labeling so it is obvious this is **you → their assistant** (assistant-path outbound only).
+
+### 2. In-context widget — drafts and approvals near the bubble
+
+- **Purpose:** Anything that needs **approve, edit, defer, or ignore** on something **your brain already drafted** on your behalf (or that’s surfaced as an actionable outbound/inbound draft in the timeline).
+- **Gesture:** Selecting / clicking the relevant bubble (draft, pending outbound, inbound query + draft) **anchors a combined widget in context** beside or under that bubble — **not** only forcing action from the footer.
+- **Widget contents (combined):**
+  - **Editable text** (the draft body you can revise).
+  - **Send** — ship current text when it looks good (`AgentInput`/composer-style semantics: satisfied with transcript → submit).
+  - **Modify / apply changes** — save edits **without sending** yet (or equivalent wording: commits local draft edits so “Send” is a separate deliberate step — exact interaction TBD during implementation).
+  - **Ignore / dismiss** — clear the obligation without sending, when applicable.
+
+This restores clarity: footer = **fresh outbound you write** to their assistant; in-log = **decision surface on drafts**.
+
+### 3. Bubble differentiation (their brain vs yours, approved vs authored)
+
+Today similar styling for “your brain vs you” hides important nuance:
+
+- Add **distinct visual treatment** (e.g. **color, accent, icons**) for:
+  - **Messages you authored** (human-typed outbound in your voice).
+  - **Messages sent by your brain on your behalf** where **you explicitly approved** the send — optionally badged differently when you **edited before approve** vs **approved verbatim**.
+
+Goal: At a glance, see “I said this” vs “my brain composed this after I blessed it.”
+
+### 4. Simplifying rule of thumb for users
+
+| Kind | Goes to | Typical UI |
+|------|---------|------------|
+| **Outbound you type now** | **Their assistant** | Sticky footer compose |
+| **Draft your brain wrote** | Depends on approval flow | In-context anchored widget |
+| **Response / reply leg** | Often **toward the peer user** narrative | Resolved in-log with labels |
+
+Exact routing should stay faithful to backend capabilities; UX copy should not promise direct human pipes where the protocol is assistant-mediated only.
 
 ---
 
 ## Problem
 
-Braintunnel has three disconnected surfaces for communication activity:
+The nav currently has two primary sections — Chats and Wiki — with tunnels awkwardly embedded inside Chats as a sub-section rail. This conflates two distinct things:
 
-1. **Inbox** (`/inbox`) — incoming email only, rules-driven, 24h window. No sent mail. No B2B traffic.
-2. **Review** (`/review`) — B2B inbound drafts awaiting approval. Feels like a separate app.
-3. **Tunnels rail** (sidebar section in ChatHistory) — outbound B2B sessions listed as chat rows. No unified view of what you've asked *and* what others have asked you.
+- **Chats** are conversations between you and your own assistant.
+- **Tunnels** are B2B connections between your brain and other people's brains — a completely different communication model.
 
-A user who wants to answer "what's going on with Alice?" has to check three places. Sent email is invisible entirely. The nav model treats email and tunnel activity as unrelated concepts, but to the user they are both **connections** — someone you exchange information with through your brain.
-
----
-
-## Concept: Connections
-
-Replace Inbox, Review, and the Tunnels rail with a single primary surface: **Connections**.
-
-A **connection** is any person (or entity) your brain has exchanged information with — email, tunnel, or both. The nav shows each connection as a row. The icon on each row communicates the nature and state of the relationship:
-
-| Icon | Meaning | Example |
-|------|---------|---------|
-| `<=>` | Bidirectional — you've both sent and received | A colleague you email back and forth with |
-| `==>` | Outbound only — you've sent, they haven't replied (or no inbound yet) | A cold tunnel you opened; an email you sent to a new contact |
-| `<==` | Inbound only — they've reached you, you haven't sent | A new tunnel query; a newsletter sender; someone who emailed you |
-| `==>` (request) | Pending outbound — awaiting their review/approval | A tunnel query waiting for the other brain to approve |
-
-These are not literal arrow strings in the UI — they are small, tasteful directional icons (probably custom or adapted from Lucide). The point is to communicate **direction** and **state** at a glance without labels.
+There is no person-oriented view of your tunnel relationships. You cannot see inbound and outbound activity with a specific person in one place. You cannot manage policies or auto-respond settings with any discoverability. The Review surface (`/review`) is disconnected and feels like a separate app.
 
 ---
 
-## What the surface looks like
+## Concept: Three primary sections
 
-### Left rail (replaces Inbox nav + Tunnels rail + Review nav)
+The sidebar becomes three first-class sections:
 
-The rail is a **flat list of connections**, sorted by most recent activity. Each row shows:
+```
+Sidebar
+├── Chats
+│   ├── + New chat
+│   └── [your conversations with your assistant]
+├── Tunnels
+│   ├── + Connect
+│   └── [person rows, sorted by recent activity]
+└── Wiki
+    └── [wiki page rows]
+```
 
-- **Direction icon** (see table above)
-- **Name** (contact name, handle, or email)
-- **Last activity snippet** — subject line or message preview, truncated
-- **Timestamp** — relative time of last activity
-- **Badge** (optional) — unread count or "pending" indicator
+**Chats** = you and your assistant. Unchanged from today.
 
-The list is **not** split into sections by channel. Alice appears once whether you've emailed her, tunneled to her, or both. The connection row is the unified entry point.
+**Tunnels** = every person your brain has a B2B tunnel relationship with, inbound or outbound. One row per person. This replaces the Tunnels sub-section in ChatHistory, the Inbox tunnel entries, and `/review` entirely.
 
-**Filtering:** a compact segmented control or filter bar above the list provides lenses:
+**Wiki** = your wiki. Unchanged from today.
 
-- **All** — every connection with recent activity
-- **Needs attention** — inbound items you haven't acted on (replaces the Review pending concept)
-- **Sent** — your recent outbound activity (the missing feature that prompted this)
+Email is **not** part of this surface. Tunnel communication is Braintunnel-native B2B — it has its own model, its own permissions, and its own UX. Combining it with email would dilute both.
 
-Filters are additive lenses on the same data, not separate pages.
+---
 
-### Detail pane (right side, replaces Inbox thread reader + ReviewDetail)
+## The four-actor model
 
-Clicking a connection opens a **timeline of activity with that person**, newest first. The timeline interleaves:
+A tunnel connection involves four distinct actors, and the detail pane must make all of them legible:
 
-- **Inbound email threads** (with the existing thread reader)
-- **Outbound email threads** (sent mail — new capability)
-- **Tunnel exchanges** (inbound queries + your approved replies, outbound queries + their replies)
+| Actor | Description |
+|-------|-------------|
+| **You** | The signed-in human user |
+| **Your Brain** | Your assistant — handles inbound queries, sends outbound queries on your behalf |
+| **Them** | The other human user |
+| **Their Brain** | Their assistant — receives your outbound queries, sends their inbound queries to you |
 
-Each timeline entry is a card showing direction, subject/question, timestamp, and expandable body. The user can drill into any entry to read the full thread (reusing the existing thread/email overlay).
+The communication flows that matter in a single tunnel relationship:
 
-For entries that need action (pending B2B drafts, unanswered emails), the card shows inline action affordances — approve/edit/dismiss for tunnel drafts, reply/archive for email.
+| Flow | Direction | Who acts |
+|------|-----------|----------|
+| **Inbound queries** | Their Brain → Your Brain | Their assistant asks yours something; your brain drafts a response; you approve or auto-respond |
+| **Outbound queries** | Your Brain → Their Brain | You (or your brain) sends a query; their brain responds automatically or with their approval |
+| **Direct message** | You → Them | You can send a direct human-to-human message through the tunnel |
 
-### Empty state / cold start
+The first two flows are what most B2B tunnel activity is. The third is a simpler "ping this person" capability that doesn't go through either brain.
 
-A new user with no connections sees a clean prompt: "Your connections will appear here as you send and receive email and open Braintunnels." The "Open a Braintunnel" action (currently in the Tunnels rail) moves to a prominent position in the Connections header.
+---
+
+## The tunnel list (left pane)
+
+Each row in the Tunnels section shows:
+
+- **Avatar / initials** for the person
+- **Name** (display name or handle)
+- **Direction state** — a small icon: inbound-pending, outbound-pending, active/bidirectional, idle
+- **Snippet** — last activity preview (query text or response summary, truncated)
+- **Timestamp** — relative time
+- **Badge** — unread or pending-review count
+
+Rows are sorted by most recent activity. A `+ Connect` button at the top opens the flow to initiate a new tunnel with someone (formerly "Open a Braintunnel").
+
+---
+
+## The tunnel detail pane (right side)
+
+**The detail pane is a chat history.** That's the whole metaphor. One scrollable log of everything that has ever passed through this tunnel — inbound queries, outbound queries, your brain's responses, their brain's responses, and direct messages between the humans. A header at the top with the connection controls. A compose bar at the bottom. Nothing else.
+
+The four-actor model collapses to **two sides** in the chat:
+
+- **Your side** (right-aligned): messages from **You** and from **Your Brain**
+- **Their side** (left-aligned): messages from **Them** and from **Their Brain**
+
+Each message bubble has a small actor label (`You`, `Your Brain`, `Alice`, `Alice's Brain`) and a timestamp. That label is the *only* place the four-actor distinction appears — there are no tabs, no filters, no sub-views. You read down the log like any other chat and the actor labels tell you who said what.
+
+### Sketch
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [Avatar]  Alice Chen  @alice.brain.id                       │
+│           Policy: [Read-only ▾]   Auto-respond: [Off ▾]     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Alice's Brain · 3d ago                                     │
+│  "What are Cirne's Q3 availability policies?"               │
+│                                                             │
+│                            Your Brain · 3d ago · auto-sent  │
+│                       "Based on the calendar, available…"   │
+│                                                             │
+│  Alice · 2d ago                                             │
+│  "Hey — got a sec to look at the doc?"                      │
+│                                                             │
+│                                       You · 2d ago          │
+│                                       "On it, ping me 4pm." │
+│                                                             │
+│                          Your Brain · 5h ago · to her brain │
+│                       "Can you summarize Alice's Acme notes?"│
+│  Alice's Brain · 5h ago                                     │
+│  "Alice has three notes on Acme: …"                         │
+│                                                             │
+│  ┌─ Alice's Brain · 30m ago · awaiting your review ───────┐ │
+│  │ "What's your stance on the partnership?"               │ │
+│  │ Your Brain drafted:                                    │ │
+│  │ "Based on recent notes, leaning toward…"               │ │
+│  │ [Approve & send]  [Edit]  [Dismiss]                    │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  [Message Alice's brain...]                          [Send] │
+└─────────────────────────────────────────────────────────────┘
+```
+
+*Interpretation:* the pending card evolves into **in-context anchored draft UX** (`Send` / `Modify` / `Dismiss` semantics); bottom row is **only** outbound you type → **their assistant** (recipient pill superseded).
+
+### Header — connection controls
+
+Always visible at the top:
+
+- **Policy selector** — dropdown showing what access this person's brain currently has to yours (none / read-only / full / etc., mapping to the existing policy model). Change takes effect immediately.
+- **Auto-respond** — dropdown for whether your brain auto-sends drafts back to Alice (Off / Auto-send / etc.).
+
+That's the whole settings surface for this connection. No separate "settings" view, no overflow drawer.
+
+### Body — the chat log
+
+A single chronological message log. Cases that fall out naturally from the metaphor:
+
+- **Auto-respond is on:** your brain's responses appear in the log as normal "Your Brain" messages, marked `auto-sent`. You scroll back to audit what your brain said on your behalf — exactly the use case that makes auto-respond comfortable to enable.
+- **A response is pending your review:** the inbound query and the drafted response appear as a single highlighted "card" bubble in the log, in chronological position, with inline `Approve & send` / `Edit` / `Dismiss` actions. No separate review queue, no jump-to-action surface — the action *is* in the chat.
+- **You queried their brain:** shows as a **“You” bubble** vs **Your Brain bubble** differentiated by styling (custody cues per refinement). The reply from their brain shows as a normal "Alice's Brain" bubble below. Tapping opens the full outbound chat session in Chats when needed.
+
+- **You messaged Alice directly:** if still desired, modeled outside the ambiguous sticky footer (**placement TBD** — see Open questions).
+
+If multiple drafts are pending and you don't want to scroll, the most recent pending card is implicitly anchored near the bottom (just above the compose bar) — it lives at its true chronological position *and* sticks to the bottom until acted on. This is the only deviation from pure log order.
+
+### Compose bar
+
+**Target model (OPP-113 refinement):**
+
+- **Sticky footer:** Dedicated to **your new outbound prose to their assistant** — not for resolving brain drafts or toggling ambiguous recipients. Optionally link “open full session in Chats” from bubbled items as today.
+- **In-context anchored controls:** Pending approvals, edits to brain drafts, and “send vs modify-then-send” belong **near the timeline bubble** via the combined draft widget described in **Checkpoint / UX refinement** above.
+
+Historical sketch (prior “recipient pill” in one bar) informed early prototypes; superseded by splitting **sticky vs in-context**.
+
+```
+[Sticky] Type to message {{their assistant}} …        [Send]
+```
+
+```
+[In-context, anchored to bubble]
+  ┌─────────────────────────────────────────────┐
+  │ [ editable draft textarea / composer chip ] │
+  │  [Dismiss]              [Modify]   [Send]   │
+  └─────────────────────────────────────────────┘
+```
+
+Exact labels (`Modify` vs `Apply changes`), and whether edits auto-save draft server-side vs local-only until Send, ship during implementation once flows are exercised manually.
+
+---
+
+## Diagrams
+
+### Layout
+
+```mermaid
+flowchart LR
+    subgraph nav[Sidebar]
+        direction TB
+        chats["Chats\n───────────────\n+ New chat\n[chat rows]"]
+        tunnels["Tunnels\n───────────────\n+ Connect\n[person rows]"]
+        wiki["Wiki\n───────────────\n[page rows]"]
+    end
+
+    tunnels -->|select person| detail
+
+    subgraph detail["Tunnel Detail — Alice Chen"]
+        direction TB
+        header["Header\n─────────────────────────────────\nPolicy: Read-only ▾   Auto-respond: Off ▾"]
+        log["Chat Log  (chronological, newest at bottom)\n─────────────────────────────────\n← Alice's Brain  ·  3d ago\n← Alice           ·  2d ago\n                     Your Brain  ·  3d ago →\n                            You  ·  2d ago →\n← ┌ pending · awaiting review ─────────────┐\n  │ Alice's Brain · 30m ago                 │\n  │ Your Brain drafted: …                   │\n  │ Approve & send   Edit   Dismiss         │\n  └──────────────────────────────────────── ┘"]
+        compose["Sticky footer ─ assistant-only outbound you type ── Send"]
+        header --- log --- compose
+    end
+```
+
+### Four-actor message flows
+
+```mermaid
+sequenceDiagram
+    participant You
+    participant YB as Your Brain
+    participant AB as Alice's Brain
+    participant Alice
+
+    Note over AB,YB: Inbound query (auto-respond off)
+    AB->>YB: "What are your Q3 policies?"
+    YB-->>You: pending bubble in chat log
+    You->>YB: Approve & send
+    YB->>AB: approved response
+
+    Note over YB,AB: Inbound query (auto-respond on)
+    AB->>YB: "Partnership stance?"
+    YB->>AB: auto-sent response
+    Note over You: "auto-sent" bubble appears in log
+
+    Note over You,AB: Outbound query
+    You->>YB: send query via compose bar
+    YB->>AB: outbound query
+    AB->>YB: response
+    Note over You: bubbles appear in chat log
+
+    Note over You,Alice: Direct human-to-human
+    You->>Alice: direct message
+    Alice->>You: direct reply
+```
 
 ---
 
@@ -85,16 +302,16 @@ A new user with no connections sees a clean prompt: "Your connections will appea
 Sidebar
 ├── Chats (section)
 │   ├── + New chat
-│   └── [chat rows...]
-├── Tunnels (section)
-│   ├── Inbox (N) → /review
-│   ├── + Open a Braintunnel
-│   └── [tunnel rows...]
+│   ├── [chat rows...]
+│   ├── Tunnels (sub-section)
+│   │   ├── Inbox (N) → /review
+│   │   ├── + Open a Braintunnel
+│   │   └── [tunnel rows...]
 └── Wiki (section)
     └── [wiki page rows...]
 
-Dock / top-level zones:
-  /c (chat) | /inbox (email) | /wiki | /review (B2B) | /hub (settings)
+Dock zones:
+  /c (chat) | /inbox (email) | /wiki | /review (B2B) | /hub
 ```
 
 ### After (proposed)
@@ -104,76 +321,84 @@ Sidebar
 ├── Chats (section)
 │   ├── + New chat
 │   └── [chat rows...]
-├── Wiki (section)
-│   └── [wiki page rows...]
+├── Tunnels (section)
+│   ├── + Connect
+│   └── [person rows...]
+└── Wiki (section)
+    └── [wiki page rows...]
 
-Primary surface zones:
-  /c (chat) | /connections (unified) | /wiki | /hub (settings)
+Dock zones:
+  /c (chat) | /tunnels (list) | /tunnels/:handle (detail) | /wiki | /hub
 ```
 
 Key changes:
 
-1. **`/inbox` and `/review` merge** into **`/connections`** (new `RouteZone`).
-2. **Tunnels rail section disappears** from ChatHistory — tunnel connections appear in the Connections surface.
-3. **"Open a Braintunnel"** button moves to the Connections surface header (alongside filter controls).
-4. The sidebar keeps Chats and Wiki sections. The Connections zone is accessed via the primary nav (dock icon, top bar, or keyboard shortcut).
+1. **Tunnels** becomes a first-class sidebar section alongside Chats and Wiki.
+2. **`/review` is retired** — pending inbound queries appear as "Pending" items in the tunnel detail pane, not a separate surface.
+3. **Tunnels sub-section inside ChatHistory is removed** — the Tunnels section in the sidebar replaces it.
+4. **`+ Open a Braintunnel`** becomes `+ Connect` at the top of the Tunnels section.
+5. Email (`/inbox`) remains its own separate surface and is not affected by this change.
 
 ---
 
-## The hard design problem
+## Design principles for the detail pane
 
-Making this simple and elegant is genuinely difficult. The risk is building a mini-email-client or a CRM contact list — neither of which is what Braintunnel should be.
+The four-actor model is genuinely complex. The point of "make it feel like a chat history" is to *not* expose that complexity as UI. The principles:
 
-### Principles to keep it clean
+1. **One log, two sides, four labels.** Right side = your messages and your brain's. Left side = theirs and their brain's. Actor labels on every bubble. No tabs. No filter chips. No "Inbound" / "Outbound" / "Pending" sub-views. The user reads down the log like any chat thread.
 
-1. **People, not messages.** The primary object is a *person*, not a thread. The list shows connections, not an inbox of individual emails. This is the fundamental difference from a traditional mailbox.
+2. **Header is the only settings surface.** Policy and auto-respond live in the header — always visible, one click to change, no drawer or settings view. If a future setting needs to live here, it goes in the header or it doesn't exist.
 
-2. **Recency, not completeness.** The surface is a *recent activity* view, not a full archive. The time window (e.g. 7 days of email, all pending B2B) keeps the list short and actionable. Older history is accessible through search or drill-down, not by scrolling forever.
+3. **Draft actions belong in-context on the timeline.** A draft awaiting approval or refinement is anchored to its bubble — combined input + Send / Modify / Ignore — not delegated to only the footer. The footer is for net-new outbound you type **to their assistant**.
 
-3. **Direction communicates state.** The arrow icons do heavy lifting. A glance at the list tells you: "Alice — bidirectional, last active 2h ago. Bob — inbound only, needs attention. Carol — outbound pending." No need for separate Inbox/Sent/Review sections.
+4. **Auto-respond is auditable by scrolling.** When auto-respond is on, your brain's outbound replies show up in the log marked `auto-sent`. The chat-history metaphor *is* the audit trail — there's no separate "what did my brain say" view to build because it's already there.
 
-4. **Progressive disclosure.** The list is minimal. The detail pane shows more. The full thread overlay shows everything. Three levels, each clean.
+5. **Sticky footer = outbound you author to their assistant.** In-context widget = drafts and approvals near the originating bubble — different shapes for different intents; avoid collapsing both into one recipient dropdown.
 
-5. **No channel chrome.** Don't show "Email" and "Tunnel" tabs or labels on individual entries. The user doesn't care about the transport — they care about the person and the content. Channel metadata (email vs tunnel) appears subtly in the timeline entries if needed, not as top-level UI.
+6. **Bubble styling encodes custody.** Differentiate bubbles for human-authored vs assistant-authored-with-approval (and optionally edited-vs-verbatim approvals).
 
-### Known risks
-
-- **Naming:** "Connections" could evoke LinkedIn. Alternatives: "Activity", "People", "Network", just an icon with no label. Needs iteration.
-- **Performance:** Merging email contacts + B2B tunnels into one sorted list requires a join query or merged API. Email contact volume could be large; capping to recent activity window helps.
-- **Migration path:** Current Inbox and Review are separate zone-backed surfaces with tests, router entries, i18n, and mobile layouts. The transition is not a rename — it is a new component that unifies two existing ones.
+7. **Outbound chat sessions stay in Chats.** When you query their brain, the full back-and-forth lives in Chats as a normal chat session. The Tunnels detail shows the query and reply as bubbles in the log; tapping opens the Chats session for the full context. We don't duplicate the chat UI inside Tunnels.
 
 ---
+
+## Open questions
+
+1. **Outbound queries as sessions.** Today, outbound B2B queries open as chat sessions in the Chats section. Should they stay there (so you have a full chat context) and just be *reflected* in the Tunnels detail timeline? Or should they live only in Tunnels? The cleanest model is probably: outbound queries live in both places — the session is in Chats (full history) and the Tunnels detail shows a summary card that links to the session.
+
+2. **Person identity and matching.** The tunnel list is organized by person. What is the identity key — brain ID, email, some other handle? If you have multiple tunnels open with the same person (different topics), do they merge into one person row or stay separate?
+
+3. **Notification routing.** Today, inbound B2B drafts route to `/review`. After this change, they should route to the person's tunnel detail. The pending badge on the Tunnels sidebar section communicates urgency.
+
+4. **What happens to `/inbox`?** This OPP does not affect the Inbox surface. It remains at `/inbox` for email. The dock icon / nav entry for inbox stays. The only nav change is adding a Tunnels section to the sidebar with `/tunnels` (list) and `/tunnels/:handle` (detail) routes.
+
+5. **Empty state.** A user with no tunnel connections sees the Tunnels section with only the `+ Connect` row and a brief explainer. A connection with no activity yet (just established) shows the connection header with policy/auto-respond and an empty timeline with a prompt.
+
+6. **Direct human messaging in tunnels.** Older concept had a footer recipient pill for messaging the human directly vs their brain; the refinement makes sticky footer assistant-only until we decide where (if anywhere) explicit **You → Them** messages live (separate gesture, omit for v1, etc.) — needs product/backend alignment before tests.
+
+7. **Test plan timing.** Prefer **Vitest/component tests after** sticky vs in-context compose and bubble styling converge; meanwhile rely on scripted two-account manual passes.
 
 ## Implementation sketch (not a plan — just enough to prove feasibility)
 
 ### Data
 
-- **Email connections:** derive from ripmail `messages` table — `SELECT DISTINCT from_address, to_addresses` with time window, grouped by canonical contact identity (reuse `who` / `contactRank`). Include `is_from_me` equivalent (folder-based or header-based) to classify direction.
-- **B2B connections:** derive from `brain_query_grants` + `chat_sessions` (existing `GET /api/chat/b2b/tunnels` and `/review`).
-- **Merged API:** new `GET /api/connections` endpoint that returns a unified list sorted by `last_activity_at`, each entry tagged with direction state and channel(s). Paginated, filterable by lens (all / needs-attention / sent).
+- **Tunnel connections list:** derive from `brain_query_grants` + `chat_sessions`, grouped by remote brain identity. Merge inbound grants and outbound sessions by the same remote party.
+- **Activity timeline:** for a given connection — inbound B2B sessions (their queries to your brain), outbound B2B sessions (your queries to their brain), and direct messages (new table). Sorted by `created_at`.
+- **Policy + auto-respond:** fields on the connection/grant record, writable via `PATCH /api/tunnels/:handle`.
 
 ### Router
 
-- New `RouteZone`: `'connections'` at `/connections`.
-- Deprecate `'inbox'` and `'review'` zones (redirect to `/connections` with appropriate filter).
+- New `RouteZone`: `'tunnels'` at `/tunnels`, with a detail sub-route at `/tunnels/:handle` (e.g. `/tunnels/alice`).
+- `/review` redirects to `/tunnels` with the most-recent pending tunnel selected (during transition).
+- Tunnels sub-section removed from ChatHistory sidebar.
 
 ### Components
 
-- `Connections.svelte` — primary surface (list + detail split).
-- `ConnectionRow.svelte` — single row with direction icon, name, snippet, time.
-- `ConnectionDetail.svelte` — timeline of activity entries for one connection.
-- Reuse existing `Inbox.svelte` thread reader and `ReviewDetail.svelte` action affordances inside the detail pane, refactored as composable sub-views.
-
-### Direction icons
-
-Custom or Lucide-composed. Candidates:
-
-- `ArrowLeftRight` (bidirectional)
-- `ArrowRight` (outbound)
-- `ArrowLeft` (inbound)
-- `ArrowRight` + clock/hourglass (pending outbound)
-
-Or: thin custom glyphs that look more like flow connectors than navigation arrows — closer to the tunnel metaphor.
+- `Tunnels.svelte` — primary surface (list + detail split).
+- `TunnelRow.svelte` — person row with state icon, name, snippet, timestamp, badge.
+- `TunnelDetail.svelte` — header (policy, auto-respond) + chat log + **sticky compose** (assistant-only outbound you type — **dual-mode refactor pending**).
+- `TunnelMessage.svelte` — single bubble with side alignment, actor label, timestamp, body; evolve toward **distinct treatments** for human-authored vs brain-sent-with-approval (and optional edited-vs-verbatim cues).
+- `TunnelPendingMessage.svelte` — inbound query + draft; grow into **anchored in-context composer** (editable draft + Send + Modify / apply + Dismiss / ignore per refined UX — may compose `UnifiedChatComposer` or thinner input + actions; revisit vs `ReviewDetail.svelte`).
+- **`TunnelDraftActionBar` (conceptual)** — optional extract for the anchored “combined widget” beside a bubble once interaction design stabilizes.
 
 ---
 
@@ -181,27 +406,7 @@ Or: thin custom glyphs that look more like flow connectors than navigation arrow
 
 | OPP | Disposition |
 |-----|------------|
-| [OPP-112](OPP-112-review-queue-ux-overhaul.md) Issues 1–6 | Already shipped; inform the detail-pane action UX in ConnectionDetail |
-| OPP-112 Issue 7 (sender info + policy panel) | Folds into ConnectionDetail — the connection *is* the sender context |
-| OPP-112 Issue 8 (cold-query initiation) | Entry point moves from Tunnels rail to Connections header |
-| [OPP-109](OPP-109-layered-spam-and-bulk-mail-classification.md) (inbox triage) | Still relevant — triage logic feeds the "needs attention" filter |
-
----
-
-## Open questions
-
-1. **Should Chats stay separate, or fold into Connections too?** A "My Brain" chat is a connection with yourself. If Connections absorbs everything, the sidebar simplifies to just Wiki. But that might be too ambitious and could confuse the chat-first UX. Recommend: keep Chats separate for now; Connections is the *other people* surface.
-
-2. **What about organizational/automated senders?** Newsletters, GitHub notifications, etc. are inbound-only connections with no real person behind them. Should they appear in Connections or remain filtered by inbox rules into oblivion? Probably: rules suppress them from the default "All" view, but a "show filtered" toggle reveals them.
-
-3. **Mobile layout.** The current Inbox and Review have mobile-specific layouts. Connections needs a single-column mode where the list fills the screen and tapping a row pushes to the detail view. This is tractable but must be designed.
-
-4. **Agent context.** Today the agent gets `{ type: 'inbox' }` when the user is on the Inbox surface. The new context should be `{ type: 'connections' }` or `{ type: 'connections', connectionId: '...' }` so the agent knows which person the user is looking at and can assist contextually.
-
----
-
-## Why this matters
-
-The inbox-as-list-of-recent-emails model is a solved problem — every email client does it. Braintunnel's value is *not* being a better email client. It is being the place where you understand and manage your **relationships and information flow** across channels. Connections as a first-class nav concept moves the product closer to that identity and further from "chatbot with an email viewer bolted on."
-
-Sent mail visibility — the original trigger for this exploration — falls out naturally: every connection shows both directions of activity. No need for a separate "Sent" tab or mailbox concept.
+| [OPP-112](OPP-112-review-queue-ux-overhaul.md) Issues 1–6 | Already shipped; action affordances reused in `TunnelActivityCard` |
+| OPP-112 Issue 7 (sender info + policy panel) | Folds into `TunnelDetail` connection header — policy selector lives there |
+| OPP-112 Issue 8 (cold-query initiation) | `+ Connect` in Tunnels section header |
+| [OPP-110](archive/OPP-110-chat-native-brain-to-brain.md) (chat-native B2B) | Outbound query sessions still live in Chats; Tunnels detail shows the query and reply as bubbles in the chat log, linking to the full session in Chats |

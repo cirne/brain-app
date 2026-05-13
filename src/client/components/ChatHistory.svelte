@@ -3,7 +3,7 @@
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { t } from '@client/lib/i18n/index.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2, Inbox } from 'lucide-svelte'
+  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2 } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
@@ -18,6 +18,10 @@
     subscribeHubNotificationsRefresh,
     subscribeTunnelActivity,
   } from '@client/lib/hubEvents/hubEventsClient.js'
+  import {
+    parseB2BTunnelListResponse,
+    type B2BTunnelListRowApi,
+  } from '@client/lib/b2bTunnelTypes.js'
   import {
     loadNavHistory,
     removeFromNavHistory,
@@ -45,7 +49,9 @@
     onOpenAllChats,
     onWikiHome,
     brainQueryEnabled = false,
-    onOpenReview,
+    onSelectTunnel,
+    onOpenTunnels,
+    selectedTunnelHandle = null as string | null,
     onOpenColdTunnelEntry,
   }: {
     activeSessionId?: string | null
@@ -56,13 +62,18 @@
     onOpenAllChats?: () => void
     onWikiHome?: () => void
     brainQueryEnabled?: boolean
-    onOpenReview?: () => void
+    /** Navigate to unified Tunnels surface for a collaborator (`/tunnels/:handle`). */
+    onSelectTunnel?: (_handle: string) => void
+    /** Open Tunnels surface without a peer (sidebar pending badge → `/tunnels`). */
+    onOpenTunnels?: () => void
+    /** Highlights the active tunnels rail row while on `/tunnels/:handle`. */
+    selectedTunnelHandle?: string | null
     /** Desktop: inline composer in main chat; mobile: parent opens a bottom sheet. */
     onOpenColdTunnelEntry?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
-  let tunnels = $state<B2BTunnelRow[]>([])
+  let tunnels = $state<B2BTunnelListRowApi[]>([])
   let tunnelsError = $state<string | null>(null)
   let navHistory = $state<NavHistoryItem[]>([])
   let loading = $state(true)
@@ -74,7 +85,8 @@
     label: string
   } | null>(null)
   let hasMoreChats = $state(false)
-  let reviewPendingCount = $state(0)
+  /** Total inbound items awaiting review across tunnels (API `pendingReviewCount` per peer). */
+  const tunnelInboundPendingTotal = $derived(tunnels.reduce((n, t) => n + t.pendingReviewCount, 0))
 
   const tunnelAwaitPreviewLc = B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET.toLowerCase()
 
@@ -111,27 +123,16 @@
     tunnelOwnerDisplayName?: string
     /** Outbound tunnel row: grant backing this tunnel (used to open/create session). */
     tunnelGrantId?: string
-    /** Tunnel rows omit the trailing time column. */
+    /** Tunnel rail: richer row (OPP-113). */
     omitRowTime?: boolean
+    tunnelPeerHandle?: string
+    /** Sort key for tunnel row order (not shown in rail). */
+    tunnelLastActivityMs?: number
     sessionType?: ChatSessionType
     approvalState?: ApprovalState | null
     badgeLabel?: string
     /** Tunnel row: visual hint for awaiting send vs new reply (SSE-driven unread). */
-    tunnelRailIndicator?: 'new_reply' | 'awaiting_collaborator'
-  }
-
-  type B2BTunnelRow = {
-    grantId: string
-    ownerId: string
-    ownerHandle: string
-    ownerDisplayName: string
-    sessionId: string | null
-  }
-
-  function tunnelSidebarLabel(t: B2BTunnelRow): string {
-    return (
-      (t.ownerDisplayName?.trim() || t.ownerHandle?.trim() || t.grantId || '').trim() || t.grantId
-    )
+    tunnelRailIndicator?: 'new_reply' | 'awaiting_collaborator' | 'pending_review'
   }
 
   function fallbackChatTitle(s: ChatSessionListItem): string {
@@ -173,31 +174,43 @@
     const unread = tunnelUnreadOutboundSessions
     const mapped = tunnels.map((t) => {
       const outbound = sessions.find(
-        (s) => s.sessionType === 'b2b_outbound' && s.remoteGrantId === t.grantId,
+        (s) => s.sessionType === 'b2b_outbound' && t.outboundGrantId && s.remoteGrantId === t.outboundGrantId,
       )
-      const sessionIdForRow = outbound?.sessionId ?? t.sessionId ?? undefined
+      const sessionIdForRow =
+        outbound?.sessionId ?? t.outboundSessionId ?? t.sessionId ?? undefined
       const previewLc = outbound?.preview?.toLowerCase() ?? ''
-      const awaiting =
-        outbound != null && previewLc.includes(tunnelAwaitPreviewLc)
+      const awaiting = outbound != null && previewLc.includes(tunnelAwaitPreviewLc)
       const unreadReply = sessionIdForRow != null && unread.has(sessionIdForRow)
+      const pendingIn = (t.pendingReviewCount ?? 0) > 0
       let tunnelRailIndicator: NavRowItem['tunnelRailIndicator']
       if (unreadReply) tunnelRailIndicator = 'new_reply'
       else if (awaiting) tunnelRailIndicator = 'awaiting_collaborator'
+      else if (pendingIn) tunnelRailIndicator = 'pending_review'
+
+      const gidForRow = (t.outboundGrantId ?? t.grantId)?.trim() || ''
+      const display =
+        (t.peerDisplayName?.trim() || t.peerHandle.trim() || gidForRow || '').trim() || gidForRow
 
       return {
-        id: `tunnel:${t.grantId}`,
+        id: `tunnel:${t.peerHandle}`,
         type: 'tunnel' as const,
-        title: tunnelSidebarLabel(t),
+        title: display,
         timestamp: '',
         omitRowTime: true,
-        tunnelGrantId: t.grantId,
-        tunnelOwnerHandle: t.ownerHandle,
-        tunnelOwnerDisplayName: t.ownerDisplayName,
+        tunnelGrantId: gidForRow || undefined,
+        tunnelOwnerHandle: t.peerHandle,
+        tunnelOwnerDisplayName: t.peerDisplayName,
+        tunnelPeerHandle: t.peerHandle,
+        tunnelLastActivityMs: t.lastActivityMs,
         sessionId: sessionIdForRow,
         tunnelRailIndicator,
       }
     })
-    mapped.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
+    mapped.sort((a, b) => {
+      const ta = a.type === 'tunnel' ? (a.tunnelLastActivityMs ?? 0) : new Date(a.timestamp).getTime()
+      const tb = b.type === 'tunnel' ? (b.tunnelLastActivityMs ?? 0) : new Date(b.timestamp).getTime()
+      return tb - ta
+    })
     return mapped
   })
 
@@ -258,19 +271,9 @@
         const tunnelRes = await apiFetch('/api/chat/b2b/tunnels')
         if (mySeq !== refreshSeq) return
         if (tunnelRes.ok) {
-          const body = (await tunnelRes.json()) as { tunnels?: unknown }
-          const list = body.tunnels
-          tunnels =
-            Array.isArray(list)
-              ? (list as B2BTunnelRow[]).filter(
-                  (r) =>
-                    typeof r.grantId === 'string' &&
-                    typeof r.ownerId === 'string' &&
-                    typeof r.ownerHandle === 'string' &&
-                    typeof r.ownerDisplayName === 'string' &&
-                    (r.sessionId === null || typeof r.sessionId === 'string'),
-                )
-              : []
+          const body = (await tunnelRes.json()) as unknown
+          if (mySeq !== refreshSeq) return
+          tunnels = parseB2BTunnelListResponse(body)
         } else {
           tunnels = []
           if (tunnelRes.status !== 404) {
@@ -281,23 +284,6 @@
         if (mySeq !== refreshSeq) return
         tunnels = []
         tunnelsError = $t('chat.history.tunnelsLoadFailed')
-      }
-
-      if (brainQueryEnabled) {
-        try {
-          const revRes = await apiFetch('/api/chat/b2b/review?state=pending')
-          if (mySeq !== refreshSeq) return
-          if (revRes.ok) {
-            const j = (await revRes.json()) as { items?: unknown }
-            reviewPendingCount = Array.isArray(j.items) ? j.items.length : 0
-          } else {
-            reviewPendingCount = 0
-          }
-        } catch {
-          reviewPendingCount = 0
-        }
-      } else {
-        reviewPendingCount = 0
       }
 
       navHistory = await loadNavHistory()
@@ -316,37 +302,13 @@
     }
   }
 
-  async function ensureTunnelOutboundSession(grantId: string): Promise<string | null> {
-    const res = await apiFetch('/api/chat/b2b/ensure-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ grantId }),
-    })
-    if (!res.ok) return null
-    const body = (await res.json()) as { sessionId?: unknown }
-    return typeof body.sessionId === 'string' ? body.sessionId : null
-  }
-
-  async function openTunnelRow(item: NavRowItem & { type: 'tunnel' }) {
-    const gid = item.tunnelGrantId?.trim()
-    if (!gid) return
-    tunnelsError = null
-    let sid = item.sessionId?.trim()
-    if (!sid) {
-      sid = (await ensureTunnelOutboundSession(gid)) ?? ''
-    }
-    if (!sid) {
-      tunnelsError = $t('chat.history.tunnelsLoadFailed')
-      return
-    }
-    clearUnreadTunnelOutbound(sid)
-    emit({ type: 'chat:sessions-changed' })
-    onSelect(sid, item.title)
-  }
-
   function handleItemClick(item: NavRowItem) {
     if (item.type === 'tunnel') {
-      void openTunnelRow(item)
+      const h = item.tunnelPeerHandle?.trim()
+      if (!h || !onSelectTunnel) return
+      const sid = item.sessionId?.trim() ?? ''
+      if (sid) clearUnreadTunnelOutbound(sid)
+      onSelectTunnel(h)
       return
     }
     if (item.type === 'chat' && item.sessionId) {
@@ -415,7 +377,13 @@
         if (sid) next = next.filter((s) => s.sessionId !== sid)
         if (gid) next = next.filter((s) => !(s.sessionType === 'b2b_outbound' && s.remoteGrantId === gid))
         sessions = next
-        tunnels = gid ? tunnels.filter((t) => t.grantId !== gid) : tunnels
+        tunnels =
+          gid
+            ? tunnels.filter((t) => {
+                const og = (t.outboundGrantId ?? t.grantId ?? '').trim()
+                return og !== gid
+              })
+            : tunnels
         emit({ type: 'chat:sessions-changed' })
         const active = activeSessionId?.trim() ?? ''
         if (active && !next.some((s) => s.sessionId === active)) onNewChat()
@@ -482,15 +450,22 @@
 
 {#snippet navRow(item: NavRowItem)}
   {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
+  {@const tunnelPeer =
+    item.type === 'tunnel' ? (item.tunnelPeerHandle?.trim() ?? '') : ''}
+  {@const tunnelsSel = selectedTunnelHandle?.trim() ?? ''}
+  {@const tunnelActive =
+    tunnelPeer !== '' && tunnelsSel !== '' && tunnelPeer === tunnelsSel}
   <div
     class={cn(
-      'ch-row group/chrow box-border m-0 flex w-full cursor-pointer items-center gap-1.5 px-1.5 py-1 text-left text-foreground transition-colors max-md:min-h-11 max-md:px-1.5 max-md:py-1.5',
+      'ch-row group/chrow box-border m-0 flex w-full cursor-pointer gap-1.5 px-1.5 py-1 text-left text-foreground transition-colors max-md:min-h-11 max-md:px-1.5 max-md:py-1.5',
+      item.type === 'tunnel' ? 'items-start' : 'items-center',
       'hover:bg-surface-3 hover:[&_.wfn-name]:text-accent',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
-      (item.type === 'chat' || item.type === 'tunnel') &&
+      item.type === 'chat' &&
         !!item.sessionId &&
         activeSessionId === item.sessionId &&
         'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected rounded-sm',
+      tunnelActive && 'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected rounded-sm',
     )}
     role="button"
     tabindex="0"
@@ -534,6 +509,12 @@
                   class="pointer-events-none absolute -end-0.5 -top-0.5 size-1.5 rounded-full bg-amber-500/90 ring-2 ring-surface-2"
                   aria-label={$t('chat.history.tunnelIndicatorAwaiting')}
                 ></span>
+              {:else if item.tunnelRailIndicator === 'pending_review'}
+                <span
+                  data-tunnel-indicator="pending-review"
+                  class="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-accent ring-2 ring-surface-2"
+                  aria-label={$t('chat.history.tunnelIndicatorPendingReview')}
+                ></span>
               {/if}
             </span>
           {:else}
@@ -542,23 +523,27 @@
         {/if}
       </span>
       <span
-        class="ch-row-title inline-flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-[11px] leading-[1.32] max-md:text-lg max-md:leading-[1.35]"
+        class={cn(
+          'ch-row-title min-w-0 flex-1 overflow-hidden text-[11px] leading-[1.32] max-md:text-lg max-md:leading-[1.35] inline-flex items-center gap-1.5',
+        )}
       >
-        <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{item.title}</span>
-        {#if item.badgeLabel}
-          <span
-            class="shrink-0 rounded-full bg-accent/10 px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-none tracking-wide text-accent max-md:text-[11px]"
-          >
-            {item.badgeLabel}
-          </span>
-        {/if}
+        <span class="inline-flex min-w-0 items-center gap-1.5">
+          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{item.title}</span>
+          {#if item.badgeLabel}
+            <span
+              class="shrink-0 rounded-full bg-accent/10 px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-none tracking-wide text-accent max-md:text-[11px]"
+            >
+              {item.badgeLabel}
+            </span>
+          {/if}
+        </span>
       </span>
     {/if}
     {#if !item.omitRowTime}
       <span class="ch-row-time ms-0.5 me-1.5 shrink-0 text-[10px] text-muted/70 max-md:text-sm"
         >{shortTime(item.timestamp)}</span>
     {/if}
-    {#if item.type !== 'tunnel' || item.sessionId}
+    {#if item.type !== 'tunnel' || item.sessionId || item.tunnelGrantId}
       <button
         type="button"
         class={cn(
@@ -629,34 +614,24 @@
         class="ch-group ch-group--tunnels m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5 pb-5"
         aria-labelledby="ch-heading-tunnels"
       >
-        <h2
-          class="ch-group-label m-0 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
-          id="ch-heading-tunnels"
-        >
-          {$t('chat.history.tunnelsHeading')}
-        </h2>
-        {#if brainQueryEnabled && onOpenReview && reviewPendingCount > 0}
-          <button
-            type="button"
-            class={cn(
-              chatHistoryRailPrimaryBtn,
-              'inbox-rail-link justify-between border-0 hover:border-transparent',
-            )}
-            aria-label={$t('chat.history.pendingOpenAriaWithCount', { count: reviewPendingCount })}
-            onclick={() => onOpenReview()}
+        <div class="flex items-start justify-between gap-2 px-2 pb-2 pt-0.5">
+          <h2
+            class="ch-group-label m-0 flex min-w-0 flex-1 items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
+            id="ch-heading-tunnels"
           >
-            <span class="flex min-w-0 flex-1 items-center gap-1.5">
-              <Inbox size={14} strokeWidth={2} aria-hidden="true" class="shrink-0 opacity-80" />
-              <span class="min-w-0 truncate">{$t('chat.history.pendingRow')}</span>
-            </span>
-            <span
-              class="inbox-rail-badge shrink-0 rounded-full bg-accent px-1.5 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white max-md:text-[11px]"
-              aria-hidden="true"
+            {$t('chat.history.tunnelsHeading')}
+          </h2>
+          {#if brainQueryEnabled && tunnelInboundPendingTotal > 0 && onOpenTunnels}
+            <button
+              type="button"
+              class="shrink-0 rounded-full bg-accent px-2 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white hover:opacity-90 max-md:text-[11px]"
+              aria-label={$t('chat.history.pendingOpenAriaWithCount', { count: tunnelInboundPendingTotal })}
+              onclick={() => onOpenTunnels()}
             >
-              {reviewPendingCount > 99 ? '99+' : reviewPendingCount}
-            </span>
-          </button>
-        {/if}
+              {tunnelInboundPendingTotal > 99 ? '99+' : tunnelInboundPendingTotal}
+            </button>
+          {/if}
+        </div>
         {#if brainQueryEnabled}
           <div class="px-2 pb-2">
             <button

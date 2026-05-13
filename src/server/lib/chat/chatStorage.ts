@@ -293,6 +293,111 @@ export async function findB2BSession(
   return rowToListItem(row, row.preview ?? undefined)
 }
 
+/** Owner-tenant inbound rows for `remote_grant_id` (one row per inbound question). Chronological oldest-first. */
+export function listInboundSessionsForGrant(
+  remoteGrantId: string,
+): Array<{ sessionId: string; updatedAtMs: number }> {
+  const db = getTenantDb()
+  const gid = remoteGrantId.trim()
+  if (!gid) return []
+  const rows = db
+    .prepare(
+      `SELECT session_id, updated_at_ms FROM chat_sessions
+       WHERE session_type = 'b2b_inbound' AND remote_grant_id = ?
+       ORDER BY updated_at_ms ASC`,
+    )
+    .all(gid) as { session_id: string; updated_at_ms: number }[]
+  return rows.map((r) => ({ sessionId: r.session_id, updatedAtMs: r.updated_at_ms }))
+}
+
+/** Cold-query inbound handshake rows from peer `coldPeerUserId` (pre-grant); oldest-first by update time. */
+export function listColdInboundSessionsForPeer(
+  coldPeerUserId: string,
+): Array<{ sessionId: string; updatedAtMs: number }> {
+  const db = getTenantDb()
+  const peer = coldPeerUserId.trim()
+  if (!peer) return []
+  const rows = db
+    .prepare(
+      `SELECT session_id, updated_at_ms FROM chat_sessions
+       WHERE session_type = 'b2b_inbound'
+         AND is_cold_query = 1
+         AND (remote_grant_id IS NULL OR trim(remote_grant_id) = '')
+         AND lower(cold_peer_user_id) = lower(?)
+       ORDER BY updated_at_ms ASC`,
+    )
+    .all(peer) as { session_id: string; updated_at_ms: number }[]
+  return rows.map((r) => ({ sessionId: r.session_id, updatedAtMs: r.updated_at_ms }))
+}
+
+export type B2bInboundPeerMetaRow = {
+  sessionId: string
+  peerHandle: string | null
+  peerDisplayName: string | null
+  coldPeerUserId: string | null
+}
+
+export function getInboundB2bSessionPeerMeta(sessionId: string): B2bInboundPeerMetaRow | null {
+  const db = getTenantDb()
+  const sid = sessionId.trim()
+  if (!sid) return null
+  const row = db
+    .prepare(
+      `SELECT session_id, remote_handle, remote_display_name, cold_peer_user_id FROM chat_sessions
+       WHERE session_type = 'b2b_inbound' AND lower(session_id) = lower(?)`,
+    )
+    .get(sid) as
+    | {
+        session_id: string
+        remote_handle: string | null
+        remote_display_name: string | null
+        cold_peer_user_id: string | null
+      }
+    | undefined
+  if (!row) return null
+  return {
+    sessionId: row.session_id,
+    peerHandle: row.remote_handle?.trim() || null,
+    peerDisplayName: row.remote_display_name?.trim() || null,
+    coldPeerUserId: row.cold_peer_user_id?.trim() || null,
+  }
+}
+
+/** Messages with persisted row timestamps — for chronological tunnel timelines across sessions. */
+export type TimelineMessageRow = {
+  seq: number
+  role: 'user' | 'assistant'
+  message: ChatMessage
+  createdAtMs: number
+}
+
+export function listTimelineMessages(sessionId: string): TimelineMessageRow[] {
+  const db = getTenantDb()
+  const sid = sessionId.trim()
+  if (!sid) return []
+  const msgRows = db
+    .prepare(
+      `SELECT seq, role, content_json, created_at_ms FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`,
+    )
+    .all(sid) as { seq: number; role: string; content_json: string; created_at_ms: number }[]
+  const out: TimelineMessageRow[] = []
+  for (const r of msgRows) {
+    if (r.role !== 'user' && r.role !== 'assistant') continue
+    try {
+      const message = JSON.parse(r.content_json) as ChatMessage
+      out.push({
+        seq: r.seq,
+        role: r.role,
+        message: ensureChatMessageId(message),
+        createdAtMs: r.created_at_ms,
+      })
+    } catch {
+      /* skip */
+    }
+  }
+  return out
+}
+
 /** Pending cold-query inbound from a specific asker (`cold_peer_user_id`). */
 export function listPendingColdInboundPairsForPeerAsker(
   coldPeerUserId: string,
@@ -331,6 +436,58 @@ export function listColdOutboundSessionIdsForPeer(coldPeerUserId: string): strin
     )
     .all(peer) as { session_id: string }[]
   return rows.map(r => r.session_id)
+}
+
+/** Latest cold-query outbound to `coldPeerUserId` (current tenant = asker); for tunnel list / timeline. */
+export function latestColdOutboundSessionForPeer(coldPeerUserId: string): {
+  sessionId: string
+  updatedAtMs: number
+} | null {
+  const db = getTenantDb()
+  const peer = coldPeerUserId.trim()
+  if (!peer) return null
+  const row = db
+    .prepare(
+      `SELECT session_id, updated_at_ms FROM chat_sessions
+       WHERE session_type = 'b2b_outbound'
+         AND is_cold_query = 1
+         AND lower(cold_peer_user_id) = lower(?)
+       ORDER BY updated_at_ms DESC
+       LIMIT 1`,
+    )
+    .get(peer) as { session_id: string; updated_at_ms: number } | undefined
+  if (!row?.session_id) return null
+  return { sessionId: row.session_id, updatedAtMs: row.updated_at_ms }
+}
+
+/** Distinct cold-query outbound peers (`cold_peer_user_id`) on the current tenant DB. */
+export function listDistinctColdOutboundPeerUserIds(): string[] {
+  const db = getTenantDb()
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT trim(cold_peer_user_id) AS p FROM chat_sessions
+       WHERE session_type = 'b2b_outbound'
+         AND is_cold_query = 1
+         AND cold_peer_user_id IS NOT NULL
+         AND trim(cold_peer_user_id) != ''`,
+    )
+    .all() as { p: string }[]
+  return rows.map(r => String(r.p).trim()).filter(Boolean)
+}
+
+/** Distinct cold-query inbound askers (`cold_peer_user_id`) on the current tenant DB (recipient side). */
+export function listDistinctColdInboundPeerUserIds(): string[] {
+  const db = getTenantDb()
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT trim(cold_peer_user_id) AS p FROM chat_sessions
+       WHERE session_type = 'b2b_inbound'
+         AND is_cold_query = 1
+         AND cold_peer_user_id IS NOT NULL
+         AND trim(cold_peer_user_id) != ''`,
+    )
+    .all() as { p: string }[]
+  return rows.map(r => String(r.p).trim()).filter(Boolean)
 }
 
 export async function updateApprovalState(sessionId: string, state: ApprovalState): Promise<boolean> {
@@ -376,8 +533,10 @@ export async function replaceLastAwaitingPeerReviewOutboundAssistant(params: {
     b2bDelivery: undefined,
   }
   const now = Date.now()
-  db.prepare(`UPDATE chat_messages SET content_json = ? WHERE session_id = ? AND seq = ?`).run(
+  /** Delivery time so tunnel timelines sort answers after asks when the row was merged in one appendTurn (`created_at_ms` collision). */
+  db.prepare(`UPDATE chat_messages SET content_json = ?, created_at_ms = ? WHERE session_id = ? AND seq = ?`).run(
     JSON.stringify(ensureChatMessageId(next)),
+    now,
     sid,
     row.seq,
   )

@@ -68,7 +68,7 @@
     "emptyTunnels": "A Braintunnel routes your questions to another user's AI assistant.",
     "tunnelsLoadFailed": "Could not load tunnels.",
     "pendingRow": "Inbox",
-    "pendingOpenAriaWithCount": "Open inbox — {{count}} waiting",
+    "pendingOpenAriaWithCount": "Open Tunnels — {{count}} pending",
     "inboundHeading": "Inbound",
     "emptyInbound": "No inbound chats yet.",
     "pendingBadge": "Pending",
@@ -77,8 +77,9 @@
     "emptyWikiPages": "No wiki pages yet.",
     "tunnelIndicatorNewReply": "New reply in this tunnel",
     "tunnelIndicatorAwaiting": "Waiting for collaborator to send",
+    "tunnelIndicatorPendingReview": "Pending review — collaborator question",
     "coldQuery": {
-      "button": "Open a Braintunnel",
+      "button": "+ Connect",
       "sheetTitle": "Who do you want to reach?",
       "introHeading": "What is a Braintunnel?",
       "introLead": "A Braintunnel is a private line to another user's assistant. Get quick answers from their assistant to get things done.",
@@ -180,6 +181,25 @@
         }
       }
     }
+  },
+  "tunnels": {
+    "pendingCardTitle": "Awaiting your review",
+    "pendingDraftLabel": "Your brain drafted",
+    "detailLoadFailed": "Could not load tunnel activity.",
+    "emptyTimeline": "No messages yet.",
+    "policyLabel": "Policy",
+    "autoRespondLabel": "Auto-respond",
+    "composePlaceholderBrain": "Message {{peerPossessiveBrain}}…",
+    "humanDmComingSoon": "Direct messaging is not available yet — stay on Their brain.",
+    "actorYourBrain": "Your brain",
+    "actorTheirBrain": "{{name}}'s brain",
+    "hintAutoSent": "Auto-sent",
+    "hintToTheirBrain": "To their brain",
+    "composeToLabel": "To",
+    "recipientBrain": "Their brain",
+    "recipientHuman": "Them (direct)",
+    "outboundUnavailable": "Outbound tunnel not established yet — you can reply when they granted access.",
+    "pickPrompt": "Pick a tunnel in the sidebar to see activity here."
   },
   "historyPage": {
     "searchChatsLabel": "Search chats",
