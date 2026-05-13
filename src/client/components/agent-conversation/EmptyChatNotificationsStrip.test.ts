@@ -55,7 +55,7 @@ describe('EmptyChatNotificationsStrip.svelte', () => {
 
     expect(screen.getByText('Subject A')).toBeInTheDocument()
     expect(screen.getByText('Subject B')).toBeInTheDocument()
-    expect(screen.getByTestId('empty-chat-notif-overflow')).toHaveTextContent(/At least one more unread/i)
+    expect(screen.getByTestId('empty-chat-notif-overflow')).toHaveTextContent(/At least one more item is not shown/i)
   })
 
   it('row act calls onAct with presentation row; dismiss does not act', async () => {
@@ -85,7 +85,7 @@ describe('EmptyChatNotificationsStrip.svelte', () => {
     await fireEvent.click(rows[0]!)
     expect(onAct).toHaveBeenCalledWith(row)
 
-    await fireEvent.click(within(strip).getByRole('button', { name: /dismiss notification/i }))
+    await fireEvent.click(within(strip).getByRole('button', { name: /^Dismiss$/i }))
     expect(onDismiss).toHaveBeenCalledWith('n1')
     expect(onAct).toHaveBeenCalledTimes(1)
   })

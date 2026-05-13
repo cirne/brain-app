@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -59,6 +59,27 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('done')
   })
 
+  it('setOnboardingState preserves the pending initial bootstrap session id', async () => {
+    const path = join(chatDir(), 'onboarding.json')
+    await writeFile(
+      path,
+      JSON.stringify({
+        state: 'onboarding-agent',
+        updatedAt: '2020-01-01',
+        initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+      }),
+      'utf-8',
+    )
+    const { setOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+
+    await setOnboardingState('done')
+
+    expect(await readOnboardingStateDoc()).toMatchObject({
+      state: 'done',
+      initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+    })
+  })
+
   it('resetOnboardingState forces not-started', async () => {
     const { setOnboardingState, resetOnboardingState, readOnboardingStateDoc } = await import(
       '@server/lib/onboarding/onboardingState.js'
@@ -66,6 +87,25 @@ describe('onboardingState', () => {
     await setOnboardingState('indexing')
     await resetOnboardingState()
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
+  })
+
+  it('resetOnboardingState clears the pending initial bootstrap session id', async () => {
+    const path = join(chatDir(), 'onboarding.json')
+    await writeFile(
+      path,
+      JSON.stringify({
+        state: 'onboarding-agent',
+        updatedAt: '2020-01-01',
+        initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+      }),
+      'utf-8',
+    )
+    const { resetOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+
+    await resetOnboardingState()
+
+    const raw = JSON.parse(await readFile(path, 'utf-8')) as Record<string, unknown>
+    expect(raw.initialBootstrapSessionId).toBeUndefined()
   })
 
   it('setOnboardingStateForce allows arbitrary transition from done', async () => {
@@ -115,9 +155,20 @@ describe('onboardingState', () => {
 
   it('round-trips persisted JSON', async () => {
     const path = join(chatDir(), 'onboarding.json')
-    await writeFile(path, JSON.stringify({ state: 'done', updatedAt: '2020-01-01' }), 'utf-8')
+    await writeFile(
+      path,
+      JSON.stringify({
+        state: 'done',
+        updatedAt: '2020-01-01',
+        initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+      }),
+      'utf-8',
+    )
     const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
-    expect((await readOnboardingStateDoc()).state).toBe('done')
+    expect(await readOnboardingStateDoc()).toMatchObject({
+      state: 'done',
+      initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+    })
   })
 
   it('migrates legacy profiling states to onboarding-agent on read', async () => {

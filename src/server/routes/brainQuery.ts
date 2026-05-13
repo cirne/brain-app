@@ -14,6 +14,7 @@ import {
 } from '@server/lib/tenant/workspaceHandleDirectory.js'
 import {
   createBrainQueryGrant,
+  getActiveBrainQueryGrant,
   getBrainQueryGrantById,
   listBrainQueryGrantsForAsker,
   listBrainQueryGrantsForOwner,
@@ -22,6 +23,7 @@ import {
   updateBrainQueryGrantPrivacyPolicy,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { deleteOwnerInboundForRevokedBrainQueryGrant } from '@server/lib/chat/brainTunnelInboundCleanup.js'
 
 const GRANT_POLICY_PREVIEW_MAX = 200
 
@@ -242,11 +244,20 @@ brainQuery.delete('/grants/:id', async (c) => {
     return c.json({ error: 'not_found_or_forbidden' }, 404)
   }
   if (row.owner_id === ctx.tenantUserId) {
+    const reciprocalPeerToOwner = getActiveBrainQueryGrant({
+      ownerId: row.asker_id,
+      askerId: row.owner_id,
+    })
     const out = revokeBrainQueryGrantAndReciprocal({ grantId: id, ownerId: ctx.tenantUserId })
     if (!out.revoked) return c.json({ error: 'not_found_or_forbidden' }, 404)
+    await deleteOwnerInboundForRevokedBrainQueryGrant(row)
+    if (reciprocalPeerToOwner) {
+      await deleteOwnerInboundForRevokedBrainQueryGrant(reciprocalPeerToOwner)
+    }
     return c.json({ ok: true as const })
   }
   if (row.asker_id === ctx.tenantUserId) {
+    await deleteOwnerInboundForRevokedBrainQueryGrant(row)
     const ok = revokeBrainQueryGrantAsAsker({ grantId: id, askerId: ctx.tenantUserId })
     if (!ok) return c.json({ error: 'not_found_or_forbidden' }, 404)
     return c.json({ ok: true as const })

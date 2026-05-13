@@ -467,14 +467,17 @@ describe('Assistant.svelte', () => {
   })
 
   describe('onboarding status', () => {
-    it('after onboarding interview finalize, starts a fresh chat (history replace + clear)', async () => {
+    it('finalizes pending initial bootstrap by session id and starts a fresh chat', async () => {
       setAgentChatStubBackendSessionId('test-session-id')
-      let serverThinksFinalized = false
+      let bootstrapFinalizePending = true
       const fetchMock = vi.fn((input: string | Request | URL) => {
         const u = typeof input === 'string' ? input : input instanceof Request ? input.url : input.href
         if (u.includes('/api/onboarding/status')) {
           return Promise.resolve(
-            jsonResponse({ state: serverThinksFinalized ? 'done' : 'onboarding-agent' }),
+            jsonResponse({
+              state: 'done',
+              ...(bootstrapFinalizePending ? { initialBootstrapSessionId: 'test-session-id' } : {}),
+            }),
           )
         }
         return Promise.resolve(jsonResponse({}))
@@ -482,7 +485,7 @@ describe('Assistant.svelte', () => {
       vi.stubGlobal('fetch', fetchMock)
 
       const finalizeSpy = vi.spyOn(onboardingApi, 'postOnboardingFinalize').mockImplementation(async () => {
-        serverThinksFinalized = true
+        bootstrapFinalizePending = false
       })
 
       mockReplaceState.mockClear()
@@ -499,6 +502,30 @@ describe('Assistant.svelte', () => {
       await vi.waitFor(() => expect(finalizeSpy).toHaveBeenCalledWith('test-session-id'))
       await vi.waitFor(() => expect(mockReplaceState).toHaveBeenCalled())
 
+      finalizeSpy.mockRestore()
+    })
+
+    it('skips onboarding finalize for a normal finished chat', async () => {
+      setAgentChatStubBackendSessionId('normal-session-id')
+      const fetchMock = createMockFetch([
+        {
+          match: (u: string) => u === '/api/onboarding/status',
+          response: () => jsonResponse({ state: 'done' }),
+        },
+      ])
+      vi.stubGlobal('fetch', fetchMock)
+      const finalizeSpy = vi.spyOn(onboardingApi, 'postOnboardingFinalize').mockResolvedValue(undefined)
+
+      render(Assistant)
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith('/api/onboarding/status')
+      })
+
+      await fireEvent.click(screen.getByTestId('agent-chat-stub-invoke-finish'))
+      await vi.waitFor(() => expect(mockReplaceState).toHaveBeenCalled())
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+      expect(finalizeSpy).not.toHaveBeenCalled()
       finalizeSpy.mockRestore()
     })
 

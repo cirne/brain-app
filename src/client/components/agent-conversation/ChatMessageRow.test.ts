@@ -171,6 +171,25 @@ describe('ChatMessageRow.svelte', () => {
     expect(document.querySelector('.tunnel-receipt-row')).toBeTruthy()
     expect(document.querySelector('.tunnel-receipt')).toBeTruthy()
     expect(screen.queryByText('Assistant')).not.toBeInTheDocument()
+    expect(screen.getByText(/When they approve their assistant's draft/u)).toBeInTheDocument()
+  })
+
+  it('renders tunnel receipt when content matches awaiting placeholder without b2bDelivery flag', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: 'Sent · pending approval',
+      parts: [{ type: 'text', content: 'Sent · pending approval' }],
+    }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: true,
+      },
+    })
+    expect(document.querySelector('.tunnel-receipt-row')).toBeTruthy()
+    expect(screen.queryByText(/When they approve their assistant's draft/u)).toBeInTheDocument()
   })
 
   it('uses conversationRoleLabels assistantWorkingAria when streaming', () => {

@@ -20,6 +20,8 @@ export type OnboardingMachineState =
 export interface OnboardingStateDoc {
   state: OnboardingMachineState
   updatedAt: string
+  /** Session that owns the one-time initial bootstrap chat until finalize clears it. */
+  initialBootstrapSessionId?: string
 }
 
 const FILENAME = 'onboarding.json'
@@ -218,9 +220,14 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
         migrated ??
         ((valid as string[]).includes(state) ? (state as OnboardingMachineState) : null)
       if (resolved) {
+        const initialBootstrapSessionId =
+          typeof o.initialBootstrapSessionId === 'string' && o.initialBootstrapSessionId.trim()
+            ? o.initialBootstrapSessionId.trim()
+            : undefined
         return {
           state: resolved,
           updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : new Date().toISOString(),
+          ...(initialBootstrapSessionId ? { initialBootstrapSessionId } : {}),
         }
       }
     }
@@ -263,7 +270,7 @@ export async function setOnboardingState(next: OnboardingMachineState): Promise<
   if (!canTransition(cur.state, next) && next !== cur.state) {
     throw new Error(`Invalid transition: ${cur.state} -> ${next}`)
   }
-  const doc: OnboardingStateDoc = { state: next, updatedAt: new Date().toISOString() }
+  const doc: OnboardingStateDoc = { ...cur, state: next, updatedAt: new Date().toISOString() }
   await writeOnboardingStateDoc(doc)
   return doc
 }

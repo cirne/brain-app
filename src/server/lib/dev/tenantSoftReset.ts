@@ -15,6 +15,8 @@ import { setOnboardingStateForce } from '@server/lib/onboarding/onboardingState.
 import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
 import { deleteBrainQueryGrantsForTenant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import { wipeWikiContentAt } from '@server/lib/wiki/wikiDir.js'
+import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
+import { deleteColdQueryRateLimitsForSenderHandle } from '@server/lib/global/coldQueryRateLimits.js'
 
 async function unlinkIgnoreEnoent(path: string): Promise<void> {
   try {
@@ -58,6 +60,11 @@ async function rmTenantSubtree(homeDir: string, name: string): Promise<void> {
 export async function executeTenantSoftReset(tenantUserId: string): Promise<void> {
   const home = brainHome()
   deleteBrainQueryGrantsForTenant(tenantUserId)
+
+  const meta = await readHandleMeta(home)
+  const workspaceHandle =
+    meta && typeof meta.confirmedAt === 'string' && meta.confirmedAt.length > 0 ? meta.handle : tenantUserId
+  deleteColdQueryRateLimitsForSenderHandle(workspaceHandle)
 
   await wipeWikiContentAt(brainLayoutWikiDir(home))
   await deleteAllChatSessionFiles()

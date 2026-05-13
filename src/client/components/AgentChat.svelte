@@ -46,11 +46,12 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
-  import { formatTunnelPeerMention } from '@client/lib/chatTunnelPeerMention.js'
+  import { formatTunnelPeerCloseDialogLabel, formatTunnelPeerMention } from '@client/lib/chatTunnelPeerMention.js'
   import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
   import {
     EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP,
     EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT,
+    isEmptyChatStripSourceKind,
     presentationForNotificationRow,
     type NotificationKickoffHints,
   } from '@shared/notifications/presentation.js'
@@ -1070,12 +1071,13 @@
             }
           : presentationForNotificationRow({ id: r.id, sourceKind: r.sourceKind, payload: r.payload }),
       )
-      if (mapped.length === 0) {
+      const stripRows = mapped.filter((r) => isEmptyChatStripSourceKind(r.sourceKind))
+      if (stripRows.length === 0) {
         emptyChatNotificationsPayload = null
         return
       }
-      const hasMore = mapped.length > EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP
-      const items = mapped.slice(0, EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP)
+      const hasMore = stripRows.length > EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP
+      const items = stripRows.slice(0, EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP)
       emptyChatNotificationsPayload = {
         items,
         hasMore,
@@ -1222,6 +1224,9 @@
   /** When true, vertically center the empty transcript and (when shown) the composer. */
   const centerEmptyInPane = $derived(messages.length === 0)
 
+  /** Outbound tunnel: keep L2 header (title + close tunnel) visible even with no messages yet — unlike own-chat empty state. */
+  const showPaneL2ChatHeader = $derived(!centerEmptyInPane || currentSession?.sessionType === 'b2b_outbound')
+
   const showEmptyNotificationStrip = $derived.by(() => {
     const p = emptyChatNotificationsPayload
     return (
@@ -1235,9 +1240,21 @@
     )
   })
 
-  let pendingDelete = $state<{ serverId: string | null; label: string } | null>(null)
+  let pendingDelete = $state<{
+    serverId: string | null
+    /** Outbound tunnel: revoke grant via withdraw-as-asker (not DELETE /api/chat only). */
+    withdrawAskerTunnel: boolean
+    /** When set, withdraw body can use grantId if session row was missing. */
+    remoteGrantId: string | null
+    label: string
+  } | null>(null)
 
   function titleForDeleteDialog(): string {
+    const row = sessions.get(displayedSessionId)
+    if (row?.sessionType === 'b2b_outbound') {
+      const peer = formatTunnelPeerCloseDialogLabel(row.remoteHandle, row.remoteDisplayName)
+      if (peer) return peer
+    }
     if (chatTitle?.trim()) return chatTitle.trim()
     for (const m of messages) {
       if (m.role === 'user' && m.content) {
@@ -1264,9 +1281,13 @@
   }
 
   export function requestDeleteCurrentChat() {
-    if (messages.length === 0) return
+    const row = sessions.get(displayedSessionId)
+    if (messages.length === 0 && row?.sessionType !== 'b2b_outbound') return
+    const withdrawAskerTunnel = row?.sessionType === 'b2b_outbound'
     pendingDelete = {
-      serverId: sessions.get(displayedSessionId)?.sessionId ?? null,
+      serverId: row?.sessionId ?? null,
+      withdrawAskerTunnel,
+      remoteGrantId: withdrawAskerTunnel ? row?.remoteGrantId?.trim() || null : null,
       label: labelForDeleteChatDialog(titleForDeleteDialog()),
     }
   }
@@ -1278,9 +1299,23 @@
   async function confirmDeleteCurrentChat() {
     if (!pendingDelete) return
     stopChat()
-    const { serverId } = pendingDelete
+    const { serverId, withdrawAskerTunnel, remoteGrantId } = pendingDelete
     try {
-      if (serverId) {
+      if (withdrawAskerTunnel) {
+        const body =
+          serverId != null && serverId.trim().length > 0
+            ? { sessionId: serverId.trim() }
+            : remoteGrantId != null && remoteGrantId.trim().length > 0
+              ? { grantId: remoteGrantId.trim() }
+              : null
+        if (!body) return
+        const res = await apiFetch('/api/chat/b2b/withdraw-as-asker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) return
+      } else if (serverId) {
         const res = await apiFetch(`/api/chat/${encodeURIComponent(serverId)}`, { method: 'DELETE' })
         if (!res.ok) return
       }
@@ -1317,7 +1352,7 @@
       : '0'}
   >
     <div class="chat-top relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-    {#if !centerEmptyInPane && !suppressMobileChatL2Header}
+    {#if showPaneL2ChatHeader && !suppressMobileChatL2Header}
     <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
     <div inert={conversationHidden || undefined}>
       <PaneL2Header>
@@ -1398,13 +1433,14 @@
                 <VolumeX size={16} strokeWidth={2} aria-hidden="true" />
               {/if}
             </button>
-            {#if messages.length > 0}
+            {#if messages.length > 0 || currentSession?.sessionType === 'b2b_outbound'}
+              {@const headerDeleteTunnel = currentSession?.sessionType === 'b2b_outbound'}
               <button
                 type="button"
                 class={cn('delete-chat-btn', iconBtnClass)}
                 onclick={requestDeleteCurrentChat}
-                title={$t('chat.agentChat.deleteChatAria')}
-                aria-label={$t('chat.agentChat.deleteChatAria')}
+                title={headerDeleteTunnel ? $t('chat.agentChat.deleteTunnelAria') : $t('chat.agentChat.deleteChatAria')}
+                aria-label={headerDeleteTunnel ? $t('chat.agentChat.deleteTunnelAria') : $t('chat.agentChat.deleteChatAria')}
               >
                 <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -1668,16 +1704,24 @@
 
   <ConfirmDialog
     open={pendingDelete !== null}
-    title={$t('chat.agentChat.deleteDialogTitle')}
+    title={pendingDelete?.withdrawAskerTunnel
+      ? $t('chat.agentChat.deleteTunnelDialogTitle')
+      : $t('chat.agentChat.deleteDialogTitle')}
     titleId="agent-chat-delete-title"
-    confirmLabel={$t('chat.agentChat.deleteConfirmLabel')}
+    confirmLabel={pendingDelete?.withdrawAskerTunnel
+      ? $t('chat.agentChat.deleteTunnelConfirmLabel')
+      : $t('chat.agentChat.deleteConfirmLabel')}
     cancelLabel={$t('common.actions.cancel')}
     confirmVariant="danger"
     onDismiss={cancelDeleteCurrentChat}
     onConfirm={() => void confirmDeleteCurrentChat()}
   >
     {#if pendingDelete}
-      <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
+      <p>
+        {pendingDelete.withdrawAskerTunnel
+          ? $t('chat.agentChat.deleteTunnelDialogBody', { label: pendingDelete.label })
+          : $t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}
+      </p>
     {/if}
   </ConfirmDialog>
 </div>

@@ -80,6 +80,32 @@ describe('consumeAgentChatStream', () => {
     expect(sawDone).toBe(true)
   })
 
+  it('applies b2bDelivery from done event to the assistant message', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [{ type: 'text', content: 'Sent · pending approval' }] },
+    ]
+    const touchMessages = vi.fn()
+    const res = sseResponse([
+      'event: done\n',
+      'data: {"b2bDelivery":"awaiting_peer_review"}\n\n',
+    ])
+    const { sawDone } = await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages,
+      scrollToBottom: () => {},
+    })
+    expect(sawDone).toBe(true)
+    expect(messages[1].b2bDelivery).toBe('awaiting_peer_review')
+    expect(touchMessages).toHaveBeenCalled()
+  })
+
   it('applies usage from done event to the assistant message and calls touchMessages', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },

@@ -119,6 +119,57 @@ describe('onboarding routes', () => {
     expect(j.wikiMeExists).toBe(false)
   })
 
+  it('GET /status returns pending initial bootstrap session id', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ob-mt-bootstrap-status-'))
+    process.env.BRAIN_DATA_ROOT = root
+    const handle = 'ob-mt-bootstrap-status'
+    const key = googleIdentityKey('sub-ob-mt-bootstrap-status')
+    ensureTenantHomeDir(handle)
+    const uid = generateUserId()
+    await registerIdentityWorkspace(key, handle)
+    await registerIdentityUserId(key, uid)
+    await writeHandleMeta(tenantHomeDir(handle), {
+      userId: uid,
+      handle,
+      confirmedAt: new Date().toISOString(),
+    })
+    await runWithTenantContextAsync(
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => {
+        await mkdir(join(tenantHomeDir(handle), 'wiki'), { recursive: true })
+        await mkdir(join(tenantHomeDir(handle), 'chats'), { recursive: true })
+        await writeFile(
+          join(tenantHomeDir(handle), 'chats', 'onboarding.json'),
+          JSON.stringify({
+            state: 'done',
+            updatedAt: '2020-01-01',
+            initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+          }),
+          'utf-8',
+        )
+      },
+    )
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, handle)
+
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/status', {
+      headers: { Cookie: `brain_session=${sid}` },
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { state: string; initialBootstrapSessionId?: string }
+    expect(j.state).toBe('done')
+    expect(j.initialBootstrapSessionId).toBe('550e8400-e29b-41d4-a716-446655440123')
+    await rm(root, { recursive: true, force: true })
+    delete process.env.BRAIN_DATA_ROOT
+  })
+
   it('PATCH /state reset', async () => {
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)
@@ -233,6 +284,67 @@ describe('onboarding routes', () => {
     const j = (await res.json()) as { ok: boolean; state: string }
     expect(j.ok).toBe(true)
     expect(j.state).toBe('done')
+    expect(interviewFinalizeMocks.runInterviewFinalize).not.toHaveBeenCalled()
+  })
+
+  it('POST /finalize runs pending finalize when state is already done for the bootstrap session', async () => {
+    interviewFinalizeMocks.runInterviewFinalize.mockClear()
+    const sessionId = '550e8400-e29b-41d4-a716-446655440123'
+    const { chatDataDir } = await import('@server/lib/chat/chatStorage.js')
+    const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+    const dir = chatDataDir()
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'onboarding.json'),
+      JSON.stringify({
+        state: 'done',
+        updatedAt: '2020-01-01',
+        initialBootstrapSessionId: sessionId,
+      }),
+      'utf-8',
+    )
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, timezone: 'America/Los_Angeles' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; state: string }
+    expect(j.ok).toBe(true)
+    expect(j.state).toBe('done')
+    expect(interviewFinalizeMocks.runInterviewFinalize).toHaveBeenCalledWith({
+      sessionId,
+      timezone: 'America/Los_Angeles',
+    })
+    expect((await readOnboardingStateDoc()).initialBootstrapSessionId).toBeUndefined()
+  })
+
+  it('POST /finalize rejects mismatched sessions while bootstrap finalize is pending', async () => {
+    interviewFinalizeMocks.runInterviewFinalize.mockClear()
+    const { chatDataDir } = await import('@server/lib/chat/chatStorage.js')
+    const dir = chatDataDir()
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'onboarding.json'),
+      JSON.stringify({
+        state: 'onboarding-agent',
+        updatedAt: '2020-01-01',
+        initialBootstrapSessionId: '550e8400-e29b-41d4-a716-446655440123',
+      }),
+      'utf-8',
+    )
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: '550e8400-e29b-41d4-a716-446655440999' }),
+    })
+    expect(res.status).toBe(400)
     expect(interviewFinalizeMocks.runInterviewFinalize).not.toHaveBeenCalled()
   })
 

@@ -30,7 +30,7 @@ describe('Wiki.svelte', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByTestId('tiptap-editor-stub')).toHaveTextContent('# Hello')
+      expect(screen.getByTestId('review-reply-textarea')).toHaveValue('# Hello')
     })
   })
 
@@ -131,7 +131,7 @@ describe('Wiki.svelte', () => {
     rerender({ initialPath: path, refreshKey: 1 })
 
     await waitFor(() => {
-      expect(screen.getByTestId('tiptap-editor-stub')).toHaveTextContent('# Hello')
+      expect(screen.getByTestId('review-reply-textarea')).toHaveValue('# Hello')
     })
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
     expect(pageGetCount).toBe(2)

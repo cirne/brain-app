@@ -6,6 +6,9 @@
   import type { B2BGrantPolicyApi, B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
+  import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
+  import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
+  import { subscribeTunnelActivity, type TunnelActivityPayload } from '@client/lib/hubEvents/hubEventsClient.js'
   import { Archive, Ban, CircleX, ClipboardCheck, MessagesSquare, Send, Zap } from 'lucide-svelte'
 
   let {
@@ -19,7 +22,12 @@
   } = $props()
 
   let askerText = $state('')
+  /** Last assistant markdown from the server (reload / regenerate only — not updated while typing). */
   let draftText = $state('')
+  /** Mirrors TipTap markdown for Send enablement (sync on edit + after server load). */
+  let replyMarkdownLive = $state('')
+  let markdownSyncEpoch = $state(0)
+  let replyEditor = $state<TipTapMarkdownEditor | undefined>()
   let loadError = $state<string | null>(null)
   let busy = $state(false)
   let actionError = $state<string | null>(null)
@@ -73,6 +81,15 @@
     return ''
   }
 
+  function tunnelInboxTouchesRow(payload: TunnelActivityPayload | null, r: B2BReviewRowApi): boolean {
+    if (!payload || payload.scope !== 'inbox') return false
+    const inId = typeof payload.inboundSessionId === 'string' ? payload.inboundSessionId.trim() : ''
+    if (inId && inId === r.sessionId.trim()) return true
+    const gid = typeof payload.grantId === 'string' ? payload.grantId.trim() : ''
+    const rowGid = r.grantId?.trim() ?? ''
+    return Boolean(gid && rowGid && gid === rowGid)
+  }
+
   async function reloadSession() {
     loadError = null
     try {
@@ -85,13 +102,27 @@
       const msgs = Array.isArray(doc.messages) ? doc.messages : []
       askerText = textFromUserMessages(msgs) || row.askerSnippet
       draftText = textFromLastAssistant(msgs) || row.draftSnippet
+      replyMarkdownLive = draftText.trim()
+      markdownSyncEpoch++
     } catch {
       loadError = $t('chat.review.detail.loadFailed')
     }
   }
 
   $effect(() => {
+    void row.sessionId
+    void row.updatedAtMs
+    void row.draftSnippet
     void reloadSession()
+  })
+
+  $effect(() => {
+    void row.sessionId
+    void row.grantId
+    return subscribeTunnelActivity((payload) => {
+      if (!tunnelInboxTouchesRow(payload, row)) return
+      void reloadSession()
+    })
   })
 
   async function postApproveOrDecline(
@@ -101,16 +132,20 @@
     busy = true
     actionError = null
     try {
-      const body =
-        endpoint.endsWith('/approve') && isColdInbound
-          ? {
-              sessionId: row.sessionId,
-              editedAnswer: draftText.trim(),
-              establishPolicy: coldEstablishPolicy,
-            }
-          : endpoint.endsWith('/approve')
-            ? { sessionId: row.sessionId, editedAnswer: draftText.trim() }
-            : { sessionId: row.sessionId }
+      let body: Record<string, unknown>
+      if (endpoint.endsWith('/approve')) {
+        const editedAnswer = replyEditor?.serializeMarkdown().trim() ?? replyMarkdownLive.trim()
+        body =
+          isColdInbound
+            ? {
+                sessionId: row.sessionId,
+                editedAnswer,
+                establishPolicy: coldEstablishPolicy,
+              }
+            : { sessionId: row.sessionId, editedAnswer }
+      } else {
+        body = { sessionId: row.sessionId }
+      }
       const res = await apiFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -229,7 +264,11 @@
       }
       const j = (await res.json()) as { draft?: unknown }
       const d = typeof j.draft === 'string' ? j.draft.trim() : ''
-      if (d) draftText = d
+      if (d) {
+        draftText = d
+        replyMarkdownLive = d.trim()
+        markdownSyncEpoch++
+      }
       emit({ type: 'b2b:review-changed' })
       await onMutate()
     } catch {
@@ -237,6 +276,10 @@
     } finally {
       busy = false
     }
+  }
+
+  function handleReplyMarkdownUpdate(md: string): void {
+    replyMarkdownLive = md.trim()
   }
 </script>
 
@@ -315,21 +358,33 @@
     <p class="m-0 shrink-0 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted">
       {$t('chat.review.detail.layers.reply')}
     </p>
-    <div class="review-reply-body min-h-0 flex-1 overflow-hidden md:mt-1">
+    <div
+      class="review-reply-body flex min-h-0 flex-1 flex-col overflow-hidden md:mt-1"
+      aria-label={$t('chat.review.detail.layers.reply')}
+    >
       {#if isPending}
-        <textarea
-          class="h-full min-h-[10rem] w-full resize-none bg-transparent px-0 py-1 text-[0.8125rem] leading-relaxed text-foreground placeholder:text-muted focus:outline-none"
-          bind:value={draftText}
+        <TipTapMarkdownEditor
+          bind:this={replyEditor}
+          initialMarkdown={draftText}
+          markdownSyncEpoch={markdownSyncEpoch}
           disabled={busy}
-          aria-label={$t('chat.review.detail.layers.reply')}
-          data-testid="review-reply-textarea"
-        ></textarea>
+          autoPersist={false}
+          compact={true}
+          onMarkdownUpdate={handleReplyMarkdownUpdate}
+        />
       {:else}
         <div
-          class="h-full overflow-y-auto whitespace-pre-wrap py-1 text-[0.8125rem] leading-relaxed text-muted"
+          class="review-will-receive h-full min-h-0 flex-1 overflow-y-auto py-1 text-[0.8125rem] leading-relaxed text-muted"
           data-testid="review-will-receive"
         >
-          {draftText || '—'}
+          {#if draftText.trim()}
+            <StreamingAgentMarkdown
+              content={draftText}
+              class="text-[0.8125rem] leading-relaxed text-muted"
+            />
+          {:else}
+            —
+          {/if}
         </div>
       {/if}
     </div>
@@ -393,7 +448,7 @@
       <button
         type="button"
         class="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        disabled={busy || !(draftText ?? '').trim()}
+        disabled={busy || !replyMarkdownLive.trim()}
         onclick={() => void postApproveOrDecline('/api/chat/b2b/approve')}
       >
         <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
@@ -423,5 +478,10 @@
   .review-regenerate-composer :global(textarea.chat-textarea) {
     max-height: 3.25rem;
     overflow-y: auto !important;
+  }
+
+  /* Tunnel reply editor: give compact TipTap a usable minimum height in the review pane. */
+  .review-reply-body :global(.tiptap-md-root-compact) {
+    min-height: 10rem;
   }
 </style>

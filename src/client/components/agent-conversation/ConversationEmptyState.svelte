@@ -23,7 +23,7 @@
   const atHintParts = $derived($t('chat.emptyState.atHint').split('@'))
 </script>
 
-<!-- Notifications render in AgentChat above this hero; keep copy compact so it centers with the composer. -->
+<!-- Optional email & requests strip renders in AgentChat above this hero; keep copy compact so it centers with the composer. -->
 <div class="box-border flex w-full flex-col items-center pb-2">
   <div class="max-w-md text-balance text-center text-sm leading-relaxed text-muted">
     {#if tunnelOutboundEmptyChat}

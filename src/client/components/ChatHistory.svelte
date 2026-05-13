@@ -7,13 +7,17 @@
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
+  import { formatTunnelPeerCloseDialogLabel } from '@client/lib/chatTunnelPeerMention.js'
   import {
     CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
     CHAT_HISTORY_SIDEBAR_LIMIT,
     fetchChatSessionListDeduped,
   } from '@client/lib/chatHistorySessions.js'
   import { B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET } from '@shared/b2bTunnelDelivery.js'
-  import { subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
+  import {
+    subscribeHubNotificationsRefresh,
+    subscribeTunnelActivity,
+  } from '@client/lib/hubEvents/hubEventsClient.js'
   import {
     loadNavHistory,
     removeFromNavHistory,
@@ -63,7 +67,12 @@
   let navHistory = $state<NavHistoryItem[]>([])
   let loading = $state(true)
   let error = $state<string | null>(null)
-  let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
+  let pendingDelete = $state<{
+    mode: 'chat' | 'tunnel'
+    sessionId: string | null
+    grantId: string | null
+    label: string
+  } | null>(null)
   let hasMoreChats = $state(false)
   let reviewPendingCount = $state(0)
 
@@ -97,6 +106,9 @@
     path?: string
     meta?: string
     sessionId?: string
+    /** Outbound tunnel row: owner fields for close-dialog copy (name + @handle). */
+    tunnelOwnerHandle?: string
+    tunnelOwnerDisplayName?: string
     /** Outbound tunnel row: grant backing this tunnel (used to open/create session). */
     tunnelGrantId?: string
     /** Tunnel rows omit the trailing time column. */
@@ -179,6 +191,8 @@
         timestamp: '',
         omitRowTime: true,
         tunnelGrantId: t.grantId,
+        tunnelOwnerHandle: t.ownerHandle,
+        tunnelOwnerDisplayName: t.ownerDisplayName,
         sessionId: sessionIdForRow,
         tunnelRailIndicator,
       }
@@ -346,12 +360,27 @@
     e.stopPropagation()
     e.preventDefault()
     if (item.type === 'tunnel') {
-      if (!item.sessionId) return
-      pendingDelete = { sessionId: item.sessionId, label: labelForDeleteChatDialog(item.title) }
+      const gid = item.tunnelGrantId?.trim()
+      const sid = item.sessionId?.trim()
+      if (!gid && !sid) return
+      const tunnelLabel =
+        formatTunnelPeerCloseDialogLabel(item.tunnelOwnerHandle, item.tunnelOwnerDisplayName) ||
+        item.title
+      pendingDelete = {
+        mode: 'tunnel',
+        sessionId: sid || null,
+        grantId: gid || null,
+        label: labelForDeleteChatDialog(tunnelLabel),
+      }
       return
     }
     if (item.type === 'chat' && item.sessionId) {
-      pendingDelete = { sessionId: item.sessionId, label: labelForDeleteChatDialog(item.title) }
+      pendingDelete = {
+        mode: 'chat',
+        sessionId: item.sessionId,
+        grantId: null,
+        label: labelForDeleteChatDialog(item.title),
+      }
     } else {
       void removeFromNavHistory(item.id)
     }
@@ -363,8 +392,38 @@
 
   async function confirmDelete() {
     if (!pendingDelete) return
-    const id = pendingDelete.sessionId
+    const { mode, sessionId, grantId } = pendingDelete
     try {
+      if (mode === 'tunnel') {
+        const body =
+          sessionId && sessionId.trim().length > 0
+            ? { sessionId: sessionId.trim() }
+            : grantId && grantId.trim().length > 0
+              ? { grantId: grantId.trim() }
+              : null
+        if (!body) return
+        const res = await apiFetch('/api/chat/b2b/withdraw-as-asker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) return
+        pendingDelete = null
+        const gid = grantId?.trim() ?? ''
+        const sid = sessionId?.trim() ?? ''
+        let next = sessions
+        if (sid) next = next.filter((s) => s.sessionId !== sid)
+        if (gid) next = next.filter((s) => !(s.sessionType === 'b2b_outbound' && s.remoteGrantId === gid))
+        sessions = next
+        tunnels = gid ? tunnels.filter((t) => t.grantId !== gid) : tunnels
+        emit({ type: 'chat:sessions-changed' })
+        const active = activeSessionId?.trim() ?? ''
+        if (active && !next.some((s) => s.sessionId === active)) onNewChat()
+        return
+      }
+
+      const id = sessionId
+      if (!id) return
       const res = await fetch(`/api/chat/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) return
       pendingDelete = null
@@ -390,7 +449,8 @@
       if (
         payload == null ||
         payload.scope === 'inbound' ||
-        payload.scope === 'outbound'
+        payload.scope === 'outbound' ||
+        payload.scope === 'inbox'
       ) {
         if (payload?.scope === 'outbound') {
           const sid = typeof payload.outboundSessionId === 'string' ? payload.outboundSessionId.trim() : ''
@@ -398,6 +458,12 @@
         }
         void refresh({ background: true })
       }
+    })
+  })
+
+  $effect(() => {
+    return subscribeHubNotificationsRefresh(() => {
+      void refresh({ background: true })
     })
   })
 
@@ -569,32 +635,26 @@
         >
           {$t('chat.history.tunnelsHeading')}
         </h2>
-        {#if brainQueryEnabled && onOpenReview}
+        {#if brainQueryEnabled && onOpenReview && reviewPendingCount > 0}
           <button
             type="button"
             class={cn(
               chatHistoryRailPrimaryBtn,
               'inbox-rail-link justify-between border-0 hover:border-transparent',
             )}
-            aria-label={
-              reviewPendingCount > 0
-                ? $t('chat.history.pendingOpenAriaWithCount', { count: reviewPendingCount })
-                : $t('chat.history.pendingOpenAria')
-            }
+            aria-label={$t('chat.history.pendingOpenAriaWithCount', { count: reviewPendingCount })}
             onclick={() => onOpenReview()}
           >
             <span class="flex min-w-0 flex-1 items-center gap-1.5">
               <Inbox size={14} strokeWidth={2} aria-hidden="true" class="shrink-0 opacity-80" />
               <span class="min-w-0 truncate">{$t('chat.history.pendingRow')}</span>
             </span>
-            {#if reviewPendingCount > 0}
-              <span
-                class="inbox-rail-badge shrink-0 rounded-full bg-accent px-1.5 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white max-md:text-[11px]"
-                aria-hidden="true"
-              >
-                {reviewPendingCount > 99 ? '99+' : reviewPendingCount}
-              </span>
-            {/if}
+            <span
+              class="inbox-rail-badge shrink-0 rounded-full bg-accent px-1.5 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white max-md:text-[11px]"
+              aria-hidden="true"
+            >
+              {reviewPendingCount > 99 ? '99+' : reviewPendingCount}
+            </span>
           </button>
         {/if}
         {#if brainQueryEnabled}
@@ -668,16 +728,24 @@
 
   <ConfirmDialog
     open={pendingDelete !== null}
-    title={$t('chat.agentChat.deleteDialogTitle')}
+    title={pendingDelete?.mode === 'tunnel'
+      ? $t('chat.agentChat.deleteTunnelDialogTitle')
+      : $t('chat.agentChat.deleteDialogTitle')}
     titleId="ch-delete-title"
-    confirmLabel={$t('chat.agentChat.deleteConfirmLabel')}
+    confirmLabel={pendingDelete?.mode === 'tunnel'
+      ? $t('chat.agentChat.deleteTunnelConfirmLabel')
+      : $t('chat.agentChat.deleteConfirmLabel')}
     cancelLabel={$t('common.actions.cancel')}
     confirmVariant="danger"
     onDismiss={cancelDelete}
     onConfirm={() => void confirmDelete()}
   >
     {#if pendingDelete}
-      <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
+      <p>
+        {pendingDelete.mode === 'tunnel'
+          ? $t('chat.agentChat.deleteTunnelDialogBody', { label: pendingDelete.label })
+          : $t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}
+      </p>
     {/if}
   </ConfirmDialog>
 </div>

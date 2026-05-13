@@ -190,9 +190,6 @@
     <p class="mt-1.5 text-xs leading-relaxed text-muted">
       {$t('chat.history.coldQuery.introLead')}
     </p>
-    <p class="mt-1.5 text-xs leading-relaxed text-muted">
-      {$t('chat.history.coldQuery.introBody')}
-    </p>
   </section>
 
   {#if selected}

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
+import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 
 let brainHome: string
@@ -189,6 +191,44 @@ describe('chatStorage', () => {
     )
   })
 
+  it('listPendingColdInboundPairsForPeerAsker and listColdOutboundSessionIdsForPeer', async () => {
+    const {
+      ensureSessionStub,
+      listPendingColdInboundPairsForPeerAsker,
+      listColdOutboundSessionIdsForPeer,
+      updateApprovalState,
+    } = await import('@server/lib/chat/chatStorage.js')
+    const asker = 'usr_aaaaaaaaaaaaaaaaaaaa'
+    const ownerPeer = 'usr_bbbbbbbbbbbbbbbbbbbb'
+    const outbound = 'dd0e8400-e29b-41d4-a716-446655440010'
+    const inbound = 'dd1e8400-e29b-41d4-a716-446655440011'
+    await ensureSessionStub(outbound, {
+      sessionType: 'b2b_outbound',
+      remoteGrantId: null,
+      isColdQuery: true,
+      coldPeerUserId: ownerPeer,
+      coldLinkedSessionId: inbound,
+      remoteHandle: 'peer',
+      remoteDisplayName: 'Peer',
+    })
+    await ensureSessionStub(inbound, {
+      sessionType: 'b2b_inbound',
+      remoteGrantId: null,
+      isColdQuery: true,
+      coldPeerUserId: asker,
+      coldLinkedSessionId: outbound,
+      remoteHandle: 'asker-h',
+      remoteDisplayName: 'Asker',
+      approvalState: 'pending',
+    })
+    expect(listPendingColdInboundPairsForPeerAsker(asker)).toEqual([
+      { inboundSessionId: inbound, outboundSessionId: outbound },
+    ])
+    expect(listColdOutboundSessionIdsForPeer(ownerPeer)).toEqual([outbound])
+    await updateApprovalState(inbound, 'dismissed')
+    expect(listPendingColdInboundPairsForPeerAsker(asker)).toEqual([])
+  })
+
   it('ensureSessionStub is idempotent', async () => {
     const { ensureSessionStub, listSessions } = await import('@server/lib/chat/chatStorage.js')
     const sessionId = 'cc0e8400-e29b-41d4-a716-446655440007'
@@ -259,32 +299,97 @@ describe('chatStorage', () => {
   })
 
   it('listB2BInboundReviewRows filters by pending vs sent', async () => {
-    const { ensureSessionStub, appendTurn, listB2BInboundReviewRows } = await import('@server/lib/chat/chatStorage.js')
-    const pendingId = 'p0e8400-e29b-41d4-a716-446655440080'
-    await ensureSessionStub(pendingId, {
-      sessionType: 'b2b_inbound',
-      remoteGrantId: 'bqg_x',
-      remoteHandle: 'h1',
-      remoteDisplayName: 'Peer',
-      approvalState: 'pending',
+    closeBrainGlobalDbForTests()
+    const prevG = process.env.BRAIN_GLOBAL_SQLITE_PATH
+    process.env.BRAIN_GLOBAL_SQLITE_PATH = join(brainHome, 'brain-global.sqlite')
+    const pendOwner = 'usr_pend111111111111111111111'
+    const pendAsker = 'usr_pend222222222222222222222'
+    const pendGrant = createBrainQueryGrant({
+      ownerId: pendOwner,
+      askerId: pendAsker,
+      privacyPolicy: 'Brief.',
     })
-    await appendTurn({
-      sessionId: pendingId,
-      userMessage: 'hello',
-      assistantMessage: { role: 'assistant', content: 'draft', parts: [{ type: 'text', content: 'draft reply' }] },
+    const sentOwner = 'usr_sent333333333333333333333'
+    const sentAsker = 'usr_sent444444444444444444444'
+    const sentGrant = createBrainQueryGrant({
+      ownerId: sentOwner,
+      askerId: sentAsker,
+      privacyPolicy: 'Brief.',
     })
-    const sentId = 's0e8400-e29b-41d4-a716-446655440081'
-    await ensureSessionStub(sentId, {
-      sessionType: 'b2b_inbound',
-      remoteGrantId: 'bqg_y',
-      remoteHandle: 'h2',
-      approvalState: 'auto',
+    try {
+      const { ensureSessionStub, appendTurn, listB2BInboundReviewRows } = await import('@server/lib/chat/chatStorage.js')
+      const pendingId = 'p0e8400-e29b-41d4-a716-446655440080'
+      await ensureSessionStub(pendingId, {
+        sessionType: 'b2b_inbound',
+        remoteGrantId: pendGrant.id,
+        remoteHandle: 'h1',
+        remoteDisplayName: 'Peer',
+        approvalState: 'pending',
+      })
+      await appendTurn({
+        sessionId: pendingId,
+        userMessage: 'hello',
+        assistantMessage: { role: 'assistant', content: 'draft', parts: [{ type: 'text', content: 'draft reply' }] },
+      })
+      const sentId = 's0e8400-e29b-41d4-a716-446655440081'
+      await ensureSessionStub(sentId, {
+        sessionType: 'b2b_inbound',
+        remoteGrantId: sentGrant.id,
+        remoteHandle: 'h2',
+        approvalState: 'auto',
+      })
+      const pend = await listB2BInboundReviewRows({ stateFilter: 'pending' })
+      expect(pend.some((r) => r.sessionId === pendingId)).toBe(true)
+      expect(pend.some((r) => r.sessionId === sentId)).toBe(false)
+      const sent = await listB2BInboundReviewRows({ stateFilter: 'sent' })
+      expect(sent.some((r) => r.sessionId === sentId)).toBe(true)
+    } finally {
+      closeBrainGlobalDbForTests()
+      if (prevG !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevG
+      else delete process.env.BRAIN_GLOBAL_SQLITE_PATH
+    }
+  })
+
+  it('listB2BInboundReviewRows drops established inbound when global grant row is gone', async () => {
+    closeBrainGlobalDbForTests()
+    const prevG = process.env.BRAIN_GLOBAL_SQLITE_PATH
+    process.env.BRAIN_GLOBAL_SQLITE_PATH = join(brainHome, 'brain-global.sqlite')
+    const goneOwner = 'usr_goneooooooooooooooooooooooo'
+    const goneAsker = 'usr_goneqqqqqqqqqqqqqqqqqqqqqqqq'
+    const vanished = createBrainQueryGrant({
+      ownerId: goneOwner,
+      askerId: goneAsker,
+      privacyPolicy: '.',
     })
-    const pend = await listB2BInboundReviewRows({ stateFilter: 'pending' })
-    expect(pend.some((r) => r.sessionId === pendingId)).toBe(true)
-    expect(pend.some((r) => r.sessionId === sentId)).toBe(false)
-    const sent = await listB2BInboundReviewRows({ stateFilter: 'sent' })
-    expect(sent.some((r) => r.sessionId === sentId)).toBe(true)
+    try {
+      const { ensureSessionStub, appendTurn, loadSession, listB2BInboundReviewRows } = await import(
+        '@server/lib/chat/chatStorage.js'
+      )
+      const sid = 'f0e8400-e29b-41d4-a716-446655440082'
+      await ensureSessionStub(sid, {
+        sessionType: 'b2b_inbound',
+        remoteGrantId: vanished.id,
+        remoteHandle: '@ghost',
+        remoteDisplayName: 'Ghost',
+        approvalState: 'pending',
+      })
+      await appendTurn({
+        sessionId: sid,
+        userMessage: 'orphan?',
+        assistantMessage: { role: 'assistant', content: 'x', parts: [{ type: 'text', content: 'x' }] },
+      })
+      const { revokeBrainQueryGrant } = await import('@server/lib/brainQuery/brainQueryGrantsRepo.js')
+      revokeBrainQueryGrant({ grantId: vanished.id, ownerId: goneOwner })
+      closeBrainGlobalDbForTests()
+
+      const rows = await listB2BInboundReviewRows({ stateFilter: 'pending' })
+      expect(rows.some((r) => r.sessionId === sid)).toBe(false)
+      expect(await loadSession(sid)).toBeNull()
+    } finally {
+      closeBrainGlobalDbForTests()
+      if (prevG !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevG
+      else delete process.env.BRAIN_GLOBAL_SQLITE_PATH
+    }
   })
 
   it('deleteAllChatSessionFiles removes chat rows only', async () => {

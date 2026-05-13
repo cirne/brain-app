@@ -7,6 +7,12 @@ import { tmpdir } from 'node:os'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { executeTenantSoftReset } from './tenantSoftReset.js'
 import {
+  assertColdQueryRateAllowed,
+  recordColdQuerySent,
+} from '@server/lib/global/coldQueryRateLimits.js'
+import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
+import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
+import {
   brainLayoutChatsDir,
   brainLayoutRipmailDir,
   brainLayoutWikiDir,
@@ -72,5 +78,38 @@ describe('tenantSoftReset', () => {
     expect(existsSync(join(tenantHome, 'your-wiki'))).toBe(false)
     expect(existsSync(join(brainLayoutVarDir(tenantHome), 'wiki-edits.jsonl'))).toBe(false)
     expect(mockEnsureWikiVaultScaffold).toHaveBeenCalledOnce()
+  })
+
+  it('executeTenantSoftReset clears cold_query_rate_limits for confirmed workspace handle', async () => {
+    const prevGlobal = process.env.BRAIN_GLOBAL_SQLITE_PATH
+    const globalFile = join(tenantHome, '.global', 'brain-global.sqlite')
+    await mkdir(join(tenantHome, '.global'), { recursive: true })
+    process.env.BRAIN_GLOBAL_SQLITE_PATH = globalFile
+    closeBrainGlobalDbForTests()
+    try {
+      await writeHandleMeta(tenantHome, {
+        userId: 'usr_soft0000000000000000',
+        handle: 'ws',
+        confirmedAt: '2026-01-01T00:00:00.000Z',
+      })
+      recordColdQuerySent({ senderHandle: 'ws', receiverHandle: 'other-peer', nowMs: 1_000_000 })
+      expect(
+        assertColdQueryRateAllowed({ senderHandle: 'ws', receiverHandle: 'other-peer', nowMs: 1_000_001 }).ok,
+      ).toBe(false)
+
+      await runWithTenantContextAsync(
+        { tenantUserId, workspaceHandle: 'ws', homeDir: tenantHome },
+        async () => executeTenantSoftReset(tenantUserId),
+      )
+
+      closeBrainGlobalDbForTests()
+      expect(
+        assertColdQueryRateAllowed({ senderHandle: 'ws', receiverHandle: 'other-peer', nowMs: 1_000_002 }).ok,
+      ).toBe(true)
+    } finally {
+      closeBrainGlobalDbForTests()
+      if (prevGlobal !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevGlobal
+      else delete process.env.BRAIN_GLOBAL_SQLITE_PATH
+    }
   })
 })

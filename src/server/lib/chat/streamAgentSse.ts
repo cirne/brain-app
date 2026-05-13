@@ -477,9 +477,11 @@ export function streamStaticAssistantSse(
     text: string
     userMessageForPersistence: string
     onTurnComplete?: StreamAgentSseOptions['onTurnComplete']
+    /** Forward on final `done` so the client can tag the streamed row (tunnel awaiting-peer UI). */
+    doneB2bDelivery?: 'awaiting_peer_review'
   },
 ): Response | Promise<Response> {
-  const { announceSessionId, text, userMessageForPersistence, onTurnComplete } = options
+  const { announceSessionId, text, userMessageForPersistence, onTurnComplete, doneB2bDelivery } = options
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
@@ -490,9 +492,11 @@ export function streamStaticAssistantSse(
       event: 'text_delta',
       data: JSON.stringify({ delta: text }),
     })
+    const donePayload =
+      doneB2bDelivery === 'awaiting_peer_review' ? { b2bDelivery: 'awaiting_peer_review' as const } : {}
     await stream.writeSSE({
       event: 'done',
-      data: JSON.stringify({}),
+      data: JSON.stringify(donePayload),
     })
     if (onTurnComplete) {
       try {

@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
+import { deleteSession } from '../agent/index.js'
 import { getTenantContext, runWithTenantContextAsync, type TenantContext } from '@server/lib/tenant/tenantContext.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
@@ -10,6 +11,7 @@ import {
   grantRowAutoSendEnabled,
   grantRowIgnoresInbound,
   listBrainQueryGrantsForAsker,
+  revokeBrainQueryGrantAsAsker,
   setBrainQueryGrantPolicy,
   type BrainQueryGrantPolicy,
   type BrainQueryGrantRow,
@@ -17,8 +19,11 @@ import {
 import { DEFAULT_BRAIN_QUERY_PRIVACY_POLICY } from '@server/lib/brainQuery/defaultPrivacyPolicy.js'
 import {
   appendTurn,
+  deleteSessionFile,
   ensureSessionStub,
   findB2BSession,
+  listColdOutboundSessionIdsForPeer,
+  listPendingColdInboundPairsForPeerAsker,
   loadSession,
   listB2BInboundReviewRows,
   listPendingInboundSessionIdsForGrant,
@@ -32,16 +37,147 @@ import {
   resolveConfirmedTenantEntry,
   resolveUserIdByPrimaryEmail,
 } from '@server/lib/tenant/workspaceHandleDirectory.js'
-import { assertColdQueryRateAllowed, recordColdQuerySent } from '@server/lib/global/coldQueryRateLimits.js'
+import {
+  assertColdQueryRateAllowed,
+  deleteColdQueryRateLimitRow,
+  recordColdQuerySent,
+} from '@server/lib/global/coldQueryRateLimits.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { createB2BAgent, filterB2BResponse, promptB2BAgentForText } from '@server/agent/b2bAgent.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
 import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
-import { createNotification } from '@server/lib/notifications/notificationsRepo.js'
-import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
+import { deleteOwnerInboundForRevokedBrainQueryGrant } from '@server/lib/chat/brainTunnelInboundCleanup.js'
+import {
+  createNotification,
+  deleteNotificationsForB2bInboundSessionId,
+  deleteNotificationsForB2bOutboundTunnelRefs,
+} from '@server/lib/notifications/notificationsRepo.js'
+import { notifyBrainTunnelActivity } from '@server/lib/hub/hubSseBroker.js'
+import {
+  B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT,
+  B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT,
+} from '@shared/b2bTunnelDelivery.js'
 
 const b2bChat = new Hono()
+
+/** LLM + replace inbound placeholder; push tunnel_activity so open sidebars refetch review copy. */
+async function deliverColdQueryInboundAssistantDraft(params: {
+  recvCtx: TenantContext
+  syn: BrainQueryGrantRow
+  inboundId: string
+  message: string
+  targetUserId: string
+  timezone: string | undefined
+}): Promise<void> {
+  const { recvCtx, syn, inboundId, message, targetUserId, timezone } = params
+  await runWithTenantContextAsync(recvCtx, async () => {
+    try {
+      const ownerVis = await displayNameForUser(targetUserId)
+      const agent = createB2BAgent(syn, wikiDir(), {
+        ownerDisplayName: ownerVis.displayName,
+        ownerHandle: ownerVis.handle,
+        timezone,
+        promptClock: { tenantUserId: targetUserId },
+      })
+      const draft = await promptB2BAgentForText(agent, message)
+      const answer = await filterB2BResponse({ privacyPolicy: syn.privacy_policy, draftAnswer: draft })
+      await replaceLastAssistantMessageInSession(inboundId, {
+        role: 'assistant',
+        content: answer,
+        parts: [{ type: 'text', content: answer }],
+      })
+    } catch (err) {
+      console.warn('[cold-query] inbound draft failed', err)
+      /** Persisted assistant text in the inbound review thread (English; visible in Review queue). */
+      const errText =
+        'Could not draft a suggested reply. You can still respond manually from the review queue.'
+      await replaceLastAssistantMessageInSession(inboundId, {
+        role: 'assistant',
+        content: errText,
+        parts: [{ type: 'text', content: errText }],
+      })
+    }
+    await notifyBrainTunnelActivity(
+      JSON.stringify({
+        scope: 'inbox',
+        inboundSessionId: inboundId,
+        grantId: null,
+      }),
+    )
+  })
+}
+
+async function coldQueryTunnelEvidenceExists(params: {
+  senderCtx: TenantContext
+  recvCtx: TenantContext
+  askerUserId: string
+  ownerUserId: string
+}): Promise<boolean> {
+  let pending = false
+  await runWithTenantContextAsync(params.recvCtx, async () => {
+    pending = listPendingColdInboundPairsForPeerAsker(params.askerUserId).length > 0
+  })
+  if (pending) return true
+  let hasOutbound = false
+  await runWithTenantContextAsync(params.senderCtx, async () => {
+    hasOutbound = listColdOutboundSessionIdsForPeer(params.ownerUserId).length > 0
+  })
+  return hasOutbound
+}
+
+/** Drop pending cold handshakes from this asker so a new cold query can supersede the prior message. */
+async function teardownPendingColdQuerySessionsBetweenPeers(params: {
+  senderCtx: TenantContext
+  recvCtx: TenantContext
+  askerUserId: string
+}): Promise<void> {
+  const outboundIds = new Set<string>()
+
+  await runWithTenantContextAsync(params.recvCtx, async () => {
+    for (const p of listPendingColdInboundPairsForPeerAsker(params.askerUserId)) {
+      deleteNotificationsForB2bInboundSessionId(p.inboundSessionId)
+      await deleteSessionFile(p.inboundSessionId)
+      if (p.outboundSessionId) outboundIds.add(p.outboundSessionId)
+    }
+  })
+
+  await runWithTenantContextAsync(params.senderCtx, async () => {
+    for (const oid of outboundIds) {
+      const doc = await loadSession(oid)
+      const inId =
+        doc?.sessionType === 'b2b_outbound' && doc.isColdQuery === true
+          ? (doc.coldLinkedSessionId ?? '').trim()
+          : ''
+      if (inId) {
+        deleteNotificationsForB2bOutboundTunnelRefs({ outboundSessionId: oid, inboundSessionId: inId })
+      }
+      await deleteSessionFile(oid)
+    }
+  })
+}
+
+/** Tear down one pending cold-query pair (asker outbound + owner inbound) when the asker withdraws. */
+async function teardownColdOutboundPairForWithdraw(params: {
+  askerCtx: TenantContext
+  outboundSessionId: string
+  inboundSessionId: string
+  receiverUserId: string
+}): Promise<void> {
+  const recvCtx = await tenantContextForUser(params.receiverUserId)
+  await runWithTenantContextAsync(recvCtx, async () => {
+    deleteNotificationsForB2bInboundSessionId(params.inboundSessionId)
+    await deleteSessionFile(params.inboundSessionId)
+  })
+  await runWithTenantContextAsync(params.askerCtx, async () => {
+    deleteNotificationsForB2bOutboundTunnelRefs({
+      outboundSessionId: params.outboundSessionId,
+      inboundSessionId: params.inboundSessionId,
+    })
+    deleteSession(params.outboundSessionId)
+    await deleteSessionFile(params.outboundSessionId)
+  })
+}
 
 type TunnelApi = {
   grantId: string
@@ -300,6 +436,73 @@ b2bChat.post('/ensure-session', async (c) => {
   return c.json({ sessionId: outbound.sessionId })
 })
 
+/** Asker: revoke Brain tunnel access and remove outbound session (and pending cold peer inbound). */
+b2bChat.post('/withdraw-as-asker', async (c) => {
+  const ctx = getTenantContext()
+  let body: { sessionId?: unknown; grantId?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  const grantIdOnly = typeof body.grantId === 'string' ? body.grantId.trim() : ''
+  if (sessionId && grantIdOnly) {
+    return c.json({ error: 'session_or_grant_exclusive' }, 400)
+  }
+  if (!sessionId && !grantIdOnly) {
+    return c.json({ error: 'session_or_grant_required' }, 400)
+  }
+
+  if (sessionId) {
+    const doc = await loadSession(sessionId)
+    if (!doc || doc.sessionType !== 'b2b_outbound') {
+      return c.json({ error: 'not_found' }, 404)
+    }
+
+    const cold =
+      doc.isColdQuery === true &&
+      (!(doc.remoteGrantId ?? '').trim()) &&
+      (doc.coldLinkedSessionId ?? '').trim().length > 0 &&
+      (doc.coldPeerUserId ?? '').trim().length > 0
+
+    if (cold) {
+      await teardownColdOutboundPairForWithdraw({
+        askerCtx: ctx,
+        outboundSessionId: sessionId,
+        inboundSessionId: doc.coldLinkedSessionId!.trim(),
+        receiverUserId: doc.coldPeerUserId!.trim(),
+      })
+      return c.json({ ok: true as const })
+    }
+
+    const gid = (doc.remoteGrantId ?? '').trim()
+    if (gid) {
+      const grantSnap = getBrainQueryGrantById(gid)
+      revokeBrainQueryGrantAsAsker({ grantId: gid, askerId: ctx.tenantUserId })
+      if (grantSnap?.asker_id === ctx.tenantUserId) {
+        await deleteOwnerInboundForRevokedBrainQueryGrant(grantSnap)
+      }
+    }
+    deleteSession(sessionId)
+    await deleteSessionFile(sessionId)
+    return c.json({ ok: true as const })
+  }
+
+  const grant = getBrainQueryGrantById(grantIdOnly)
+  if (!grant || grant.asker_id !== ctx.tenantUserId) {
+    return c.json({ error: 'not_found' }, 404)
+  }
+  revokeBrainQueryGrantAsAsker({ grantId: grant.id, askerId: ctx.tenantUserId })
+  await deleteOwnerInboundForRevokedBrainQueryGrant(grant)
+  const outbound = await findB2BSession(grant.id, 'b2b_outbound')
+  if (outbound?.sessionId) {
+    deleteSession(outbound.sessionId)
+    await deleteSessionFile(outbound.sessionId)
+  }
+  return c.json({ ok: true as const })
+})
+
 b2bChat.post('/send', async (c) => {
   const ctx = getTenantContext()
   let body: { grantId?: unknown; message?: unknown; timezone?: unknown }
@@ -362,6 +565,7 @@ b2bChat.post('/send', async (c) => {
     announceSessionId: outbound.sessionId,
     text: placeholder,
     userMessageForPersistence: message,
+    doneB2bDelivery: 'awaiting_peer_review',
     onTurnComplete: async ({ userMessage: _userMessage }) => {
       await appendTurn({
         sessionId: outbound.sessionId,
@@ -727,10 +931,37 @@ b2bChat.post('/cold-query', async (c) => {
     return c.json({ error: 'grant_exists', grantId: existing.id }, 409)
   }
 
-  const rate = assertColdQueryRateAllowed({
+  const senderCtx = await tenantContextForUser(ctx.tenantUserId)
+  const recvCtx = await tenantContextForUser(target.userId)
+
+  await teardownPendingColdQuerySessionsBetweenPeers({
+    senderCtx,
+    recvCtx,
+    askerUserId: ctx.tenantUserId,
+  })
+
+  let rate = assertColdQueryRateAllowed({
     senderHandle: ctx.workspaceHandle,
     receiverHandle: target.handle,
   })
+  if (!rate.ok) {
+    const stillThere = await coldQueryTunnelEvidenceExists({
+      senderCtx,
+      recvCtx,
+      askerUserId: ctx.tenantUserId,
+      ownerUserId: target.userId,
+    })
+    if (!stillThere) {
+      deleteColdQueryRateLimitRow({
+        senderHandle: ctx.workspaceHandle,
+        receiverHandle: target.handle,
+      })
+      rate = assertColdQueryRateAllowed({
+        senderHandle: ctx.workspaceHandle,
+        receiverHandle: target.handle,
+      })
+    }
+  }
   if (!rate.ok) {
     return c.json({ error: 'cold_query_rate_limited', retryAfterMs: Math.ceil(rate.retryAfterMs) }, 429)
   }
@@ -739,8 +970,6 @@ b2bChat.post('/cold-query', async (c) => {
   const receiver = { handle: target.handle, displayName: target.displayName ?? target.handle }
   const outboundId = randomUUID()
   const inboundId = randomUUID()
-
-  const senderCtx = await tenantContextForUser(ctx.tenantUserId)
   await runWithTenantContextAsync(senderCtx, async () => {
     await ensureSessionStub(outboundId, {
       sessionType: 'b2b_outbound',
@@ -753,7 +982,6 @@ b2bChat.post('/cold-query', async (c) => {
     })
   })
 
-  const recvCtx = await tenantContextForUser(target.userId)
   const syn = syntheticGrantForCold({ ownerId: target.userId, askerId: ctx.tenantUserId })
 
   await runWithTenantContextAsync(recvCtx, async () => {
@@ -767,19 +995,15 @@ b2bChat.post('/cold-query', async (c) => {
       remoteDisplayName: sender.displayName,
       approvalState: 'pending',
     })
-    const ownerVis = await displayNameForUser(target.userId)
-    const agent = createB2BAgent(syn, wikiDir(), {
-      ownerDisplayName: ownerVis.displayName,
-      ownerHandle: ownerVis.handle,
-      timezone,
-      promptClock: { tenantUserId: target.userId },
-    })
-    const draft = await promptB2BAgentForText(agent, message)
-    const answer = await filterB2BResponse({ privacyPolicy: syn.privacy_policy, draftAnswer: draft })
+    const drafting = B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT
     await appendTurn({
       sessionId: inboundId,
       userMessage: message,
-      assistantMessage: { role: 'assistant', content: answer, parts: [{ type: 'text', content: answer }] },
+      assistantMessage: {
+        role: 'assistant',
+        content: drafting,
+        parts: [{ type: 'text', content: drafting }],
+      },
     })
     await updateApprovalState(inboundId, 'pending')
     await createNotificationForTenant(target.userId, {
@@ -812,6 +1036,17 @@ b2bChat.post('/cold-query', async (c) => {
   })
 
   recordColdQuerySent({ senderHandle: ctx.workspaceHandle, receiverHandle: target.handle })
+
+  void deliverColdQueryInboundAssistantDraft({
+    recvCtx,
+    syn,
+    inboundId,
+    message,
+    targetUserId: target.userId,
+    timezone,
+  }).catch((err) => {
+    console.warn('[cold-query] background delivery task failed', err)
+  })
 
   return c.json({ sessionId: outboundId, inboundSessionId: inboundId })
 })

@@ -14,8 +14,15 @@ import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
-import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
-import { createBrainQueryGrant, setBrainQueryGrantAutoSend } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT, B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
+import {
+  createBrainQueryGrant,
+  getBrainQueryGrantById,
+  setBrainQueryGrantAutoSend,
+} from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import * as b2bAgent from '@server/agent/b2bAgent.js'
+import { ensureSessionStub, loadSession, listInboundSessionIdsForRemoteGrant } from '@server/lib/chat/chatStorage.js'
+import { recordColdQuerySent } from '@server/lib/global/coldQueryRateLimits.js'
 
 vi.mock('@server/agent/b2bAgent.js', () => ({
   createB2BAgent: vi.fn(() => ({})),
@@ -125,6 +132,232 @@ describe('/api/chat/b2b', () => {
     expect(res2.status).toBe(200)
     const body2 = (await res2.json()) as { sessionId?: string }
     expect(body2.sessionId).toBe(body1.sessionId)
+  })
+
+  it('POST /withdraw-as-asker with sessionId revokes grant and deletes outbound session', async () => {
+    const ownerId = 'usr_m1111111111111111111'
+    const askerId = 'usr_m2222222222222222222'
+    await sessionFor(ownerId, 'wd-owner')
+    const askerSid = await sessionFor(askerId, 'wd-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const app = mountB2BChat()
+    const ensureRes = await app.request('http://localhost/api/chat/b2b/ensure-session', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ grantId: grant.id }),
+    })
+    expect(ensureRes.status).toBe(200)
+    const { sessionId: outboundSid } = (await ensureRes.json()) as { sessionId: string }
+
+    const withdrawRes = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ sessionId: outboundSid }),
+    })
+    expect(withdrawRes.status).toBe(200)
+    expect(((await withdrawRes.json()) as { ok?: boolean }).ok).toBe(true)
+
+    expect(getBrainQueryGrantById(grant.id)).toBeNull()
+
+    await runWithTenantContextAsync(
+      { tenantUserId: askerId, workspaceHandle: 'wd-asker', homeDir: tenantHomeDir(askerId) },
+      async () => {
+        expect(await loadSession(outboundSid)).toBeNull()
+      },
+    )
+
+    const tunnelsRes = await app.request('http://localhost/api/chat/b2b/tunnels', {
+      headers: { cookie: `brain_session=${askerSid}` },
+    })
+    expect(tunnelsRes.status).toBe(200)
+    const tunnelsBody = (await tunnelsRes.json()) as { tunnels: Array<{ grantId: string }> }
+    expect(tunnelsBody.tunnels.some((t) => t.grantId === grant.id)).toBe(false)
+  })
+
+  it('POST /withdraw-as-asker removes inbound review rows on the owner tenant when revoking established grant', async () => {
+    const ownerId = 'usr_own_inb_rm_1111111111111111111'
+    const askerId = 'usr_ask_inb_rm_2222222222222222222'
+    await sessionFor(ownerId, 'inb-owner')
+    const askerSid = await sessionFor(askerId, 'inb-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const inboundSid = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'inb-owner', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        await ensureSessionStub(inboundSid, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'inb-asker',
+          remoteDisplayName: 'Asker Display',
+          approvalState: 'pending',
+        })
+        expect(listInboundSessionIdsForRemoteGrant(grant.id)).toContain(inboundSid)
+      },
+    )
+
+    const app = mountB2BChat()
+    const ensureRes = await app.request('http://localhost/api/chat/b2b/ensure-session', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ grantId: grant.id }),
+    })
+    expect(ensureRes.status).toBe(200)
+    const { sessionId: outboundSid } = (await ensureRes.json()) as { sessionId: string }
+
+    const withdrawRes = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ sessionId: outboundSid }),
+    })
+    expect(withdrawRes.status).toBe(200)
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'inb-owner', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        expect(await loadSession(inboundSid)).toBeNull()
+        expect(listInboundSessionIdsForRemoteGrant(grant.id)).toEqual([])
+      },
+    )
+  })
+
+  it('POST /withdraw-as-asker with grantId clears owner inbound even when outbound row is absent', async () => {
+    const ownerId = 'usr_own_gid_inb_3333333333333333333'
+    const askerId = 'usr_ask_gid_inb_4444444444444444444'
+    await sessionFor(ownerId, 'gid-inb-owner')
+    const askerSid = await sessionFor(askerId, 'gid-inb-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const inboundSid = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'gid-inb-owner', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        await ensureSessionStub(inboundSid, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'gid-inb-asker',
+          remoteDisplayName: 'Asker Two',
+          approvalState: 'pending',
+        })
+      },
+    )
+
+    const app = mountB2BChat()
+    const withdrawRes = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ grantId: grant.id }),
+    })
+    expect(withdrawRes.status).toBe(200)
+    expect(getBrainQueryGrantById(grant.id)).toBeNull()
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'gid-inb-owner', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        expect(await loadSession(inboundSid)).toBeNull()
+      },
+    )
+  })
+
+  it('POST /withdraw-as-asker with grantId revokes when no session row exists', async () => {
+    const ownerId = 'usr_n3333333333333333333'
+    const askerId = 'usr_n4444444444444444444'
+    await sessionFor(ownerId, 'wd2-owner')
+    const askerSid = await sessionFor(askerId, 'wd2-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const app = mountB2BChat()
+    const withdrawRes = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ grantId: grant.id }),
+    })
+    expect(withdrawRes.status).toBe(200)
+    expect(getBrainQueryGrantById(grant.id)).toBeNull()
+  })
+
+  it('POST /withdraw-as-asker rejects both sessionId and grantId', async () => {
+    const askerId = 'usr_x5555555555555555555'
+    const askerSid = await sessionFor(askerId, 'wd3-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ sessionId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', grantId: 'bqg_x' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /withdraw-as-asker with cold outbound removes peer inbound and outbound', async () => {
+    const ownerId = 'usr_coldowner11111111111'
+    const askerId = 'usr_coldasker11111111111'
+    await sessionFor(ownerId, 'wd-cold-owner')
+    const askerSid = await sessionFor(askerId, 'wd-cold-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+
+    const coldRes = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetUserId: ownerId, message: 'Withdraw me' }),
+    })
+    expect(coldRes.status).toBe(200)
+    const j = (await coldRes.json()) as { sessionId: string; inboundSessionId: string }
+
+    const withdrawRes = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ sessionId: j.sessionId }),
+    })
+    expect(withdrawRes.status).toBe(200)
+
+    const ownerHome = tenantHomeDir(ownerId)
+    const askerHome = tenantHomeDir(askerId)
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'wd-cold-owner', homeDir: ownerHome },
+      async () => {
+        expect(await loadSession(j.inboundSessionId)).toBeNull()
+      },
+    )
+    await runWithTenantContextAsync(
+      { tenantUserId: askerId, workspaceHandle: 'wd-cold-asker', homeDir: askerHome },
+      async () => {
+        expect(await loadSession(j.sessionId)).toBeNull()
+      },
+    )
   })
 
   it('GET /inbound-session/:grantId returns inbound session id for the grant owner', async () => {
@@ -449,5 +682,152 @@ describe('/api/chat/b2b', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { sessionId?: string }
     expect(j.sessionId).toMatch(/^[0-9a-f-]{36}$/i)
+  })
+
+  it('POST /cold-query returns 200 before promptB2BAgentForText resolves', async () => {
+    let releaseAnswer!: (v: string) => void
+    const answerGate = new Promise<string>((res) => {
+      releaseAnswer = res
+    })
+    const order: string[] = []
+    vi.mocked(b2bAgent.promptB2BAgentForText).mockImplementation(async () => {
+      order.push('prompt-await')
+      const ans = await answerGate
+      order.push('prompt-done')
+      return ans
+    })
+
+    const ownerId = 'usr_a0000000000000000000'
+    const askerId = 'usr_b0000000000000000000'
+    await sessionFor(ownerId, 'cold-owner-async')
+    const askerSid = await sessionFor(askerId, 'cold-asker-async')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+
+    const res = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetUserId: ownerId, message: 'Async hi' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { sessionId?: string; inboundSessionId?: string }
+    expect(j.sessionId).toMatch(/^[0-9a-f-]{36}$/i)
+    expect(j.inboundSessionId).toMatch(/^[0-9a-f-]{36}$/i)
+
+    await vi.waitFor(
+      () => {
+        expect(order).toEqual(['prompt-await'])
+      },
+      { timeout: 2000 },
+    )
+
+    const inboundId = j.inboundSessionId!
+    const ownerHome = tenantHomeDir(ownerId)
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'cold-owner-async', homeDir: ownerHome },
+      async () => {
+        const doc = await loadSession(inboundId)
+        expect(doc).toBeTruthy()
+        const assistants = doc!.messages.filter((m) => m.role === 'assistant')
+        expect(assistants).toHaveLength(1)
+        expect(assistants[0].content).toBe(B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT)
+      },
+    )
+
+    releaseAnswer('Mock agent answer')
+    await vi.waitFor(
+      () => {
+        expect(order).toContain('prompt-done')
+      },
+      { timeout: 3000 },
+    )
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'cold-owner-async', homeDir: ownerHome },
+      async () => {
+        const doc = await loadSession(inboundId)
+        const assistants = doc!.messages.filter((m) => m.role === 'assistant')
+        expect(assistants).toHaveLength(1)
+        expect(assistants[0].content).toBe('Mock agent answer')
+      },
+    )
+
+    vi.mocked(b2bAgent.promptB2BAgentForText).mockImplementation(async () => 'Mock agent answer')
+  })
+
+  it('POST /cold-query second request supersedes pending pair and returns 200', async () => {
+    const ownerId = 'usr_c1111111111111111111'
+    const askerId = 'usr_d1111111111111111111'
+    await sessionFor(ownerId, 'cold-sup-owner')
+    const askerSid = await sessionFor(askerId, 'cold-sup-asker')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+
+    const res1 = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetUserId: ownerId, message: 'First' }),
+    })
+    expect(res1.status).toBe(200)
+    const j1 = (await res1.json()) as { sessionId: string; inboundSessionId: string }
+
+    const res2 = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetUserId: ownerId, message: 'Second' }),
+    })
+    expect(res2.status).toBe(200)
+    const j2 = (await res2.json()) as { sessionId: string; inboundSessionId: string }
+    expect(j2.sessionId).not.toBe(j1.sessionId)
+    expect(j2.inboundSessionId).not.toBe(j1.inboundSessionId)
+
+    const ownerHome = tenantHomeDir(ownerId)
+    const askerHome = tenantHomeDir(askerId)
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'cold-sup-owner', homeDir: ownerHome },
+      async () => {
+        expect(await loadSession(j1.inboundSessionId)).toBeNull()
+        expect(await loadSession(j2.inboundSessionId)).toBeTruthy()
+      },
+    )
+    await runWithTenantContextAsync(
+      { tenantUserId: askerId, workspaceHandle: 'cold-sup-asker', homeDir: askerHome },
+      async () => {
+        expect(await loadSession(j1.sessionId)).toBeNull()
+        expect(await loadSession(j2.sessionId)).toBeTruthy()
+      },
+    )
+  })
+
+  it('POST /cold-query clears orphaned global rate row when tenant has no cold tunnel', async () => {
+    const ownerId = 'usr_e1111111111111111111'
+    const askerId = 'usr_f1111111111111111111'
+    await sessionFor(ownerId, 'cold-orph-owner')
+    const askerSid = await sessionFor(askerId, 'cold-orph-asker')
+    await registerSessionTenant(askerSid, askerId)
+    recordColdQuerySent({
+      senderHandle: 'cold-orph-asker',
+      receiverHandle: 'cold-orph-owner',
+      nowMs: Date.now(),
+    })
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetUserId: ownerId, message: 'After orphan rate row' }),
+    })
+    expect(res.status).toBe(200)
   })
 })

@@ -1,10 +1,16 @@
 import { mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
+import { deleteSession } from '@server/agent/index.js'
 import type { ApprovalState, ChatMessage, ChatSessionDocV1, ChatSessionType } from './chatTypes.js'
 import { chatDataDirResolved } from '@server/lib/platform/brainHome.js'
 import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
 import { getBrainQueryGrantById } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import type { BrainQueryGrantPolicy } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import {
+  deleteB2bInboundQueryNotificationsForGrantId,
+  deleteNotificationsForB2bInboundSessionId,
+} from '@server/lib/notifications/notificationsRepo.js'
+import { notifyBrainTunnelActivity } from '@server/lib/hub/hubSseBroker.js'
 
 type TenantDb = ReturnType<typeof getTenantDb>
 
@@ -287,6 +293,46 @@ export async function findB2BSession(
   return rowToListItem(row, row.preview ?? undefined)
 }
 
+/** Pending cold-query inbound from a specific asker (`cold_peer_user_id`). */
+export function listPendingColdInboundPairsForPeerAsker(
+  coldPeerUserId: string,
+): { inboundSessionId: string; outboundSessionId: string | null }[] {
+  const db = getTenantDb()
+  const peer = coldPeerUserId.trim()
+  if (!peer) return []
+  const rows = db
+    .prepare(
+      `SELECT session_id, cold_linked_session_id
+       FROM chat_sessions
+       WHERE session_type = 'b2b_inbound'
+         AND is_cold_query = 1
+         AND (remote_grant_id IS NULL OR remote_grant_id = '')
+         AND lower(cold_peer_user_id) = lower(?)
+         AND approval_state = 'pending'`,
+    )
+    .all(peer) as { session_id: string; cold_linked_session_id: string | null }[]
+  return rows.map(r => ({
+    inboundSessionId: r.session_id,
+    outboundSessionId: r.cold_linked_session_id?.trim() || null,
+  }))
+}
+
+/** Cold outbound sessions to this peer (includes orphans after one-sided wipes). */
+export function listColdOutboundSessionIdsForPeer(coldPeerUserId: string): string[] {
+  const db = getTenantDb()
+  const peer = coldPeerUserId.trim()
+  if (!peer) return []
+  const rows = db
+    .prepare(
+      `SELECT session_id FROM chat_sessions
+       WHERE session_type = 'b2b_outbound'
+         AND is_cold_query = 1
+         AND lower(cold_peer_user_id) = lower(?)`,
+    )
+    .all(peer) as { session_id: string }[]
+  return rows.map(r => r.session_id)
+}
+
 export async function updateApprovalState(sessionId: string, state: ApprovalState): Promise<boolean> {
   const db = getTenantDb()
   const now = Date.now()
@@ -396,6 +442,17 @@ function draftSnippetFromAssistant(m: ChatMessage): string {
   return snippetFromPlainText(raw)
 }
 
+/** Established inbound (not cold handshaking) whose global grant row was removed — drop session + notifications so Inbox cannot show dead rows. */
+export async function pruneB2bInboundRowOrphanEstablishedGrant(sessionId: string, grantId: string): Promise<void> {
+  const gid = grantId.trim()
+  const sid = sessionId.trim()
+  if (!gid || !sid) return
+  deleteNotificationsForB2bInboundSessionId(sid)
+  deleteSession(sid)
+  await deleteSessionFile(sid)
+  deleteB2bInboundQueryNotificationsForGrantId(gid)
+}
+
 export async function listB2BInboundReviewRows(params: {
   stateFilter: 'pending' | 'sent' | 'all'
 }): Promise<B2BInboundReviewRow[]> {
@@ -418,6 +475,7 @@ export async function listB2BInboundReviewRows(params: {
   }[]
 
   const out: B2BInboundReviewRow[] = []
+  let orphansPruned = false
   for (const r of rows) {
     const st: ApprovalState = r.approval_state ?? 'pending'
     if (st === 'dismissed') continue
@@ -445,6 +503,12 @@ export async function listB2BInboundReviewRows(params: {
 
     const grantId = grantIdRaw.length > 0 ? grantIdRaw : null
     const grantRow = grantId ? getBrainQueryGrantById(grantId) : null
+    if (!isCold && grantId && grantRow === null) {
+      await pruneB2bInboundRowOrphanEstablishedGrant(r.session_id, grantIdRaw)
+      orphansPruned = true
+      continue
+    }
+
     const policy = grantRow?.policy ?? null
 
     out.push({
@@ -459,6 +523,10 @@ export async function listB2BInboundReviewRows(params: {
       updatedAtMs: r.updated_at_ms,
       policy,
     })
+  }
+
+  if (orphansPruned) {
+    await notifyBrainTunnelActivity(JSON.stringify({ scope: 'inbox', grantId: null, inboundSessionId: null }))
   }
 
   if (params.stateFilter === 'pending') {
@@ -481,6 +549,20 @@ export function listPendingInboundSessionIdsForGrant(remoteGrantId: string): str
     .prepare(
       `SELECT session_id FROM chat_sessions
        WHERE session_type = 'b2b_inbound' AND remote_grant_id = ? AND approval_state = 'pending'`,
+    )
+    .all(gid) as { session_id: string }[]
+  return rows.map((r) => r.session_id)
+}
+
+/** Every `b2b_inbound` row for `remote_grant_id` (any approval state); used when the asker revokes the tunnel. */
+export function listInboundSessionIdsForRemoteGrant(remoteGrantId: string): string[] {
+  const db = getTenantDb()
+  const gid = remoteGrantId.trim()
+  if (!gid) return []
+  const rows = db
+    .prepare(
+      `SELECT session_id FROM chat_sessions
+       WHERE session_type = 'b2b_inbound' AND remote_grant_id = ?`,
     )
     .all(gid) as { session_id: string }[]
   return rows.map((r) => r.session_id)

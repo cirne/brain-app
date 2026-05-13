@@ -16,6 +16,7 @@ import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { listNotifications } from '@server/lib/notifications/notificationsRepo.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { ensureSessionStub, loadSession } from '@server/lib/chat/chatStorage.js'
 
 function mountBrainQuery(): Hono {
   const app = new Hono()
@@ -146,6 +147,80 @@ describe('/api/brain-query', () => {
     const body = (await listRes.json()) as { grantedByMe: unknown[]; grantedToMe: unknown[] }
     expect(body.grantedByMe).toHaveLength(0)
     expect(body.grantedToMe).toHaveLength(0)
+  })
+
+  it('DELETE /grants/:id as owner clears inbound stubs for that grant', async () => {
+    const ownerId = 'usr_own_del_inbx_aaaaaaaaaaaa'
+    const askerId = 'usr_peer_del_inbx_bbbbbbbbbbbb'
+    const ownerSid = await sessionFor(ownerId, 'inbx-owner-api')
+    await registerSessionTenant(ownerSid, ownerId)
+    await sessionFor(askerId, 'inbx-asker-api')
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Brief.' })
+    const inboundSid = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'inbx-owner-api', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        await ensureSessionStub(inboundSid, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'inbx-asker-api',
+          remoteDisplayName: 'Peer',
+          approvalState: 'pending',
+        })
+        expect(await loadSession(inboundSid)).not.toBeNull()
+      },
+    )
+
+    const app = mountBrainQuery()
+    const del = await app.request(`http://localhost/api/brain-query/grants/${grant.id}`, {
+      method: 'DELETE',
+      headers: { cookie: `brain_session=${ownerSid}` },
+    })
+    expect(del.status).toBe(200)
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'inbx-owner-api', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        expect(await loadSession(inboundSid)).toBeNull()
+      },
+    )
+  })
+
+  it('DELETE /grants/:id as asker clears owner inbound stubs for that grant', async () => {
+    const ownerId = 'usr_own_ask_rev_eeeeeeeeeeeeee'
+    const askerId = 'usr_peer_ask_rev_ffffffffffff'
+    await sessionFor(ownerId, 'ask-rev-own')
+    const askerSid = await sessionFor(askerId, 'ask-rev-peer')
+    await registerSessionTenant(askerSid, askerId)
+    const inbound = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Brief.' })
+    const inboundSid = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'ask-rev-own', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        await ensureSessionStub(inboundSid, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: inbound.id,
+          remoteHandle: 'ask-rev-peer',
+          approvalState: 'pending',
+        })
+      },
+    )
+
+    const app = mountBrainQuery()
+    const del = await app.request(`http://localhost/api/brain-query/grants/${inbound.id}`, {
+      method: 'DELETE',
+      headers: { cookie: `brain_session=${askerSid}` },
+    })
+    expect(del.status).toBe(200)
+
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'ask-rev-own', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        expect(await loadSession(inboundSid)).toBeNull()
+      },
+    )
   })
 
   it('DELETE /grants/:id as asker revokes inbound grant only', async () => {

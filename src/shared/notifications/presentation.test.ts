@@ -2,12 +2,23 @@ import { describe, it, expect } from 'vitest'
 import {
   EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP,
   EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT,
+  isEmptyChatStripSourceKind,
   presentationForNotificationRow,
 } from './presentation.js'
 
 describe('notification presentation', () => {
   it('exports cap and fetch limit (cap + 1)', () => {
     expect(EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT).toBe(EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP + 1)
+  })
+
+  it('isEmptyChatStripSourceKind allows mail, grants, legacy Ask Brain; excludes tunnel-native b2b', () => {
+    expect(isEmptyChatStripSourceKind('mail_notify')).toBe(true)
+    expect(isEmptyChatStripSourceKind('brain_query_grant_received')).toBe(true)
+    expect(isEmptyChatStripSourceKind('brain_query_question')).toBe(true)
+    expect(isEmptyChatStripSourceKind('brain_query_mail')).toBe(true)
+    expect(isEmptyChatStripSourceKind('b2b_inbound_query')).toBe(false)
+    expect(isEmptyChatStripSourceKind('b2b_tunnel_outbound_updated')).toBe(false)
+    expect(isEmptyChatStripSourceKind('brain_query_reply_sent')).toBe(false)
   })
 
   it('mail_notify uses short user kickoff and puts opaque ids only in hints', () => {

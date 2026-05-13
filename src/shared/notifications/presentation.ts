@@ -6,6 +6,21 @@ export const EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP = 3
 /** Fetch one extra row to detect “more unread” without a COUNT query. */
 export const EMPTY_CHAT_NOTIFICATION_FETCH_LIMIT = EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP + 1
 
+/**
+ * Empty-chat strip only: chat-native tunnel rows (`b2b_*`) use the chat-history rail (pending + tunnels).
+ * Legacy Ask Brain (`brain_query_*` except reply-sent pings) and mail highlights stay here.
+ */
+export const EMPTY_CHAT_STRIP_SOURCE_KINDS = new Set<string>([
+  'mail_notify',
+  'brain_query_grant_received',
+  'brain_query_question',
+  'brain_query_mail',
+])
+
+export function isEmptyChatStripSourceKind(sourceKind: string): boolean {
+  return EMPTY_CHAT_STRIP_SOURCE_KINDS.has(sourceKind)
+}
+
 const SUMMARY_MAX_CHARS = 72
 
 export type NotificationPresentationInput = {

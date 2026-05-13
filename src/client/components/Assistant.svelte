@@ -147,6 +147,17 @@ import AppShell from '@components/app/AppShell.svelte'
     chatHistory?: { refresh: (_opts?: { background?: boolean }) => Promise<void> }
   }
 
+  /** GET `/api/onboarding/status` body (subset). */
+  type OnboardingStatusResponse = {
+    state?: string
+    initialBootstrapSessionId?: string | null
+  }
+
+  type OnboardingMachineStatusSnapshot = {
+    state: string
+    initialBootstrapSessionId: string | null
+  }
+
   /** Route bar, sync, overlays, and layout — one factory instead of a wall of `let` declarations. */
   let shell = $state(createAssistantShellState())
 
@@ -159,15 +170,29 @@ import AppShell from '@components/app/AppShell.svelte'
 
   /** Pessimistic until GET /api/onboarding/status runs (avoids assuming `done` on first paint). */
   let onboardingMachineState = $state<string>('not-started')
+  let initialBootstrapSessionId = $state<string | null>(null)
   let lastBootstrapKickoffLocalKey = $state<string | null>(null)
 
-  async function loadOnboardingMachineState() {
+  async function loadOnboardingMachineState(): Promise<OnboardingMachineStatusSnapshot> {
+    const fallback: OnboardingMachineStatusSnapshot = {
+      state: 'not-started',
+      initialBootstrapSessionId: null,
+    }
     try {
       const r = await fetch('/api/onboarding/status')
-      const j = (await r.json()) as { state?: string }
-      onboardingMachineState = typeof j.state === 'string' ? j.state : 'not-started'
+      const j = (await r.json()) as OnboardingStatusResponse
+      const state = typeof j.state === 'string' ? j.state : 'not-started'
+      const raw = j.initialBootstrapSessionId
+      const bid =
+        typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
+      const normalized: OnboardingMachineStatusSnapshot = { state, initialBootstrapSessionId: bid }
+      onboardingMachineState = normalized.state
+      initialBootstrapSessionId = normalized.initialBootstrapSessionId
+      return normalized
     } catch {
-      onboardingMachineState = 'not-started'
+      onboardingMachineState = fallback.state
+      initialBootstrapSessionId = fallback.initialBootstrapSessionId
+      return fallback
     }
   }
 
@@ -184,17 +209,19 @@ import AppShell from '@components/app/AppShell.svelte'
    * Interview `finish_conversation` / chip: jump to a fresh main chat immediately (same as non-onboarding).
    * Server finalize is slow; it runs in the background so the UI does not sit on the interview thread.
    */
-  function handleInitialBootstrapFinished() {
+  function handleAgentFinishConversation() {
     const sid = refs.agentChat?.getBackendSessionId()?.trim()
     historyNewChat()
-    if (!sid) {
-      console.warn('[initial-bootstrap] finalize skipped: no session id')
-      return
-    }
-    /** Stops the bootstrap kickoff `$effect` from auto-sending on the new empty session while still `onboarding-agent`. */
-    onboardingMachineState = 'done'
+    if (!sid) return
     void (async () => {
       try {
+        const pendingBeforeRefresh = initialBootstrapSessionId
+        const status = await loadOnboardingMachineState()
+        const shouldFinalize =
+          pendingBeforeRefresh === sid ||
+          status.initialBootstrapSessionId === sid ||
+          (status.state === 'onboarding-agent' && status.initialBootstrapSessionId === null)
+        if (!shouldFinalize) return
         await postOnboardingFinalize(sid)
         await shellRefreshAppOnboardingStatus()
       } catch (e) {
@@ -1864,10 +1891,7 @@ import AppShell from '@components/app/AppShell.svelte'
               onOpenDraftFromAgent={openEmailDraftFromChat}
               onNewChat={closeOverlay}
               onUserInitiatedNewChat={historyNewChat}
-              onAgentFinishConversation={() =>
-                onboardingMachineState === 'onboarding-agent'
-                  ? handleInitialBootstrapFinished()
-                  : historyNewChat()}
+              onAgentFinishConversation={handleAgentFinishConversation}
               onOpenWikiAbout={() => navigateWikiPrimary()}
               onAfterDeleteChat={historyNewChat}
               onUserSendMessage={closeOverlayOnUserSend}

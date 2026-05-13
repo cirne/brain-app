@@ -35,6 +35,7 @@ vi.mock('@client/lib/navHistory.js', async (importOriginal) => {
 })
 
 const hubTunnelSubs = vi.hoisted(() => ({ cbs: [] as Array<(p: unknown) => void> }))
+const hubNotifRefreshSubs = vi.hoisted(() => ({ cbs: [] as Array<() => void> }))
 
 vi.mock('@client/lib/hubEvents/hubEventsClient.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@client/lib/hubEvents/hubEventsClient.js')>()
@@ -45,6 +46,13 @@ vi.mock('@client/lib/hubEvents/hubEventsClient.js', async (importOriginal) => {
       return () => {
         const i = hubTunnelSubs.cbs.indexOf(cb)
         if (i >= 0) hubTunnelSubs.cbs.splice(i, 1)
+      }
+    }),
+    subscribeHubNotificationsRefresh: vi.fn((cb: () => void) => {
+      hubNotifRefreshSubs.cbs.push(cb)
+      return () => {
+        const i = hubNotifRefreshSubs.cbs.indexOf(cb)
+        if (i >= 0) hubNotifRefreshSubs.cbs.splice(i, 1)
       }
     }),
   }
@@ -61,6 +69,7 @@ describe('ChatHistory.svelte', () => {
       Promise.resolve(new Response(JSON.stringify({ tunnels: [] }), { status: 200 })),
     )
     hubTunnelSubs.cbs.length = 0
+    hubNotifRefreshSubs.cbs.length = 0
   })
 
   it('renders sessions from fetchChatSessionListDeduped', async () => {
@@ -159,7 +168,7 @@ describe('ChatHistory.svelte', () => {
     expect(screen.queryByRole('heading', { name: /inbound/i })).not.toBeInTheDocument()
   })
 
-  it('shows Inbox rail link under Tunnels when brainQueryEnabled even when nothing is waiting', async () => {
+  it('hides Inbox rail link under Tunnels when the review queue has no pending items', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
     ])
@@ -183,8 +192,11 @@ describe('ChatHistory.svelte', () => {
       screen.getByRole('heading', { name: /^tunnels$/i }).closest('.ch-group--tunnels'),
     )
     expect(tunnelsSection).toBeTruthy()
-    const inboxBtn = within(tunnelsSection as HTMLElement).getByRole('button', { name: /^open inbox$/i })
-    expect(within(inboxBtn).queryByText(/\d+/)).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        within(tunnelsSection as HTMLElement).queryByRole('button', { name: /^open inbox/i }),
+      ).not.toBeInTheDocument()
+    })
   })
 
   it('calls onOpenColdTunnelEntry when Open a Braintunnel is pressed', async () => {
@@ -457,6 +469,77 @@ describe('ChatHistory.svelte', () => {
 
     await waitFor(() => {
       expect(document.querySelector('[data-tunnel-indicator="new-reply"]')).toBeTruthy()
+    })
+  })
+
+  it('tunnel_activity with scope inbox triggers background refresh so Inbox rail updates', async () => {
+    let reviewItems: Array<{ sessionId: string }> = []
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
+    ])
+    mockedApiFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (u.includes('/api/chat/b2b/review')) {
+        return new Response(JSON.stringify({ items: reviewItems }), { status: 200 })
+      }
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+    })
+
+    render(ChatHistory, {
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenReview: vi.fn() },
+    })
+
+    await screen.findByRole('heading', { name: /^tunnels$/i })
+    const tunnelsSection = screen.getByRole('heading', { name: /^tunnels$/i }).closest(
+      '.ch-group--tunnels',
+    ) as HTMLElement
+    expect(within(tunnelsSection).queryByRole('button', { name: /^open inbox/i })).not.toBeInTheDocument()
+
+    reviewItems = [{ sessionId: 'cold-in' }]
+    const cb = hubTunnelSubs.cbs[hubTunnelSubs.cbs.length - 1]
+    expect(cb).toBeDefined()
+    cb!({ scope: 'inbox', inboundSessionId: 'cold-in', grantId: null })
+
+    await waitFor(() => {
+      expect(within(tunnelsSection).getByRole('button', { name: /open inbox/i })).toBeInTheDocument()
+    })
+  })
+
+  it('subscribeHubNotificationsRefresh callback triggers background rail refresh', async () => {
+    let reviewItems: Array<{ sessionId: string }> = []
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
+    ])
+    mockedApiFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (u.includes('/api/chat/b2b/review')) {
+        return new Response(JSON.stringify({ items: reviewItems }), { status: 200 })
+      }
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+    })
+
+    render(ChatHistory, {
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenReview: vi.fn() },
+    })
+    await screen.findByRole('heading', { name: /^tunnels$/i })
+    const tunnelsSection = screen.getByRole('heading', { name: /^tunnels$/i }).closest(
+      '.ch-group--tunnels',
+    ) as HTMLElement
+    expect(within(tunnelsSection).queryByRole('button', { name: /^open inbox/i })).not.toBeInTheDocument()
+
+    reviewItems = [{ sessionId: 'n1' }]
+    const notifCb = hubNotifRefreshSubs.cbs[hubNotifRefreshSubs.cbs.length - 1]
+    expect(notifCb).toBeDefined()
+    notifCb!()
+
+    await waitFor(() => {
+      expect(within(tunnelsSection).getByRole('button', { name: /open inbox/i })).toBeInTheDocument()
     })
   })
 })

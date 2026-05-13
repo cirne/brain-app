@@ -10,9 +10,9 @@
     "tunnelOutboundHintAnonymous": "They answer from their workspace.",
     "atHint": "Use @ to reference docs in",
     "yourWiki": "your wiki",
-    "notificationsHeading": "Notifications",
-    "notificationsOverflow": "At least one more unread notification.",
-    "dismissNotificationAria": "Dismiss notification",
+    "notificationsHeading": "Email & requests",
+    "notificationsOverflow": "At least one more item is not shown.",
+    "dismissNotificationAria": "Dismiss",
     "peerSharingSummary": "@{{peerHandle}} is now sharing with you",
     "peerSharingSummaryAnonymous": "Someone is now sharing with you"
   },
@@ -41,10 +41,14 @@
     "hearRepliesOnAria": "Assistant voice output on",
     "hearRepliesOffAria": "Assistant voice output off",
     "deleteChatAria": "Delete chat",
+    "deleteTunnelAria": "Close Braintunnel",
     "audioConversation": "Audio Conversation",
     "deleteDialogTitle": "Delete chat?",
+    "deleteTunnelDialogTitle": "Close this Braintunnel?",
     "deleteConfirmLabel": "Delete",
-    "deleteDialogBody": "This will permanently remove \"{{label}}\"."
+    "deleteTunnelConfirmLabel": "Close tunnel",
+    "deleteDialogBody": "This will permanently remove \"{{label}}\".",
+    "deleteTunnelDialogBody": "This ends the tunnel to {{label}}. To message them again, open a new Braintunnel."
   },
   "history": {
     "newChatFallbackTitle": "New chat",
@@ -59,7 +63,6 @@
     "emptyTunnels": "No tunnels yet. Someone else must grant access from their Brain before you can chat through a tunnel.",
     "tunnelsLoadFailed": "Could not load tunnels.",
     "pendingRow": "Inbox",
-    "pendingOpenAria": "Open inbox",
     "pendingOpenAriaWithCount": "Open inbox — {{count}} waiting",
     "inboundHeading": "Inbound",
     "emptyInbound": "No inbound chats yet.",
@@ -73,8 +76,7 @@
       "button": "Open a Braintunnel",
       "sheetTitle": "Who do you want to reach?",
       "introHeading": "What is a Braintunnel?",
-      "introLead": "A Braintunnel is a private line to someone else's assistant in Braintunnel—not bulk email or a public bot.",
-      "introBody": "You write your message here. They can answer using their own mail, calendar, and notes—only within the access they've given you. If you've never connected before, they need to allow it from their side first.",
+      "introLead": "A Braintunnel is a private line to another user's assistant. Get quick answers from their assistant to get things done.",
       "recipientSearchLabel": "Find them",
       "recipientSearchPlaceholder": "Search by name, @handle, or email",
       "recipientCardAria": "Selected recipient",
@@ -97,7 +99,8 @@
     "viaTunnel": "via tunnel",
     "askingYourBrain": "asking your brain",
     "awaitingReceiptLabel": "Sent · pending approval",
-    "awaitingReceiptTooltip": "A reply will appear here once the draft is approved.",
+    "awaitingReceiptBody": "Your message was sent. When they approve their assistant's draft, the reply will appear here.",
+    "awaitingReceiptTooltip": "You'll see their reply in this chat after they approve it to send.",
     "approval": {
       "title": "Review answer before sending",
       "description": "Edit the answer if needed, then approve or decline the inbound request.",
@@ -112,12 +115,20 @@
     "nav": {
       "label": "Inbox"
     },
+    "queue": {
+      "position": "{{current}} of {{total}}",
+      "prevLabel": "Previous conversation",
+      "nextLabel": "Next conversation",
+      "jumpTo": "Jump to…"
+    },
     "loadFailed": "Could not load review items.",
     "emptyState": {
       "headline": "All caught up",
       "subhead": "No tunnel replies are waiting for you to send or review.",
       "detailTitle": "Nothing to approve",
       "detailBody": "When a collaborator is waiting on your answer, you approve it before it sends.",
+      "compactHeadline": "All caught up",
+      "compactSubhead": "No tunnel replies are waiting to send or review, and nothing is waiting for your approval before it sends.",
       "pickTitle": "Pick a conversation",
       "pickHint": "Select an item from the list to preview messages, edit the draft, and send or decline."
     },

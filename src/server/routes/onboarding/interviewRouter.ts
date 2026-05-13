@@ -13,7 +13,11 @@ import {
 import { fetchRipmailWhoamiForProfiling } from '@server/agent/profilingAgent.js'
 import { runInterviewFinalize } from '@server/agent/interviewFinalizeAgent.js'
 import { deleteWikiBuildoutSession, ensureWikiVaultScaffoldForBuildout } from '@server/agent/wikiBuildoutAgent.js'
-import { readOnboardingStateDoc, setOnboardingState } from '@server/lib/onboarding/onboardingState.js'
+import {
+  readOnboardingStateDoc,
+  setOnboardingState,
+  writeOnboardingStateDoc,
+} from '@server/lib/onboarding/onboardingState.js'
 import { notifyOnboardingInterviewDone } from '@server/lib/backgroundTasks/orchestrator.js'
 import { deleteBootstrapSession } from '@server/agent/initialBootstrapAgent.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
@@ -92,17 +96,24 @@ onboardingInterviewRouter.post('/finalize', async (c) => {
     return c.json({ error: 'sessionId is required' }, 400)
   }
   const doc = await readOnboardingStateDoc()
-  if (doc.state === 'done') {
+  const pendingInitialBootstrapFinalize = doc.initialBootstrapSessionId === sessionId
+  if (doc.state === 'done' && !pendingInitialBootstrapFinalize) {
     return c.json({ ok: true as const, state: 'done' })
   }
-  if (doc.state !== 'onboarding-agent') {
+  if (doc.initialBootstrapSessionId && !pendingInitialBootstrapFinalize) {
+    return c.json({ error: 'Onboarding interview is not active.' }, 400)
+  }
+  if (doc.state !== 'onboarding-agent' && !pendingInitialBootstrapFinalize) {
     return c.json({ error: 'Onboarding interview is not active.' }, 400)
   }
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   try {
     await runInterviewFinalize({ sessionId, timezone })
     await ensureWikiVaultScaffoldForBuildout(wikiDir())
-    await setOnboardingState('done')
+    const finalizedDoc = doc.state === 'done' ? doc : await setOnboardingState('done')
+    const clearedDoc = { ...finalizedDoc }
+    delete clearedDoc.initialBootstrapSessionId
+    await writeOnboardingStateDoc(clearedDoc)
     deleteBootstrapSession(sessionId)
     void notifyOnboardingInterviewDone()
     return c.json({ ok: true as const, state: 'done' })

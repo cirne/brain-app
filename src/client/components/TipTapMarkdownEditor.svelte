@@ -80,6 +80,8 @@
     editorPlaceholder?: string
     /** Tighter chrome for embedding in panels (e.g. B2B review regenerate). */
     compact?: boolean
+    /** Synchronous markdown string on each doc change (not debounced); for UI state e.g. approve button enablement. */
+    onMarkdownUpdate?: (_markdown: string) => void
   }
 
   type WikiNavigateCb = NonNullable<Props['onWikiLinkNavigate']>
@@ -94,6 +96,7 @@
     floatingBlockMenu: floatingBlockMenuProp,
     editorPlaceholder = '',
     compact = false,
+    onMarkdownUpdate,
   }: Props = $props()
 
   const floatingBlockMenuEnabled = $derived.by(() => {
@@ -109,6 +112,11 @@
   const wikiLinkNav = $state.raw<{ cb?: WikiNavigateCb }>({})
   $effect.pre(() => {
     wikiLinkNav.cb = onWikiLinkNavigate
+  })
+
+  const mdUpdateCb = $state.raw<{ fn?: Props['onMarkdownUpdate'] }>({})
+  $effect.pre(() => {
+    mdUpdateCb.fn = onMarkdownUpdate
   })
 
   let mountEl = $state<HTMLDivElement | undefined>()
@@ -329,9 +337,19 @@
         onSelectionUpdate: () => {
           chromeRev++
         },
-        onUpdate: () => {
+        onUpdate: ({ editor: ed2 }) => {
           chromeRev++
-          if (!syncingFromProp) scheduleSave()
+          if (!syncingFromProp) {
+            const fn = mdUpdateCb.fn
+            if (fn) {
+              try {
+                fn(fullMarkdownFromEditor(ed2.getHTML()))
+              } catch {
+                /* ignore turndown errors */
+              }
+            }
+            scheduleSave()
+          }
         },
       })
 

@@ -300,3 +300,55 @@ export function deleteAllNotifications(): void {
   db.prepare(`DELETE FROM notifications`).run()
   notifyNotificationsChanged()
 }
+
+/** Remove `b2b_inbound_query` rows for a cold inbound session (recipient tenant). */
+export function deleteNotificationsForB2bInboundSessionId(inboundSessionId: string): number {
+  const db = getTenantDb()
+  const sid = inboundSessionId.trim()
+  if (!sid) return 0
+  const r = db
+    .prepare(
+      `DELETE FROM notifications WHERE source_kind = 'b2b_inbound_query'
+       AND json_extract(payload_json, '$.b2bSessionId') = ?`,
+    )
+    .run(sid)
+  if (r.changes > 0) notifyNotificationsChanged()
+  return r.changes
+}
+
+/** Remove `b2b_inbound_query` rows still keyed by `payload.grantId` after inbound sessions were deleted. */
+export function deleteB2bInboundQueryNotificationsForGrantId(grantId: string): number {
+  const db = getTenantDb()
+  const gid = grantId.trim()
+  if (!gid) return 0
+  const r = db
+    .prepare(
+      `DELETE FROM notifications WHERE source_kind = 'b2b_inbound_query'
+       AND json_extract(payload_json, '$.grantId') = ?`,
+    )
+    .run(gid)
+  if (r.changes > 0) notifyNotificationsChanged()
+  return r.changes
+}
+
+/** Remove `b2b_tunnel_outbound_updated` rows tied to a cold pair (asker tenant). */
+export function deleteNotificationsForB2bOutboundTunnelRefs(params: {
+  outboundSessionId: string
+  inboundSessionId: string
+}): number {
+  const db = getTenantDb()
+  const outId = params.outboundSessionId.trim()
+  const inId = params.inboundSessionId.trim()
+  if (!outId || !inId) return 0
+  const r = db
+    .prepare(
+      `DELETE FROM notifications WHERE source_kind = 'b2b_tunnel_outbound_updated'
+       AND (
+         json_extract(payload_json, '$.outboundSessionId') = ?
+         OR json_extract(payload_json, '$.inboundSessionId') = ?
+       )`,
+    )
+    .run(outId, inId)
+  if (r.changes > 0) notifyNotificationsChanged()
+  return r.changes
+}

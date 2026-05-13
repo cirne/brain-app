@@ -5,14 +5,18 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
 
-async function seedOnboardingJson(brainHomeEnv: string, state: string): Promise<void> {
+async function seedOnboardingJson(
+  brainHomeEnv: string,
+  state: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
   process.env.BRAIN_HOME = brainHomeEnv
   const { chatDataDir } = await import('@server/lib/chat/chatStorage.js')
   const dir = chatDataDir()
   await mkdir(dir, { recursive: true })
   await writeFile(
     join(dir, 'onboarding.json'),
-    JSON.stringify({ state, updatedAt: new Date().toISOString() }),
+    JSON.stringify({ state, updatedAt: new Date().toISOString(), ...extra }),
     'utf-8',
   )
 }
@@ -82,6 +86,7 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       await seedOnboardingJson(brainHome, 'onboarding-agent')
 
       const { default: chatRoute } = await import('./chat.js')
+      const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
       const app = new Hono()
       app.route('/api/chat', chatRoute)
 
@@ -93,7 +98,77 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       })
       expect(res.status).toBe(200)
       expect(res.headers.get('content-type')).toContain('text/event-stream')
+      expect((await readOnboardingStateDoc()).initialBootstrapSessionId).toBe(sessionId)
       await res.body?.cancel()
+    })
+
+    it('rejects a second initialBootstrapKickoff after the first bootstrap session is locked', async () => {
+      await seedOnboardingJson(brainHome, 'onboarding-agent', {
+        initialBootstrapSessionId: 'd10e8400-e29b-41d4-a716-446655440001',
+      })
+
+      const { default: chatRoute } = await import('./chat.js')
+      const app = new Hono()
+      app.route('/api/chat', chatRoute)
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initialBootstrapKickoff: true,
+          timezone: 'UTC',
+          sessionId: 'd10e8400-e29b-41d4-a716-446655440002',
+        }),
+      })
+      expect(res.status).toBe(400)
+      const err = (await res.json()) as { error?: string }
+      expect(err.error).toContain('initial bootstrap kickoff')
+    })
+
+    it('marks onboarding done on the first visible bootstrap reply but keeps only that session on bootstrap routing', async () => {
+      const sessionId = 'd10e8400-e29b-41d4-a716-446655440001'
+      await seedOnboardingJson(brainHome, 'onboarding-agent', {
+        initialBootstrapSessionId: sessionId,
+      })
+
+      const { default: chatRoute } = await import('./chat.js')
+      const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+      const app = new Hono()
+      app.route('/api/chat', chatRoute)
+
+      const firstUserReply = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'That name looks right', timezone: 'UTC', sessionId }),
+      })
+      expect(firstUserReply.status).toBe(200)
+      await firstUserReply.body?.cancel()
+      expect(await readOnboardingStateDoc()).toMatchObject({
+        state: 'done',
+        initialBootstrapSessionId: sessionId,
+      })
+
+      const sameThreadSlash = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '/not_a_skill_xyz', timezone: 'UTC', sessionId }),
+      })
+      expect(sameThreadSlash.status).toBe(200)
+      expect(await sameThreadSlash.text()).toContain('Finish setup in chat first')
+
+      const newThreadSlash = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '/not_a_skill_xyz',
+          timezone: 'UTC',
+          sessionId: 'd10e8400-e29b-41d4-a716-446655440002',
+        }),
+      })
+      expect(newThreadSlash.status).toBe(200)
+      const newThreadText = await newThreadSlash.text()
+      expect(newThreadText).toContain('Unknown skill')
+      expect(newThreadText).not.toContain('Finish setup in chat first')
     })
 
     it('returns static SSE for slash skill during onboarding-agent bootstrap', async () => {

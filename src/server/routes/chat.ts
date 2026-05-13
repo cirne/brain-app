@@ -36,7 +36,12 @@ import {
   parseNotificationKickoffFromBody,
 } from '@server/lib/llm/notificationKickoffPrompt.js'
 import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
-import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
+import {
+  readOnboardingStateDoc,
+  setOnboardingState,
+  type OnboardingStateDoc,
+  writeOnboardingStateDoc,
+} from '@server/lib/onboarding/onboardingState.js'
 import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { buildMailCoverageCaveatForMainAssistant } from '@server/lib/onboarding/mailCoverageCaveatPrompt.js'
 import {
@@ -94,14 +99,23 @@ chat.post('/', async (c) => {
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   const rawMessage = body.message
 
-  let onboardingState = 'not-started'
+  let onboardingDoc: OnboardingStateDoc = {
+    state: 'not-started',
+    updatedAt: new Date().toISOString(),
+  }
   try {
-    const doc = await readOnboardingStateDoc()
-    onboardingState = doc.state
+    onboardingDoc = await readOnboardingStateDoc()
   } catch {
     /* ignore */
   }
-  const bootstrapMode = onboardingState === 'onboarding-agent'
+  const initialBootstrapSessionId = onboardingDoc.initialBootstrapSessionId?.trim() || null
+  const bootstrapModeGlobal = onboardingDoc.state === 'onboarding-agent'
+  const bootstrapThread = initialBootstrapSessionId === sessionId
+  const bootstrapAvailableForSession = bootstrapModeGlobal && (!initialBootstrapSessionId || bootstrapThread)
+  const useBootstrapAgent = bootstrapAvailableForSession || bootstrapThread
+  const messageTrim = typeof rawMessage === 'string' ? rawMessage.trim() : ''
+  const finishShortcut =
+    !initialBootstrapKickoff && messageTrim.length > 0 && isBrainFinishConversationSubmit(messageTrim)
 
   if (!initialBootstrapKickoff && (!rawMessage || typeof rawMessage !== 'string')) {
     return c.json({ error: 'message is required' }, 400)
@@ -117,7 +131,7 @@ chat.post('/', async (c) => {
   }
 
   if (initialBootstrapKickoff) {
-    if (!bootstrapMode) {
+    if (!bootstrapAvailableForSession) {
       return c.json({ error: 'initial bootstrap kickoff is not available' }, 400)
     }
     try {
@@ -128,6 +142,13 @@ chat.post('/', async (c) => {
     } catch {
       /* ignore */
     }
+    if (!initialBootstrapSessionId) {
+      onboardingDoc = {
+        ...onboardingDoc,
+        initialBootstrapSessionId: sessionId,
+      }
+      await writeOnboardingStateDoc(onboardingDoc)
+    }
   }
 
   const promptMessage = initialBootstrapKickoff
@@ -135,7 +156,7 @@ chat.post('/', async (c) => {
     : (rawMessage as string)
 
   let notificationKickoff =
-    !bootstrapMode && !initialBootstrapKickoff
+    !useBootstrapAgent && !initialBootstrapKickoff
       ? parseNotificationKickoffFromBody(body)
       : null
   if (notificationKickoff) {
@@ -151,7 +172,7 @@ chat.post('/', async (c) => {
   }
 
   let mailCoverageCaveat: string | undefined
-  if (!bootstrapMode) {
+  if (!useBootstrapAgent) {
     try {
       mailCoverageCaveat =
         buildMailCoverageCaveatForMainAssistant(await getOnboardingMailStatus()) ?? undefined
@@ -177,14 +198,10 @@ chat.post('/', async (c) => {
     }
   }
 
-  if (
-    !initialBootstrapKickoff &&
-    typeof rawMessage === 'string' &&
-    isBrainFinishConversationSubmit(rawMessage.trim())
-  ) {
+  if (finishShortcut) {
     const display =
       typeof body.userMessageDisplay === 'string' ? body.userMessageDisplay.trim() : ''
-    const userMessageForPersistence = display || rawMessage.trim()
+    const userMessageForPersistence = display || messageTrim
     return streamFinishConversationShortcutSse(c, {
       announceSessionId: sessionId,
       userMessageForPersistence,
@@ -241,7 +258,7 @@ chat.post('/', async (c) => {
   const openFileForSkill = validatedContextFiles?.length ? validatedContextFiles[0] : undefined
 
   const slash = parseLeadingSlashCommand(promptMessage)
-  if (slash && bootstrapMode) {
+  if (slash && useBootstrapAgent) {
     return streamStaticAssistantSse(c, {
       announceSessionId: sessionId,
       userMessageForPersistence: promptMessage,
@@ -311,7 +328,20 @@ chat.post('/', async (c) => {
     )
   }
 
-  if (bootstrapMode) {
+  if (
+    bootstrapModeGlobal &&
+    initialBootstrapSessionId === sessionId &&
+    !initialBootstrapKickoff &&
+    !finishShortcut
+  ) {
+    try {
+      onboardingDoc = await setOnboardingState('done')
+    } catch {
+      /* best-effort — keep the first reply streaming even if state persistence races */
+    }
+  }
+
+  if (useBootstrapAgent) {
     const mail = await getOnboardingMailStatus()
     const mailFacts = formatMailIndexFactsForBootstrap(mail)
     const agent = await getOrCreateInitialBootstrapSession(sessionId, {

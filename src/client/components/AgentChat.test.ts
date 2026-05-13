@@ -12,7 +12,6 @@ import {
 } from '@client/test/helpers/index.js'
 import { consumeAgentChatStream } from '@client/lib/agentStream.js'
 import { jsonResponse, createMockFetch } from '@client/test/mocks/fetch.js'
-import * as router from '@client/router.js'
 vi.mock('./agent-conversation/AgentConversation.svelte', () => import('./test-stubs/AgentConversationStub.svelte'))
 vi.mock('@client/lib/wikiFileListRefetch.js', () => ({
   registerWikiFileListRefetch: vi.fn(() => vi.fn()),
@@ -313,24 +312,9 @@ describe('AgentChat.svelte', () => {
     expect(JSON.parse(String(patchInit?.body ?? '{}'))).toEqual({ state: 'read' })
   })
 
-  it('empty-chat b2b_inbound_query navigates to Review zone and does not POST main assistant chat', async () => {
-    const chatPost = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(
-        new Response(new ReadableStream(), {
-          status: 200,
-          headers: { 'Content-Type': 'text/event-stream' },
-        }),
-      ),
-    )
-    const patchNotif = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(jsonResponse({ ok: true })),
-    )
-    const onSelectChatSession = vi.fn().mockResolvedValue(undefined)
-    const navigateSpy = vi.spyOn(router, 'navigate').mockImplementation(() => {})
-
-    stubFetchForAgentChat({
+  it('empty-chat strip hidden when unread notifications are only B2B/tunnel kinds', async () => {
+    const mock = stubFetchForAgentChat({
       extra: [
-        agentChatPostHandler(chatPost),
         {
           match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
           response: () =>
@@ -345,12 +329,12 @@ describe('AgentChat.svelte', () => {
                   question: 'Hi?',
                 },
               },
+              {
+                id: 'out',
+                sourceKind: 'b2b_tunnel_outbound_updated',
+                payload: { outboundSessionId: 'o1', inboundSessionId: 'i1' },
+              },
             ]),
-        },
-        {
-          match: (u: string, init?: RequestInit) =>
-            u === '/api/notifications/nin' && init?.method === 'PATCH',
-          response: patchNotif,
         },
       ],
     })
@@ -359,8 +343,45 @@ describe('AgentChat.svelte', () => {
       props: {
         context: { type: 'none' },
         showEmptyChatNotifications: true,
-        onSelectChatSession,
       },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+
+    await waitFor(() => {
+      expect(mock.mock.calls.some((c) => String(c[0]).includes('/api/notifications?'))).toBe(true)
+    })
+    expect(screen.queryByTestId('empty-chat-notifications-strip')).not.toBeInTheDocument()
+  })
+
+  it('empty-chat strip shows only allowlisted rows when mixed with B2B kinds', async () => {
+    stubFetchForAgentChat({
+      extra: [
+        {
+          match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
+          response: () =>
+            jsonResponse([
+              {
+                id: 'nin',
+                sourceKind: 'b2b_inbound_query',
+                payload: {
+                  b2bSessionId: 'in-1',
+                  peerHandle: 'asker',
+                  question: 'Tunnel question?',
+                },
+              },
+              {
+                id: 'n1',
+                sourceKind: 'mail_notify',
+                payload: { messageId: 'm1', subject: 'Only mail row' },
+              },
+            ]),
+        },
+      ],
+    })
+
+    const { component } = render(AgentChat, {
+      props: { context: { type: 'none' }, showEmptyChatNotifications: true },
     })
     component.newChat({ skipOverlayClose: true })
     await tick()
@@ -368,16 +389,53 @@ describe('AgentChat.svelte', () => {
     await waitFor(() => {
       expect(screen.getByTestId('empty-chat-notifications-strip')).toBeInTheDocument()
     })
+    expect(screen.getByText('Only mail row')).toBeInTheDocument()
+    expect(screen.queryByText(/Tunnel question/i)).not.toBeInTheDocument()
+  })
 
-    await fireEvent.click(screen.getByTestId('empty-chat-notif-act'))
+  it('empty-chat strip shows brain_query_question and hides b2b_inbound_query in the same fetch', async () => {
+    stubFetchForAgentChat({
+      extra: [
+        {
+          match: (u: string) => u.startsWith('/api/notifications?') && u.includes('state=unread'),
+          response: () =>
+            jsonResponse([
+              {
+                id: 'nin',
+                sourceKind: 'b2b_inbound_query',
+                payload: {
+                  b2bSessionId: 'in-1',
+                  peerHandle: 'asker',
+                  question: 'Tunnel pending?',
+                  pendingReview: true,
+                },
+              },
+              {
+                id: 'q1',
+                sourceKind: 'brain_query_question',
+                payload: {
+                  grantId: 'bqg_x',
+                  peerHandle: 'demo-ken-lay',
+                  question: 'Legacy ask from Lay?',
+                },
+              },
+            ]),
+        },
+      ],
+    })
+
+    const { component } = render(AgentChat, {
+      props: { context: { type: 'none' }, showEmptyChatNotifications: true },
+    })
+    component.newChat({ skipOverlayClose: true })
+    await tick()
 
     await waitFor(() => {
-      expect(navigateSpy).toHaveBeenCalledWith({ zone: 'review', reviewSessionId: 'in-sess-1' })
+      expect(screen.getByTestId('empty-chat-notifications-strip')).toBeInTheDocument()
     })
-    expect(onSelectChatSession).not.toHaveBeenCalled()
-    expect(chatPost).not.toHaveBeenCalled()
-    await waitFor(() => expect(patchNotif).toHaveBeenCalled())
-    navigateSpy.mockRestore()
+    expect(screen.getByText(/Legacy ask from Lay/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Tunnel pending/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/draft ready/i)).not.toBeInTheDocument()
   })
 
   it('empty-chat brain_query_grant_received ensures tunnel and POSTs b2b welcome, not main chat', async () => {
@@ -722,6 +780,9 @@ describe('AgentChat.svelte', () => {
 
       const ta = await screen.findByRole('textbox')
       expect(ta).toHaveAttribute('placeholder', '@ken…')
+      expect(screen.getByText('Ken Lay')).toBeInTheDocument()
+      expect(screen.getByText('via tunnel')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Close Braintunnel' })).toBeInTheDocument()
     })
 
     it('posts outbound tunnel messages to the B2B send endpoint', async () => {
@@ -949,6 +1010,102 @@ describe('AgentChat.svelte', () => {
       await tick()
 
       expect(screen.queryByText('Delete chat?')).not.toBeInTheDocument()
+    })
+
+    it('outbound tunnel delete control uses close tunnel label', async () => {
+      const sessionId = 'outbound-del-1'
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: null,
+              sessionType: 'b2b_outbound',
+              remoteGrantId: 'grant-del-1',
+              remoteHandle: '@ken',
+              remoteDisplayName: 'Ken Lay',
+              approvalState: null,
+              messages: [
+                { role: 'user', content: 'tunnel question' },
+                { role: 'assistant', content: 'placeholder' },
+              ],
+            }),
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+      await tick()
+      await component.loadSession(sessionId)
+      await tick()
+
+      expect(screen.getByRole('button', { name: 'Close Braintunnel' })).toBeInTheDocument()
+    })
+
+    it('confirming delete on outbound tunnel POSTs withdraw-as-asker not DELETE /api/chat', async () => {
+      const sessionId = 'outbound-del-2'
+      const withdrawFn = vi.fn((_url: string, _init?: RequestInit) =>
+        Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })),
+      )
+      const deleteFn = vi.fn(() => Promise.resolve(new Response(null, { status: 200 })))
+
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: null,
+              sessionType: 'b2b_outbound',
+              remoteGrantId: 'grant-del-2',
+              remoteHandle: '@peer',
+              remoteDisplayName: 'Peer Name',
+              approvalState: null,
+              messages: [
+                { role: 'user', content: 'hello tunnel' },
+                { role: 'assistant', content: 'reply' },
+              ],
+            }),
+        },
+        {
+          match: (u, init) => u === '/api/chat/b2b/withdraw-as-asker' && init?.method === 'POST',
+          response: withdrawFn,
+        },
+        {
+          match: (u, init) => u.startsWith('/api/chat/') && init?.method === 'DELETE',
+          response: deleteFn,
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+      await tick()
+      await component.loadSession(sessionId)
+      await tick()
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Close Braintunnel' }))
+      await tick()
+
+      expect(screen.getByText('Close this Braintunnel?')).toBeInTheDocument()
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Close tunnel' }))
+      await tick()
+
+      expect(withdrawFn).toHaveBeenCalledTimes(1)
+      const wInit = withdrawFn.mock.calls[0]?.[1] as RequestInit
+      expect(wInit?.method).toBe('POST')
+      const wBody = JSON.parse(String(wInit?.body ?? '{}')) as { sessionId?: string }
+      expect(wBody.sessionId).toBe(sessionId)
+      expect(deleteFn).not.toHaveBeenCalled()
     })
   })
 

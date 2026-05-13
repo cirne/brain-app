@@ -127,6 +127,7 @@ onboardingCoreRouter.get('/status', async (c) => {
     state,
     wikiMeExists: wikiMeExists(),
     updatedAt: doc.updatedAt,
+    ...(doc.initialBootstrapSessionId ? { initialBootstrapSessionId: doc.initialBootstrapSessionId } : {}),
   })
 })
 

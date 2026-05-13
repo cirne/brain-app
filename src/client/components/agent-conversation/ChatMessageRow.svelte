@@ -9,6 +9,7 @@
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import { t } from '@client/lib/i18n/index.js'
   import { Send } from 'lucide-svelte'
+  import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
   import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
   import StreamingBusyDots from './StreamingBusyDots.svelte'
   import ToolCallBlock from './ToolCallBlock.svelte'
@@ -65,19 +66,41 @@
   const showPreTextThinking = $derived(
     msg.role === 'assistant' && streaming && isLastMessage && !assistantHasVisibleTextPart(msg),
   )
+
+  function assistantPlainTextForReceipt(m: ChatMessage): string {
+    const parts = m.parts ?? []
+    const fromPart = parts.find(
+      (p): p is { type: 'text'; content: string } => p.type === 'text' && typeof p.content === 'string',
+    )
+    if (fromPart?.content) return fromPart.content
+    return typeof m.content === 'string' ? m.content : ''
+  }
+
+  const awaitingPeerReviewReceipt = $derived(
+    msg.b2bDelivery === 'awaiting_peer_review' ||
+      (msg.role === 'assistant' &&
+        assistantPlainTextForReceipt(msg).trim() === B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT.trim()),
+  )
 </script>
 
-{#if msg.b2bDelivery === 'awaiting_peer_review'}
+{#if awaitingPeerReviewReceipt}
   <div
-    class="chat-message-row tunnel-receipt-row group relative mb-3 box-border flex w-full max-w-[min(800px,100%)] justify-end"
+    class="chat-message-row tunnel-receipt-row group relative mb-4 box-border flex w-full max-w-[min(800px,100%)]"
     data-testid="chat-message-row"
   >
     <div
-      class="tunnel-receipt inline-flex items-center gap-1.5 text-[11px] text-muted/60"
+      class="tunnel-receipt box-border w-full max-w-[min(36rem,100%)] rounded-lg border border-border/80 bg-surface-2 px-3 py-2.5 shadow-sm"
+      role="status"
       title={$t('chat.b2b.awaitingReceiptTooltip')}
     >
-      <Send size={11} strokeWidth={2} aria-hidden="true" />
-      <span>{$t('chat.b2b.awaitingReceiptLabel')}</span>
+      <div class="flex items-start gap-2.5">
+        <span class="mt-0.5 shrink-0 text-muted [&>svg]:block" aria-hidden="true">
+          <Send size={14} strokeWidth={2} />
+        </span>
+        <p class="msg-content m-0 min-w-0 flex-1 text-sm leading-snug text-foreground">
+          {$t('chat.b2b.awaitingReceiptBody')}
+        </p>
+      </div>
     </div>
   </div>
 {:else}

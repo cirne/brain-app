@@ -16,3 +16,19 @@ export function formatTunnelPeerMention(
   if (name) return name
   return ''
 }
+
+/**
+ * Close-tunnel / confirm copy: **Display Name @handle** when both exist; otherwise `@handle` or display name alone.
+ */
+export function formatTunnelPeerCloseDialogLabel(
+  handle: string | null | undefined,
+  displayName: string | null | undefined,
+): string {
+  const name = displayName?.trim() ?? ''
+  const raw = handle?.trim() ?? ''
+  const base = raw.startsWith('@') ? raw.slice(1).trim() : raw
+  if (name && base) return `${name} @${base}`
+  if (base) return `@${base}`
+  if (name) return name
+  return ''
+}

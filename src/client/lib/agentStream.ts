@@ -174,12 +174,22 @@ export async function consumeAgentChatStream(
         }
         if (lastEvent === 'done') {
           sawDone = true
-          if (data != null && typeof data === 'object' && 'usage' in data) {
-            const usage = coerceLlmUsageSnapshot((data as { usage: unknown }).usage)
-            if (usage !== null) {
+          if (data != null && typeof data === 'object') {
+            const d = data as Record<string, unknown>
+            if ('usage' in d) {
+              const usage = coerceLlmUsageSnapshot(d.usage)
+              if (usage !== null) {
+                const msg = getMessages()[msgIdx]
+                if (msg?.role === 'assistant') {
+                  msg.usage = usage
+                  touchMessages()
+                }
+              }
+            }
+            if (d.b2bDelivery === 'awaiting_peer_review') {
               const msg = getMessages()[msgIdx]
               if (msg?.role === 'assistant') {
-                msg.usage = usage
+                msg.b2bDelivery = 'awaiting_peer_review'
                 touchMessages()
               }
             }
