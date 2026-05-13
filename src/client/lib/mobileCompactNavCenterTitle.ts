@@ -4,7 +4,7 @@ import { wikiMarkdownBasenameDisplayTitle } from '@client/lib/wikiDirBreadcrumb.
 
 export type MobileCompactNavRoutePick = Pick<
   Route,
-  'zone' | 'sessionId' | 'sessionTail' | 'overlay'
+  'zone' | 'sessionId' | 'sessionTail' | 'overlay' | 'reviewSessionId'
 >
 
 function compactNavFallbackTitle(
@@ -15,6 +15,7 @@ function compactNavFallbackTitle(
   if (route.zone === 'settings') return 'Settings'
   if (route.zone === 'hub') return 'Braintunnel Hub'
   if (route.zone === 'inbox') return 'Inbox'
+  if (route.zone === 'review') return 'Pending'
   const t = chatTitle?.trim()
   if (t) return t
   if (isNewChat(route, effectiveChatSessionId)) return 'Braintunnel'

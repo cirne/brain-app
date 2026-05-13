@@ -47,6 +47,11 @@ export type NavRecentsChangedEvent = {
   type: 'nav:recents-changed'
 }
 
+/** B2B tunnel review queue changed (approve / decline / regenerate). */
+export type B2BReviewChangedEvent = {
+  type: 'b2b:review-changed'
+}
+
 /** Agent completed draft_email / edit_draft — EmailDraftEditor reloads when showing this id. */
 export type EmailDraftRefreshEvent = {
   type: 'email-draft:refresh'
@@ -62,6 +67,7 @@ export type AppEvent =
   | HubSourcesChangedEvent
   | HubDevicesChangedEvent
   | NavRecentsChangedEvent
+  | B2BReviewChangedEvent
   | EmailDraftRefreshEvent
 
 const listeners = new Set<(event: AppEvent) => void>()

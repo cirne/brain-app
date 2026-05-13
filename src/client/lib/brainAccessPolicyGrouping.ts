@@ -14,6 +14,8 @@ export type BrainAccessGrantRow = {
   privacyPolicy: string
   createdAtMs: number
   updatedAtMs: number
+  /** When true, answering side streams tunnel replies immediately (default off = review first). */
+  autoSend?: boolean
 }
 
 export function normalizePolicyText(s: string): string {

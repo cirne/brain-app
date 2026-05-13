@@ -12,6 +12,7 @@ import {
 } from '@client/test/helpers/index.js'
 import { consumeAgentChatStream } from '@client/lib/agentStream.js'
 import { jsonResponse, createMockFetch } from '@client/test/mocks/fetch.js'
+import * as router from '@client/router.js'
 vi.mock('./agent-conversation/AgentConversation.svelte', () => import('./test-stubs/AgentConversationStub.svelte'))
 vi.mock('@client/lib/wikiFileListRefetch.js', () => ({
   registerWikiFileListRefetch: vi.fn(() => vi.fn()),
@@ -312,7 +313,7 @@ describe('AgentChat.svelte', () => {
     expect(JSON.parse(String(patchInit?.body ?? '{}'))).toEqual({ state: 'read' })
   })
 
-  it('empty-chat b2b_inbound_query opens inbound session and does not POST main assistant chat', async () => {
+  it('empty-chat b2b_inbound_query navigates to Review zone and does not POST main assistant chat', async () => {
     const chatPost = vi.fn((_url: string, _init?: RequestInit) =>
       Promise.resolve(
         new Response(new ReadableStream(), {
@@ -325,6 +326,7 @@ describe('AgentChat.svelte', () => {
       Promise.resolve(jsonResponse({ ok: true })),
     )
     const onSelectChatSession = vi.fn().mockResolvedValue(undefined)
+    const navigateSpy = vi.spyOn(router, 'navigate').mockImplementation(() => {})
 
     stubFetchForAgentChat({
       extra: [
@@ -370,10 +372,12 @@ describe('AgentChat.svelte', () => {
     await fireEvent.click(screen.getByTestId('empty-chat-notif-act'))
 
     await waitFor(() => {
-      expect(onSelectChatSession).toHaveBeenCalledWith('in-sess-1', expect.any(String))
+      expect(navigateSpy).toHaveBeenCalledWith({ zone: 'review', reviewSessionId: 'in-sess-1' })
     })
+    expect(onSelectChatSession).not.toHaveBeenCalled()
     expect(chatPost).not.toHaveBeenCalled()
     await waitFor(() => expect(patchNotif).toHaveBeenCalled())
+    navigateSpy.mockRestore()
   })
 
   it('empty-chat brain_query_grant_received ensures tunnel and POSTs b2b welcome, not main chat', async () => {
@@ -684,6 +688,79 @@ describe('AgentChat.svelte', () => {
         expect(screen.getByText('Ken Lay')).toBeInTheDocument()
         expect(screen.getByText('via tunnel')).toBeInTheDocument()
       })
+    })
+
+    it('enables tunnel save-to-wiki UI only for outbound b2b sessions', async () => {
+      const sessionId = 'outbound-session-wiki-ui'
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: null,
+              sessionType: 'b2b_outbound',
+              remoteGrantId: 'grant-1',
+              remoteHandle: '@ken',
+              remoteDisplayName: 'Ken Lay',
+              approvalState: null,
+              messages: [
+                { role: 'user', content: 'hi' },
+                { role: 'assistant', content: 'hey' },
+              ],
+            }),
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+
+      await tick()
+      await component.loadSession(sessionId)
+
+      await waitFor(() => {
+        const stub = screen.getByTestId('agent-conversation-stub')
+        expect(stub).toHaveAttribute('data-tunnel-wiki', '1')
+      })
+      expect(screen.getByTestId('tunnel-wiki-select-mode')).toBeInTheDocument()
+    })
+
+    it('does not show tunnel save-to-wiki controls for own chat sessions', async () => {
+      const sessionId = 'own-session-nowiki'
+      const mock = createMockFetch([
+        { match: (u: string) => u === '/api/wiki', response: () => jsonResponse([]) },
+        { match: (u: string) => u === '/api/skills', response: () => jsonResponse([]) },
+        {
+          match: (u: string) => u.startsWith('/api/chat/sessions/'),
+          response: () =>
+            jsonResponse({
+              sessionId,
+              title: 'Me',
+              sessionType: 'own',
+              messages: [
+                { role: 'user', content: 'hi' },
+                { role: 'assistant', content: 'hey' },
+              ],
+            }),
+        },
+      ])
+      vi.stubGlobal('fetch', mock)
+
+      const { component } = render(AgentChat, {
+        props: { context: { type: 'none' } },
+      })
+
+      await tick()
+      await component.loadSession(sessionId)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('agent-conversation-stub')).toHaveAttribute('data-tunnel-wiki', '0')
+      })
+      expect(screen.queryByTestId('tunnel-wiki-select-mode')).not.toBeInTheDocument()
     })
 
     it('uses tunnel outbound composer placeholder when outbound session transcript is empty', async () => {

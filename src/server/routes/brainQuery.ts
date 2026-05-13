@@ -38,6 +38,7 @@ export type BrainQueryGrantApi = {
   askerId: string
   askerHandle?: string
   privacyPolicy: string
+  autoSend: boolean
   createdAtMs: number
   updatedAtMs: number
 }
@@ -57,6 +58,7 @@ async function toApiGrant(row: BrainQueryGrantRow): Promise<BrainQueryGrantApi> 
     askerId: row.asker_id,
     ...(askerHandle ? { askerHandle } : {}),
     privacyPolicy: row.privacy_policy,
+    autoSend: row.auto_send === 1,
     createdAtMs: row.created_at_ms,
     updatedAtMs: row.updated_at_ms,
   }

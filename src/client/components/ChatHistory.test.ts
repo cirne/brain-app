@@ -92,50 +92,83 @@ describe('ChatHistory.svelte', () => {
     expect(props.onSelect).toHaveBeenCalledWith('abc', 'Pick me')
   })
 
-  it('groups own, tunnels from grants API, and inbound chat sessions', async () => {
+  it('groups own, tunnels from grants API, and Pending rail link when brainQueryEnabled', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
-      createChatSessionListItem({
-        sessionId: 'inbound',
-        sessionType: 'b2b_inbound',
-        title: 'Fallback inbound title',
-        remoteHandle: '@steven',
-        remoteDisplayName: 'Steven Kean',
-        remoteGrantId: 'grant-2',
-        approvalState: 'pending',
-      }),
     ])
-    mockedApiFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          tunnels: [
-            {
-              grantId: 'grant-1',
-              ownerId: 'usr_own',
-              ownerHandle: '@ken',
-              ownerDisplayName: 'Ken Lay',
-              sessionId: null,
-            },
-          ],
-        }),
-        { status: 200 },
-      ),
-    )
+    mockedApiFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (u.includes('/api/chat/b2b/review')) {
+        return new Response(JSON.stringify({ items: [{ sessionId: 's1' }] }), { status: 200 })
+      }
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return new Response(
+          JSON.stringify({
+            tunnels: [
+              {
+                grantId: 'grant-1',
+                ownerId: 'usr_own',
+                ownerHandle: '@ken',
+                ownerDisplayName: 'Ken Lay',
+                sessionId: null,
+              },
+            ],
+          }),
+          { status: 200 },
+        )
+      }
+      return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+    })
 
+    const onOpenReview = vi.fn()
     render(ChatHistory, {
-      props: chatHistoryTestProps(),
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenReview },
     })
 
     const chats = await screen.findByRole('heading', { name: /^chats$/i })
     const tunnels = screen.getByRole('heading', { name: /^tunnels$/i })
-    const inbound = screen.getByRole('heading', { name: /inbound/i })
+    const pendingHeading = screen.getByRole('heading', { name: /^pending$/i })
 
     expect(within(chats.closest('.ch-group--chats') as HTMLElement).getByText('Local chat')).toBeInTheDocument()
     expect(within(tunnels.closest('.ch-group--tunnels') as HTMLElement).getByText('Ken Lay')).toBeInTheDocument()
-    const inboundSection = inbound.closest('.ch-group--inbound') as HTMLElement
-    expect(within(inboundSection).getByText('Steven Kean')).toBeInTheDocument()
-    expect(within(inboundSection).getByText('Pending')).toBeInTheDocument()
-    expect(screen.queryByText('Fallback tunnel title')).not.toBeInTheDocument()
+    const pendingSection = pendingHeading.closest('.ch-group--pending') as HTMLElement
+    expect(within(pendingSection).getByText(/Pending \(1\)/)).toBeInTheDocument()
+
+    await fireEvent.click(
+      within(pendingSection).getByRole('button', { name: /open pending tunnel messages — 1 waiting/i }),
+    )
+    expect(onOpenReview).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('heading', { name: /inbound/i })).not.toBeInTheDocument()
+  })
+
+  it('shows Pending rail section when brainQueryEnabled even when nothing is waiting', async () => {
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
+    ])
+    mockedApiFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (u.includes('/api/chat/b2b/review')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 })
+      }
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+    })
+
+    render(ChatHistory, {
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenReview: vi.fn() },
+    })
+
+    await screen.findByRole('heading', { name: /^chats$/i })
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^pending$/i })).toBeInTheDocument()
+    })
+    const pendingSection = screen.getByRole('heading', { name: /^pending$/i }).closest('.ch-group--pending')
+    expect(pendingSection).toBeTruthy()
+    expect(
+      within(pendingSection as HTMLElement).getByRole('button', { name: /^Open pending tunnel messages$/i }),
+    ).toBeInTheDocument()
   })
 
   it('calls onNewChat when New chat is pressed', async () => {

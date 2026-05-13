@@ -331,6 +331,19 @@ describe('parseRoute chat history', () => {
   })
 })
 
+describe('parseRoute review primary', () => {
+  it('parses /review', () => {
+    expect(parseRoute('http://localhost/review')).toEqual({ zone: 'review' })
+  })
+
+  it('parses /review/:sessionId', () => {
+    expect(parseRoute('http://localhost/review/sess-abc')).toEqual({
+      zone: 'review',
+      reviewSessionId: 'sess-abc',
+    })
+  })
+})
+
 describe('parseRoute inbox primary', () => {
   it('parses /inbox', () => {
     expect(parseRoute('http://localhost/inbox')).toEqual({ zone: 'inbox' })
@@ -603,6 +616,11 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('review primary returns /review paths', () => {
+    expect(routeToUrl({ zone: 'review' })).toBe('/review')
+    expect(routeToUrl({ zone: 'review', reviewSessionId: 'sid-1' })).toBe('/review/sid-1')
+  })
+
   it('hub returns /hub', () => {
     expect(routeToUrl({ zone: 'hub' })).toBe('/hub')
     expect(routeToUrl({ zone: 'hub', overlay: { type: 'hub' } })).toBe('/hub')
@@ -697,6 +715,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'enron-demo' as const },
     { zone: 'inbox' },
     { zone: 'inbox', overlay: { type: 'email' as const, id: 'msg:x@y.com' } },
+    { zone: 'review' },
+    { zone: 'review', reviewSessionId: 'abc-123' },
     { zone: 'hub' },
     { zone: 'hub', overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'settings' },

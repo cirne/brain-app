@@ -4,6 +4,7 @@
     Mail,
     MessageCircleCheck,
     MessageCircleQuestionMark,
+    MessageSquare,
     UserPlus,
     X,
   } from 'lucide-svelte'
@@ -16,6 +17,7 @@
   function iconForSourceKind(kind: string) {
     if (kind === 'mail_notify') return Mail
     if (kind === 'brain_query_grant_received') return UserPlus
+    if (kind === 'b2b_inbound_query') return MessageSquare
     if (kind === 'brain_query_question' || kind === 'brain_query_mail')
       return MessageCircleQuestionMark
     if (kind === 'brain_query_reply_sent') return MessageCircleCheck

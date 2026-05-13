@@ -70,6 +70,7 @@ describe('notifyAskerBrainQueryReplySent', () => {
       owner_id: 'usr_owner11111111111111',
       asker_id: 'usr_asker00000000000001',
       privacy_policy: '',
+      auto_send: 0,
       created_at_ms: 0,
       updated_at_ms: 0,
       revoked_at_ms: null,

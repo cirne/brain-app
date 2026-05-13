@@ -49,6 +49,7 @@
   let customPolicies = $state<BrainAccessCustomPolicy[]>([])
   let profileByHandle = $state<Record<string, { displayName?: string; email?: string | null }>>({})
   let removeBusyId = $state<string | null>(null)
+  let autoSendBusyId = $state<string | null>(null)
   let editingPolicyText = $state(false)
   let draftPolicyText = $state('')
   let changeGrantId = $state<string | null>(null)
@@ -77,6 +78,7 @@
         return null
       }
       const askerHandle = typeof r.askerHandle === 'string' ? r.askerHandle : undefined
+      const autoSend = r.autoSend === true
       return {
         id: r.id,
         ownerId: r.ownerId,
@@ -86,6 +88,7 @@
         privacyPolicy: r.privacyPolicy,
         createdAtMs: r.createdAtMs,
         updatedAtMs: r.updatedAtMs,
+        ...(autoSend ? { autoSend: true } : {}),
       }
     }
     return {
@@ -211,6 +214,27 @@
       loadError = e instanceof Error ? e.message : String(e)
     } finally {
       removeBusyId = null
+    }
+  }
+
+  async function patchGrantAutoSend(grantId: string, autoSend: boolean): Promise<void> {
+    autoSendBusyId = grantId
+    loadError = null
+    try {
+      const res = await fetch(`/api/chat/b2b/grants/${encodeURIComponent(grantId)}/auto-send`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoSend }),
+      })
+      if (!res.ok) {
+        loadError = $t('access.policyDetailPage.errors.updateFailed', { status: res.status })
+        return
+      }
+      grantedByMe = grantedByMe.map((g) => (g.id === grantId ? { ...g, autoSend } : g))
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e)
+    } finally {
+      autoSendBusyId = null
     }
   }
 
@@ -488,7 +512,9 @@
           displayName={prof?.displayName}
           email={prof?.email}
           removeBusy={removeBusyId === grant.id}
+          autoSendBusy={autoSendBusyId === grant.id}
           onRemove={() => void removeGrant(grant.id)}
+          onAutoSendChange={(next) => void patchGrantAutoSend(grant.id, next)}
           onChangePolicy={() => {
             changeGrantId = grant.id
           }}

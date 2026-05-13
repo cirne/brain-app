@@ -3,7 +3,7 @@
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { t } from '@client/lib/i18n/index.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2, Bell } from 'lucide-svelte'
+  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2, Inbox } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
@@ -38,6 +38,8 @@
     onNewChat,
     onOpenAllChats,
     onWikiHome,
+    brainQueryEnabled = false,
+    onOpenReview,
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
@@ -46,6 +48,8 @@
     onNewChat: () => void
     onOpenAllChats?: () => void
     onWikiHome?: () => void
+    brainQueryEnabled?: boolean
+    onOpenReview?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
@@ -56,6 +60,7 @@
   let error = $state<string | null>(null)
   let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
   let hasMoreChats = $state(false)
+  let reviewPendingCount = $state(0)
 
   type NavRowItem = {
     id: string
@@ -100,9 +105,6 @@
     if (s.sessionType === 'b2b_outbound') {
       return remoteLabel(s) || fallbackChatTitle(s)
     }
-    if (s.sessionType === 'b2b_inbound') {
-      return remoteLabel(s) || fallbackChatTitle(s)
-    }
     return fallbackChatTitle(s)
   }
 
@@ -115,10 +117,6 @@
       sessionId: s.sessionId,
       sessionType: s.sessionType,
       approvalState: s.approvalState,
-      badgeLabel:
-        s.sessionType === 'b2b_inbound' && s.approvalState === 'pending'
-          ? $t('chat.history.pendingBadge')
-          : undefined,
     }
   }
 
@@ -143,14 +141,6 @@
     mapped.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
     return mapped
   })
-
-  const inboundItems = $derived.by(() =>
-    sortedChatItems(sessions.filter((s) => s.sessionType === 'b2b_inbound')),
-  )
-
-  const pendingInboundCount = $derived(
-    sessions.filter((s) => s.sessionType === 'b2b_inbound' && s.approvalState === 'pending').length,
-  )
 
   /** Wiki pages from nav history (docs only; email threads stay out of this rail section). */
   const wikiNavItems = $derived.by(() => {
@@ -232,6 +222,23 @@
         if (mySeq !== refreshSeq) return
         tunnels = []
         tunnelsError = $t('chat.history.tunnelsLoadFailed')
+      }
+
+      if (brainQueryEnabled) {
+        try {
+          const revRes = await apiFetch('/api/chat/b2b/review?state=pending')
+          if (mySeq !== refreshSeq) return
+          if (revRes.ok) {
+            const j = (await revRes.json()) as { items?: unknown }
+            reviewPendingCount = Array.isArray(j.items) ? j.items.length : 0
+          } else {
+            reviewPendingCount = 0
+          }
+        } catch {
+          reviewPendingCount = 0
+        }
+      } else {
+        reviewPendingCount = 0
       }
 
       navHistory = await loadNavHistory()
@@ -329,7 +336,11 @@
 
   $effect(() => {
     return subscribe((e) => {
-      if (e.type === 'chat:sessions-changed' || e.type === 'nav:recents-changed') {
+      if (
+        e.type === 'chat:sessions-changed' ||
+        e.type === 'nav:recents-changed' ||
+        e.type === 'b2b:review-changed'
+      ) {
         void refresh({ background: true })
       }
     })
@@ -377,8 +388,6 @@
             <Loader2 class="sync-spinning" size={12} strokeWidth={2} aria-hidden="true" />
           {:else if item.type === 'tunnel'}
             <Link2 size={12} strokeWidth={2} aria-hidden="true" />
-          {:else if item.type === 'chat' && item.sessionType === 'b2b_inbound'}
-            <Bell size={12} strokeWidth={2} aria-hidden="true" />
           {:else}
             <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
           {/if}
@@ -494,36 +503,40 @@
         {/if}
       </section>
 
-      <section
-        class="ch-group ch-group--inbound m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5 pb-5"
-        aria-labelledby="ch-heading-inbound"
-      >
-        <h2
-          class="ch-group-label m-0 inline-flex items-center gap-1.5 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
-          id="ch-heading-inbound"
+      {#if brainQueryEnabled && onOpenReview}
+        <section
+          class="ch-group ch-group--pending m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5 pb-2"
+          aria-labelledby="ch-heading-pending"
         >
-          <span>{$t('chat.history.inboundHeading')}</span>
-          {#if pendingInboundCount > 0}
-            <span
-              class="rounded-full bg-accent/10 px-1.5 py-[1px] text-[9px] leading-none text-accent"
-              aria-label={$t('chat.history.pendingCountAria', { count: pendingInboundCount })}
-            >
-              {pendingInboundCount}
+          <h2
+            class="ch-group-label m-0 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
+            id="ch-heading-pending"
+          >
+            {$t('chat.review.nav.label')}
+          </h2>
+          <button
+            type="button"
+            class={cn(
+              chatHistoryRailViewAllBtn,
+              'pending-rail-link border-0 hover:text-foreground',
+              reviewPendingCount > 0 ? 'text-foreground' : 'text-muted',
+            )}
+            aria-label={
+              reviewPendingCount > 0
+                ? $t('chat.history.pendingOpenAriaWithCount', { count: reviewPendingCount })
+                : $t('chat.history.pendingOpenAria')
+            }
+            onclick={() => onOpenReview()}
+          >
+            <Inbox size={14} strokeWidth={2} aria-hidden="true" class="shrink-0 opacity-80" />
+            <span class="min-w-0 truncate">
+              {reviewPendingCount > 0
+                ? $t('chat.history.pendingRowWithCount', { count: reviewPendingCount })
+                : $t('chat.history.pendingRow')}
             </span>
-          {/if}
-        </h2>
-        {#if inboundItems.length === 0}
-          <div class={cn(chatHistoryRailEmptyMutedClass, 'ch-muted--section')}>
-            {$t('chat.history.emptyInbound')}
-          </div>
-        {:else}
-          <div class={chatHistoryRowListClass}>
-            {#each inboundItems as item (item.id)}
-              {@render navRow(item)}
-            {/each}
-          </div>
-        {/if}
-      </section>
+          </button>
+        </section>
+      {/if}
 
       <section
         class="ch-group ch-group--wiki m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5"

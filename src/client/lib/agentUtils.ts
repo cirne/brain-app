@@ -34,6 +34,8 @@ export type ChatMessage = {
   parts?: MessagePart[]
   thinking?: string
   usage?: LlmUsageSnapshot
+  /** Sync with server: tunnel outbound placeholder until peer sends reviewed reply. */
+  b2bDelivery?: 'awaiting_peer_review'
 }
 
 export function newChatMessageId(): string {

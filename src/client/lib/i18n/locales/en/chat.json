@@ -58,12 +58,19 @@
     "tunnelsHeading": "Tunnels",
     "emptyTunnels": "No tunnels yet. Someone else must grant access from their Brain before you can chat through a tunnel.",
     "tunnelsLoadFailed": "Could not load tunnels.",
+    "pendingRow": "Pending",
+    "pendingRowWithCount": "Pending ({{count}})",
+    "pendingOpenAria": "Open pending tunnel messages",
+    "pendingOpenAriaWithCount": "Open pending tunnel messages — {{count}} waiting",
     "inboundHeading": "Inbound",
     "emptyInbound": "No inbound chats yet.",
     "pendingBadge": "Pending",
     "pendingCountAria": "{{count}} pending inbound chats",
     "wikiHeading": "Wiki",
     "emptyWikiPages": "No wiki pages yet."
+  },
+  "rail": {
+    "pendingCountAria": "{{count}} pending"
   },
   "b2b": {
     "viaTunnel": "via tunnel",
@@ -77,6 +84,63 @@
       "saving": "Saving…",
       "failed": "Could not update this request."
     }
+  },
+  "review": {
+    "nav": {
+      "label": "Pending"
+    },
+    "loadFailed": "Could not load review items.",
+    "emptyState": {
+      "headline": "All caught up",
+      "subhead": "No tunnel replies are waiting for you to send or review.",
+      "detailTitle": "Nothing to approve",
+      "detailBody": "When a collaborator is waiting on your answer, you approve it before it sends.",
+      "pickTitle": "Pick a conversation",
+      "pickHint": "Select an item from the list to preview messages, edit the draft, and send or decline."
+    },
+    "row": {
+      "state": {
+        "pending": "Draft ready",
+        "sent": "Sent",
+        "auto": "Auto-sent",
+        "declined": "Declined"
+      }
+    },
+    "detail": {
+      "loadFailed": "Could not load this thread.",
+      "actionFailed": "Something went wrong.",
+      "regenerateFailed": "Could not regenerate the draft.",
+      "layers": {
+        "from": "From @{{peer}}",
+        "draft": "Your assistant drafted",
+        "willReceive": "What they'll receive"
+      },
+      "notesToAgent": {
+        "label": "Notes to your agent (regenerate)",
+        "placeholder": "Optional steering for the next draft…"
+      },
+      "actions": {
+        "send": "Send",
+        "decline": "Decline",
+        "regenerate": "Regenerate draft",
+        "openThread": "Open full thread"
+      }
+    }
+  },
+  "saveToWiki": {
+    "title": "Save to wiki",
+    "pathLabel": "Wiki path",
+    "titleLabel": "Title (optional)",
+    "titlePlaceholder": "Add a title for this note",
+    "provenance": "Include provenance footer",
+    "openAfter": "Open page after saving",
+    "save": "Save to wiki",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "error": "Could not save.",
+    "saveSelection": "Save {{count}} to wiki",
+    "saveOneAria": "Save this message to your wiki",
+    "selectionModeAria": "Select messages to save together"
   },
   "historyPage": {
     "searchChatsLabel": "Search chats",

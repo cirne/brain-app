@@ -37,8 +37,9 @@
     shareInviteBadge?: boolean
     /** When pending invites exist, opens Settings scrolled to Sharing (`#sharing`). */
     onOpenSharing?: () => void
-    /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
     onWikiHome?: () => void
+    /** Brain-to-brain: pending tunnel messages — badge on sidebar open controls only. */
+    reviewPendingCount?: number
     /** Mobile-only (OPP-092): truncated chat title between brand and actions. */
     mobileCenterTitle?: string
     /** Mobile-only overflow sheet rows — receives `dismiss` to close the sheet after each action. */
@@ -63,6 +64,7 @@
     shareInviteBadge = false,
     onOpenSharing,
     onWikiHome,
+    reviewPendingCount = 0,
     mobileCenterTitle,
     mobileOverflow,
     mobileOverflowAlert = false,
@@ -88,6 +90,12 @@
   const iconBtnLabeled = 'w-auto gap-1.5 px-2.5'
   const navActionLabel =
     'nav-action-label whitespace-nowrap text-[13px] font-semibold tracking-[0.02em] text-inherit max-md:text-base'
+
+  function sidebarOpenAriaWithPending(baseAria: string): string {
+    const n = reviewPendingCount
+    if (n <= 0) return baseAria
+    return `${baseAria} (${$t('chat.rail.pendingCountAria', { count: n })})`
+  }
 </script>
 
 <nav
@@ -103,8 +111,9 @@
       <BrainTunnelBrandToggle
         onclick={onToggleSidebar}
         showTitle={!(mobileCompactNav && Boolean(mobileCenterTitle))}
-        ariaLabel={`${$t('common.brand.name')}, ${$t('nav.sidebar.open')}`}
+        ariaLabel={sidebarOpenAriaWithPending(`${$t('common.brand.name')}, ${$t('nav.sidebar.open')}`)}
         titleAttr={$t('nav.sidebar.open')}
+        pendingBadgeCount={reviewPendingCount}
       />
     </div>
   {/if}
@@ -118,12 +127,26 @@
     {#if mobileCompactNav && mobileCenterTitle}
       <button
         type="button"
-        class="mobile-nav-title min-w-0 flex-1 truncate border-none bg-transparent p-0 text-left text-[15px] font-semibold tracking-[0.02em] text-foreground cursor-pointer"
+        class={cn(
+          'mobile-nav-title min-w-0 flex-1 truncate border-none bg-transparent p-0 text-left text-[15px] font-semibold tracking-[0.02em] text-foreground cursor-pointer',
+          reviewPendingCount > 0 && showChatHistoryButton && 'relative pe-9',
+        )}
         onclick={showChatHistoryButton ? onToggleSidebar : undefined}
         aria-label={showChatHistoryButton
-          ? `${mobileCenterTitle} - ${sidebarOpen ? $t('nav.sidebar.close') : $t('nav.sidebar.open')}`
+          ? sidebarOpenAriaWithPending(
+              `${mobileCenterTitle} - ${sidebarOpen ? $t('nav.sidebar.close') : $t('nav.sidebar.open')}`,
+            )
           : mobileCenterTitle}
-      >{mobileCenterTitle}</button>
+      >{mobileCenterTitle}
+        {#if reviewPendingCount > 0 && showChatHistoryButton}
+          <span
+            class="pointer-events-none absolute right-0 top-1/2 flex h-[1.1rem] min-w-[1.1rem] -translate-y-1/2 translate-x-0.5 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-bold leading-none text-white"
+            aria-hidden="true"
+          >
+            {reviewPendingCount > 99 ? '99+' : String(reviewPendingCount)}
+          </span>
+        {/if}
+      </button>
     {:else if showCenterBrand}
       <span class="brand-name text-[15px] font-semibold tracking-[0.02em] text-foreground max-md:text-lg">{$t('common.brand.name')}</span>
     {/if}

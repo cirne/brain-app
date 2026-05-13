@@ -7,8 +7,10 @@
     displayName?: string
     email?: string | null
     removeBusy?: boolean
+    autoSendBusy?: boolean
     onRemove: () => void | Promise<void>
     onChangePolicy?: () => void
+    onAutoSendChange?: (_autoSend: boolean) => void | Promise<void>
   }
 
   let {
@@ -16,8 +18,10 @@
     displayName,
     email,
     removeBusy = false,
+    autoSendBusy = false,
     onRemove,
     onChangePolicy,
+    onAutoSendChange,
   }: Props = $props()
 
   const handle = $derived(grant.askerHandle ?? grant.askerId)
@@ -42,6 +46,18 @@
       {/if}
     </div>
     <div class="flex flex-wrap gap-x-3 gap-y-1">
+      {#if onAutoSendChange}
+        <label class="flex cursor-pointer items-center gap-2 text-[0.8125rem] font-medium text-foreground">
+          <input
+            type="checkbox"
+            class="accent-accent"
+            checked={grant.autoSend === true}
+            disabled={autoSendBusy}
+            onchange={(e) => void onAutoSendChange(e.currentTarget.checked)}
+          />
+          <span>{$t('access.userDetailRow.autoSendLabel')}</span>
+        </label>
+      {/if}
       {#if onChangePolicy}
         <button
           type="button"

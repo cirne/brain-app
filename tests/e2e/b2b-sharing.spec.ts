@@ -29,6 +29,20 @@ test.describe('B2B sharing (Settings → collaborator → Ask Brain)', () => {
     await applyEnronCollaborationE2eGate(test.skip, request, baseURL!)
   })
 
+  test('Review primary surface loads for signed-in user', async ({ browser, request, baseURL }) => {
+    test.setTimeout(120_000)
+    const { uiTimeoutMs } = ENRON_B2B_AGENT_TIMEOUTS
+    const secret = getEnronDemoSecret()!
+    const base = baseURL!
+    const { cookie } = await mintFreshEnronDemoCookieForBrowser(request, base, secret, { demoUser: 'kean' })
+    const ctx = await browser.newContext()
+    await addBrainSessionCookieToContext(ctx, base, cookie)
+    const page = await ctx.newPage()
+    await page.goto(`${base}/review`, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('review-queue')).toBeVisible({ timeout: uiTimeoutMs })
+    await ctx.close()
+  })
+
   test('three-phase demo: Steve invites Lay, Lay uses Ask Brain (ask_collaborator), Steve drafts reply email', async ({
     browser,
     request,

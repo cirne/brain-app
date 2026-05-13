@@ -38,7 +38,7 @@ export type Overlay =
   | { type: 'chat-history' }
 
 /** Primary surface of the current route. Absent (`undefined`) means the default chat column (`/c`). */
-export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox'
+export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox' | 'review'
 
 /** Dedicated first-run path segment under `/onboarding/…` (matches persisted onboarding states). */
 export type OnboardingUrlStep = 'not-started' | 'confirming-handle' | 'indexing'
@@ -80,10 +80,12 @@ export type Route = {
   onboardingStep?: OnboardingUrlStep
   /**
    * Primary surface when not the default chat column.
-   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`.
+   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`, `'review'` → `/review/…`.
    * Absent means chat (`/c`).
    */
   zone?: RouteZone
+  /** Inbound B2B session id when `zone === 'review'` (optional deep link). */
+  reviewSessionId?: string
 }
 
 export type SurfaceContext =
@@ -491,6 +493,17 @@ function hubRouteFromSearch(href: string): Route | null {
   return { zone: 'hub', overlay }
 }
 
+function reviewRouteFromPath(href: string): Route | null {
+  const url = new URL(href, 'http://localhost')
+  if (url.pathname !== '/review' && !url.pathname.startsWith('/review/')) {
+    return null
+  }
+  const rest = url.pathname.slice('/review'.length)
+  const rawSeg = rest.startsWith('/') ? rest.slice(1).split('/')[0]?.trim() ?? '' : ''
+  if (!rawSeg) return { zone: 'review' }
+  return { zone: 'review', reviewSessionId: safeDecodePathSegment(rawSeg) }
+}
+
 function settingsRouteFromSearch(href: string): Route | null {
   const url = new URL(href, 'http://localhost')
   if (!url.pathname.startsWith('/settings')) {
@@ -603,6 +616,11 @@ export function parseRoute(href: string = location.href): Route {
     return settingsParsed
   }
 
+  const reviewParsed = reviewRouteFromPath(href)
+  if (reviewParsed) {
+    return reviewParsed
+  }
+
   if (seg1 === 'wiki' || seg1 === 'wikis') {
     const pathParts = url.pathname.split('/').filter(Boolean)
     const wikiRest = pathParts.slice(1)
@@ -695,6 +713,11 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     const q = overlayToSearchParams(o)
     const qs = q.toString()
     return qs ? `/inbox?${qs}` : '/inbox'
+  }
+
+  if (zone === 'review') {
+    const sid = route.reviewSessionId?.trim()
+    return sid ? `/review/${encodeURIComponent(sid)}` : '/review'
   }
 
   if (zone === 'hub') {

@@ -5,7 +5,9 @@ import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import {
   getBrainQueryGrantById,
+  grantRowAutoSendEnabled,
   listBrainQueryGrantsForAsker,
+  setBrainQueryGrantAutoSend,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import {
@@ -13,6 +15,9 @@ import {
   ensureSessionStub,
   findB2BSession,
   loadSession,
+  listB2BInboundReviewRows,
+  replaceLastAssistantMessageInSession,
+  replaceLastAwaitingPeerReviewOutboundAssistant,
   updateApprovalState,
 } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
@@ -20,6 +25,7 @@ import { createB2BAgent, filterB2BResponse, promptB2BAgentForText } from '@serve
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
 import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
+import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
 
 const b2bChat = new Hono()
 
@@ -80,6 +86,11 @@ async function appendAssistantToAsker(grant: BrainQueryGrantRow, text: string): 
       outbound = await findB2BSession(grant.id, 'b2b_outbound')
     }
     if (!outbound) return
+    const replaced = await replaceLastAwaitingPeerReviewOutboundAssistant({
+      sessionId: outbound.sessionId,
+      text,
+    })
+    if (replaced) return
     await appendTurn({
       sessionId: outbound.sessionId,
       userMessage: null,
@@ -96,8 +107,9 @@ export async function runB2BQueryForGrant(params: {
   askerDisplayName: string
   askerHandle: string
   timezone?: string
-}): Promise<{ answer: string; inboundSessionId: string }> {
+}): Promise<{ answer: string; inboundSessionId: string; releaseToAsker: boolean }> {
   const { grant, message } = params
+  const auto = grantRowAutoSendEnabled(grant)
   const ownerCtx = await tenantContextForUser(grant.owner_id)
   return runWithTenantContextAsync(ownerCtx, async () => {
     let inbound = await findB2BSession(grant.id, 'b2b_inbound')
@@ -108,7 +120,7 @@ export async function runB2BQueryForGrant(params: {
         remoteGrantId: grant.id,
         remoteHandle: params.askerHandle,
         remoteDisplayName: params.askerDisplayName,
-        approvalState: 'auto',
+        approvalState: auto ? 'auto' : 'pending',
       })
       inbound = await findB2BSession(grant.id, 'b2b_inbound')
     }
@@ -127,7 +139,7 @@ export async function runB2BQueryForGrant(params: {
       userMessage: message,
       assistantMessage: { role: 'assistant', content: answer, parts: [{ type: 'text', content: answer }] },
     })
-    await updateApprovalState(inbound.sessionId, 'auto')
+    await updateApprovalState(inbound.sessionId, auto ? 'auto' : 'pending')
     await createNotificationForTenant(grant.owner_id, {
       sourceKind: 'b2b_inbound_query',
       payload: {
@@ -137,9 +149,10 @@ export async function runB2BQueryForGrant(params: {
         peerHandle: params.askerHandle,
         peerDisplayName: params.askerDisplayName,
         question: message,
+        pendingReview: !auto,
       },
     })
-    return { answer, inboundSessionId: inbound.sessionId }
+    return { answer, inboundSessionId: inbound.sessionId, releaseToAsker: auto }
   })
 }
 
@@ -242,7 +255,7 @@ b2bChat.post('/send', async (c) => {
   }
   if (!outbound) return c.json({ error: 'outbound_session_create_failed' }, 500)
 
-  const { answer } = await runB2BQueryForGrant({
+  const result = await runB2BQueryForGrant({
     grant,
     message,
     ownerDisplayName: owner.displayName,
@@ -252,12 +265,33 @@ b2bChat.post('/send', async (c) => {
     timezone,
   })
 
+  if (result.releaseToAsker) {
+    return streamStaticAssistantSse(c, {
+      announceSessionId: outbound.sessionId,
+      text: result.answer,
+      userMessageForPersistence: message,
+      onTurnComplete: async ({ userMessage, assistantMessage }) => {
+        await appendTurn({ sessionId: outbound.sessionId, userMessage, assistantMessage })
+      },
+    })
+  }
+
+  const placeholder = B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT
   return streamStaticAssistantSse(c, {
     announceSessionId: outbound.sessionId,
-    text: answer,
+    text: placeholder,
     userMessageForPersistence: message,
-    onTurnComplete: async ({ userMessage, assistantMessage }) => {
-      await appendTurn({ sessionId: outbound.sessionId, userMessage, assistantMessage })
+    onTurnComplete: async ({ userMessage: _userMessage }) => {
+      await appendTurn({
+        sessionId: outbound.sessionId,
+        userMessage: message,
+        assistantMessage: {
+          role: 'assistant',
+          content: placeholder,
+          parts: [{ type: 'text', content: placeholder }],
+          b2bDelivery: 'awaiting_peer_review',
+        },
+      })
     },
   })
 })
@@ -305,6 +339,107 @@ b2bChat.post('/decline', async (c) => {
   await updateApprovalState(sessionId, 'declined')
   await appendAssistantToAsker(grant, "I can't answer that from the access currently granted.")
   return c.json({ ok: true })
+})
+
+b2bChat.get('/review', async (c) => {
+  const raw = (c.req.query('state') ?? 'pending').trim().toLowerCase()
+  const stateFilter = raw === 'sent' ? 'sent' : raw === 'all' ? 'all' : 'pending'
+  const rows = await listB2BInboundReviewRows({ stateFilter })
+  return c.json({
+    items: rows.map((r) => ({
+      sessionId: r.sessionId,
+      grantId: r.grantId,
+      peerHandle: r.peerHandle,
+      peerDisplayName: r.peerDisplayName,
+      askerSnippet: r.askerSnippet,
+      draftSnippet: r.draftSnippet,
+      state: r.rowState === 'approved' ? 'sent' : r.rowState,
+      updatedAtMs: r.updatedAtMs,
+    })),
+  })
+})
+
+b2bChat.patch('/grants/:grantId/auto-send', async (c) => {
+  const ctx = getTenantContext()
+  const grantId = c.req.param('grantId')?.trim() ?? ''
+  if (!grantId) return c.json({ error: 'grantId_required' }, 400)
+  let body: { autoSend?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  if (typeof body.autoSend !== 'boolean') {
+    return c.json({ error: 'autoSend_boolean_required' }, 400)
+  }
+  const grant = getBrainQueryGrantById(grantId)
+  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+  const updated = setBrainQueryGrantAutoSend({
+    grantId,
+    ownerId: ctx.tenantUserId,
+    autoSend: body.autoSend,
+  })
+  if (!updated) return c.json({ error: 'update_failed' }, 500)
+  return c.json({ ok: true, autoSend: updated.auto_send === 1 })
+})
+
+b2bChat.post('/regenerate', async (c) => {
+  const ctx = getTenantContext()
+  let body: { sessionId?: unknown; notes?: unknown; timezone?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
+
+  const session = await loadSession(sessionId)
+  if (!session || session.sessionType !== 'b2b_inbound' || !session.remoteGrantId) {
+    return c.json({ error: 'not_found' }, 404)
+  }
+  if (session.approvalState !== 'pending') {
+    return c.json({ error: 'not_pending' }, 400)
+  }
+
+  const grant = getBrainQueryGrantById(session.remoteGrantId)
+  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+
+  let lastUser = ''
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    const m = session.messages[i]
+    if (m?.role === 'user' && (m.content ?? '').trim()) {
+      lastUser = (m.content ?? '').trim()
+      break
+    }
+  }
+  if (!lastUser) return c.json({ error: 'no_user_message' }, 400)
+
+  const notes = typeof body.notes === 'string' ? body.notes.trim() : ''
+  const augmented =
+    notes.length > 0 ? `${lastUser}\n\n[Instructions for your draft: ${notes}]` : lastUser
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
+
+  const owner = await displayNameForUser(grant.owner_id)
+  const ownerCtx = await tenantContextForUser(grant.owner_id)
+  const answer = await runWithTenantContextAsync(ownerCtx, async () => {
+    const agent = createB2BAgent(grant, wikiDir(), {
+      ownerDisplayName: owner.displayName,
+      ownerHandle: owner.handle,
+      timezone,
+      promptClock: { tenantUserId: grant.owner_id },
+    })
+    const draft = await promptB2BAgentForText(agent, augmented)
+    return filterB2BResponse({ privacyPolicy: grant.privacy_policy, draftAnswer: draft })
+  })
+
+  const ok = await replaceLastAssistantMessageInSession(sessionId, {
+    role: 'assistant',
+    content: answer,
+    parts: [{ type: 'text', content: answer }],
+  })
+  if (!ok) return c.json({ error: 'replace_failed' }, 500)
+  return c.json({ ok: true, draft: answer })
 })
 
 export default b2bChat

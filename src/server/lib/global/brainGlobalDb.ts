@@ -6,7 +6,7 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
 /**
  * Bump when `brain-global.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 5
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 6
 
 /**
  * Cross-tenant metadata (brain-query delegation grants; tenant-registry migration later).
@@ -45,6 +45,7 @@ CREATE TABLE brain_query_grants (
   owner_id        TEXT NOT NULL,
   asker_id        TEXT NOT NULL,
   privacy_policy  TEXT NOT NULL,
+  auto_send       INTEGER NOT NULL DEFAULT 0 CHECK (auto_send IN (0, 1)),
   created_at_ms   INTEGER NOT NULL,
   updated_at_ms   INTEGER NOT NULL,
   revoked_at_ms   INTEGER,

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -14,7 +14,13 @@ import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
-import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createBrainQueryGrant, setBrainQueryGrantAutoSend } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+
+vi.mock('@server/agent/b2bAgent.js', () => ({
+  createB2BAgent: vi.fn(() => ({})),
+  promptB2BAgentForText: vi.fn(async () => 'Mock agent answer'),
+  filterB2BResponse: vi.fn(async ({ draftAnswer }: { draftAnswer: string }) => draftAnswer),
+}))
 
 function mountB2BChat(): Hono {
   const app = new Hono()
@@ -168,5 +174,115 @@ describe('/api/chat/b2b', () => {
       body: JSON.stringify({ grantId: 'bqg_missing', message: 'Ask Ken.' }),
     })
     expect(res.status).toBe(403)
+  })
+
+  it('POST /send streams awaiting-review placeholder when auto_send is off', async () => {
+    const ownerId = 'usr_own7777777777777777777'
+    const askerId = 'usr_ask8888888888888888888'
+    await sessionFor(ownerId, 'owner-h')
+    const askerSid = await sessionFor(askerId, 'asker-h')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/send', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ grantId: grant.id, message: 'Hello from tunnel' }),
+    })
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('Their side is reviewing')
+  })
+
+  it('POST /send streams agent answer when auto_send is on', async () => {
+    const ownerId = 'usr_own6666666666666666666'
+    const askerId = 'usr_ask5555555555555555555'
+    await sessionFor(ownerId, 'owner-a')
+    const askerSid = await sessionFor(askerId, 'asker-a')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    setBrainQueryGrantAutoSend({ grantId: grant.id, ownerId, autoSend: true })
+
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/send', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ grantId: grant.id, message: 'Hello auto' }),
+    })
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('Mock agent answer')
+  })
+
+  it('GET /review lists pending inbound rows for the grant owner', async () => {
+    const ownerId = 'usr_own4444444444444444444'
+    const askerId = 'usr_ask3333333333333333333'
+    const ownerSid = await sessionFor(ownerId, 'owner-r')
+    await registerSessionTenant(ownerSid, ownerId)
+    await sessionFor(askerId, 'asker-r')
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const inboundId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'owner-r', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        const { ensureSessionStub, appendTurn } = await import('@server/lib/chat/chatStorage.js')
+        await ensureSessionStub(inboundId, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'asker-r',
+          remoteDisplayName: 'Asker',
+          approvalState: 'pending',
+        })
+        await appendTurn({
+          sessionId: inboundId,
+          userMessage: 'Q?',
+          assistantMessage: {
+            role: 'assistant',
+            content: 'Draft here',
+            parts: [{ type: 'text', content: 'Draft here' }],
+          },
+        })
+      },
+    )
+
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/review?state=pending', {
+      headers: { cookie: `brain_session=${ownerSid}` },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: Array<{ sessionId: string }> }
+    expect(Array.isArray(body.items)).toBe(true)
+    expect(body.items.some((r) => r.sessionId === inboundId)).toBe(true)
+  })
+
+  it('PATCH /grants/:id/auto-send updates flag for owner', async () => {
+    const ownerId = 'usr_own9999999999999999999'
+    const askerId = 'usr_ask1010101010101010101'
+    const ownerSid = await sessionFor(ownerId, 'owner-p')
+    await registerSessionTenant(ownerSid, ownerId)
+    await sessionFor(askerId, 'asker-p')
+    const grant = createBrainQueryGrant({ ownerId, askerId })
+
+    const app = mountB2BChat()
+    const res = await app.request(`http://localhost/api/chat/b2b/grants/${encodeURIComponent(grant.id)}/auto-send`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${ownerSid}`,
+      },
+      body: JSON.stringify({ autoSend: true }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok?: boolean; autoSend?: boolean }
+    expect(j.ok).toBe(true)
+    expect(j.autoSend).toBe(true)
   })
 })

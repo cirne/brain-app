@@ -158,7 +158,7 @@ describe('notification presentation', () => {
     expect(row.kickoffUserMessage).not.toContain('read_mail_message')
   })
 
-  it('b2b_inbound_query points to inbound chat review', () => {
+  it('b2b_inbound_query points to Pending surface copy and hints', () => {
     const row = presentationForNotificationRow({
       id: 'b2bin',
       sourceKind: 'b2b_inbound_query',
@@ -168,10 +168,12 @@ describe('notification presentation', () => {
         peerHandle: 'demo-steve-kean',
         peerDisplayName: 'Steven Kean',
         question: 'What is Ken focused on?',
+        pendingReview: true,
       },
     })
-    expect(row.summaryLine).toContain('@demo-steve-kean asked your brain')
-    expect(row.kickoffUserMessage).toContain('inbound chat')
+    expect(row.summaryLine).toContain('draft ready')
+    expect(row.summaryLine).toContain('@demo-steve-kean')
+    expect(row.kickoffUserMessage).toContain('Pending')
     expect(row.kickoffUserMessage).not.toContain('bqg_lay_kean')
     expect(row.kickoffHints.grantId).toBe('bqg_lay_kean')
     expect(row.kickoffHints.b2bSessionId).toBe('sess-inbound')

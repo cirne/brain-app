@@ -236,6 +236,57 @@ describe('chatStorage', () => {
     expect(doc?.title).toBe('Later')
   })
 
+  it('replaceLastAwaitingPeerReviewOutboundAssistant replaces placeholder assistant', async () => {
+    const { appendTurn, loadSession, replaceLastAwaitingPeerReviewOutboundAssistant } = await import(
+      '@server/lib/chat/chatStorage.js'
+    )
+    const sessionId = 'aa0e8400-e29b-41d4-a716-446655440088'
+    const ph = 'PLACEHOLDER'
+    await appendTurn({
+      sessionId,
+      userMessage: 'q',
+      assistantMessage: {
+        role: 'assistant',
+        content: ph,
+        parts: [{ type: 'text', content: ph }],
+        b2bDelivery: 'awaiting_peer_review',
+      },
+    })
+    expect(await replaceLastAwaitingPeerReviewOutboundAssistant({ sessionId, text: 'Final answer' })).toBe(true)
+    const doc = await loadSession(sessionId)
+    expect(doc?.messages[1]?.content).toBe('Final answer')
+    expect(doc?.messages[1]?.b2bDelivery).toBeUndefined()
+  })
+
+  it('listB2BInboundReviewRows filters by pending vs sent', async () => {
+    const { ensureSessionStub, appendTurn, listB2BInboundReviewRows } = await import('@server/lib/chat/chatStorage.js')
+    const pendingId = 'p0e8400-e29b-41d4-a716-446655440080'
+    await ensureSessionStub(pendingId, {
+      sessionType: 'b2b_inbound',
+      remoteGrantId: 'bqg_x',
+      remoteHandle: 'h1',
+      remoteDisplayName: 'Peer',
+      approvalState: 'pending',
+    })
+    await appendTurn({
+      sessionId: pendingId,
+      userMessage: 'hello',
+      assistantMessage: { role: 'assistant', content: 'draft', parts: [{ type: 'text', content: 'draft reply' }] },
+    })
+    const sentId = 's0e8400-e29b-41d4-a716-446655440081'
+    await ensureSessionStub(sentId, {
+      sessionType: 'b2b_inbound',
+      remoteGrantId: 'bqg_y',
+      remoteHandle: 'h2',
+      approvalState: 'auto',
+    })
+    const pend = await listB2BInboundReviewRows({ stateFilter: 'pending' })
+    expect(pend.some((r) => r.sessionId === pendingId)).toBe(true)
+    expect(pend.some((r) => r.sessionId === sentId)).toBe(false)
+    const sent = await listB2BInboundReviewRows({ stateFilter: 'sent' })
+    expect(sent.some((r) => r.sessionId === sentId)).toBe(true)
+  })
+
   it('deleteAllChatSessionFiles removes chat rows only', async () => {
     const { appendTurn, listSessions, deleteAllChatSessionFiles } = await import('@server/lib/chat/chatStorage.js')
     await mkdir(join(brainHome, 'chats'), { recursive: true })

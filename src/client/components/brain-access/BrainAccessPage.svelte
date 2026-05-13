@@ -62,6 +62,7 @@
         return null
       }
       const askerHandle = typeof r.askerHandle === 'string' ? r.askerHandle : undefined
+      const autoSend = r.autoSend === true
       return {
         id: r.id,
         ownerId: r.ownerId,
@@ -71,6 +72,7 @@
         privacyPolicy: r.privacyPolicy,
         createdAtMs: r.createdAtMs,
         updatedAtMs: r.updatedAtMs,
+        ...(autoSend ? { autoSend: true } : {}),
       }
     }
     return {

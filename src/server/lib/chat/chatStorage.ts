@@ -276,6 +276,162 @@ export async function updateApprovalState(sessionId: string, state: ApprovalStat
   return r.changes > 0
 }
 
+/** Replace the latest assistant row when it is a tunnel outbound placeholder (OPP-111). */
+export async function replaceLastAwaitingPeerReviewOutboundAssistant(params: {
+  sessionId: string
+  text: string
+}): Promise<boolean> {
+  const db = getTenantDb()
+  const sid = params.sessionId
+  const row = db
+    .prepare(
+      `SELECT seq, content_json FROM chat_messages WHERE session_id = ? AND role = 'assistant' ORDER BY seq DESC LIMIT 1`,
+    )
+    .get(sid) as { seq: number; content_json: string } | undefined
+  if (!row) return false
+  let prev: ChatMessage
+  try {
+    prev = JSON.parse(row.content_json) as ChatMessage
+  } catch {
+    return false
+  }
+  if (prev.b2bDelivery !== 'awaiting_peer_review') return false
+  const text = params.text.trim()
+  if (!text) return false
+  const next: ChatMessage = {
+    ...prev,
+    role: 'assistant',
+    content: text,
+    parts: [{ type: 'text', content: text }],
+    b2bDelivery: undefined,
+  }
+  const now = Date.now()
+  db.prepare(`UPDATE chat_messages SET content_json = ? WHERE session_id = ? AND seq = ?`).run(
+    JSON.stringify(ensureChatMessageId(next)),
+    sid,
+    row.seq,
+  )
+  const previewVal = recomputePreview(db, sid)
+  db.prepare(`UPDATE chat_sessions SET preview = ?, updated_at_ms = ? WHERE session_id = ?`).run(
+    previewVal,
+    now,
+    sid,
+  )
+  return true
+}
+
+/** Replace the last assistant message (e.g. B2B regenerate while review is pending). */
+export async function replaceLastAssistantMessageInSession(sessionId: string, assistantMessage: ChatMessage): Promise<boolean> {
+  const db = getTenantDb()
+  const row = db
+    .prepare(
+      `SELECT seq FROM chat_messages WHERE session_id = ? AND role = 'assistant' ORDER BY seq DESC LIMIT 1`,
+    )
+    .get(sessionId) as { seq: number } | undefined
+  if (!row) return false
+  const now = Date.now()
+  const msg = ensureChatMessageId(assistantMessage)
+  db.prepare(`UPDATE chat_messages SET content_json = ? WHERE session_id = ? AND seq = ?`).run(
+    JSON.stringify(msg),
+    sessionId,
+    row.seq,
+  )
+  const previewVal = recomputePreview(db, sessionId)
+  db.prepare(`UPDATE chat_sessions SET preview = ?, updated_at_ms = ? WHERE session_id = ?`).run(
+    previewVal,
+    now,
+    sessionId,
+  )
+  return true
+}
+
+export type B2BInboundReviewRow = {
+  sessionId: string
+  grantId: string
+  peerHandle: string | null
+  peerDisplayName: string | null
+  askerSnippet: string
+  draftSnippet: string
+  rowState: ApprovalState
+  updatedAtMs: number
+}
+
+function snippetFromPlainText(text: string): string {
+  const line = text.trim().split('\n')[0] ?? ''
+  if (line.length > 160) return `${line.slice(0, 157)}...`
+  return line
+}
+
+function draftSnippetFromAssistant(m: ChatMessage): string {
+  const fromParts = m.parts?.find((p): p is { type: 'text'; content: string } => p.type === 'text' && !!p.content)
+  const raw = (fromParts?.content ?? m.content ?? '').trim()
+  return snippetFromPlainText(raw)
+}
+
+export async function listB2BInboundReviewRows(params: {
+  stateFilter: 'pending' | 'sent' | 'all'
+}): Promise<B2BInboundReviewRow[]> {
+  const db = getTenantDb()
+  const rows = db
+    .prepare(
+      `SELECT session_id, remote_grant_id, remote_handle, remote_display_name, approval_state, updated_at_ms
+       FROM chat_sessions
+       WHERE session_type = 'b2b_inbound'
+       ORDER BY updated_at_ms DESC`,
+    )
+    .all() as {
+    session_id: string
+    remote_grant_id: string | null
+    remote_handle: string | null
+    remote_display_name: string | null
+    approval_state: ApprovalState | null
+    updated_at_ms: number
+  }[]
+
+  const out: B2BInboundReviewRow[] = []
+  for (const r of rows) {
+    const st: ApprovalState = r.approval_state ?? 'pending'
+    if (params.stateFilter === 'pending' && st !== 'pending') continue
+    if (params.stateFilter === 'sent' && st !== 'approved' && st !== 'auto') continue
+    const grantId = r.remote_grant_id?.trim() ?? ''
+    if (!grantId) continue
+
+    const msgRows = db
+      .prepare(`SELECT role, content_json FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`)
+      .all(r.session_id) as { role: string; content_json: string }[]
+
+    let lastUserText = ''
+    let lastAssistant: ChatMessage | null = null
+    for (const mr of msgRows) {
+      try {
+        const msg = JSON.parse(mr.content_json) as ChatMessage
+        if (mr.role === 'user') lastUserText = msg.content ?? ''
+        if (mr.role === 'assistant') lastAssistant = msg
+      } catch {
+        /* skip */
+      }
+    }
+
+    out.push({
+      sessionId: r.session_id,
+      grantId,
+      peerHandle: r.remote_handle,
+      peerDisplayName: r.remote_display_name,
+      askerSnippet: lastUserText ? snippetFromPlainText(lastUserText) : '',
+      draftSnippet: lastAssistant ? draftSnippetFromAssistant(lastAssistant) : '',
+      rowState: st,
+      updatedAtMs: r.updated_at_ms,
+    })
+  }
+
+  out.sort((a, b) => {
+    if (a.rowState === 'pending' && b.rowState !== 'pending') return -1
+    if (a.rowState !== 'pending' && b.rowState === 'pending') return 1
+    return b.updatedAtMs - a.updatedAtMs
+  })
+  return out
+}
+
 /** Persist title as soon as set_chat_title runs (before the turn is saved). */
 export async function patchSessionTitle(sessionId: string, title: string): Promise<void> {
   const t = title.trim().slice(0, 120)

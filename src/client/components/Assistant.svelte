@@ -11,6 +11,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
   import Inbox from '@components/Inbox.svelte'
+  import ReviewQueue from '@components/ReviewQueue.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
   import Wiki from '@components/Wiki.svelte'
@@ -227,6 +228,46 @@ import AppShell from '@components/app/AppShell.svelte'
       }
     })()
   })
+
+  let b2bReviewPendingCount = $state(0)
+
+  async function refreshB2BReviewPendingCount() {
+    if (!brainQueryEnabled) {
+      b2bReviewPendingCount = 0
+      return
+    }
+    try {
+      const res = await fetch('/api/chat/b2b/review?state=pending', { credentials: 'include' })
+      if (!res.ok) return
+      const j = (await res.json()) as { items?: unknown }
+      b2bReviewPendingCount = Array.isArray(j.items) ? j.items.length : 0
+    } catch {
+      /* ignore */
+    }
+  }
+
+  $effect(() => {
+    if (!brainQueryEnabled || typeof window === 'undefined') return
+    const onFocus = () => void refreshB2BReviewPendingCount()
+    window.addEventListener('focus', onFocus)
+    void refreshB2BReviewPendingCount()
+    const unsub = subscribe((e) => {
+      if (e.type === 'b2b:review-changed') void refreshB2BReviewPendingCount()
+    })
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      unsub()
+    }
+  })
+
+  function openReview(sessionId?: string) {
+    navigateShell({
+      zone: 'review' as RouteZone,
+      ...(sessionId?.trim() ? { reviewSessionId: sessionId.trim() } : {}),
+    })
+    shell.route = parseRoute()
+    if (shell.isMobile) shell.sidebarOpen = false
+  }
 
   /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
   let wikiPrimarySlideHeader = $state<WikiSlideHeaderState | null>(null)
@@ -544,6 +585,12 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.agentContext = { type: 'chat' }
       return
     }
+    if (shell.route.zone === 'review') {
+      navigateShell({ zone: 'review' as RouteZone }, { replace: true })
+      shell.route = parseRoute()
+      shell.agentContext = { type: 'chat' }
+      return
+    }
     if (shell.route.zone === 'settings') {
       navigateShell({ zone: 'settings' as RouteZone }, { replace: true })
     } else if (shell.route.zone === 'hub') {
@@ -579,6 +626,9 @@ import AppShell from '@components/app/AppShell.svelte'
     }
     if (shell.route.zone === 'inbox') {
       return { zone: 'inbox', useChatSession: false }
+    }
+    if (shell.route.zone === 'review') {
+      return { zone: 'review', useChatSession: false }
     }
     return { zone: 'hub', useChatSession: false }
   }
@@ -1215,7 +1265,8 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone === 'hub' ||
       shell.route.zone === 'settings' ||
       shell.route.zone === 'wiki' ||
-      shell.route.zone === 'inbox'
+      shell.route.zone === 'inbox' ||
+      shell.route.zone === 'review'
     )
       return
     const navRoute: Route = {
@@ -1241,6 +1292,7 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone !== 'settings' &&
       shell.route.zone !== 'wiki' &&
       shell.route.zone !== 'inbox' &&
+      shell.route.zone !== 'review' &&
       shell.route.overlay?.type !== 'hub'
     if (!onChat || !sid) {
       return
@@ -1307,7 +1359,10 @@ import AppShell from '@components/app/AppShell.svelte'
 
   /** Mobile chat/hub/settings columns: compact L1 per OPP-092 (wiki-primary keeps labeled icons). */
   const appMobileNavCompact = $derived(
-    shell.isMobile && shell.route.zone !== 'wiki' && shell.route.zone !== 'inbox',
+    shell.isMobile &&
+      shell.route.zone !== 'wiki' &&
+      shell.route.zone !== 'inbox' &&
+      shell.route.zone !== 'review',
   )
   const appMobileNavCenterTitle = $derived(
     appMobileNavCompact
@@ -1412,6 +1467,7 @@ import AppShell from '@components/app/AppShell.svelte'
     isEmptyChat={topNavNewChatDisabled}
     hostedHandlePill={shell.hostedHandleNav}
     onOpenSharing={brainQueryEnabled ? openBrainAccessSettings : undefined}
+    reviewPendingCount={brainQueryEnabled ? b2bReviewPendingCount : 0}
     mobileCenterTitle={appMobileNavCenterTitle}
     mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
     mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
@@ -1449,6 +1505,8 @@ import AppShell from '@components/app/AppShell.svelte'
               onNewChat={historyNewChat}
               onOpenAllChats={openChatHistoryPage}
               onWikiHome={navigateWikiPrimary}
+              brainQueryEnabled={brainQueryEnabled}
+              onOpenReview={brainQueryEnabled ? () => openReview() : undefined}
             />
           </div>
         </div>
@@ -1591,6 +1649,26 @@ import AppShell from '@components/app/AppShell.svelte'
                   {/if}
                 </div>
               {/if}
+            </div>
+          {:else if shell.route.zone === 'review'}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div class="hub-scroll flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+                <ReviewQueue
+                  initialSessionId={shell.route.reviewSessionId ?? null}
+                  onNavigateSession={(id) => {
+                    navigateShell({
+                      zone: 'review' as RouteZone,
+                      ...(id?.trim() ? { reviewSessionId: id.trim() } : {}),
+                    })
+                    shell.route = parseRoute()
+                  }}
+                  onOpenInboundThread={(sessionId) => {
+                    navigateShell({ sessionId })
+                    shell.route = parseRoute()
+                    if (shell.isMobile) shell.sidebarOpen = false
+                  }}
+                />
+              </div>
             </div>
           {:else if shell.route.zone === 'hub' || shell.route.overlay?.type === 'hub'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">

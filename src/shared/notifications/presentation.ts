@@ -158,12 +158,20 @@ function b2bInboundQueryPresentation(input: NotificationPresentationInput): Noti
   const displayName = typeof p.peerDisplayName === 'string' ? p.peerDisplayName.trim() : ''
   const label = handle ? `@${handle}` : displayName || 'Someone'
   const question = typeof p.question === 'string' ? p.question.trim() : ''
-  const summaryLine = truncateOneLine(
-    question ? `${label} asked your brain: ${question}` : `${label} asked your brain`,
-    SUMMARY_MAX_CHARS,
-  )
-  const kickoffUserMessage =
-    label === 'Someone'
+  const pendingReview = p.pendingReview === true
+  const baseSummary = pendingReview
+    ? question
+      ? `${label} — draft ready · ${question}`
+      : `${label} — draft ready`
+    : question
+      ? `${label} asked your brain: ${question}`
+      : `${label} asked your brain`
+  const summaryLine = truncateOneLine(baseSummary, SUMMARY_MAX_CHARS)
+  const kickoffUserMessage = pendingReview
+    ? label === 'Someone'
+      ? 'Someone messaged you through a tunnel — open Pending to send your reply.'
+      : `**${label}** messaged you through a tunnel — open Pending to send your reply.`
+    : label === 'Someone'
       ? 'Someone asked your brain a question. Open the inbound chat to review the draft answer.'
       : `**${label}** asked your brain a question. Open the inbound chat to review the draft answer.`
   return {

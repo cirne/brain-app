@@ -27,6 +27,8 @@ export type ChatMessage = {
   content: string
   parts?: MessagePart[]
   thinking?: string
+  /** Outbound tunnel: placeholder assistant row until the answering side approves (`b2bChat` / OPP-111). */
+  b2bDelivery?: 'awaiting_peer_review'
   /** Set on assistant rows when the model reported usage (sum over tool rounds for that reply). */
   usage?: LlmUsageSnapshot
 }

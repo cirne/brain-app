@@ -57,7 +57,7 @@ describe('AppTopNav.svelte', () => {
       expect(document.querySelector('.brand-name')).toBeNull()
     })
 
-    it('orders top actions search, wiki home, new chat, then settings (reading / tab order)', () => {
+    it('orders top actions search, wiki, new chat, then settings (reading / tab order)', () => {
       const onWikiHome = vi.fn()
       const onOpenSettings = vi.fn()
       render(AppTopNav, {
@@ -66,6 +66,7 @@ describe('AppTopNav.svelte', () => {
           onNewChat: vi.fn(),
           onWikiHome,
           onOpenSettings,
+          reviewPendingCount: 2,
           isEmptyChat: false,
           isMobile: false,
         },
@@ -78,6 +79,35 @@ describe('AppTopNav.svelte', () => {
       expect(search.compareDocumentPosition(wikiHome) & after).toBe(after)
       expect(wikiHome.compareDocumentPosition(newChat) & after).toBe(after)
       expect(newChat.compareDocumentPosition(settingsBtn) & after).toBe(after)
+    })
+
+    it('shows pending count badge on sidebar brand lockup when reviewPendingCount > 0', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          sidebarOpen: false,
+          reviewPendingCount: 3,
+          isMobile: false,
+        },
+      })
+      const lockup = screen.getByRole('button', { name: /Braintunnel, Open sidebar \(3 pending\)/i })
+      expect(lockup).toBeInTheDocument()
+      expect(lockup.textContent).toMatch(/99\+|3/)
+    })
+
+    it('shows pending count badge on mobile compact center title when reviewPendingCount > 0', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          isMobile: true,
+          mobileCenterTitle: 'Chat',
+          mobileOverflow: () => {},
+          reviewPendingCount: 2,
+        },
+      })
+      expect(
+        screen.getByRole('button', { name: /Chat - Open sidebar \(2 pending\)/i }),
+      ).toBeInTheDocument()
     })
 
     it('shows Wiki and Chat labels on desktop (not isMobile)', () => {

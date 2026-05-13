@@ -73,4 +73,12 @@ export type AgentConversationViewProps = {
    * Used by the default transcript only; onboarding views ignore this prop.
    */
   toolDisplayMode?: ChatToolDisplayMode
+  /** Outbound tunnel: per-message save to local wiki + optional multi-select (shift-click / header mode). */
+  tunnelWikiEnabled?: boolean
+  tunnelWikiSelectMode?: boolean
+  tunnelWikiSelectedIds?: ReadonlySet<string>
+  onTunnelWikiSaveMessage?: (_message: ChatMessage) => void
+  onTunnelWikiShiftClickMessage?: (_message: ChatMessage, _e: MouseEvent) => void
+  onTunnelWikiLongPressMessage?: (_message: ChatMessage) => void
+  onTunnelWikiCheckboxToggleMessage?: (_message: ChatMessage) => void
 }

@@ -32,6 +32,13 @@
     conversationRoleLabels,
     tunnelOutboundEmptyChat = false,
     tunnelOutboundPeer = null,
+    tunnelWikiEnabled = false,
+    tunnelWikiSelectMode = false,
+    tunnelWikiSelectedIds = undefined as ReadonlySet<string> | undefined,
+    onTunnelWikiSaveMessage,
+    onTunnelWikiShiftClickMessage,
+    onTunnelWikiLongPressMessage,
+    onTunnelWikiCheckboxToggleMessage,
   }: AgentConversationViewProps = $props()
 
   let messagesEl: HTMLElement | null = null
@@ -211,6 +218,13 @@
           isLastAssistantInThread={i === lastAssistantIndex}
           {toolDisplayMode}
           {conversationRoleLabels}
+          tunnelWikiEnabled={tunnelWikiEnabled}
+          {tunnelWikiSelectMode}
+          tunnelWikiSelected={(msg.id && tunnelWikiSelectedIds?.has(msg.id)) ?? false}
+          onTunnelWikiSave={msg.role === 'assistant' ? () => onTunnelWikiSaveMessage?.(msg) : undefined}
+          onTunnelWikiShiftClick={(e) => onTunnelWikiShiftClickMessage?.(msg, e)}
+          onTunnelWikiLongPress={() => onTunnelWikiLongPressMessage?.(msg)}
+          onTunnelWikiCheckboxToggle={() => onTunnelWikiCheckboxToggleMessage?.(msg)}
           {onOpenWiki}
           {onOpenFile}
           {onOpenIndexedFile}

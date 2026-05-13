@@ -1,6 +1,6 @@
 # Archived: OPP-110 — Chat-native brain-to-brain (B2B via chat, not email)
 
-**Status: Archived (2026-05-12).** **Stub:** [../OPP-110-chat-native-brain-to-brain.md](../OPP-110-chat-native-brain-to-brain.md) · **Follow-on:** [../OPP-111-tunnel-fast-follows.md](../OPP-111-tunnel-fast-follows.md)
+**Status: Archived (2026-05-12).** **Stub:** [../OPP-110-chat-native-brain-to-brain.md](../OPP-110-chat-native-brain-to-brain.md) · **Follow-on:** [OPP-111-tunnel-fast-follows.md](OPP-111-tunnel-fast-follows.md) (**stub:** [../OPP-111-tunnel-fast-follows.md](../OPP-111-tunnel-fast-follows.md); **shipped 2026-05-12**).
 
 ---
 
@@ -8,7 +8,7 @@
 
 **Status:** Archived (2026-05-12) — narrative retained for reference.
 
-**Fast follow:** **[OPP-111](../OPP-111-tunnel-fast-follows.md)** — tunnel fast follows: wiki capture on the asker tenant **and** inbound send control + non-misleading inbound chat UX; ships after core tunnel UX.
+**Fast follow:** **[OPP-111](OPP-111-tunnel-fast-follows.md)** — tunnel fast follows (**shipped 2026-05-12**): wiki capture on the asker tenant **and** inbound send control + non-misleading inbound chat UX.
 
 **Parent idea:** [IDEA-brain-query-delegation.md](../ideas/IDEA-brain-query-delegation.md) · **Policy model:** [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **Grants CRUD (shipped):** [brain-query-delegation.md](../architecture/brain-query-delegation.md)
 
@@ -292,7 +292,7 @@ This is an **evolution, not a replacement**, of the B2B data model:
 
 The big architectural shift is that **the synchronous cross-tenant request is now driven by a chat turn rather than a mail message**, and the answer returns in the same chat session rather than as email.
 
-Persisting tunnel-derived knowledge into **your** wiki (and related inbound UX polish) is **[OPP-111](../OPP-111-tunnel-fast-follows.md)** — same trust boundary; wiki capture runs on the asker’s tenant only.
+Persisting tunnel-derived knowledge into **your** wiki (and related inbound UX polish) is **[OPP-111](OPP-111-tunnel-fast-follows.md)** — same trust boundary; wiki capture runs on the asker’s tenant only.
 
 ---
 

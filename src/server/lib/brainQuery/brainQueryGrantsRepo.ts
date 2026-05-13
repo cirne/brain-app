@@ -8,6 +8,7 @@ export type BrainQueryGrantRow = {
   owner_id: string
   asker_id: string
   privacy_policy: string
+  auto_send: 0 | 1
   created_at_ms: number
   updated_at_ms: number
   revoked_at_ms: number | null
@@ -27,11 +28,14 @@ function rowFromStmt(r: unknown): BrainQueryGrantRow | null {
     return null
   }
   const rev = o.revoked_at_ms
+  const autoRaw = o.auto_send
+  const auto_send: 0 | 1 = autoRaw === 1 ? 1 : 0
   return {
     id: o.id,
     owner_id: o.owner_id,
     asker_id: o.asker_id,
     privacy_policy: o.privacy_policy,
+    auto_send,
     created_at_ms: o.created_at_ms,
     updated_at_ms: o.updated_at_ms,
     revoked_at_ms: typeof rev === 'number' ? rev : null,
@@ -67,8 +71,8 @@ export function createBrainQueryGrant(params: {
   db.prepare(`DELETE FROM brain_query_grants WHERE owner_id = ? AND asker_id = ?`).run(owner_id, asker_id)
   db.prepare(
     `INSERT INTO brain_query_grants (
-      id, owner_id, asker_id, privacy_policy, created_at_ms, updated_at_ms, revoked_at_ms
-    ) VALUES (@id, @owner_id, @asker_id, @privacy_policy, @created_at_ms, @updated_at_ms, NULL)`,
+      id, owner_id, asker_id, privacy_policy, auto_send, created_at_ms, updated_at_ms, revoked_at_ms
+    ) VALUES (@id, @owner_id, @asker_id, @privacy_policy, 0, @created_at_ms, @updated_at_ms, NULL)`,
   ).run({
     id,
     owner_id,
@@ -139,6 +143,31 @@ export function updateBrainQueryGrantPrivacyPolicy(params: {
     `UPDATE brain_query_grants SET privacy_policy = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`,
   ).run(text, now, params.grantId, params.ownerId)
   return getBrainQueryGrantById(params.grantId, d)
+}
+
+export function setBrainQueryGrantAutoSend(params: {
+  grantId: string
+  ownerId: string
+  autoSend: boolean
+  db?: Database.Database
+}): BrainQueryGrantRow | null {
+  const d = params.db ?? getBrainGlobalDb()
+  const row = getBrainQueryGrantById(params.grantId, d)
+  if (!row || row.owner_id !== params.ownerId.trim()) return null
+  const now = Date.now()
+  const v: 0 | 1 = params.autoSend ? 1 : 0
+  d.prepare(`UPDATE brain_query_grants SET auto_send = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`).run(
+    v,
+    now,
+    params.grantId,
+    params.ownerId.trim(),
+  )
+  return getBrainQueryGrantById(params.grantId, d)
+}
+
+/** Whether outbound replies are sent to the asker without owner review (grant opt-in). */
+export function grantRowAutoSendEnabled(row: BrainQueryGrantRow): boolean {
+  return row.auto_send === 1
 }
 
 /** Remove grant row (owner revoking outbound access). */

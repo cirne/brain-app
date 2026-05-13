@@ -86,6 +86,7 @@
   },
   "userDetailRow": {
     "noEmail": "No email on file",
+    "autoSendLabel": "Auto-send tunnel replies (skip review)",
     "actions": {
       "changePolicy": "Change policy…",
       "removeAccessAria": "Remove access for @{{handle}}",
