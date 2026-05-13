@@ -235,6 +235,44 @@ describe('/api/account routes', () => {
     await rm(root, { recursive: true, force: true })
   })
 
+  it('GET /workspace-handles matches display name substring', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'acct-wh-dn-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const callerUid = generateUserId()
+    ensureTenantHomeDir(callerUid)
+    await writeHandleMeta(tenantHomeDir(callerUid), {
+      userId: callerUid,
+      handle: 'caller-dn',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const peerUid = generateUserId()
+    ensureTenantHomeDir(peerUid)
+    await writeHandleMeta(tenantHomeDir(peerUid), {
+      userId: peerUid,
+      handle: 'peer-dn',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+      displayName: 'Lewis Uniqueperson',
+    })
+
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: callerUid, workspaceHandle: 'caller-dn', homeDir: tenantHomeDir(callerUid) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, callerUid)
+
+    const app = mountAccount()
+    const res = await app.request('http://localhost/api/account/workspace-handles?q=uniqueperson', {
+      headers: { Cookie: `brain_session=${sid}` },
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { results: Array<{ handle: string }> }
+    expect(j.results.some((r) => r.handle === 'peer-dn')).toBe(true)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
   it('POST /handle/confirm sets confirmedAt', async () => {
     const root = await mkdtemp(join(tmpdir(), 'acct-confirm-'))
     process.env.BRAIN_DATA_ROOT = root

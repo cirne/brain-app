@@ -70,6 +70,7 @@
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import type { ApprovalState, ChatSessionType } from '@client/lib/chatSessionTypes.js'
   import InboundApproval from '@components/InboundApproval.svelte'
+  import ColdTunnelComposer from '@components/ColdTunnelComposer.svelte'
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
@@ -177,6 +178,11 @@
     onHearRepliesChange = undefined as ((_on: boolean) => void) | undefined,
     /** When true (default), empty main chat fetches unread notifications for the strip above empty copy. */
     showEmptyChatNotifications = true,
+    /** Hosted brain-to-brain: show cold-tunnel entry UI in the empty transcript (desktop inline). */
+    brainQueryEnabled = false,
+    coldTunnelInlineOpen = false,
+    onColdTunnelInlineDismiss = undefined as (() => void) | undefined,
+    onColdTunnelSubmitted = undefined as ((_sessionId: string) => void | Promise<void>) | undefined,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -243,6 +249,10 @@
     autoSendInterviewKickoffHidden?: boolean
     onHearRepliesChange?: (_on: boolean) => void
     showEmptyChatNotifications?: boolean
+    brainQueryEnabled?: boolean
+    coldTunnelInlineOpen?: boolean
+    onColdTunnelInlineDismiss?: () => void
+    onColdTunnelSubmitted?: (_sessionId: string) => void | Promise<void>
   } = $props()
 
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
@@ -366,6 +376,15 @@
     const mention = formatTunnelPeerMention(currentSession.remoteHandle, currentSession.remoteDisplayName)
     return mention.length > 0 ? mention : null
   })
+
+  /** Cold-tunnel entry replaces default empty copy and hides the main composer until dismissed or submitted. */
+  const coldTunnelReplacesEmpty = $derived(
+    brainQueryEnabled &&
+      coldTunnelInlineOpen &&
+      !tunnelOutboundEmptyChat &&
+      messages.length === 0 &&
+      !streaming,
+  )
 
   const conversationRoleLabels = $derived.by((): ConversationRoleLabels => {
     const row = currentSession
@@ -1208,6 +1227,7 @@
     return (
       showEmptyChatNotifications &&
       !hideInput &&
+      !coldTunnelReplacesEmpty &&
       messages.length === 0 &&
       !streaming &&
       p != null &&
@@ -1281,6 +1301,15 @@
 </script>
 
 <div class="agent-chat flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden bg-surface">
+  {#snippet coldTunnelEmptySlot()}
+    <ColdTunnelComposer
+      layout="inline"
+      onDismiss={() => onColdTunnelInlineDismiss?.()}
+      onSubmitted={async (sid) => {
+        await onColdTunnelSubmitted?.(sid)
+      }}
+    />
+  {/snippet}
   <div
     class="chat-body relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden"
     style:--composer-context-overlap-pad={showComposerContextBar && contextBarActualHeight > 0
@@ -1387,7 +1416,7 @@
     {/if}
 
     {#snippet unifiedComposerStack()}
-      {#if !hideInput}
+      {#if !hideInput && !coldTunnelReplacesEmpty}
         <div
           class={cn(
             /* Same horizontal inset as `.chat-transcript-inner` — composer is a sibling of the scroll area, not inside it. */
@@ -1430,7 +1459,7 @@
             onRequestFocusText={() => void focusAgentTextarea(0)}
             hearReplies={hearRepliesForChatComposer}
           />
-          {#if centerEmptyInPane && !bridgeSlideLayout}
+          {#if centerEmptyInPane && !bridgeSlideLayout && !coldTunnelReplacesEmpty}
             <div class="audio-conv-toggle-row md:hidden flex items-center justify-center pb-3 pt-1">
               <button
                 type="button"
@@ -1516,6 +1545,7 @@
                   conversationRoleLabels={conversationRoleLabels}
                   tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
                   tunnelOutboundPeer={tunnelOutboundPeer}
+                  empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
                 />
               </div>
               {#if mobileDetail}
@@ -1550,6 +1580,7 @@
                 conversationRoleLabels={conversationRoleLabels}
                 tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
                 tunnelOutboundPeer={tunnelOutboundPeer}
+                empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
               />
             </div>
           {/if}
@@ -1583,6 +1614,7 @@
                 conversationRoleLabels={conversationRoleLabels}
                 tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
                 tunnelOutboundPeer={tunnelOutboundPeer}
+                empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
               />
             </div>
             {#if mobileDetail}
@@ -1617,6 +1649,7 @@
               conversationRoleLabels={conversationRoleLabels}
               tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
               tunnelOutboundPeer={tunnelOutboundPeer}
+              empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
             />
           </div>
         {/if}

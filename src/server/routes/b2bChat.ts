@@ -27,7 +27,11 @@ import {
   updateApprovalState,
   finalizeColdSessionWithGrant,
 } from '@server/lib/chat/chatStorage.js'
-import { resolveConfirmedHandle } from '@server/lib/tenant/workspaceHandleDirectory.js'
+import {
+  resolveConfirmedHandle,
+  resolveConfirmedTenantEntry,
+  resolveUserIdByPrimaryEmail,
+} from '@server/lib/tenant/workspaceHandleDirectory.js'
 import { assertColdQueryRateAllowed, recordColdQuerySent } from '@server/lib/global/coldQueryRateLimits.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { createB2BAgent, filterB2BResponse, promptB2BAgentForText } from '@server/agent/b2bAgent.js'
@@ -676,19 +680,46 @@ b2bChat.post('/regenerate', async (c) => {
 
 b2bChat.post('/cold-query', async (c) => {
   const ctx = getTenantContext()
-  let body: { targetHandle?: unknown; message?: unknown; timezone?: unknown }
+  let body: {
+    targetHandle?: unknown
+    targetEmail?: unknown
+    targetUserId?: unknown
+    message?: unknown
+    timezone?: unknown
+  }
   try {
     body = await c.req.json()
   } catch {
     return c.json({ error: 'invalid_json' }, 400)
   }
   const targetHandle = typeof body.targetHandle === 'string' ? body.targetHandle.trim() : ''
+  const targetEmail = typeof body.targetEmail === 'string' ? body.targetEmail.trim() : ''
+  const targetUserId = typeof body.targetUserId === 'string' ? body.targetUserId.trim() : ''
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
-  if (!targetHandle) return c.json({ error: 'targetHandle_required' }, 400)
+  const modes = [targetHandle, targetEmail, targetUserId].filter((s) => s.length > 0)
+  if (modes.length === 0) {
+    return c.json({ error: 'target_required', message: 'Provide targetHandle, targetEmail, or targetUserId.' }, 400)
+  }
+  if (modes.length > 1) {
+    return c.json(
+      { error: 'target_ambiguous', message: 'Provide only one of targetHandle, targetEmail, or targetUserId.' },
+      400,
+    )
+  }
   if (!message) return c.json({ error: 'message_required' }, 400)
 
-  const target = await resolveConfirmedHandle({ handle: targetHandle, excludeUserId: ctx.tenantUserId })
+  let target =
+    targetUserId.length > 0
+      ? await resolveConfirmedTenantEntry({ userId: targetUserId, excludeUserId: ctx.tenantUserId })
+      : null
+  if (!target && targetEmail.length > 0) {
+    const uid = await resolveUserIdByPrimaryEmail({ email: targetEmail, excludeUserId: ctx.tenantUserId })
+    if (uid) target = await resolveConfirmedTenantEntry({ userId: uid, excludeUserId: ctx.tenantUserId })
+  }
+  if (!target && targetHandle.length > 0) {
+    target = await resolveConfirmedHandle({ handle: targetHandle, excludeUserId: ctx.tenantUserId })
+  }
   if (!target) return c.json({ error: 'target_not_found' }, 404)
 
   const existing = getActiveBrainQueryGrant({ ownerId: target.userId, askerId: ctx.tenantUserId })

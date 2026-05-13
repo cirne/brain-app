@@ -6,7 +6,7 @@
   import type { B2BGrantPolicyApi, B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
-  import { Archive, CircleX, MessagesSquare, Send } from 'lucide-svelte'
+  import { Archive, Ban, CircleX, ClipboardCheck, MessagesSquare, Send, Zap } from 'lucide-svelte'
 
   let {
     row,
@@ -48,8 +48,10 @@
     isColdInbound ? coldEstablishPolicy : row.policy,
   )
 
+  const policySegBase =
+    'relative min-w-0 flex-1 touch-manipulation items-center justify-center gap-1 border-0 px-2 py-1.5 text-center text-[0.6875rem] font-semibold transition-colors focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 disabled:opacity-50 sm:flex-none sm:px-2.5'
   const policySegClass = (p: B2BGrantPolicyApi) =>
-    `rounded-md px-2 py-1 text-[0.6875rem] font-semibold transition-colors ${
+    `inline-flex ${policySegBase} ${
       effectivePolicy === p
         ? 'bg-accent text-white'
         : 'bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground'
@@ -255,30 +257,48 @@
         <span
           class="w-fit rounded bg-accent/15 px-1.5 py-[1px] text-[0.65rem] font-semibold uppercase tracking-wide text-accent"
         >
-          {$t('chat.review.policy.coldBadge')}
+          {$t('chat.review.detail.policy.coldBadge')}
         </span>
       {/if}
       <span class="truncate text-[0.8125rem] font-semibold text-foreground">
-        {$t('chat.review.policy.peerAt', { handle: peerLabel })}
+        {$t('chat.review.detail.policy.peerAt', { handle: peerLabel })}
       </span>
     </div>
     {#if isPending && (isColdInbound || canEditGrantPolicy)}
-      <div
-        class="flex flex-wrap items-center gap-1"
-        role="group"
-        aria-label={$t('chat.review.policy.ariaGroup')}
-      >
-        {#each ['review', 'auto', 'ignore'] as p (p)}
-          <button
-            type="button"
-            class={policySegClass(p as B2BGrantPolicyApi)}
-            disabled={busy}
-            data-testid={`review-policy-${p}`}
-            onclick={() => void handlePolicyPick(p as B2BGrantPolicyApi)}
-          >
-            {$t(`chat.review.policy.segment.${p}`)}
-          </button>
-        {/each}
+      <div class="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto sm:max-w-full sm:items-end">
+        <span
+          id="review-policy-segments-label"
+          class="text-[0.6875rem] font-medium leading-snug text-muted sm:text-right"
+        >
+          {$t('chat.review.detail.policy.groupLabel')}
+        </span>
+        <div
+          class="inline-flex w-full min-w-0 divide-x divide-border/80 overflow-hidden rounded-lg border border-border bg-surface-2 shadow-sm sm:w-auto"
+          role="group"
+          aria-labelledby="review-policy-segments-label"
+        >
+          {#each ['review', 'auto', 'ignore'] as p (p)}
+            <button
+              type="button"
+              class={policySegClass(p as B2BGrantPolicyApi)}
+              disabled={busy}
+              data-testid={`review-policy-${p}`}
+              aria-pressed={effectivePolicy === p}
+              onclick={() => void handlePolicyPick(p as B2BGrantPolicyApi)}
+            >
+              <span class="hidden shrink-0 md:inline-flex md:items-center" aria-hidden="true">
+                {#if p === 'review'}
+                  <ClipboardCheck class="size-3.5" strokeWidth={2.25} />
+                {:else if p === 'auto'}
+                  <Zap class="size-3.5" strokeWidth={2.25} />
+                {:else}
+                  <Ban class="size-3.5" strokeWidth={2.25} />
+                {/if}
+              </span>
+              {$t(`chat.review.detail.policy.segment.${p}`)}
+            </button>
+          {/each}
+        </div>
       </div>
     {/if}
   </div>
@@ -387,15 +407,15 @@
 
 <ConfirmDialog
   open={autoSendConfirmOpen}
-  title={$t('chat.review.policy.autoSendConfirm.title', { handle: peerLabel })}
+  title={$t('chat.review.detail.policy.autoSendConfirm.title', { handle: peerLabel })}
   titleId="review-auto-send-title"
-  confirmLabel={$t('chat.review.policy.autoSendConfirm.confirm')}
+  confirmLabel={$t('chat.review.detail.policy.autoSendConfirm.confirm')}
   cancelLabel={$t('common.actions.cancel')}
   onDismiss={dismissAutoSendConfirm}
   onConfirm={confirmAutoSend}
 >
-  <p>{$t('chat.review.policy.autoSendConfirm.body1')}</p>
-  <p>{$t('chat.review.policy.autoSendConfirm.body2')}</p>
+  <p>{$t('chat.review.detail.policy.autoSendConfirm.body1')}</p>
+  <p>{$t('chat.review.detail.policy.autoSendConfirm.body2')}</p>
 </ConfirmDialog>
 
 <style>

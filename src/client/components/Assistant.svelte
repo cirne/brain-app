@@ -24,6 +24,8 @@ import AppShell from '@components/app/AppShell.svelte'
   import ChatHistory from '@components/ChatHistory.svelte'
   import ChatHistoryPage from '@components/ChatHistoryPage.svelte'
   import AssistantHistoryRailHeader from '@components/AssistantHistoryRailHeader.svelte'
+  import BottomSheet from '@components/shell/BottomSheet.svelte'
+  import ColdTunnelComposer from '@components/ColdTunnelComposer.svelte'
   import WorkspaceSplit from '@components/WorkspaceSplit.svelte'
   import {
     parseRoute,
@@ -1071,6 +1073,33 @@ import AppShell from '@components/app/AppShell.svelte'
     registerDebouncedWikiSyncRunner(performFullSync)
   })
 
+  /** Cold-tunnel entry: mobile bottom sheet vs desktop inline in empty chat. */
+  let coldTunnelSheetOpen = $state(false)
+  let coldTunnelInlineOpen = $state(false)
+
+  function closeColdTunnelEntry(): void {
+    coldTunnelSheetOpen = false
+    coldTunnelInlineOpen = false
+  }
+
+  function openColdTunnelEntryFromRail(): void {
+    historyNewChat()
+    if (shell.isMobile) {
+      coldTunnelSheetOpen = true
+      coldTunnelInlineOpen = false
+      shell.sidebarOpen = false
+    } else {
+      coldTunnelInlineOpen = true
+      coldTunnelSheetOpen = false
+    }
+  }
+
+  async function onColdTunnelSubmitted(sessionId: string): Promise<void> {
+    closeColdTunnelEntry()
+    await selectChatSession(sessionId)
+    void refs.chatHistory?.refresh({ background: true })
+  }
+
   function toggleSidebar() {
     shell.sidebarOpen = !shell.sidebarOpen
     if (shell.sidebarOpen) void refs.chatHistory?.refresh()
@@ -1511,6 +1540,7 @@ import AppShell from '@components/app/AppShell.svelte'
               onWikiHome={navigateWikiPrimary}
               brainQueryEnabled={brainQueryEnabled}
               onOpenReview={brainQueryEnabled ? () => openReview() : undefined}
+              onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
             />
           </div>
         </div>
@@ -1846,6 +1876,10 @@ import AppShell from '@components/app/AppShell.svelte'
               onWriteStreaming={onWriteStreaming}
               onEditStreaming={onEditStreaming}
               onHearRepliesChange={(on) => { chatHearReplies = on }}
+              brainQueryEnabled={brainQueryEnabled}
+              coldTunnelInlineOpen={coldTunnelInlineOpen}
+              onColdTunnelInlineDismiss={closeColdTunnelEntry}
+              onColdTunnelSubmitted={(sid) => onColdTunnelSubmitted(sid)}
             >
               {#snippet mobileDetail()}
                 {#if
@@ -1930,6 +1964,23 @@ import AppShell from '@components/app/AppShell.svelte'
     </div>
   {/snippet}
 </AppShell>
+
+{#if brainQueryEnabled}
+  <BottomSheet
+    open={coldTunnelSheetOpen}
+    title={$t('chat.history.coldQuery.sheetTitle')}
+    titleId="cold-tunnel-sheet-title"
+    onDismiss={closeColdTunnelEntry}
+  >
+    {#snippet children()}
+      <ColdTunnelComposer
+        layout="sheet"
+        onDismiss={closeColdTunnelEntry}
+        onSubmitted={onColdTunnelSubmitted}
+      />
+    {/snippet}
+  </BottomSheet>
+{/if}
 
 <style>
   /* Hub / settings mobile overlays: fill layer and strip slide-over chrome (scoped; do not put

@@ -125,20 +125,6 @@
     onNavigateSession(r.sessionId)
   }
 
-  async function inlineSend(e: Event, r: B2BReviewRowApi) {
-    e.stopPropagation()
-    if (r.state !== 'pending') return
-    const res = await apiFetch('/api/chat/b2b/approve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: r.sessionId,
-        ...(r.isColdQuery && !r.grantId ? { establishPolicy: 'review' as const } : {}),
-      }),
-    })
-    if (res.ok) await loadAndAdvance()
-  }
-
   $effect(() => {
     const want = initialSessionId?.trim() ?? ''
     if (want && want !== selectedId) {
@@ -223,16 +209,6 @@
                   {r.updatedAtMs > 0 ? formatRelativeDate(new Date(r.updatedAtMs).toISOString()) : ''}
                 </p>
               </div>
-              {#if r.state === 'pending'}
-                <button
-                  type="button"
-                  data-testid="review-row-send"
-                  class="shrink-0 rounded-md bg-accent px-2 py-1 text-[0.7rem] font-semibold text-white hover:opacity-90"
-                  onclick={(e) => void inlineSend(e, r)}
-                >
-                  {$t('chat.review.detail.actions.send')}
-                </button>
-              {/if}
             </div>
           </li>
         {/each}

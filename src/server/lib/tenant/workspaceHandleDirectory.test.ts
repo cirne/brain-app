@@ -6,10 +6,21 @@ import { ensureTenantHomeDir, tenantHomeDir } from './dataRoot.js'
 import { generateUserId, writeHandleMeta } from './handleMeta.js'
 import { brainLayoutRipmailDir, brainLayoutVarDir } from '@server/lib/platform/brainLayout.js'
 import {
+  directoryTextMatchRank,
   resolveConfirmedHandle,
+  resolveConfirmedTenantEntry,
   searchWorkspaceHandleDirectory,
   workspaceHandleMatchRank,
 } from './workspaceHandleDirectory.js'
+
+describe('directoryTextMatchRank', () => {
+  it('orders full string prefix before word prefix before substring', () => {
+    expect(directoryTextMatchRank('alice anderson', 'alice')).toBe(0)
+    expect(directoryTextMatchRank('mary alice', 'alice')).toBe(1)
+    expect(directoryTextMatchRank('xxaliceyy', 'alice')).toBe(2)
+    expect(directoryTextMatchRank('bob', 'z')).toBeNull()
+  })
+})
 
 describe('workspaceHandleMatchRank', () => {
   it('orders full handle prefix before segment prefix before substring', () => {
@@ -205,5 +216,33 @@ describe('workspaceHandleDirectory', () => {
     await seedTenant({ handle: 'pending', confirmed: false, primaryEmail: 'p@x.com' })
     const out = await resolveConfirmedHandle({ handle: 'pending' })
     expect(out).toBeNull()
+  })
+
+  it('matches display name substring', async () => {
+    await seedTenant({
+      handle: 'pat-handle',
+      displayName: 'Patrizia Regulatory',
+      primaryEmail: 'pat@example.com',
+    })
+    const r = await searchWorkspaceHandleDirectory({ query: 'regulatory' })
+    expect(r.map((x) => x.handle)).toEqual(['pat-handle'])
+  })
+
+  it('matches primary email substring', async () => {
+    await seedTenant({
+      handle: 'em-user',
+      displayName: 'E M',
+      primaryEmail: 'long.name@company.test',
+    })
+    const r = await searchWorkspaceHandleDirectory({ query: 'company.test' })
+    expect(r).toHaveLength(1)
+    expect(r[0]?.handle).toBe('em-user')
+  })
+
+  it('resolveConfirmedTenantEntry returns directory row for confirmed userId', async () => {
+    const t = await seedTenant({ handle: 'uid-row', displayName: 'Zed', primaryEmail: 'z@z.com' })
+    const row = await resolveConfirmedTenantEntry({ userId: t.userId })
+    expect(row?.handle).toBe('uid-row')
+    expect(await resolveConfirmedTenantEntry({ userId: 'usr_bbbbbbbbbbbbbbbbbbbb' })).toBeNull()
   })
 })

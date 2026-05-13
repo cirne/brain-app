@@ -42,6 +42,7 @@
     onWikiHome,
     brainQueryEnabled = false,
     onOpenReview,
+    onOpenColdTunnelEntry,
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
@@ -52,6 +53,8 @@
     onWikiHome?: () => void
     brainQueryEnabled?: boolean
     onOpenReview?: () => void
+    /** Desktop: inline composer in main chat; mobile: parent opens a bottom sheet. */
+    onOpenColdTunnelEntry?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
@@ -63,12 +66,6 @@
   let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
   let hasMoreChats = $state(false)
   let reviewPendingCount = $state(0)
-
-  let coldQueryOpen = $state(false)
-  let coldTarget = $state('')
-  let coldMessage = $state('')
-  let coldBusy = $state(false)
-  let coldErr = $state<string | null>(null)
 
   const tunnelAwaitPreviewLc = B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET.toLowerCase()
 
@@ -302,48 +299,6 @@
       }
     } finally {
       if (!background) loading = false
-    }
-  }
-
-  async function submitColdQuery(): Promise<void> {
-    const handle = coldTarget.trim().replace(/^@/, '')
-    const message = coldMessage.trim()
-    if (!handle || !message) {
-      coldErr = $t('chat.history.coldQuery.error')
-      return
-    }
-    coldBusy = true
-    coldErr = null
-    try {
-      const res = await apiFetch('/api/chat/b2b/cold-query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetHandle: handle, message }),
-      })
-      if (res.status === 409) {
-        coldErr = $t('chat.history.coldQuery.grantExists')
-        return
-      }
-      if (res.status === 429) {
-        coldErr = $t('chat.history.coldQuery.rateLimited')
-        return
-      }
-      if (!res.ok) {
-        coldErr = $t('chat.history.coldQuery.error')
-        return
-      }
-      const j = (await res.json()) as { sessionId?: string }
-      const sid = typeof j.sessionId === 'string' ? j.sessionId.trim() : ''
-      coldQueryOpen = false
-      coldTarget = ''
-      coldMessage = ''
-      if (sid) onSelect(sid, undefined)
-      await refresh({ background: true })
-      emit({ type: 'b2b:review-changed' })
-    } catch {
-      coldErr = $t('chat.history.coldQuery.error')
-    } finally {
-      coldBusy = false
     }
   }
 
@@ -652,8 +607,7 @@
               )}
               data-testid="cold-query-open"
               onclick={() => {
-                coldQueryOpen = true
-                coldErr = null
+                onOpenColdTunnelEntry?.()
               }}
             >
               <Plus size={14} strokeWidth={2.5} aria-hidden="true" class="shrink-0 opacity-80" />
@@ -725,67 +679,5 @@
     {#if pendingDelete}
       <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
     {/if}
-  </ConfirmDialog>
-
-  <ConfirmDialog
-    open={coldQueryOpen}
-    title={$t('chat.history.coldQuery.title')}
-    titleId="cold-query-title"
-    panelClass="max-w-[24rem]"
-    onDismiss={() => {
-      coldQueryOpen = false
-      coldErr = null
-    }}
-    onConfirm={() => void submitColdQuery()}
-  >
-    {#snippet children()}
-      <div class="flex flex-col gap-2">
-        <label class="m-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted" for="cold-q-handle">
-          {$t('chat.history.coldQuery.targetLabel')}
-        </label>
-        <input
-          id="cold-q-handle"
-          class="box-border w-full rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground"
-          bind:value={coldTarget}
-          disabled={coldBusy}
-          placeholder={$t('chat.history.coldQuery.targetPlaceholder')}
-          autocomplete="off"
-        />
-        <label class="m-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted" for="cold-q-msg">
-          {$t('chat.history.coldQuery.messageLabel')}
-        </label>
-        <textarea
-          id="cold-q-msg"
-          class="box-border min-h-[4.5rem] w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground"
-          bind:value={coldMessage}
-          disabled={coldBusy}
-          placeholder={$t('chat.history.coldQuery.messagePlaceholder')}
-        ></textarea>
-        {#if coldErr}
-          <p class="m-0 text-xs text-danger" role="alert">{coldErr}</p>
-        {/if}
-      </div>
-    {/snippet}
-    {#snippet actions()}
-      <button
-        type="button"
-        class="rounded-md border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
-        disabled={coldBusy}
-        onclick={() => {
-          coldQueryOpen = false
-          coldErr = null
-        }}
-      >
-        {$t('common.actions.cancel')}
-      </button>
-      <button
-        type="button"
-        class="rounded-md border border-border bg-accent px-3 py-[0.4rem] text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        disabled={coldBusy}
-        onclick={() => void submitColdQuery()}
-      >
-        {$t('chat.history.coldQuery.send')}
-      </button>
-    {/snippet}
   </ConfirmDialog>
 </div>

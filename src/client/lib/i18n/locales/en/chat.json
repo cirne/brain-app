@@ -70,13 +70,21 @@
     "tunnelIndicatorNewReply": "New reply in this tunnel",
     "tunnelIndicatorAwaiting": "Waiting for collaborator to send",
     "coldQuery": {
-      "button": "Query a brain",
-      "title": "Query a brain",
-      "targetLabel": "Their handle",
-      "targetPlaceholder": "username",
+      "button": "Open a Braintunnel",
+      "sheetTitle": "Who do you want to reach?",
+      "introHeading": "What is a Braintunnel?",
+      "introLead": "A Braintunnel is a private line to someone else's assistant in Braintunnel—not bulk email or a public bot.",
+      "introBody": "You write your message here. They can answer using their own mail, calendar, and notes—only within the access they've given you. If you've never connected before, they need to allow it from their side first.",
+      "recipientSearchLabel": "Find them",
+      "recipientSearchPlaceholder": "Search by name, @handle, or email",
+      "recipientCardAria": "Selected recipient",
+      "changeRecipient": "Change",
       "messageLabel": "Message",
       "messagePlaceholder": "What do you want to ask?",
       "send": "Send",
+      "searching": "Searching…",
+      "noMatches": "No matches. Try another spelling or email.",
+      "pickRecipientHint": "Type to search, then pick someone from the list.",
       "error": "Could not send.",
       "grantExists": "You already have a tunnel with this person — pick them under Tunnels and send from there.",
       "rateLimited": "You already reached out recently. Try again a bit later."
@@ -140,18 +148,18 @@
         "openThread": "Open full thread"
       },
       "policy": {
-        "coldBadge": "New contact",
+        "coldBadge": "First reach-out",
         "peerAt": "@{{handle}}",
-        "ariaGroup": "How to handle replies from this person",
+        "groupLabel": "How your replies are sent",
         "segment": {
-          "review": "Review",
-          "auto": "Auto-send",
+          "review": "Manual",
+          "auto": "Automatic",
           "ignore": "Ignore"
         },
         "autoSendConfirm": {
-          "title": "Auto-send to @{{handle}}?",
-          "body1": "Elm can reply without waiting for you. It follows your response policy as closely as it can, and you can read every message afterward.",
-          "body2": "You’re no longer the bottleneck in this thread — great when you’re slammed. Turn it off anytime from here or Brain access.",
+          "title": "Turn on auto-send for @{{handle}}?",
+          "body1": "Their assistant can send replies without asking you each time, within the access you allow. You can still read the full thread afterward.",
+          "body2": "You can change this anytime here or under Brain access.",
           "confirm": "Turn on auto-send"
         }
       }

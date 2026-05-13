@@ -187,6 +187,36 @@ describe('ChatHistory.svelte', () => {
     expect(within(inboxBtn).queryByText(/\d+/)).not.toBeInTheDocument()
   })
 
+  it('calls onOpenColdTunnelEntry when Open a Braintunnel is pressed', async () => {
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
+    ])
+    const onOpenColdTunnelEntry = vi.fn()
+    mockedApiFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (u.includes('/api/chat/b2b/review')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 })
+      }
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
+    })
+
+    render(ChatHistory, {
+      props: {
+        ...chatHistoryTestProps(),
+        brainQueryEnabled: true,
+        onOpenReview: vi.fn(),
+        onOpenColdTunnelEntry,
+      },
+    })
+
+    await screen.findByRole('heading', { name: /^tunnels$/i })
+    await fireEvent.click(screen.getByTestId('cold-query-open'))
+    expect(onOpenColdTunnelEntry).toHaveBeenCalledTimes(1)
+  })
+
   it('calls onNewChat when New chat is pressed', async () => {
     mockedFetchSessions.mockResolvedValue([])
 

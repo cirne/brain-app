@@ -398,4 +398,56 @@ describe('/api/chat/b2b', () => {
     expect(j.autoSend).toBe(true)
     expect(j.policy).toBe('auto')
   })
+
+  it('POST /cold-query returns 400 when no target field', async () => {
+    const askerId = 'usr_c0000000000000000000'
+    const askerSid = await sessionFor(askerId, 'cold-req-ask')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ message: 'only message' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /cold-query returns 400 when multiple target fields', async () => {
+    const askerId = 'usr_d0000000000000000000'
+    const askerSid = await sessionFor(askerId, 'cold-amb-ask')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetHandle: 'a', targetUserId: 'usr_e0000000000000000000', message: 'm' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /cold-query succeeds with targetUserId', async () => {
+    const ownerId = 'usr_a0000000000000000000'
+    const askerId = 'usr_b0000000000000000000'
+    await sessionFor(ownerId, 'cold-owner-u')
+    const askerSid = await sessionFor(askerId, 'cold-asker-u')
+    await registerSessionTenant(askerSid, askerId)
+    const app = mountB2BChat()
+    const res = await app.request('http://localhost/api/chat/b2b/cold-query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${askerSid}`,
+      },
+      body: JSON.stringify({ targetUserId: ownerId, message: 'Cold hello' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { sessionId?: string }
+    expect(j.sessionId).toMatch(/^[0-9a-f-]{36}$/i)
+  })
 })

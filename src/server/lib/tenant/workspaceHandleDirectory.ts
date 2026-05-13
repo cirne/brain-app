@@ -47,6 +47,22 @@ export function workspaceHandleMatchRank(handleLower: string, q: string): number
   return null
 }
 
+/**
+ * Loose ranking for display name / email: full-string prefix → word-prefix → substring.
+ * Words split on non-alphanumeric (handles "Jane Q. Public" vs `jane`).
+ */
+export function directoryTextMatchRank(haystackLower: string, needle: string): number | null {
+  const n = needle.trim().toLowerCase().replace(/^@/, '')
+  if (n.length === 0) return 0
+  if (!haystackLower.includes(n)) return null
+  if (haystackLower.startsWith(n)) return 0
+  const segments = haystackLower.split(/[^a-z0-9]+/).filter(Boolean)
+  for (const seg of segments) {
+    if (seg.startsWith(n)) return 1
+  }
+  return 2
+}
+
 /** Pick the primary linked mailbox email for a tenant, falling back to ripmail config. */
 async function resolvePrimaryEmail(home: string): Promise<string | null> {
   const linked = await readLinkedMailboxesFor(home)
@@ -65,8 +81,8 @@ export async function getPrimaryEmailForUserId(userId: string): Promise<string |
 
 /**
  * Search confirmed workspace handles by case-insensitive substring (`query`). Excludes `excludeUserId`
- * (typically the caller's own tenant). Matches anywhere in the handle, but sorts so full-handle prefixes
- * come first, then segment prefixes (`demo-*` hyphen segments), then other substring hits.
+ * (typically the caller's own tenant). Matches handle (ranked as in {@link workspaceHandleMatchRank}),
+ * display name, and primary email. Sorts by best rank then handle.
  */
 export async function searchWorkspaceHandleDirectory(params: {
   /** Search text (`@` prefix ignored). Empty returns all handles (still capped). */
@@ -83,29 +99,63 @@ export async function searchWorkspaceHandleDirectory(params: {
   } catch {
     return []
   }
-  const candidates: { userId: string; handle: string; displayName?: string; rank: number }[] = []
+  const candidates: {
+    userId: string
+    handle: string
+    displayName?: string
+    rank: number
+    primaryEmail: string | null
+  }[] = []
   for (const name of names) {
     if (!isValidUserId(name)) continue
     if (params.excludeUserId && name === params.excludeUserId) continue
-    const meta = await readHandleMeta(join(root, name))
+    const home = join(root, name)
+    const meta = await readHandleMeta(home)
     if (!meta) continue
     if (typeof meta.confirmedAt !== 'string' || meta.confirmedAt.length === 0) continue
     const handleLower = meta.handle.toLowerCase()
+    const primaryEmail = await resolvePrimaryEmail(tenantHomeDir(meta.userId))
     if (normalizedQuery.length > 0) {
-      const rank = workspaceHandleMatchRank(handleLower, normalizedQuery)
-      if (rank === null) continue
-      const row: { userId: string; handle: string; displayName?: string; rank: number } = {
+      let best: number | null = null
+      const hr = workspaceHandleMatchRank(handleLower, normalizedQuery)
+      if (hr !== null) best = hr
+      const dn = meta.displayName?.trim().toLowerCase() ?? ''
+      if (dn.length > 0) {
+        const dr = directoryTextMatchRank(dn, normalizedQuery)
+        if (dr !== null) best = best === null ? dr : Math.min(best, dr)
+      }
+      const el = primaryEmail?.toLowerCase() ?? ''
+      if (el.length > 0) {
+        const er = directoryTextMatchRank(el, normalizedQuery)
+        if (er !== null) best = best === null ? er : Math.min(best, er)
+      }
+      if (best === null) continue
+      const row: {
+        userId: string
+        handle: string
+        displayName?: string
+        rank: number
+        primaryEmail: string | null
+      } = {
         userId: meta.userId,
         handle: meta.handle,
-        rank,
+        rank: best,
+        primaryEmail,
       }
       if (meta.displayName) row.displayName = meta.displayName
       candidates.push(row)
     } else {
-      const row: { userId: string; handle: string; displayName?: string; rank: number } = {
+      const row: {
+        userId: string
+        handle: string
+        displayName?: string
+        rank: number
+        primaryEmail: string | null
+      } = {
         userId: meta.userId,
         handle: meta.handle,
         rank: 0,
+        primaryEmail,
       }
       if (meta.displayName) row.displayName = meta.displayName
       candidates.push(row)
@@ -118,11 +168,10 @@ export async function searchWorkspaceHandleDirectory(params: {
   const capped = candidates.slice(0, limit)
   const out: WorkspaceHandleDirectoryEntry[] = []
   for (const c of capped) {
-    const primaryEmail = await resolvePrimaryEmail(tenantHomeDir(c.userId))
     const entry: WorkspaceHandleDirectoryEntry = {
       userId: c.userId,
       handle: c.handle,
-      primaryEmail,
+      primaryEmail: c.primaryEmail,
     }
     if (c.displayName) entry.displayName = c.displayName
     out.push(entry)
@@ -154,6 +203,30 @@ export async function resolveUserIdByPrimaryEmail(params: {
     if (primary && primary.toLowerCase() === normalized) return name
   }
   return null
+}
+
+/**
+ * Confirmed tenant directory row for `userId` (for stable client picks), or null if missing / unconfirmed / excluded.
+ */
+export async function resolveConfirmedTenantEntry(params: {
+  userId: string
+  excludeUserId?: string
+}): Promise<WorkspaceHandleDirectoryEntry | null> {
+  const id = params.userId.trim()
+  if (!isValidUserId(id)) return null
+  if (params.excludeUserId && id === params.excludeUserId) return null
+  const home = tenantHomeDir(id)
+  const meta = await readHandleMeta(home)
+  if (!meta) return null
+  if (typeof meta.confirmedAt !== 'string' || meta.confirmedAt.length === 0) return null
+  const primaryEmail = await resolvePrimaryEmail(home)
+  const entry: WorkspaceHandleDirectoryEntry = {
+    userId: meta.userId,
+    handle: meta.handle,
+    primaryEmail,
+  }
+  if (meta.displayName) entry.displayName = meta.displayName
+  return entry
 }
 
 /**
