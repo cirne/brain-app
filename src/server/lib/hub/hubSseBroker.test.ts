@@ -4,6 +4,7 @@ import {
   registerHubSseSubscriber,
   notifyBackgroundRunWritten,
   notifyNotificationsChanged,
+  notifyBrainTunnelActivity,
   HUB_SSE_DEBOUNCE_MS,
 } from './hubSseBroker.js'
 import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
@@ -85,5 +86,14 @@ describe('hubSseBroker', () => {
     }
 
     expect(payloads).toEqual(['notifications_changed:{}'])
+  })
+
+  it('notifyBrainTunnelActivity writes tunnel_activity immediately (no debounce)', async () => {
+    const payloads: string[] = []
+    registerHubSseSubscriber('_single', async ({ event, data }) => {
+      payloads.push(`${event}:${data}`)
+    })
+    await notifyBrainTunnelActivity(JSON.stringify({ scope: 'outbound', outboundSessionId: 'x' }))
+    expect(payloads).toEqual(['tunnel_activity:{"scope":"outbound","outboundSessionId":"x"}'])
   })
 })

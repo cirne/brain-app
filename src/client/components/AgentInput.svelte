@@ -32,6 +32,8 @@
     showVoiceEntry = false,
     onVoiceEntry = undefined as (() => void) | undefined,
     voiceEntryDisabled = false,
+    /** Focus the field on mount (main chat composer); off for embedded surfaces (e.g. B2B review steering). */
+    autoFocusOnMount = true,
   }: {
     placeholder?: string
     disabled?: boolean
@@ -48,6 +50,7 @@
     showVoiceEntry?: boolean
     onVoiceEntry?: () => void
     voiceEntryDisabled?: boolean
+    autoFocusOnMount?: boolean
   } = $props()
 
   const resolvedPlaceholder = $derived(placeholder ?? $t('chat.input.placeholder'))
@@ -279,7 +282,7 @@
     window.addEventListener('resize', onResize)
     void tick().then(() => {
       onResize()
-      if (disabled) return
+      if (disabled || !autoFocusOnMount) return
       inputEl?.focus({ preventScroll: true })
     })
     return () => window.removeEventListener('resize', onResize)

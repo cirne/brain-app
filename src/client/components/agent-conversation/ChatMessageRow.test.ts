@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import ChatMessageRow from './ChatMessageRow.svelte'
-import { render, screen, fireEvent } from '@client/test/render.js'
+import { render, screen } from '@client/test/render.js'
 import type { ChatMessage } from '@client/lib/agentUtils.js'
 
 describe('ChatMessageRow.svelte', () => {
@@ -154,6 +154,25 @@ describe('ChatMessageRow.svelte', () => {
     expect(screen.queryByText('You')).not.toBeInTheDocument()
   })
 
+  it('renders a compact receipt row for awaiting_peer_review messages', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: 'Sent · pending approval',
+      b2bDelivery: 'awaiting_peer_review',
+    }
+    render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: true,
+      },
+    })
+    expect(document.querySelector('.tunnel-receipt-row')).toBeTruthy()
+    expect(document.querySelector('.tunnel-receipt')).toBeTruthy()
+    expect(screen.queryByText('Assistant')).not.toBeInTheDocument()
+  })
+
   it('uses conversationRoleLabels assistantWorkingAria when streaming', () => {
     const msg: ChatMessage = {
       role: 'assistant',
@@ -174,26 +193,5 @@ describe('ChatMessageRow.svelte', () => {
       },
     })
     expect(screen.getByRole('status', { name: /your brain is working/i })).toBeInTheDocument()
-  })
-
-  it('shows tunnel wiki save when enabled on assistant rows', async () => {
-    const msg: ChatMessage = {
-      id: 'm1',
-      role: 'assistant',
-      content: 'Reply text',
-    }
-    const onSave = vi.fn()
-    render(ChatMessageRow, {
-      props: {
-        msg,
-        streaming: false,
-        isLastMessage: true,
-        isLastAssistantInThread: true,
-        tunnelWikiEnabled: true,
-        onTunnelWikiSave: onSave,
-      },
-    })
-    await fireEvent.click(screen.getByTestId('tunnel-wiki-save-message'))
-    expect(onSave).toHaveBeenCalled()
   })
 })

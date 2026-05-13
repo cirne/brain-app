@@ -33,6 +33,10 @@ export type NotificationKickoffHints = {
   question?: string
   /** Chat-native B2B inbound session to open. */
   b2bSessionId?: string
+  /** Asker outbound session after owner releases a tunnel reply. */
+  outboundSessionId?: string
+  /** Owner inbound trace session (idempotency / correlation only). */
+  inboundSessionId?: string
 }
 
 export type NotificationPresentation = {
@@ -83,6 +87,11 @@ function hintsFrom(input: NotificationPresentationInput): NotificationKickoffHin
 
   const b2bSessionId = typeof p.b2bSessionId === 'string' ? p.b2bSessionId.trim() : ''
   if (b2bSessionId) base.b2bSessionId = b2bSessionId
+
+  const outboundSessionId = typeof p.outboundSessionId === 'string' ? p.outboundSessionId.trim() : ''
+  const inboundSessionId = typeof p.inboundSessionId === 'string' ? p.inboundSessionId.trim() : ''
+  if (outboundSessionId) base.outboundSessionId = outboundSessionId
+  if (inboundSessionId) base.inboundSessionId = inboundSessionId
 
   return base
 }
@@ -183,6 +192,19 @@ function b2bInboundQueryPresentation(input: NotificationPresentationInput): Noti
   }
 }
 
+function b2bTunnelOutboundUpdatedPresentation(input: NotificationPresentationInput): NotificationPresentation {
+  const summaryLine = truncateOneLine('Reply ready in your tunnel', SUMMARY_MAX_CHARS)
+  const kickoffUserMessage =
+    'Your collaborator sent a reply through the tunnel — open that tunnel chat to read the full message.'
+  return {
+    id: input.id,
+    sourceKind: input.sourceKind,
+    summaryLine,
+    kickoffUserMessage,
+    kickoffHints: hintsFrom(input),
+  }
+}
+
 function brainQueryMailPresentation(input: NotificationPresentationInput): NotificationPresentation {
   const p = input.payload && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
   const handle = typeof p.peerHandle === 'string' ? p.peerHandle.trim().replace(/^@/, '') : ''
@@ -252,6 +274,9 @@ export function presentationForNotificationRow(input: NotificationPresentationIn
   }
   if (input.sourceKind === 'b2b_inbound_query') {
     return b2bInboundQueryPresentation(input)
+  }
+  if (input.sourceKind === 'b2b_tunnel_outbound_updated') {
+    return b2bTunnelOutboundUpdatedPresentation(input)
   }
   if (input.sourceKind === 'brain_query_mail') {
     return brainQueryMailPresentation(input)

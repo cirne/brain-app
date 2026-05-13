@@ -111,6 +111,12 @@ While **hosted multi-tenant** mode does **not** use the desktop **vault password
 
 **Current implementation status:** Phase 1 complete (staging). Phase 2 design documented in [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md); implementation tracked in [OPP-096](../opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md).
 
+### Cross-tenant B2B and cell locality
+
+**Brain-query / tunnel chat** persists **each side’s transcript** in that side’s **`brain-tenant.sqlite`**, but **one authenticated request** can currently **switch tenant context** and write the **peer’s** DB in-process (see **[chat-history-sqlite.md § B2B cross-tenant writes and cell scaling](./chat-history-sqlite.md#b2b-cross-tenant-writes-and-cell-scaling)**). That matches Phase 1 (shared volume, multi-tenant process) but **breaks** the assumption that all work for a request fits **one container’s local disk** once routing is **strictly one tenant per container** without shared pairwise storage.
+
+This is a **known architectural follow-on** for Phase 2–3 scaling: redesign those flows so **peer mutations run on the peer’s cell** (e.g. **HTTP internal hop** routed by LB to the tenant’s container — possibly **async** from the initiator; prefer **app-to-self HTTP** over a bespoke global queue if that suffices), with explicit **service-to-service auth**. Postgres migration is **orthogonal**; locality and routing are the hard part.
+
 ## Rationale: Why S3 + Local, Not NFS or Remote DB?
 
 **Why not NFS/network block storage?**
@@ -134,6 +140,7 @@ While **hosted multi-tenant** mode does **not** use the desktop **vault password
 
 ## Related Docs
 
+- **[chat-history-sqlite.md](./chat-history-sqlite.md)** — Tenant chat SQLite; **B2B cross-tenant writes vs cell scaling** (future internal HTTP / routing)
 - **[cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md)** — Full lifecycle: startup, runtime, transitions, locks, crash recovery (implementation details)
 - [deployment-models.md](./deployment-models.md) — Desktop vs. cloud strategic positioning
 - [per-tenant-storage-defense.md](./per-tenant-storage-defense.md) — Why directory-per-tenant (philosophical defense)

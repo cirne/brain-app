@@ -6,7 +6,7 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
 /**
  * Bump when `brain-global.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 6
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 7
 
 /**
  * Cross-tenant metadata (brain-query delegation grants; tenant-registry migration later).
@@ -45,7 +45,7 @@ CREATE TABLE brain_query_grants (
   owner_id        TEXT NOT NULL,
   asker_id        TEXT NOT NULL,
   privacy_policy  TEXT NOT NULL,
-  auto_send       INTEGER NOT NULL DEFAULT 0 CHECK (auto_send IN (0, 1)),
+  policy          TEXT NOT NULL DEFAULT 'review' CHECK (policy IN ('auto', 'review', 'ignore')),
   created_at_ms   INTEGER NOT NULL,
   updated_at_ms   INTEGER NOT NULL,
   revoked_at_ms   INTEGER,
@@ -53,6 +53,13 @@ CREATE TABLE brain_query_grants (
 );
 CREATE INDEX idx_brain_query_grants_owner ON brain_query_grants(owner_id);
 CREATE INDEX idx_brain_query_grants_asker ON brain_query_grants(asker_id);
+
+CREATE TABLE cold_query_rate_limits (
+  sender_handle    TEXT NOT NULL,
+  receiver_handle  TEXT NOT NULL,
+  sent_at_ms       INTEGER NOT NULL,
+  PRIMARY KEY (sender_handle, receiver_handle)
+);
 `)
   })()
 }

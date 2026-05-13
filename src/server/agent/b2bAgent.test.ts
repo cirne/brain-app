@@ -3,6 +3,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { loadB2BV1TasksFromFile } from '@server/evals/harness/loadJsonlEvalTasks.js'
+import { getEvalRepoRoot } from '@server/evals/harness/runLlmJsonlEval.js'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { createAgentTools } from './tools.js'
 import { B2B_QUERY_ONLY } from './agentToolSets.js'
@@ -43,6 +45,8 @@ describe('b2bAgent', () => {
       expect(prompt).toContain('Do not reveal financial details.')
       expect(prompt).toContain('Ken Lay prefers concise leadership updates.')
       expect(prompt).toContain('Do not expose tool calls')
+      expect(prompt).toContain('Single outbound message')
+      expect(prompt).toContain('No assistant rituals')
     } finally {
       await rm(wikiRoot, { recursive: true, force: true })
     }
@@ -56,5 +60,13 @@ describe('b2bAgent', () => {
     expect(prompt).toContain('No message ids.')
     expect(prompt).toContain('JavaMail.evans@thyme')
     expect(prompt).toContain('Remove raw tool details')
+    expect(prompt).toContain('Preserve substance')
+    expect(prompt).toContain('Strip assistant fluff')
+  })
+
+  it('b2b-v1.jsonl tasks include anti-assistant finalText guardrails', async () => {
+    const tasks = await loadB2BV1TasksFromFile(join(getEvalRepoRoot(), 'eval/tasks/b2b-v1.jsonl'))
+    expect(tasks.length).toBeGreaterThan(0)
+    expect(tasks.every(t => JSON.stringify(t.expect).includes('let me know'))).toBe(true)
   })
 })

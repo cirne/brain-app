@@ -180,6 +180,23 @@ describe('notification presentation', () => {
     expect(row.kickoffHints.question).toBe('What is Ken focused on?')
   })
 
+  it('b2b_tunnel_outbound_updated uses tunnel reply copy and hints', () => {
+    const row = presentationForNotificationRow({
+      id: 'out-upd',
+      sourceKind: 'b2b_tunnel_outbound_updated',
+      payload: {
+        grantId: 'bqg_x',
+        outboundSessionId: 'sess-out',
+        inboundSessionId: 'sess-in',
+      },
+    })
+    expect(row.summaryLine).toContain('Reply ready')
+    expect(row.kickoffUserMessage).toContain('collaborator sent a reply')
+    expect(row.kickoffHints.grantId).toBe('bqg_x')
+    expect(row.kickoffHints.outboundSessionId).toBe('sess-out')
+    expect(row.kickoffHints.inboundSessionId).toBe('sess-in')
+  })
+
   it('brain_query_reply_sent summarizes collaborator reply strip', () => {
     const row = presentationForNotificationRow({
       id: 'bqrs',

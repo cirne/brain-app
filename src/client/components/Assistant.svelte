@@ -53,7 +53,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from '@client/lib/app/globalShortcuts.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
-  import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
+  import { startHubEventsConnection, subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
   import {
     cancelPendingDebouncedWikiSync,
     onWikiMutatedForAutoSync,
@@ -254,9 +254,13 @@ import AppShell from '@components/app/AppShell.svelte'
     const unsub = subscribe((e) => {
       if (e.type === 'b2b:review-changed') void refreshB2BReviewPendingCount()
     })
+    const unsubTunnel = subscribeTunnelActivity(() => {
+      void refreshB2BReviewPendingCount()
+    })
     return () => {
       window.removeEventListener('focus', onFocus)
       unsub()
+      unsubTunnel()
     }
   })
 

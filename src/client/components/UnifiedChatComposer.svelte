@@ -26,6 +26,10 @@
     onRequestFocusText = undefined as (() => void) | undefined,
     hearReplies = false,
     holdGated = false,
+    /** When true, text field is disabled (e.g. long-running secondary action — not streaming). */
+    inputDisabled = false,
+    /** False for embedded composers (e.g. B2B review) so primary surface keeps focus on mount. */
+    autoFocusInputOnMount = true,
   }: {
     voiceEligible?: boolean
     sessionResetKey?: string
@@ -43,6 +47,8 @@
     onRequestFocusText?: () => void
     hearReplies?: boolean
     holdGated?: boolean
+    inputDisabled?: boolean
+    autoFocusInputOnMount?: boolean
   } = $props()
 
   let composerMode = $state<ComposerMode>('text')
@@ -105,6 +111,7 @@
       {:else}
         <AgentInput
           bind:this={inputRef}
+          disabled={inputDisabled}
           {placeholder}
           {streaming}
           {queuedMessages}
@@ -115,6 +122,7 @@
           onSend={onSendMessage}
           {onStop}
           {onDraftChange}
+          autoFocusOnMount={autoFocusInputOnMount}
           showVoiceEntry={voiceEligible}
           onVoiceEntry={openVoiceMode}
           voiceEntryDisabled={streaming}

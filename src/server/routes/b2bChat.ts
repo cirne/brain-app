@@ -5,26 +5,36 @@ import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import {
   getBrainQueryGrantById,
+  getActiveBrainQueryGrant,
+  createBrainQueryGrant,
   grantRowAutoSendEnabled,
+  grantRowIgnoresInbound,
   listBrainQueryGrantsForAsker,
-  setBrainQueryGrantAutoSend,
+  setBrainQueryGrantPolicy,
+  type BrainQueryGrantPolicy,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { DEFAULT_BRAIN_QUERY_PRIVACY_POLICY } from '@server/lib/brainQuery/defaultPrivacyPolicy.js'
 import {
   appendTurn,
   ensureSessionStub,
   findB2BSession,
   loadSession,
   listB2BInboundReviewRows,
+  listPendingInboundSessionIdsForGrant,
   replaceLastAssistantMessageInSession,
   replaceLastAwaitingPeerReviewOutboundAssistant,
   updateApprovalState,
+  finalizeColdSessionWithGrant,
 } from '@server/lib/chat/chatStorage.js'
+import { resolveConfirmedHandle } from '@server/lib/tenant/workspaceHandleDirectory.js'
+import { assertColdQueryRateAllowed, recordColdQuerySent } from '@server/lib/global/coldQueryRateLimits.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { createB2BAgent, filterB2BResponse, promptB2BAgentForText } from '@server/agent/b2bAgent.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
 import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
+import { createNotification } from '@server/lib/notifications/notificationsRepo.js'
 import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
 
 const b2bChat = new Hono()
@@ -60,6 +70,23 @@ function grantIsActiveForAsker(row: BrainQueryGrantRow | null, askerId: string):
   return row != null && row.asker_id === askerId && row.revoked_at_ms == null
 }
 
+function syntheticGrantForCold(params: { ownerId: string; askerId: string; privacyPolicy?: string }): BrainQueryGrantRow {
+  const privacy_policy =
+    typeof params.privacyPolicy === 'string' && params.privacyPolicy.trim().length > 0
+      ? params.privacyPolicy.trim()
+      : DEFAULT_BRAIN_QUERY_PRIVACY_POLICY
+  return {
+    id: 'cold_query_synthetic',
+    owner_id: params.ownerId,
+    asker_id: params.askerId,
+    privacy_policy,
+    policy: 'review',
+    created_at_ms: 0,
+    updated_at_ms: 0,
+    revoked_at_ms: null,
+  }
+}
+
 async function lastAssistantMessage(sessionId: string): Promise<ChatMessage | null> {
   const doc = await loadSession(sessionId)
   if (!doc) return null
@@ -70,14 +97,54 @@ async function lastAssistantMessage(sessionId: string): Promise<ChatMessage | nu
   return null
 }
 
-async function appendAssistantToAsker(grant: BrainQueryGrantRow, text: string): Promise<void> {
+async function pushAssistantToColdOutbound(params: {
+  askerTenantId: string
+  outboundSessionId: string
+  inboundSessionId: string
+  text: string
+}): Promise<void> {
+  const askerCtx = await tenantContextForUser(params.askerTenantId)
+  await runWithTenantContextAsync(askerCtx, async () => {
+    const replaced = await replaceLastAwaitingPeerReviewOutboundAssistant({
+      sessionId: params.outboundSessionId,
+      text: params.text,
+    })
+    if (!replaced) {
+      await appendTurn({
+        sessionId: params.outboundSessionId,
+        userMessage: null,
+        assistantMessage: {
+          role: 'assistant',
+          content: params.text,
+          parts: [{ type: 'text', content: params.text }],
+        },
+      })
+    }
+    await createNotification({
+      sourceKind: 'b2b_tunnel_outbound_updated',
+      idempotencyKey: `b2b_tunnel_out:${params.inboundSessionId}`,
+      payload: {
+        grantId: '',
+        outboundSessionId: params.outboundSessionId,
+        inboundSessionId: params.inboundSessionId,
+      },
+    })
+  })
+}
+
+async function appendAssistantToAsker(
+  grant: BrainQueryGrantRow,
+  text: string,
+  inboundTraceSessionId: string,
+): Promise<void> {
+  const trace = inboundTraceSessionId.trim()
   const askerCtx = await tenantContextForUser(grant.asker_id)
   const owner = await displayNameForUser(grant.owner_id)
   await runWithTenantContextAsync(askerCtx, async () => {
     let outbound = await findB2BSession(grant.id, 'b2b_outbound')
     if (!outbound) {
-      const sessionId = randomUUID()
-      await ensureSessionStub(sessionId, {
+      const sid = randomUUID()
+      await ensureSessionStub(sid, {
         sessionType: 'b2b_outbound',
         remoteGrantId: grant.id,
         remoteHandle: owner.handle,
@@ -85,16 +152,26 @@ async function appendAssistantToAsker(grant: BrainQueryGrantRow, text: string): 
       })
       outbound = await findB2BSession(grant.id, 'b2b_outbound')
     }
-    if (!outbound) return
+    if (!outbound || !trace) return
     const replaced = await replaceLastAwaitingPeerReviewOutboundAssistant({
       sessionId: outbound.sessionId,
       text,
     })
-    if (replaced) return
-    await appendTurn({
-      sessionId: outbound.sessionId,
-      userMessage: null,
-      assistantMessage: { role: 'assistant', content: text, parts: [{ type: 'text', content: text }] },
+    if (!replaced) {
+      await appendTurn({
+        sessionId: outbound.sessionId,
+        userMessage: null,
+        assistantMessage: { role: 'assistant', content: text, parts: [{ type: 'text', content: text }] },
+      })
+    }
+    await createNotification({
+      sourceKind: 'b2b_tunnel_outbound_updated',
+      idempotencyKey: `b2b_tunnel_out:${trace}`,
+      payload: {
+        grantId: grant.id,
+        outboundSessionId: outbound.sessionId,
+        inboundSessionId: trace,
+      },
     })
   })
 }
@@ -112,19 +189,16 @@ export async function runB2BQueryForGrant(params: {
   const auto = grantRowAutoSendEnabled(grant)
   const ownerCtx = await tenantContextForUser(grant.owner_id)
   return runWithTenantContextAsync(ownerCtx, async () => {
-    let inbound = await findB2BSession(grant.id, 'b2b_inbound')
-    if (!inbound) {
-      const sessionId = randomUUID()
-      await ensureSessionStub(sessionId, {
-        sessionType: 'b2b_inbound',
-        remoteGrantId: grant.id,
-        remoteHandle: params.askerHandle,
-        remoteDisplayName: params.askerDisplayName,
-        approvalState: auto ? 'auto' : 'pending',
-      })
-      inbound = await findB2BSession(grant.id, 'b2b_inbound')
-    }
-    if (!inbound) throw new Error('inbound_session_create_failed')
+    // Each query gets its own inbound session so each question appears as a separate inbox item.
+    const sessionId = randomUUID()
+    await ensureSessionStub(sessionId, {
+      sessionType: 'b2b_inbound',
+      remoteGrantId: grant.id,
+      remoteHandle: params.askerHandle,
+      remoteDisplayName: params.askerDisplayName,
+      approvalState: auto ? 'auto' : 'pending',
+    })
+    const inbound = { sessionId }
 
     const agent = createB2BAgent(grant, wikiDir(), {
       ownerDisplayName: params.ownerDisplayName,
@@ -240,6 +314,9 @@ b2bChat.post('/send', async (c) => {
   if (!grantIsActiveForAsker(grant, ctx.tenantUserId)) {
     return c.json({ error: 'grant_not_found_or_revoked' }, 403)
   }
+  if (grantRowIgnoresInbound(grant)) {
+    return c.json({ error: 'grant_ignored' }, 403)
+  }
 
   const owner = await displayNameForUser(grant.owner_id)
   const asker = { handle: ctx.workspaceHandle, displayName: ctx.workspaceHandle }
@@ -298,7 +375,7 @@ b2bChat.post('/send', async (c) => {
 
 b2bChat.post('/approve', async (c) => {
   const ctx = getTenantContext()
-  let body: { sessionId?: unknown; editedAnswer?: unknown }
+  let body: { sessionId?: unknown; editedAnswer?: unknown; establishPolicy?: unknown }
   try {
     body = await c.req.json()
   } catch {
@@ -307,16 +384,54 @@ b2bChat.post('/approve', async (c) => {
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
   if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
   const session = await loadSession(sessionId)
-  if (!session || session.sessionType !== 'b2b_inbound' || !session.remoteGrantId) {
+  if (!session || session.sessionType !== 'b2b_inbound') {
     return c.json({ error: 'not_found' }, 404)
   }
-  const grant = getBrainQueryGrantById(session.remoteGrantId)
-  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+
   const edited = typeof body.editedAnswer === 'string' ? body.editedAnswer.trim() : ''
   const draft = edited || (await lastAssistantMessage(sessionId))?.content?.trim() || ''
   if (!draft) return c.json({ error: 'draft_not_found' }, 400)
+
+  const cold =
+    session.isColdQuery === true &&
+    (session.remoteGrantId == null || session.remoteGrantId === '') &&
+    typeof session.coldPeerUserId === 'string' &&
+    session.coldPeerUserId.trim().length > 0
+
+  if (cold) {
+    const rawPol = body.establishPolicy
+    const establishPolicy: BrainQueryGrantPolicy =
+      rawPol === 'auto' || rawPol === 'review' || rawPol === 'ignore' ? rawPol : 'review'
+    if (establishPolicy === 'ignore') {
+      return c.json({ error: 'cannot_approve_with_ignore' }, 400)
+    }
+    if (session.approvalState !== 'pending') {
+      return c.json({ error: 'not_pending' }, 400)
+    }
+    const outboundSid = (session.coldLinkedSessionId ?? '').trim()
+    if (!outboundSid) return c.json({ error: 'cold_link_missing' }, 500)
+
+    const grant = createBrainQueryGrant({
+      ownerId: ctx.tenantUserId,
+      askerId: session.coldPeerUserId!.trim(),
+      policy: establishPolicy,
+    })
+    finalizeColdSessionWithGrant(sessionId, grant.id)
+    const askerId = session.coldPeerUserId!.trim()
+    const askerCtx = await tenantContextForUser(askerId)
+    await runWithTenantContextAsync(askerCtx, async () => {
+      finalizeColdSessionWithGrant(outboundSid, grant.id)
+    })
+    await updateApprovalState(sessionId, 'approved')
+    await appendAssistantToAsker(grant, draft, sessionId)
+    return c.json({ ok: true, grantId: grant.id })
+  }
+
+  if (!session.remoteGrantId) return c.json({ error: 'not_found' }, 404)
+  const grant = getBrainQueryGrantById(session.remoteGrantId)
+  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
   await updateApprovalState(sessionId, 'approved')
-  await appendAssistantToAsker(grant, draft)
+  await appendAssistantToAsker(grant, draft, sessionId)
   return c.json({ ok: true })
 })
 
@@ -331,13 +446,68 @@ b2bChat.post('/decline', async (c) => {
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
   if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
   const session = await loadSession(sessionId)
-  if (!session || session.sessionType !== 'b2b_inbound' || !session.remoteGrantId) {
+  if (!session || session.sessionType !== 'b2b_inbound') {
     return c.json({ error: 'not_found' }, 404)
   }
+
+  const declineText = "I can't answer that from the access currently granted."
+
+  const cold =
+    session.isColdQuery === true &&
+    (session.remoteGrantId == null || session.remoteGrantId === '') &&
+    typeof session.coldPeerUserId === 'string' &&
+    session.coldPeerUserId.trim().length > 0 &&
+    typeof session.coldLinkedSessionId === 'string' &&
+    session.coldLinkedSessionId.trim().length > 0
+
+  if (cold) {
+    await updateApprovalState(sessionId, 'declined')
+    await pushAssistantToColdOutbound({
+      askerTenantId: session.coldPeerUserId!.trim(),
+      outboundSessionId: session.coldLinkedSessionId!.trim(),
+      inboundSessionId: sessionId,
+      text: declineText,
+    })
+    return c.json({ ok: true })
+  }
+
+  if (!session.remoteGrantId) return c.json({ error: 'not_found' }, 404)
   const grant = getBrainQueryGrantById(session.remoteGrantId)
   if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
   await updateApprovalState(sessionId, 'declined')
-  await appendAssistantToAsker(grant, "I can't answer that from the access currently granted.")
+  await appendAssistantToAsker(grant, declineText, sessionId)
+  return c.json({ ok: true })
+})
+
+b2bChat.post('/dismiss', async (c) => {
+  const ctx = getTenantContext()
+  let body: { sessionId?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
+  const session = await loadSession(sessionId)
+  if (!session || session.sessionType !== 'b2b_inbound') {
+    return c.json({ error: 'not_found' }, 404)
+  }
+  if (session.approvalState !== 'pending') {
+    return c.json({ error: 'not_pending' }, 400)
+  }
+
+  const cold =
+    session.isColdQuery === true && (session.remoteGrantId == null || session.remoteGrantId === '')
+  if (!cold) {
+    if (!session.remoteGrantId) return c.json({ error: 'not_found' }, 404)
+    const grant = getBrainQueryGrantById(session.remoteGrantId)
+    if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+  } else if (!(session.coldPeerUserId?.trim())) {
+    return c.json({ error: 'not_found' }, 404)
+  }
+
+  await updateApprovalState(sessionId, 'dismissed')
   return c.json({ ok: true })
 })
 
@@ -349,6 +519,8 @@ b2bChat.get('/review', async (c) => {
     items: rows.map((r) => ({
       sessionId: r.sessionId,
       grantId: r.grantId,
+      isColdQuery: r.isColdQuery,
+      policy: r.policy,
       peerHandle: r.peerHandle,
       peerDisplayName: r.peerDisplayName,
       askerSnippet: r.askerSnippet,
@@ -356,6 +528,53 @@ b2bChat.get('/review', async (c) => {
       state: r.rowState === 'approved' ? 'sent' : r.rowState,
       updatedAtMs: r.updatedAtMs,
     })),
+  })
+})
+
+b2bChat.patch('/grants/:grantId', async (c) => {
+  const ctx = getTenantContext()
+  const grantId = c.req.param('grantId')?.trim() ?? ''
+  if (!grantId) return c.json({ error: 'grantId_required' }, 400)
+  let body: { policy?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const policy = body.policy
+  if (policy !== 'auto' && policy !== 'review' && policy !== 'ignore') {
+    return c.json({ error: 'policy_invalid' }, 400)
+  }
+  const grant = getBrainQueryGrantById(grantId)
+  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+  const updated = setBrainQueryGrantPolicy({
+    grantId,
+    ownerId: ctx.tenantUserId,
+    policy,
+  })
+  if (!updated) return c.json({ error: 'update_failed' }, 500)
+
+  const pending = listPendingInboundSessionIdsForGrant(grantId)
+  if (policy === 'auto') {
+    for (const sid of pending) {
+      const s = await loadSession(sid)
+      if (!s || s.approvalState !== 'pending') continue
+      const draft = (await lastAssistantMessage(sid))?.content?.trim() || ''
+      if (!draft) continue
+      await updateApprovalState(sid, 'approved')
+      await appendAssistantToAsker(updated, draft, sid)
+    }
+  } else if (policy === 'ignore') {
+    for (const sid of pending) {
+      const s = await loadSession(sid)
+      if (s?.approvalState === 'pending') await updateApprovalState(sid, 'dismissed')
+    }
+  }
+
+  return c.json({
+    ok: true,
+    policy: updated.policy,
+    autoSend: updated.policy === 'auto',
   })
 })
 
@@ -374,13 +593,13 @@ b2bChat.patch('/grants/:grantId/auto-send', async (c) => {
   }
   const grant = getBrainQueryGrantById(grantId)
   if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
-  const updated = setBrainQueryGrantAutoSend({
+  const updated = setBrainQueryGrantPolicy({
     grantId,
     ownerId: ctx.tenantUserId,
-    autoSend: body.autoSend,
+    policy: body.autoSend ? 'auto' : 'review',
   })
   if (!updated) return c.json({ error: 'update_failed' }, 500)
-  return c.json({ ok: true, autoSend: updated.auto_send === 1 })
+  return c.json({ ok: true, autoSend: updated.policy === 'auto', policy: updated.policy })
 })
 
 b2bChat.post('/regenerate', async (c) => {
@@ -395,15 +614,28 @@ b2bChat.post('/regenerate', async (c) => {
   if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
 
   const session = await loadSession(sessionId)
-  if (!session || session.sessionType !== 'b2b_inbound' || !session.remoteGrantId) {
+  if (!session || session.sessionType !== 'b2b_inbound') {
     return c.json({ error: 'not_found' }, 404)
   }
   if (session.approvalState !== 'pending') {
     return c.json({ error: 'not_pending' }, 400)
   }
 
-  const grant = getBrainQueryGrantById(session.remoteGrantId)
-  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+  const cold =
+    session.isColdQuery === true &&
+    (session.remoteGrantId == null || session.remoteGrantId === '') &&
+    typeof session.coldPeerUserId === 'string' &&
+    session.coldPeerUserId.trim().length > 0
+
+  let grant: BrainQueryGrantRow
+  if (cold) {
+    grant = syntheticGrantForCold({ ownerId: ctx.tenantUserId, askerId: session.coldPeerUserId!.trim() })
+  } else {
+    if (!session.remoteGrantId) return c.json({ error: 'not_found' }, 404)
+    const g = getBrainQueryGrantById(session.remoteGrantId)
+    if (!g || g.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
+    grant = g
+  }
 
   let lastUser = ''
   for (let i = session.messages.length - 1; i >= 0; i--) {
@@ -440,6 +672,117 @@ b2bChat.post('/regenerate', async (c) => {
   })
   if (!ok) return c.json({ error: 'replace_failed' }, 500)
   return c.json({ ok: true, draft: answer })
+})
+
+b2bChat.post('/cold-query', async (c) => {
+  const ctx = getTenantContext()
+  let body: { targetHandle?: unknown; message?: unknown; timezone?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const targetHandle = typeof body.targetHandle === 'string' ? body.targetHandle.trim() : ''
+  const message = typeof body.message === 'string' ? body.message.trim() : ''
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
+  if (!targetHandle) return c.json({ error: 'targetHandle_required' }, 400)
+  if (!message) return c.json({ error: 'message_required' }, 400)
+
+  const target = await resolveConfirmedHandle({ handle: targetHandle, excludeUserId: ctx.tenantUserId })
+  if (!target) return c.json({ error: 'target_not_found' }, 404)
+
+  const existing = getActiveBrainQueryGrant({ ownerId: target.userId, askerId: ctx.tenantUserId })
+  if (existing) {
+    return c.json({ error: 'grant_exists', grantId: existing.id }, 409)
+  }
+
+  const rate = assertColdQueryRateAllowed({
+    senderHandle: ctx.workspaceHandle,
+    receiverHandle: target.handle,
+  })
+  if (!rate.ok) {
+    return c.json({ error: 'cold_query_rate_limited', retryAfterMs: Math.ceil(rate.retryAfterMs) }, 429)
+  }
+
+  const sender = await displayNameForUser(ctx.tenantUserId)
+  const receiver = { handle: target.handle, displayName: target.displayName ?? target.handle }
+  const outboundId = randomUUID()
+  const inboundId = randomUUID()
+
+  const senderCtx = await tenantContextForUser(ctx.tenantUserId)
+  await runWithTenantContextAsync(senderCtx, async () => {
+    await ensureSessionStub(outboundId, {
+      sessionType: 'b2b_outbound',
+      remoteGrantId: null,
+      isColdQuery: true,
+      coldPeerUserId: target.userId,
+      coldLinkedSessionId: inboundId,
+      remoteHandle: receiver.handle,
+      remoteDisplayName: receiver.displayName,
+    })
+  })
+
+  const recvCtx = await tenantContextForUser(target.userId)
+  const syn = syntheticGrantForCold({ ownerId: target.userId, askerId: ctx.tenantUserId })
+
+  await runWithTenantContextAsync(recvCtx, async () => {
+    await ensureSessionStub(inboundId, {
+      sessionType: 'b2b_inbound',
+      remoteGrantId: null,
+      isColdQuery: true,
+      coldPeerUserId: ctx.tenantUserId,
+      coldLinkedSessionId: outboundId,
+      remoteHandle: sender.handle,
+      remoteDisplayName: sender.displayName,
+      approvalState: 'pending',
+    })
+    const ownerVis = await displayNameForUser(target.userId)
+    const agent = createB2BAgent(syn, wikiDir(), {
+      ownerDisplayName: ownerVis.displayName,
+      ownerHandle: ownerVis.handle,
+      timezone,
+      promptClock: { tenantUserId: target.userId },
+    })
+    const draft = await promptB2BAgentForText(agent, message)
+    const answer = await filterB2BResponse({ privacyPolicy: syn.privacy_policy, draftAnswer: draft })
+    await appendTurn({
+      sessionId: inboundId,
+      userMessage: message,
+      assistantMessage: { role: 'assistant', content: answer, parts: [{ type: 'text', content: answer }] },
+    })
+    await updateApprovalState(inboundId, 'pending')
+    await createNotificationForTenant(target.userId, {
+      sourceKind: 'b2b_inbound_query',
+      payload: {
+        grantId: null,
+        b2bSessionId: inboundId,
+        peerUserId: ctx.tenantUserId,
+        peerHandle: sender.handle,
+        peerDisplayName: sender.displayName,
+        question: message,
+        pendingReview: true,
+        coldQuery: true,
+      },
+    })
+  })
+
+  await runWithTenantContextAsync(senderCtx, async () => {
+    const placeholder = B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT
+    await appendTurn({
+      sessionId: outboundId,
+      userMessage: message,
+      assistantMessage: {
+        role: 'assistant',
+        content: placeholder,
+        parts: [{ type: 'text', content: placeholder }],
+        b2bDelivery: 'awaiting_peer_review',
+      },
+    })
+  })
+
+  recordColdQuerySent({ senderHandle: ctx.workspaceHandle, receiverHandle: target.handle })
+
+  return c.json({ sessionId: outboundId, inboundSessionId: inboundId })
 })
 
 export default b2bChat

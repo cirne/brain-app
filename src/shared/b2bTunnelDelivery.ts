@@ -1,6 +1,10 @@
 /**
- * User-visible outbound tunnel assistant line while the answering side has not yet released
- * the draft (OPP-111 review-before-send).
+ * Persisted content for the outbound tunnel placeholder message while the answering side has not
+ * yet released the draft (OPP-111 review-before-send). The UI detects this state via the
+ * `b2bDelivery: 'awaiting_peer_review'` flag and renders a compact receipt row instead of
+ * displaying this text verbatim.
  */
-export const B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT =
-  "Their side is reviewing a draft reply. You'll see it here once they send it."
+export const B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT = 'Sent · pending approval'
+
+/** Substring matched against persisted session preview — sidebar awaiting indicator without loading full transcript. */
+export const B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET = 'pending approval'

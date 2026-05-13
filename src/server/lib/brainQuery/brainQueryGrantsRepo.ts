@@ -3,15 +3,24 @@ import type Database from 'better-sqlite3'
 import { getBrainGlobalDb } from '@server/lib/global/brainGlobalDb.js'
 import { DEFAULT_BRAIN_QUERY_PRIVACY_POLICY } from './defaultPrivacyPolicy.js'
 
+/** Owner-side tunnel policy: auto-reply, review each reply, or ignore inbound from this asker. */
+export type BrainQueryGrantPolicy = 'auto' | 'review' | 'ignore'
+
 export type BrainQueryGrantRow = {
   id: string
   owner_id: string
   asker_id: string
   privacy_policy: string
-  auto_send: 0 | 1
+  policy: BrainQueryGrantPolicy
   created_at_ms: number
   updated_at_ms: number
   revoked_at_ms: number | null
+}
+
+function parsePolicy(raw: unknown): BrainQueryGrantPolicy {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  if (s === 'auto' || s === 'review' || s === 'ignore') return s
+  return 'review'
 }
 
 function rowFromStmt(r: unknown): BrainQueryGrantRow | null {
@@ -28,14 +37,12 @@ function rowFromStmt(r: unknown): BrainQueryGrantRow | null {
     return null
   }
   const rev = o.revoked_at_ms
-  const autoRaw = o.auto_send
-  const auto_send: 0 | 1 = autoRaw === 1 ? 1 : 0
   return {
     id: o.id,
     owner_id: o.owner_id,
     asker_id: o.asker_id,
     privacy_policy: o.privacy_policy,
-    auto_send,
+    policy: parsePolicy(o.policy),
     created_at_ms: o.created_at_ms,
     updated_at_ms: o.updated_at_ms,
     revoked_at_ms: typeof rev === 'number' ? rev : null,
@@ -50,6 +57,7 @@ export function createBrainQueryGrant(params: {
   ownerId: string
   askerId: string
   privacyPolicy?: string
+  policy?: BrainQueryGrantPolicy
   db?: Database.Database
 }): BrainQueryGrantRow {
   const db = params.db ?? getBrainGlobalDb()
@@ -65,19 +73,21 @@ export function createBrainQueryGrant(params: {
     typeof params.privacyPolicy === 'string' && params.privacyPolicy.trim().length > 0
       ? params.privacyPolicy.trim()
       : DEFAULT_BRAIN_QUERY_PRIVACY_POLICY
+  const policy: BrainQueryGrantPolicy = params.policy ?? 'review'
   const id = newId()
   const now = Date.now()
   /** One row per (owner, asker); remove prior row so re-invite works after revoke or legacy soft-revoke. */
   db.prepare(`DELETE FROM brain_query_grants WHERE owner_id = ? AND asker_id = ?`).run(owner_id, asker_id)
   db.prepare(
     `INSERT INTO brain_query_grants (
-      id, owner_id, asker_id, privacy_policy, auto_send, created_at_ms, updated_at_ms, revoked_at_ms
-    ) VALUES (@id, @owner_id, @asker_id, @privacy_policy, 0, @created_at_ms, @updated_at_ms, NULL)`,
+      id, owner_id, asker_id, privacy_policy, policy, created_at_ms, updated_at_ms, revoked_at_ms
+    ) VALUES (@id, @owner_id, @asker_id, @privacy_policy, @policy, @created_at_ms, @updated_at_ms, NULL)`,
   ).run({
     id,
     owner_id,
     asker_id,
     privacy_policy,
+    policy,
     created_at_ms: now,
     updated_at_ms: now,
   })
@@ -145,19 +155,18 @@ export function updateBrainQueryGrantPrivacyPolicy(params: {
   return getBrainQueryGrantById(params.grantId, d)
 }
 
-export function setBrainQueryGrantAutoSend(params: {
+export function setBrainQueryGrantPolicy(params: {
   grantId: string
   ownerId: string
-  autoSend: boolean
+  policy: BrainQueryGrantPolicy
   db?: Database.Database
 }): BrainQueryGrantRow | null {
   const d = params.db ?? getBrainGlobalDb()
   const row = getBrainQueryGrantById(params.grantId, d)
   if (!row || row.owner_id !== params.ownerId.trim()) return null
   const now = Date.now()
-  const v: 0 | 1 = params.autoSend ? 1 : 0
-  d.prepare(`UPDATE brain_query_grants SET auto_send = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`).run(
-    v,
+  d.prepare(`UPDATE brain_query_grants SET policy = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`).run(
+    params.policy,
     now,
     params.grantId,
     params.ownerId.trim(),
@@ -165,9 +174,28 @@ export function setBrainQueryGrantAutoSend(params: {
   return getBrainQueryGrantById(params.grantId, d)
 }
 
+/** @deprecated Use {@link setBrainQueryGrantPolicy} with `'auto' | 'review'`. */
+export function setBrainQueryGrantAutoSend(params: {
+  grantId: string
+  ownerId: string
+  autoSend: boolean
+  db?: Database.Database
+}): BrainQueryGrantRow | null {
+  return setBrainQueryGrantPolicy({
+    grantId: params.grantId,
+    ownerId: params.ownerId,
+    policy: params.autoSend ? 'auto' : 'review',
+    db: params.db,
+  })
+}
+
 /** Whether outbound replies are sent to the asker without owner review (grant opt-in). */
 export function grantRowAutoSendEnabled(row: BrainQueryGrantRow): boolean {
-  return row.auto_send === 1
+  return row.policy === 'auto'
+}
+
+export function grantRowIgnoresInbound(row: BrainQueryGrantRow): boolean {
+  return row.policy === 'ignore'
 }
 
 /** Remove grant row (owner revoking outbound access). */

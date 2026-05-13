@@ -2,7 +2,7 @@
  * Fan-out server push for Hub / Your Wiki / in-app notifications: subscribers are SSE streams
  * registered per vault session ({@link registerHubSseSubscriber}). Background runs flush via
  * {@link notifyBackgroundRunWritten}; notification table changes flush via
- * {@link notifyNotificationsChanged}.
+ * {@link notifyNotificationsChanged}; B2B tunnel signals via {@link notifyBrainTunnelActivity}.
  */
 import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
 import { listBackgroundRuns } from '@server/lib/chat/backgroundAgentStore.js'
@@ -87,6 +87,14 @@ export function notifyNotificationsChanged(): void {
       void flushNotificationsChanged(ws)
     }, HUB_SSE_DEBOUNCE_MS),
   )
+}
+
+export async function notifyBrainTunnelActivity(dataJson: string): Promise<void> {
+  const ws = workspaceHandleForBackgroundNotify()
+  const targets = [...subscribers].filter((s) => s.workspaceHandle === ws)
+  if (targets.length === 0) return
+  const data = dataJson.trim().length > 0 ? dataJson : '{}'
+  await Promise.allSettled(targets.map((s) => s.writeSSE({ event: 'tunnel_activity', data })))
 }
 
 /**

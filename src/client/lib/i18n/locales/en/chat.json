@@ -58,16 +58,29 @@
     "tunnelsHeading": "Tunnels",
     "emptyTunnels": "No tunnels yet. Someone else must grant access from their Brain before you can chat through a tunnel.",
     "tunnelsLoadFailed": "Could not load tunnels.",
-    "pendingRow": "Pending",
-    "pendingRowWithCount": "Pending ({{count}})",
-    "pendingOpenAria": "Open pending tunnel messages",
-    "pendingOpenAriaWithCount": "Open pending tunnel messages — {{count}} waiting",
+    "pendingRow": "Inbox",
+    "pendingOpenAria": "Open inbox",
+    "pendingOpenAriaWithCount": "Open inbox — {{count}} waiting",
     "inboundHeading": "Inbound",
     "emptyInbound": "No inbound chats yet.",
     "pendingBadge": "Pending",
     "pendingCountAria": "{{count}} pending inbound chats",
     "wikiHeading": "Wiki",
-    "emptyWikiPages": "No wiki pages yet."
+    "emptyWikiPages": "No wiki pages yet.",
+    "tunnelIndicatorNewReply": "New reply in this tunnel",
+    "tunnelIndicatorAwaiting": "Waiting for collaborator to send",
+    "coldQuery": {
+      "button": "Query a brain",
+      "title": "Query a brain",
+      "targetLabel": "Their handle",
+      "targetPlaceholder": "username",
+      "messageLabel": "Message",
+      "messagePlaceholder": "What do you want to ask?",
+      "send": "Send",
+      "error": "Could not send.",
+      "grantExists": "You already have a tunnel with this person — pick them under Tunnels and send from there.",
+      "rateLimited": "You already reached out recently. Try again a bit later."
+    }
   },
   "rail": {
     "pendingCountAria": "{{count}} pending"
@@ -75,6 +88,8 @@
   "b2b": {
     "viaTunnel": "via tunnel",
     "askingYourBrain": "asking your brain",
+    "awaitingReceiptLabel": "Sent · pending approval",
+    "awaitingReceiptTooltip": "A reply will appear here once the draft is approved.",
     "approval": {
       "title": "Review answer before sending",
       "description": "Edit the answer if needed, then approve or decline the inbound request.",
@@ -87,7 +102,7 @@
   },
   "review": {
     "nav": {
-      "label": "Pending"
+      "label": "Inbox"
     },
     "loadFailed": "Could not load review items.",
     "emptyState": {
@@ -103,44 +118,44 @@
         "pending": "Draft ready",
         "sent": "Sent",
         "auto": "Auto-sent",
-        "declined": "Declined"
+        "declined": "Declined",
+        "dismissed": "Dismissed"
       }
     },
     "detail": {
       "loadFailed": "Could not load this thread.",
       "actionFailed": "Something went wrong.",
       "regenerateFailed": "Could not regenerate the draft.",
+      "regenerate": {
+        "placeholder": "Adjust the reply… (e.g. \"make it shorter\")"
+      },
       "layers": {
         "from": "From @{{peer}}",
-        "draft": "Your assistant drafted",
-        "willReceive": "What they'll receive"
-      },
-      "notesToAgent": {
-        "label": "Notes to your agent (regenerate)",
-        "placeholder": "Optional steering for the next draft…"
+        "reply": "Reply"
       },
       "actions": {
         "send": "Send",
         "decline": "Decline",
-        "regenerate": "Regenerate draft",
+        "dismiss": "Dismiss",
         "openThread": "Open full thread"
+      },
+      "policy": {
+        "coldBadge": "New contact",
+        "peerAt": "@{{handle}}",
+        "ariaGroup": "How to handle replies from this person",
+        "segment": {
+          "review": "Review",
+          "auto": "Auto-send",
+          "ignore": "Ignore"
+        },
+        "autoSendConfirm": {
+          "title": "Auto-send to @{{handle}}?",
+          "body1": "Elm can reply without waiting for you. It follows your response policy as closely as it can, and you can read every message afterward.",
+          "body2": "You’re no longer the bottleneck in this thread — great when you’re slammed. Turn it off anytime from here or Brain access.",
+          "confirm": "Turn on auto-send"
+        }
       }
     }
-  },
-  "saveToWiki": {
-    "title": "Save to wiki",
-    "pathLabel": "Wiki path",
-    "titleLabel": "Title (optional)",
-    "titlePlaceholder": "Add a title for this note",
-    "provenance": "Include provenance footer",
-    "openAfter": "Open page after saving",
-    "save": "Save to wiki",
-    "saving": "Saving…",
-    "cancel": "Cancel",
-    "error": "Could not save.",
-    "saveSelection": "Save {{count}} to wiki",
-    "saveOneAria": "Save this message to your wiki",
-    "selectionModeAria": "Select messages to save together"
   },
   "historyPage": {
     "searchChatsLabel": "Search chats",

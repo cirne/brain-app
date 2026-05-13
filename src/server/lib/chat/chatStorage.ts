@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import type { ApprovalState, ChatMessage, ChatSessionDocV1, ChatSessionType } from './chatTypes.js'
 import { chatDataDirResolved } from '@server/lib/platform/brainHome.js'
 import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
+import { getBrainQueryGrantById } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import type { BrainQueryGrantPolicy } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 
 type TenantDb = ReturnType<typeof getTenantDb>
 
@@ -67,7 +69,7 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
   const sess = db
     .prepare(
       `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-        approval_state, created_at_ms, updated_at_ms
+        approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
        FROM chat_sessions WHERE lower(session_id) = lower(?)`,
     )
     .get(sessionId) as ChatSessionRow | undefined
@@ -78,6 +80,7 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
     )
     .all(sess.session_id) as { seq: number; role: string; content_json: string; created_at_ms: number }[]
   const messages = parseMessages(msgRows)
+  const isCold = sess.is_cold_query === 1
   return {
     version: 1,
     sessionId: sess.session_id,
@@ -89,6 +92,13 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
     remoteHandle: sess.remote_handle,
     remoteDisplayName: sess.remote_display_name,
     approvalState: sess.approval_state,
+    ...(isCold
+      ? {
+          isColdQuery: true as const,
+          coldPeerUserId: sess.cold_peer_user_id,
+          coldLinkedSessionId: sess.cold_linked_session_id,
+        }
+      : {}),
     messages,
   }
 }
@@ -115,6 +125,9 @@ type ChatSessionRow = {
   remote_handle: string | null
   remote_display_name: string | null
   approval_state: ApprovalState | null
+  is_cold_query: number
+  cold_peer_user_id: string | null
+  cold_linked_session_id: string | null
   created_at_ms: number
   updated_at_ms: number
 }
@@ -125,6 +138,10 @@ export type EnsureSessionStubOptions = {
   remoteHandle?: string | null
   remoteDisplayName?: string | null
   approvalState?: ApprovalState | null
+  /** When true with {@link coldPeerUserId}, allows `remoteGrantId` null for cold-query handshake (OPP-112). */
+  isColdQuery?: boolean
+  coldPeerUserId?: string | null
+  coldLinkedSessionId?: string | null
 }
 
 function rowToListItem(r: ChatSessionRow, preview?: string): ChatSessionListItem {
@@ -186,7 +203,7 @@ export async function listSessions(limit?: number): Promise<ChatSessionListItem[
   const db = getTenantDb()
   const cap = typeof limit === 'number' && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined
   const projection = `session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-    approval_state, created_at_ms, updated_at_ms`
+    approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms`
   const sql =
     cap !== undefined
       ? `SELECT ${projection} FROM chat_sessions ORDER BY updated_at_ms DESC LIMIT ?`
@@ -223,14 +240,18 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
   if (existing) return
   const sessionType = options.sessionType ?? 'own'
   const remoteGrantId = options.remoteGrantId?.trim() || null
-  if (sessionType !== 'own' && remoteGrantId === null) {
+  const isCold = options.isColdQuery === true
+  const coldPeer = options.coldPeerUserId?.trim() || null
+  if (sessionType !== 'own' && remoteGrantId === null && !(isCold && coldPeer)) {
     throw new Error('remote_grant_id_required_for_b2b_session')
   }
+  const coldLink = options.coldLinkedSessionId?.trim() || null
+  const coldFlag = isCold ? 1 : 0
   db.prepare(
     `INSERT INTO chat_sessions (
        session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-       approval_state, created_at_ms, updated_at_ms
-     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+       approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
+     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     sessionId,
     sessionType,
@@ -238,6 +259,9 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
     options.remoteHandle?.trim() || null,
     options.remoteDisplayName?.trim() || null,
     options.approvalState ?? null,
+    coldFlag,
+    coldPeer,
+    coldLink,
     now,
     now,
   )
@@ -253,7 +277,7 @@ export async function findB2BSession(
   const row = db
     .prepare(
       `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-        approval_state, created_at_ms, updated_at_ms
+        approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
        FROM chat_sessions
        WHERE session_type = ? AND remote_grant_id = ?
        LIMIT 1`,
@@ -347,13 +371,17 @@ export async function replaceLastAssistantMessageInSession(sessionId: string, as
 
 export type B2BInboundReviewRow = {
   sessionId: string
-  grantId: string
+  /** Null when inbound is a cold query before grant handshake. */
+  grantId: string | null
+  isColdQuery: boolean
   peerHandle: string | null
   peerDisplayName: string | null
   askerSnippet: string
   draftSnippet: string
   rowState: ApprovalState
   updatedAtMs: number
+  /** Grant policy when `grantId` is set; null for cold pre-handshake rows. */
+  policy: BrainQueryGrantPolicy | null
 }
 
 function snippetFromPlainText(text: string): string {
@@ -374,7 +402,7 @@ export async function listB2BInboundReviewRows(params: {
   const db = getTenantDb()
   const rows = db
     .prepare(
-      `SELECT session_id, remote_grant_id, remote_handle, remote_display_name, approval_state, updated_at_ms
+      `SELECT session_id, remote_grant_id, remote_handle, remote_display_name, approval_state, updated_at_ms, is_cold_query
        FROM chat_sessions
        WHERE session_type = 'b2b_inbound'
        ORDER BY updated_at_ms DESC`,
@@ -386,15 +414,18 @@ export async function listB2BInboundReviewRows(params: {
     remote_display_name: string | null
     approval_state: ApprovalState | null
     updated_at_ms: number
+    is_cold_query: number
   }[]
 
   const out: B2BInboundReviewRow[] = []
   for (const r of rows) {
     const st: ApprovalState = r.approval_state ?? 'pending'
+    if (st === 'dismissed') continue
     if (params.stateFilter === 'pending' && st !== 'pending') continue
     if (params.stateFilter === 'sent' && st !== 'approved' && st !== 'auto') continue
-    const grantId = r.remote_grant_id?.trim() ?? ''
-    if (!grantId) continue
+    const grantIdRaw = r.remote_grant_id?.trim() ?? ''
+    const isCold = r.is_cold_query === 1
+    if (!grantIdRaw && !isCold) continue
 
     const msgRows = db
       .prepare(`SELECT role, content_json FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`)
@@ -412,24 +443,65 @@ export async function listB2BInboundReviewRows(params: {
       }
     }
 
+    const grantId = grantIdRaw.length > 0 ? grantIdRaw : null
+    const grantRow = grantId ? getBrainQueryGrantById(grantId) : null
+    const policy = grantRow?.policy ?? null
+
     out.push({
       sessionId: r.session_id,
       grantId,
+      isColdQuery: isCold,
       peerHandle: r.remote_handle,
       peerDisplayName: r.remote_display_name,
       askerSnippet: lastUserText ? snippetFromPlainText(lastUserText) : '',
       draftSnippet: lastAssistant ? draftSnippetFromAssistant(lastAssistant) : '',
       rowState: st,
       updatedAtMs: r.updated_at_ms,
+      policy,
     })
   }
 
-  out.sort((a, b) => {
-    if (a.rowState === 'pending' && b.rowState !== 'pending') return -1
-    if (a.rowState !== 'pending' && b.rowState === 'pending') return 1
-    return b.updatedAtMs - a.updatedAtMs
-  })
+  if (params.stateFilter === 'pending') {
+    out.sort((a, b) => a.updatedAtMs - b.updatedAtMs)
+  } else {
+    out.sort((a, b) => {
+      if (a.rowState === 'pending' && b.rowState !== 'pending') return -1
+      if (a.rowState !== 'pending' && b.rowState === 'pending') return 1
+      return b.updatedAtMs - a.updatedAtMs
+    })
+  }
   return out
+}
+
+export function listPendingInboundSessionIdsForGrant(remoteGrantId: string): string[] {
+  const db = getTenantDb()
+  const gid = remoteGrantId.trim()
+  if (!gid) return []
+  const rows = db
+    .prepare(
+      `SELECT session_id FROM chat_sessions
+       WHERE session_type = 'b2b_inbound' AND remote_grant_id = ? AND approval_state = 'pending'`,
+    )
+    .all(gid) as { session_id: string }[]
+  return rows.map((r) => r.session_id)
+}
+
+export function setColdLinkedSessionId(sessionId: string, linkedSessionId: string): void {
+  const db = getTenantDb()
+  const now = Date.now()
+  db.prepare(
+    `UPDATE chat_sessions SET cold_linked_session_id = ?, updated_at_ms = ? WHERE lower(session_id) = lower(?)`,
+  ).run(linkedSessionId.trim(), now, sessionId)
+}
+
+/** After cold-query handshake: attach real grant id and clear cold flags. */
+export function finalizeColdSessionWithGrant(sessionId: string, grantId: string): void {
+  const db = getTenantDb()
+  const now = Date.now()
+  db.prepare(
+    `UPDATE chat_sessions SET remote_grant_id = ?, is_cold_query = 0, cold_peer_user_id = NULL, cold_linked_session_id = NULL, updated_at_ms = ?
+     WHERE lower(session_id) = lower(?)`,
+  ).run(grantId.trim(), now, sessionId)
 }
 
 /** Persist title as soon as set_chat_title runs (before the turn is saved). */

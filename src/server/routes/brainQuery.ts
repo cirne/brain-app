@@ -38,7 +38,9 @@ export type BrainQueryGrantApi = {
   askerId: string
   askerHandle?: string
   privacyPolicy: string
+  /** @deprecated Prefer {@link policy}; true when policy is `auto`. */
   autoSend: boolean
+  policy: 'auto' | 'review' | 'ignore'
   createdAtMs: number
   updatedAtMs: number
 }
@@ -58,7 +60,8 @@ async function toApiGrant(row: BrainQueryGrantRow): Promise<BrainQueryGrantApi> 
     askerId: row.asker_id,
     ...(askerHandle ? { askerHandle } : {}),
     privacyPolicy: row.privacy_policy,
-    autoSend: row.auto_send === 1,
+    autoSend: row.policy === 'auto',
+    policy: row.policy,
     createdAtMs: row.created_at_ms,
     updatedAtMs: row.updated_at_ms,
   }

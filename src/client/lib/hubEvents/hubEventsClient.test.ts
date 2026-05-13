@@ -3,8 +3,10 @@ import { get } from 'svelte/store'
 import { resetConnectionStatusForTests } from '../connectionStatus.js'
 import {
   resetHubNotificationsRefreshSubscribersForTests,
+  resetTunnelActivitySubscribersForTests,
   startHubEventsConnection,
   subscribeHubNotificationsRefresh,
+  subscribeTunnelActivity,
 } from './hubEventsClient.js'
 import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from './hubEventsStores.js'
 import type { BackgroundAgentDoc } from '../statusBar/backgroundAgentTypes.js'
@@ -52,6 +54,14 @@ class MockEventSource {
     }
   }
 
+  simulateRawData(type: string, data: string) {
+    const listeners = this.listeners.get(type)
+    if (listeners) {
+      const event = new MessageEvent(type, { data })
+      listeners.forEach((fn) => fn(event))
+    }
+  }
+
   static clear() {
     MockEventSource.instances = []
   }
@@ -68,6 +78,7 @@ describe('hubEventsClient', () => {
     vi.stubGlobal('EventSource', MockEventSource)
     resetConnectionStatusForTests()
     resetHubNotificationsRefreshSubscribersForTests()
+    resetTunnelActivitySubscribersForTests()
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -81,6 +92,7 @@ describe('hubEventsClient', () => {
     vi.unstubAllGlobals()
     resetConnectionStatusForTests()
     resetHubNotificationsRefreshSubscribersForTests()
+    resetTunnelActivitySubscribersForTests()
     yourWikiDocFromEvents.set(null)
     backgroundAgentsFromEvents.set([])
   })
@@ -286,6 +298,37 @@ describe('hubEventsClient', () => {
 
       es.simulateMessage('notifications_changed', {})
       expect(cb).not.toHaveBeenCalled()
+      stop()
+    })
+  })
+
+  describe('tunnel_activity', () => {
+    it('invokes subscriber with parsed payload', () => {
+      const cb = vi.fn()
+      subscribeTunnelActivity(cb)
+      const stop = startHubEventsConnection()
+      const es = MockEventSource.latest()!
+      es.simulateMessage('tunnel_activity', { scope: 'outbound', outboundSessionId: 's1', grantId: 'g1' })
+      expect(cb).toHaveBeenCalledWith({ scope: 'outbound', outboundSessionId: 's1', grantId: 'g1' })
+      stop()
+    })
+
+    it('empty data invokes subscriber with null', () => {
+      const cb = vi.fn()
+      subscribeTunnelActivity(cb)
+      const stop = startHubEventsConnection()
+      const es = MockEventSource.latest()!
+      es.simulateRawData('tunnel_activity', '')
+      expect(cb).toHaveBeenCalledWith(null)
+      stop()
+    })
+
+    it('EventSource open invokes tunnel subscriber with null', () => {
+      const cb = vi.fn()
+      subscribeTunnelActivity(cb)
+      const stop = startHubEventsConnection()
+      MockEventSource.latest()!.simulateOpen()
+      expect(cb).toHaveBeenCalledWith(null)
       stop()
     })
   })

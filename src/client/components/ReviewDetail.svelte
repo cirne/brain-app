@@ -2,9 +2,11 @@
   import { apiFetch } from '@client/lib/apiFetch.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { t } from '@client/lib/i18n/index.js'
-  import { cn } from '@client/lib/cn.js'
   import type { ChatMessage } from '@client/lib/agentUtils.js'
-  import type { B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
+  import type { B2BGrantPolicyApi, B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
+  import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
+  import { Archive, CircleX, MessagesSquare, Send } from 'lucide-svelte'
 
   let {
     row,
@@ -18,10 +20,20 @@
 
   let askerText = $state('')
   let draftText = $state('')
-  let notesToAgent = $state('')
   let loadError = $state<string | null>(null)
   let busy = $state(false)
   let actionError = $state<string | null>(null)
+  /** Cold-query rows: policy to store on the new grant when you hit Send. */
+  let coldEstablishPolicy = $state<B2BGrantPolicyApi>('review')
+  let autoSendConfirmOpen = $state(false)
+
+  const isColdInbound = $derived(Boolean(row.isColdQuery && !row.grantId))
+  const canEditGrantPolicy = $derived(Boolean(row.grantId && row.policy != null))
+
+  $effect(() => {
+    void row.sessionId
+    coldEstablishPolicy = 'review'
+  })
 
   const peerLabel = $derived.by(() => {
     const h = (row.peerHandle ?? '').trim().replace(/^@/, '')
@@ -31,6 +43,17 @@
   })
 
   const isPending = $derived(row.state === 'pending')
+
+  const effectivePolicy = $derived<B2BGrantPolicyApi | null>(
+    isColdInbound ? coldEstablishPolicy : row.policy,
+  )
+
+  const policySegClass = (p: B2BGrantPolicyApi) =>
+    `rounded-md px-2 py-1 text-[0.6875rem] font-semibold transition-colors ${
+      effectivePolicy === p
+        ? 'bg-accent text-white'
+        : 'bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground'
+    }`
 
   function textFromUserMessages(messages: ChatMessage[]): string {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -77,9 +100,15 @@
     actionError = null
     try {
       const body =
-        endpoint.endsWith('/approve')
-          ? { sessionId: row.sessionId, editedAnswer: draftText.trim() }
-          : { sessionId: row.sessionId }
+        endpoint.endsWith('/approve') && isColdInbound
+          ? {
+              sessionId: row.sessionId,
+              editedAnswer: draftText.trim(),
+              establishPolicy: coldEstablishPolicy,
+            }
+          : endpoint.endsWith('/approve')
+            ? { sessionId: row.sessionId, editedAnswer: draftText.trim() }
+            : { sessionId: row.sessionId }
       const res = await apiFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,7 +127,91 @@
     }
   }
 
-  async function regenerate() {
+  async function dismiss(): Promise<void> {
+    if (busy) return
+    busy = true
+    actionError = null
+    try {
+      const res = await apiFetch('/api/chat/b2b/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: row.sessionId }),
+      })
+      if (!res.ok) {
+        actionError = $t('chat.review.detail.actionFailed')
+        return
+      }
+      emit({ type: 'b2b:review-changed' })
+      await onMutate()
+    } catch {
+      actionError = $t('chat.review.detail.actionFailed')
+    } finally {
+      busy = false
+    }
+  }
+
+  async function applyGrantPolicyPatch(p: B2BGrantPolicyApi): Promise<void> {
+    const gid = row.grantId?.trim() ?? ''
+    if (!gid) return
+    busy = true
+    actionError = null
+    try {
+      const res = await apiFetch(`/api/chat/b2b/grants/${encodeURIComponent(gid)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policy: p }),
+      })
+      if (!res.ok) {
+        actionError = $t('chat.review.detail.actionFailed')
+        return
+      }
+      emit({ type: 'b2b:review-changed' })
+      await onMutate()
+      await reloadSession()
+    } catch {
+      actionError = $t('chat.review.detail.actionFailed')
+    } finally {
+      busy = false
+    }
+  }
+
+  async function handlePolicyPick(p: B2BGrantPolicyApi): Promise<void> {
+    if (busy || !isPending) return
+    if (isColdInbound) {
+      if (p === 'ignore') {
+        await dismiss()
+        return
+      }
+      if (p === 'auto') {
+        autoSendConfirmOpen = true
+        return
+      }
+      coldEstablishPolicy = p
+      return
+    }
+    if (!canEditGrantPolicy) return
+    if (p === row.policy) return
+    if (p === 'auto') {
+      autoSendConfirmOpen = true
+      return
+    }
+    await applyGrantPolicyPatch(p)
+  }
+
+  function dismissAutoSendConfirm(): void {
+    autoSendConfirmOpen = false
+  }
+
+  function confirmAutoSend(): void {
+    autoSendConfirmOpen = false
+    if (isColdInbound) {
+      coldEstablishPolicy = 'auto'
+      return
+    }
+    void applyGrantPolicyPatch('auto')
+  }
+
+  async function regenerateFromComposer(notes: string): Promise<void> {
     if (busy || !isPending) return
     busy = true
     actionError = null
@@ -106,7 +219,7 @@
       const res = await apiFetch('/api/chat/b2b/regenerate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: row.sessionId, notes: notesToAgent }),
+        body: JSON.stringify({ sessionId: row.sessionId, notes }),
       })
       if (!res.ok) {
         actionError = $t('chat.review.detail.regenerateFailed')
@@ -123,99 +236,172 @@
       busy = false
     }
   }
-
-  const labelClass = 'm-0 mb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted'
-  const boxClass =
-    'rounded-md border border-border bg-[color-mix(in_srgb,var(--bg-2)_40%,transparent)] p-3 text-[0.8125rem] leading-relaxed text-foreground'
 </script>
 
 <div
-  class="review-detail flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 md:px-5"
+  class="review-detail flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 py-3 md:px-5 md:py-4"
   data-testid="review-detail"
 >
   {#if loadError}
-    <p class="m-0 text-danger text-sm" role="alert">{loadError}</p>
+    <p class="m-0 shrink-0 pb-2 text-danger text-sm" role="alert">{loadError}</p>
   {/if}
 
-  <div class={boxClass}>
-    <p class={labelClass}>{$t('chat.review.detail.layers.from', { peer: peerLabel })}</p>
-    <div class="whitespace-pre-wrap text-foreground">{askerText || '—'}</div>
-  </div>
-
-  <div class={boxClass}>
-    <p class={labelClass}>{$t('chat.review.detail.layers.draft')}</p>
-    {#if isPending}
-      <textarea
-        class="min-h-[7.5rem] w-full resize-y rounded-sm border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent"
-        bind:value={draftText}
-        disabled={busy}
-        aria-label={$t('chat.review.detail.layers.draft')}
-      ></textarea>
-    {:else}
-      <div class="whitespace-pre-wrap text-muted">{draftText || '—'}</div>
+  <div
+    class="sender-strip mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/70 bg-[color-mix(in_srgb,var(--bg-2)_55%,transparent)] px-2.5 py-2"
+    data-testid="review-sender-strip"
+  >
+    <div class="flex min-w-0 flex-col gap-0.5">
+      {#if isColdInbound}
+        <span
+          class="w-fit rounded bg-accent/15 px-1.5 py-[1px] text-[0.65rem] font-semibold uppercase tracking-wide text-accent"
+        >
+          {$t('chat.review.policy.coldBadge')}
+        </span>
+      {/if}
+      <span class="truncate text-[0.8125rem] font-semibold text-foreground">
+        {$t('chat.review.policy.peerAt', { handle: peerLabel })}
+      </span>
+    </div>
+    {#if isPending && (isColdInbound || canEditGrantPolicy)}
+      <div
+        class="flex flex-wrap items-center gap-1"
+        role="group"
+        aria-label={$t('chat.review.policy.ariaGroup')}
+      >
+        {#each ['review', 'auto', 'ignore'] as p (p)}
+          <button
+            type="button"
+            class={policySegClass(p as B2BGrantPolicyApi)}
+            disabled={busy}
+            data-testid={`review-policy-${p}`}
+            onclick={() => void handlePolicyPick(p as B2BGrantPolicyApi)}
+          >
+            {$t(`chat.review.policy.segment.${p}`)}
+          </button>
+        {/each}
+      </div>
     {/if}
   </div>
 
-  <div class={boxClass}>
-    <p class={labelClass}>{$t('chat.review.detail.layers.willReceive')}</p>
-    <div class="whitespace-pre-wrap text-foreground" data-testid="review-will-receive">
-      {(draftText ?? '').trim() || '—'}
+  <div class="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--bg-2)_40%,transparent)] px-3 py-2">
+    <p class="m-0 mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wider text-muted">
+      {$t('chat.review.detail.layers.from', { peer: peerLabel })}
+    </p>
+    <div class="text-[0.75rem] leading-snug text-muted">{askerText || '—'}</div>
+  </div>
+
+  <!-- Flex fill: reply body (no outer card chrome) -->
+  <div class="mt-3 flex min-h-0 flex-1 flex-col gap-1 md:mt-4">
+    <p class="m-0 shrink-0 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted">
+      {$t('chat.review.detail.layers.reply')}
+    </p>
+    <div class="review-reply-body min-h-0 flex-1 overflow-hidden md:mt-1">
+      {#if isPending}
+        <textarea
+          class="h-full min-h-[10rem] w-full resize-none bg-transparent px-0 py-1 text-[0.8125rem] leading-relaxed text-foreground placeholder:text-muted focus:outline-none"
+          bind:value={draftText}
+          disabled={busy}
+          aria-label={$t('chat.review.detail.layers.reply')}
+          data-testid="review-reply-textarea"
+        ></textarea>
+      {:else}
+        <div
+          class="h-full overflow-y-auto whitespace-pre-wrap py-1 text-[0.8125rem] leading-relaxed text-muted"
+          data-testid="review-will-receive"
+        >
+          {draftText || '—'}
+        </div>
+      {/if}
     </div>
   </div>
 
   {#if isPending}
-    <div class={boxClass}>
-      <p class={labelClass}>{$t('chat.review.detail.notesToAgent.label')}</p>
-      <textarea
-        class="min-h-[4rem] w-full resize-y rounded-sm border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent"
-        bind:value={notesToAgent}
-        disabled={busy}
-        placeholder={$t('chat.review.detail.notesToAgent.placeholder')}
-      ></textarea>
-      <div class="mt-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:bg-surface-3 disabled:opacity-50"
-          disabled={busy}
-          onclick={() => void regenerate()}
-        >
-          {$t('chat.review.detail.actions.regenerate')}
-        </button>
-      </div>
+    <div class="review-regenerate-composer shrink-0 border-t border-border pt-3 md:mt-3 md:pt-3">
+      <UnifiedChatComposer
+        voiceEligible={false}
+        sessionResetKey={row.sessionId}
+        placeholder={$t('chat.review.detail.regenerate.placeholder')}
+        wikiFiles={[]}
+        skills={[]}
+        streaming={false}
+        inputDisabled={busy}
+        autoFocusInputOnMount={false}
+        onSend={(text) => void regenerateFromComposer(text)}
+        onTranscribe={() => {}}
+      />
     </div>
   {/if}
 
   {#if actionError}
-    <p class="m-0 text-danger text-sm" role="alert">{actionError}</p>
+    <p class="m-0 shrink-0 pb-2 text-danger text-sm pt-2" role="alert">{actionError}</p>
   {/if}
 
-  <div class="flex flex-wrap items-center gap-2">
+  <div class="review-detail-actions mt-auto flex shrink-0 flex-wrap items-center justify-end gap-2 pt-3">
+    <button
+      type="button"
+      class="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-foreground"
+      onclick={() => onOpenInboundThread(row.sessionId)}
+    >
+      <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
+        <MessagesSquare class="size-3.5 shrink-0" strokeWidth={2} />
+      </span>
+      {$t('chat.review.detail.actions.openThread')}
+    </button>
     {#if isPending}
       <button
         type="button"
-        class={cn(
-          'rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50',
-        )}
-        disabled={busy || !(draftText ?? '').trim()}
-        onclick={() => void postApproveOrDecline('/api/chat/b2b/approve')}
+        class="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+        disabled={busy}
+        onclick={() => void dismiss()}
       >
-        {$t('chat.review.detail.actions.send')}
+        <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
+          <Archive class="size-3.5 shrink-0" strokeWidth={2} />
+        </span>
+        {$t('chat.review.detail.actions.dismiss')}
       </button>
       <button
         type="button"
-        class="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface-3 disabled:opacity-50"
+        class="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface-3 disabled:opacity-50"
         disabled={busy}
         onclick={() => void postApproveOrDecline('/api/chat/b2b/decline')}
       >
+        <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
+          <CircleX class="size-3.5 shrink-0" strokeWidth={2} />
+        </span>
         {$t('chat.review.detail.actions.decline')}
       </button>
+      <button
+        type="button"
+        class="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+        disabled={busy || !(draftText ?? '').trim()}
+        onclick={() => void postApproveOrDecline('/api/chat/b2b/approve')}
+      >
+        <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
+          <Send class="size-3.5 shrink-0" strokeWidth={2} />
+        </span>
+        {$t('chat.review.detail.actions.send')}
+      </button>
     {/if}
-    <button
-      type="button"
-      class="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-foreground"
-      onclick={() => onOpenInboundThread(row.sessionId)}
-    >
-      {$t('chat.review.detail.actions.openThread')}
-    </button>
   </div>
 </div>
+
+<ConfirmDialog
+  open={autoSendConfirmOpen}
+  title={$t('chat.review.policy.autoSendConfirm.title', { handle: peerLabel })}
+  titleId="review-auto-send-title"
+  confirmLabel={$t('chat.review.policy.autoSendConfirm.confirm')}
+  cancelLabel={$t('common.actions.cancel')}
+  onDismiss={dismissAutoSendConfirm}
+  onConfirm={confirmAutoSend}
+>
+  <p>{$t('chat.review.policy.autoSendConfirm.body1')}</p>
+  <p>{$t('chat.review.policy.autoSendConfirm.body2')}</p>
+</ConfirmDialog>
+
+<style>
+  /* Keep steering composer compact (avoid tall TipTap-sized chrome). */
+  .review-regenerate-composer :global(textarea.chat-textarea) {
+    max-height: 3.25rem;
+    overflow-y: auto !important;
+  }
+</style>

@@ -23,14 +23,18 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
   let selectedId = $state<string | null>(null)
+  /** Set before load() when triggered by an approve/dismiss action to drive auto-advance. */
+  let wantAdvance = false
 
   const selected = $derived(selectedId ? rows.find((r) => r.sessionId === selectedId) ?? null : null)
 
   async function load() {
+    const shouldAdvance = wantAdvance
+    wantAdvance = false
     loading = true
     error = null
     try {
-      const res = await apiFetch('/api/chat/b2b/review?state=all')
+      const res = await apiFetch('/api/chat/b2b/review?state=pending')
       if (!res.ok) {
         error = $t('chat.review.loadFailed')
         rows = []
@@ -44,9 +48,17 @@
         const o = x as Record<string, unknown>
         const sessionId = typeof o.sessionId === 'string' ? o.sessionId.trim() : ''
         if (!sessionId) continue
+        const grantRaw = o.grantId
+        const grantId =
+          typeof grantRaw === 'string' && grantRaw.trim().length > 0 ? grantRaw.trim() : null
+        const polRaw = o.policy
+        const policy =
+          polRaw === 'auto' || polRaw === 'review' || polRaw === 'ignore' ? polRaw : null
         next.push({
           sessionId,
-          grantId: typeof o.grantId === 'string' ? o.grantId : '',
+          grantId,
+          isColdQuery: o.isColdQuery === true,
+          policy,
           peerHandle: typeof o.peerHandle === 'string' ? o.peerHandle : null,
           peerDisplayName: typeof o.peerDisplayName === 'string' ? o.peerDisplayName : null,
           askerSnippet: typeof o.askerSnippet === 'string' ? o.askerSnippet : '',
@@ -56,9 +68,34 @@
         })
       }
       rows = next
-      if (selectedId && !rows.some((r) => r.sessionId === selectedId)) {
-        selectedId = null
-        onNavigateSession(undefined)
+
+      const want = initialSessionId?.trim() ?? ''
+      if (want && rows.some((r) => r.sessionId === want)) {
+        selectedId = want
+        onNavigateSession(want)
+      } else if (shouldAdvance && selectedId) {
+        // Auto-advance after approve/dismiss: move to the next pending row.
+        const currentRow = rows.find((r) => r.sessionId === selectedId)
+        if (!currentRow || currentRow.state !== 'pending') {
+          const nextPending = rows.find((r) => r.state === 'pending')
+          if (nextPending) {
+            selectedId = nextPending.sessionId
+            onNavigateSession(nextPending.sessionId)
+          } else if (!currentRow) {
+            selectedId = null
+            onNavigateSession(undefined)
+          }
+        }
+      } else {
+        if (selectedId && !rows.some((r) => r.sessionId === selectedId)) {
+          selectedId = null
+          onNavigateSession(undefined)
+        }
+        if (!selectedId && rows.length > 0) {
+          const first = rows.find((r) => r.state === 'pending') ?? rows[0]
+          selectedId = first.sessionId
+          onNavigateSession(first.sessionId)
+        }
       }
     } catch {
       error = $t('chat.review.loadFailed')
@@ -68,11 +105,18 @@
     }
   }
 
+  /** Called by ReviewDetail after a successful approve or dismiss to reload and auto-advance. */
+  async function loadAndAdvance() {
+    wantAdvance = true
+    await load()
+  }
+
   function stateLabel(state: string): string {
     if (state === 'pending') return $t('chat.review.row.state.pending')
     if (state === 'sent' || state === 'approved') return $t('chat.review.row.state.sent')
     if (state === 'auto') return $t('chat.review.row.state.auto')
     if (state === 'declined') return $t('chat.review.row.state.declined')
+    if (state === 'dismissed') return $t('chat.review.row.state.dismissed')
     return state
   }
 
@@ -87,9 +131,12 @@
     const res = await apiFetch('/api/chat/b2b/approve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: r.sessionId }),
+      body: JSON.stringify({
+        sessionId: r.sessionId,
+        ...(r.isColdQuery && !r.grantId ? { establishPolicy: 'review' as const } : {}),
+      }),
     })
-    if (res.ok) await load()
+    if (res.ok) await loadAndAdvance()
   }
 
   $effect(() => {
@@ -195,7 +242,7 @@
 
   <div class="flex min-h-0 min-w-0 flex-1 flex-col">
     {#if selected}
-      <ReviewDetail row={selected} {onOpenInboundThread} onMutate={() => void load()} />
+      <ReviewDetail row={selected} {onOpenInboundThread} onMutate={() => void loadAndAdvance()} />
     {:else if selectedId && loading}
       <div class="flex flex-1 items-center justify-center p-6 text-sm text-muted" role="status">
         {$t('common.status.loading')}

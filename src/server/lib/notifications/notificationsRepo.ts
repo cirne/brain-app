@@ -1,6 +1,31 @@
 import { randomUUID } from 'node:crypto'
-import { notifyNotificationsChanged } from '@server/lib/hub/hubSseBroker.js'
+import { notifyBrainTunnelActivity, notifyNotificationsChanged } from '@server/lib/hub/hubSseBroker.js'
 import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
+
+const BRAIN_TUNNEL_SSE_SOURCE_KINDS = new Set([
+  /** Owner: new collaborator question pending review */
+  'b2b_inbound_query',
+  /** Asker: owner approved / declined — outbound transcript updates */
+  'b2b_tunnel_outbound_updated',
+])
+
+function tunnelActivitySsePayload(input: CreateNotificationInput): string | null {
+  if (!BRAIN_TUNNEL_SSE_SOURCE_KINDS.has(input.sourceKind)) return null
+  const p =
+    input.payload != null && typeof input.payload === 'object' ? (input.payload as Record<string, unknown>) : {}
+  if (input.sourceKind === 'b2b_inbound_query') {
+    return JSON.stringify({
+      scope: 'inbox',
+      inboundSessionId: typeof p.b2bSessionId === 'string' ? p.b2bSessionId : null,
+      grantId: typeof p.grantId === 'string' ? p.grantId : null,
+    })
+  }
+  return JSON.stringify({
+    scope: 'outbound',
+    outboundSessionId: typeof p.outboundSessionId === 'string' ? p.outboundSessionId : null,
+    grantId: typeof p.grantId === 'string' ? p.grantId : null,
+  })
+}
 
 export type NotificationState = 'unread' | 'read' | 'dismissed'
 
@@ -68,6 +93,11 @@ export function createNotification(input: CreateNotificationInput): Notification
   ).run(id, input.sourceKind, payloadJson, state, idem, now, now)
 
   notifyNotificationsChanged()
+
+  const sseData = tunnelActivitySsePayload(input)
+  if (sseData !== null) {
+    void notifyBrainTunnelActivity(sseData)
+  }
 
   return {
     id,

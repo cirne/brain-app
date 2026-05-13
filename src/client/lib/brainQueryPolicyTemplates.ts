@@ -37,16 +37,16 @@ export const BRAIN_QUERY_POLICY_TEMPLATES: BrainQueryPolicyTemplate[] = [
     text: [
       'ALLOWED: Professional and work context: active projects, deadlines, meeting subjects, workplace decisions, and named colleagues or contacts when needed for the work topic.',
       'OMIT: Non-work personal life by default: family and household detail, health and medical topics, finances and major purchases, housing, religion, politics, hobbies, and social relationships—unless one minimal fact is strictly required to answer a work-scoped question and is not credential, identifier, or clinical content.',
-      'Prefer summaries over long specifics; avoid quoting mail or documents verbatim when paraphrase suffices.',
+      'Prefer paraphrase over long verbatim quotes from mail or documents when the content is sensitive; still give a complete answer to the work question in one reply.',
     ].join('\n\n'),
   },
   {
     id: 'minimal-disclosure',
     label: 'Minimal disclosure',
-    hint: 'Thin, literal answers only—no backstory, extra names, or calendar padding unless the question truly requires it.',
+    hint: 'Smallest privacy surface: omit sensitive names, places, and backstory when the question can still be answered truthfully—this is not an excuse for one-line non-answers.',
     text: [
-      'ALLOWED: Only the minimum facts, names, dates, or amounts required so the answer is still true and usable. If a careful answer is possible without naming people or places, omit them.',
-      'OMIT: Background, related projects, secondary participants, opinions, and any detail not strictly required for the ask. Do not add calendar or personal context beyond what the question requires.',
+      'ALLOWED: Enough facts, names, dates, or amounts that the answer stays true and usable in one message. Minimize sensitive identifiers: if the question can be answered without naming a person or place, omit them.',
+      'OMIT: Extra background, unrelated projects, secondary participants, opinions, and any sensitive detail not needed for the ask. This limits what crosses the tunnel—not how “chatty” the model sounds; still answer the question completely within those bounds.',
     ].join('\n\n'),
   },
 ]

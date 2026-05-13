@@ -34,7 +34,7 @@
   }
   import { consumeAgentChatStream } from '@client/lib/agentChat/streamClient.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { subscribeHubNotificationsRefresh } from '@client/lib/hubEvents/hubEventsClient.js'
+  import { subscribeHubNotificationsRefresh, subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
   import {
     collectStreamingSessionIds,
     createPendingSessionKey,
@@ -54,7 +54,7 @@
     presentationForNotificationRow,
     type NotificationKickoffHints,
   } from '@shared/notifications/presentation.js'
-  import { ListChecks, Trash2, Volume2, VolumeX } from 'lucide-svelte'
+  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
   import EmptyChatNotificationsStrip from '@components/agent-conversation/EmptyChatNotificationsStrip.svelte'
   import ComposerContextBar from '@components/agent-conversation/ComposerContextBar.svelte'
@@ -70,8 +70,6 @@
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import type { ApprovalState, ChatSessionType } from '@client/lib/chatSessionTypes.js'
   import InboundApproval from '@components/InboundApproval.svelte'
-  import SaveTunnelToWikiModal from '@components/SaveTunnelToWikiModal.svelte'
-
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
@@ -368,61 +366,6 @@
     const mention = formatTunnelPeerMention(currentSession.remoteHandle, currentSession.remoteDisplayName)
     return mention.length > 0 ? mention : null
   })
-
-  /** Outbound tunnel: save transcript excerpts to the asker's wiki (local tenant only). */
-  const outboundTunnelWiki = $derived(currentSession?.sessionType === 'b2b_outbound')
-
-  const tunnelWikiPeerSlug = $derived.by((): string => {
-    if (currentSession?.sessionType !== 'b2b_outbound') return ''
-    return (
-      currentSession.remoteHandle?.trim() ||
-      currentSession.remoteDisplayName?.trim() ||
-      'peer'
-    )
-  })
-
-  const tunnelWikiSessionIdForSave = $derived(currentSession?.sessionId?.trim() ?? '')
-
-  let saveWikiModalOpen = $state(false)
-  let saveWikiModalMessages = $state<ChatMessage[]>([])
-  let tunnelWikiSelectMode = $state(false)
-  let tunnelWikiSelectedIds = $state<Set<string>>(new Set())
-
-  let prevTunnelSessionIdForWiki = $state<string | null>(null)
-  $effect(() => {
-    const sid = currentSession?.sessionId ?? null
-    if (sid !== prevTunnelSessionIdForWiki) {
-      prevTunnelSessionIdForWiki = sid
-      tunnelWikiSelectMode = false
-      tunnelWikiSelectedIds = new Set()
-    }
-  })
-
-  function tunnelWikiToggleSelectMode() {
-    tunnelWikiSelectMode = !tunnelWikiSelectMode
-    if (!tunnelWikiSelectMode) tunnelWikiSelectedIds = new Set()
-  }
-
-  function tunnelWikiToggleMessageId(msgId: string | undefined) {
-    if (!msgId) return
-    const next = new Set(tunnelWikiSelectedIds)
-    if (next.has(msgId)) next.delete(msgId)
-    else next.add(msgId)
-    tunnelWikiSelectedIds = next
-  }
-
-  function openTunnelSaveWikiModal(msgs: ChatMessage[]) {
-    if (msgs.length === 0 || !tunnelWikiSessionIdForSave) return
-    saveWikiModalMessages = ensureChatMessageIds(msgs)
-    saveWikiModalOpen = true
-  }
-
-  function cancelTunnelWikiSelection() {
-    tunnelWikiSelectMode = false
-    tunnelWikiSelectedIds = new Set()
-  }
-
-  const tunnelWikiSelectedCount = $derived(tunnelWikiSelectedIds.size)
 
   const conversationRoleLabels = $derived.by((): ConversationRoleLabels => {
     const row = currentSession
@@ -774,6 +717,22 @@
       conversationEl?.scrollToBottom()
     }
   }
+
+  $effect(() => {
+    const unsub = subscribeTunnelActivity((payload) => {
+      if (!payload || payload.scope !== 'outbound') return
+      const outSid = typeof payload.outboundSessionId === 'string' ? payload.outboundSessionId.trim() : ''
+      if (!outSid) return
+      untrack(() => {
+        const key = displayedSessionId
+        if (!key || key !== outSid) return
+        const st = sessions.get(key)
+        if (st?.sessionType !== 'b2b_outbound') return
+        void loadSession(key)
+      })
+    })
+    return unsub
+  })
 
   function stopChat() {
     const id = displayedSessionId
@@ -1410,19 +1369,6 @@
                 <VolumeX size={16} strokeWidth={2} aria-hidden="true" />
               {/if}
             </button>
-            {#if outboundTunnelWiki && messages.length > 0}
-              <button
-                type="button"
-                class={cn('tunnel-wiki-select-btn', iconBtnClass, tunnelWikiSelectMode && 'text-accent')}
-                title={$t('chat.saveToWiki.selectionModeAria')}
-                aria-label={$t('chat.saveToWiki.selectionModeAria')}
-                aria-pressed={tunnelWikiSelectMode}
-                data-testid="tunnel-wiki-select-mode"
-                onclick={tunnelWikiToggleSelectMode}
-              >
-                <ListChecks size={16} strokeWidth={2} aria-hidden="true" />
-              </button>
-            {/if}
             {#if messages.length > 0}
               <button
                 type="button"
@@ -1449,36 +1395,6 @@
             bridgeSlideLayout && 'composer-stack--bridge-dock bg-surface',
           )}
         >
-          {#if outboundTunnelWiki && tunnelWikiSelectMode && tunnelWikiSelectedCount > 0}
-            <div
-              class="tunnel-wiki-selection-bar mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-xs"
-              data-testid="tunnel-wiki-selection-bar"
-            >
-              <span class="text-muted">
-                {$t('chat.saveToWiki.saveSelection', { count: tunnelWikiSelectedCount })}
-              </span>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  class="rounded-md border border-border bg-surface-3 px-2 py-1 font-medium text-foreground hover:bg-surface-2"
-                  onclick={cancelTunnelWikiSelection}
-                >
-                  {$t('chat.saveToWiki.cancel')}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md border border-accent bg-accent px-2 py-1 font-medium text-white hover:opacity-90"
-                  data-testid="tunnel-wiki-save-selection"
-                  onclick={() =>
-                    openTunnelSaveWikiModal(
-                      messages.filter((m) => !!(m.id && tunnelWikiSelectedIds.has(m.id))),
-                    )}
-                >
-                  {$t('chat.saveToWiki.save')}
-                </button>
-              </div>
-            </div>
-          {/if}
           <div
             bind:this={contextBarWrapEl}
             class="context-bar-overlay pointer-events-none absolute inset-x-0 bottom-full z-[2]"
@@ -1584,26 +1500,6 @@
                   {messages}
                   {streaming}
                   toolDisplayMode={toolDisplayMode}
-                  tunnelWikiEnabled={!!outboundTunnelWiki}
-                  tunnelWikiSelectMode={tunnelWikiSelectMode}
-                  tunnelWikiSelectedIds={tunnelWikiSelectedIds}
-                  onTunnelWikiSaveMessage={(m) => {
-                    if (outboundTunnelWiki) openTunnelSaveWikiModal([m])
-                  }}
-                  onTunnelWikiShiftClickMessage={(m, e) => {
-                    if (!outboundTunnelWiki || !e.shiftKey) return
-                    e.preventDefault()
-                    tunnelWikiSelectMode = true
-                    if (m.id) tunnelWikiToggleMessageId(m.id)
-                  }}
-                  onTunnelWikiLongPressMessage={(m) => {
-                    if (!outboundTunnelWiki) return
-                    tunnelWikiSelectMode = true
-                    if (m.id) tunnelWikiToggleMessageId(m.id)
-                  }}
-                  onTunnelWikiCheckboxToggleMessage={(m) => {
-                    if (m.id) tunnelWikiToggleMessageId(m.id)
-                  }}
                   {onOpenWiki}
                   {onOpenFile}
                   {onOpenIndexedFile}
@@ -1638,26 +1534,6 @@
                 {messages}
                 {streaming}
                 toolDisplayMode={toolDisplayMode}
-                tunnelWikiEnabled={!!outboundTunnelWiki}
-                tunnelWikiSelectMode={tunnelWikiSelectMode}
-                tunnelWikiSelectedIds={tunnelWikiSelectedIds}
-                onTunnelWikiSaveMessage={(m) => {
-                  if (outboundTunnelWiki) openTunnelSaveWikiModal([m])
-                }}
-                onTunnelWikiShiftClickMessage={(m, e) => {
-                  if (!outboundTunnelWiki || !e.shiftKey) return
-                  e.preventDefault()
-                  tunnelWikiSelectMode = true
-                  if (m.id) tunnelWikiToggleMessageId(m.id)
-                }}
-                onTunnelWikiLongPressMessage={(m) => {
-                  if (!outboundTunnelWiki) return
-                  tunnelWikiSelectMode = true
-                  if (m.id) tunnelWikiToggleMessageId(m.id)
-                }}
-                onTunnelWikiCheckboxToggleMessage={(m) => {
-                  if (m.id) tunnelWikiToggleMessageId(m.id)
-                }}
                 {onOpenWiki}
                 {onOpenFile}
                 {onOpenIndexedFile}
@@ -1691,26 +1567,6 @@
                 {messages}
                 {streaming}
                 toolDisplayMode={toolDisplayMode}
-                tunnelWikiEnabled={!!outboundTunnelWiki}
-                tunnelWikiSelectMode={tunnelWikiSelectMode}
-                tunnelWikiSelectedIds={tunnelWikiSelectedIds}
-                onTunnelWikiSaveMessage={(m) => {
-                  if (outboundTunnelWiki) openTunnelSaveWikiModal([m])
-                }}
-                onTunnelWikiShiftClickMessage={(m, e) => {
-                  if (!outboundTunnelWiki || !e.shiftKey) return
-                  e.preventDefault()
-                  tunnelWikiSelectMode = true
-                  if (m.id) tunnelWikiToggleMessageId(m.id)
-                }}
-                onTunnelWikiLongPressMessage={(m) => {
-                  if (!outboundTunnelWiki) return
-                  tunnelWikiSelectMode = true
-                  if (m.id) tunnelWikiToggleMessageId(m.id)
-                }}
-                onTunnelWikiCheckboxToggleMessage={(m) => {
-                  if (m.id) tunnelWikiToggleMessageId(m.id)
-                }}
                 {onOpenWiki}
                 {onOpenFile}
                 {onOpenIndexedFile}
@@ -1745,26 +1601,6 @@
               {messages}
               {streaming}
               toolDisplayMode={toolDisplayMode}
-              tunnelWikiEnabled={!!outboundTunnelWiki}
-              tunnelWikiSelectMode={tunnelWikiSelectMode}
-              tunnelWikiSelectedIds={tunnelWikiSelectedIds}
-              onTunnelWikiSaveMessage={(m) => {
-                if (outboundTunnelWiki) openTunnelSaveWikiModal([m])
-              }}
-              onTunnelWikiShiftClickMessage={(m, e) => {
-                if (!outboundTunnelWiki || !e.shiftKey) return
-                e.preventDefault()
-                tunnelWikiSelectMode = true
-                if (m.id) tunnelWikiToggleMessageId(m.id)
-              }}
-              onTunnelWikiLongPressMessage={(m) => {
-                if (!outboundTunnelWiki) return
-                tunnelWikiSelectMode = true
-                if (m.id) tunnelWikiToggleMessageId(m.id)
-              }}
-              onTunnelWikiCheckboxToggleMessage={(m) => {
-                if (m.id) tunnelWikiToggleMessageId(m.id)
-              }}
               {onOpenWiki}
               {onOpenFile}
               {onOpenIndexedFile}
@@ -1796,17 +1632,6 @@
     {/if}
     </div>
   </div>
-
-  <SaveTunnelToWikiModal
-    open={saveWikiModalOpen}
-    onDismiss={() => {
-      saveWikiModalOpen = false
-    }}
-    messages={saveWikiModalMessages}
-    peerLabel={tunnelWikiPeerSlug}
-    sessionId={tunnelWikiSessionIdForSave}
-    onNavigateWiki={onOpenWiki}
-  />
 
   <ConfirmDialog
     open={pendingDelete !== null}

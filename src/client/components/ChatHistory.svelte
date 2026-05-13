@@ -12,6 +12,8 @@
     CHAT_HISTORY_SIDEBAR_LIMIT,
     fetchChatSessionListDeduped,
   } from '@client/lib/chatHistorySessions.js'
+  import { B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET } from '@shared/b2bTunnelDelivery.js'
+  import { subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
   import {
     loadNavHistory,
     removeFromNavHistory,
@@ -62,6 +64,34 @@
   let hasMoreChats = $state(false)
   let reviewPendingCount = $state(0)
 
+  let coldQueryOpen = $state(false)
+  let coldTarget = $state('')
+  let coldMessage = $state('')
+  let coldBusy = $state(false)
+  let coldErr = $state<string | null>(null)
+
+  const tunnelAwaitPreviewLc = B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET.toLowerCase()
+
+  /** Outbound session ids with an unread tunnel reply (cleared when row opens or session is active). */
+  let tunnelUnreadOutboundSessions = $state<ReadonlySet<string>>(new Set())
+
+  function addUnreadTunnelOutbound(sessionId: string) {
+    const sid = sessionId.trim()
+    if (!sid) return
+    const active = activeSessionId?.trim() ?? ''
+    if (active === sid) return
+    if (tunnelUnreadOutboundSessions.has(sid)) return
+    tunnelUnreadOutboundSessions = new Set([...tunnelUnreadOutboundSessions, sid])
+  }
+
+  function clearUnreadTunnelOutbound(sessionId: string) {
+    const sid = sessionId.trim()
+    if (!sid || !tunnelUnreadOutboundSessions.has(sid)) return
+    const next = new Set(tunnelUnreadOutboundSessions)
+    next.delete(sid)
+    tunnelUnreadOutboundSessions = next
+  }
+
   type NavRowItem = {
     id: string
     type: 'chat' | 'doc' | 'tunnel'
@@ -77,6 +107,8 @@
     sessionType?: ChatSessionType
     approvalState?: ApprovalState | null
     badgeLabel?: string
+    /** Tunnel row: visual hint for awaiting send vs new reply (SSE-driven unread). */
+    tunnelRailIndicator?: 'new_reply' | 'awaiting_collaborator'
   }
 
   type B2BTunnelRow = {
@@ -129,15 +161,31 @@
   const chatItems = $derived.by(() => sortedChatItems(sessions.filter((s) => s.sessionType === 'own')))
 
   const tunnelNavRows = $derived.by((): NavRowItem[] => {
-    const mapped = tunnels.map((t) => ({
-      id: `tunnel:${t.grantId}`,
-      type: 'tunnel' as const,
-      title: tunnelSidebarLabel(t),
-      timestamp: '',
-      omitRowTime: true,
-      tunnelGrantId: t.grantId,
-      sessionId: t.sessionId ?? undefined,
-    }))
+    const unread = tunnelUnreadOutboundSessions
+    const mapped = tunnels.map((t) => {
+      const outbound = sessions.find(
+        (s) => s.sessionType === 'b2b_outbound' && s.remoteGrantId === t.grantId,
+      )
+      const sessionIdForRow = outbound?.sessionId ?? t.sessionId ?? undefined
+      const previewLc = outbound?.preview?.toLowerCase() ?? ''
+      const awaiting =
+        outbound != null && previewLc.includes(tunnelAwaitPreviewLc)
+      const unreadReply = sessionIdForRow != null && unread.has(sessionIdForRow)
+      let tunnelRailIndicator: NavRowItem['tunnelRailIndicator']
+      if (unreadReply) tunnelRailIndicator = 'new_reply'
+      else if (awaiting) tunnelRailIndicator = 'awaiting_collaborator'
+
+      return {
+        id: `tunnel:${t.grantId}`,
+        type: 'tunnel' as const,
+        title: tunnelSidebarLabel(t),
+        timestamp: '',
+        omitRowTime: true,
+        tunnelGrantId: t.grantId,
+        sessionId: sessionIdForRow,
+        tunnelRailIndicator,
+      }
+    })
     mapped.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
     return mapped
   })
@@ -257,6 +305,48 @@
     }
   }
 
+  async function submitColdQuery(): Promise<void> {
+    const handle = coldTarget.trim().replace(/^@/, '')
+    const message = coldMessage.trim()
+    if (!handle || !message) {
+      coldErr = $t('chat.history.coldQuery.error')
+      return
+    }
+    coldBusy = true
+    coldErr = null
+    try {
+      const res = await apiFetch('/api/chat/b2b/cold-query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetHandle: handle, message }),
+      })
+      if (res.status === 409) {
+        coldErr = $t('chat.history.coldQuery.grantExists')
+        return
+      }
+      if (res.status === 429) {
+        coldErr = $t('chat.history.coldQuery.rateLimited')
+        return
+      }
+      if (!res.ok) {
+        coldErr = $t('chat.history.coldQuery.error')
+        return
+      }
+      const j = (await res.json()) as { sessionId?: string }
+      const sid = typeof j.sessionId === 'string' ? j.sessionId.trim() : ''
+      coldQueryOpen = false
+      coldTarget = ''
+      coldMessage = ''
+      if (sid) onSelect(sid, undefined)
+      await refresh({ background: true })
+      emit({ type: 'b2b:review-changed' })
+    } catch {
+      coldErr = $t('chat.history.coldQuery.error')
+    } finally {
+      coldBusy = false
+    }
+  }
+
   async function ensureTunnelOutboundSession(grantId: string): Promise<string | null> {
     const res = await apiFetch('/api/chat/b2b/ensure-session', {
       method: 'POST',
@@ -280,6 +370,7 @@
       tunnelsError = $t('chat.history.tunnelsLoadFailed')
       return
     }
+    clearUnreadTunnelOutbound(sid)
     emit({ type: 'chat:sessions-changed' })
     onSelect(sid, item.title)
   }
@@ -335,6 +426,27 @@
   })
 
   $effect(() => {
+    const id = activeSessionId?.trim()
+    if (id && tunnelUnreadOutboundSessions.has(id)) clearUnreadTunnelOutbound(id)
+  })
+
+  $effect(() => {
+    return subscribeTunnelActivity((payload) => {
+      if (
+        payload == null ||
+        payload.scope === 'inbound' ||
+        payload.scope === 'outbound'
+      ) {
+        if (payload?.scope === 'outbound') {
+          const sid = typeof payload.outboundSessionId === 'string' ? payload.outboundSessionId.trim() : ''
+          if (sid) addUnreadTunnelOutbound(sid)
+        }
+        void refresh({ background: true })
+      }
+    })
+  })
+
+  $effect(() => {
     return subscribe((e) => {
       if (
         e.type === 'chat:sessions-changed' ||
@@ -387,7 +499,22 @@
           {#if agentWorking}
             <Loader2 class="sync-spinning" size={12} strokeWidth={2} aria-hidden="true" />
           {:else if item.type === 'tunnel'}
-            <Link2 size={12} strokeWidth={2} aria-hidden="true" />
+            <span class="relative inline-flex shrink-0">
+              <Link2 size={12} strokeWidth={2} aria-hidden="true" />
+              {#if item.tunnelRailIndicator === 'new_reply'}
+                <span
+                  data-tunnel-indicator="new-reply"
+                  class="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-accent ring-2 ring-surface-2"
+                  aria-label={$t('chat.history.tunnelIndicatorNewReply')}
+                ></span>
+              {:else if item.tunnelRailIndicator === 'awaiting_collaborator'}
+                <span
+                  data-tunnel-indicator="awaiting"
+                  class="pointer-events-none absolute -end-0.5 -top-0.5 size-1.5 rounded-full bg-amber-500/90 ring-2 ring-surface-2"
+                  aria-label={$t('chat.history.tunnelIndicatorAwaiting')}
+                ></span>
+              {/if}
+            </span>
           {:else}
             <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
           {/if}
@@ -487,6 +614,53 @@
         >
           {$t('chat.history.tunnelsHeading')}
         </h2>
+        {#if brainQueryEnabled && onOpenReview}
+          <button
+            type="button"
+            class={cn(
+              chatHistoryRailPrimaryBtn,
+              'inbox-rail-link justify-between border-0 hover:border-transparent',
+            )}
+            aria-label={
+              reviewPendingCount > 0
+                ? $t('chat.history.pendingOpenAriaWithCount', { count: reviewPendingCount })
+                : $t('chat.history.pendingOpenAria')
+            }
+            onclick={() => onOpenReview()}
+          >
+            <span class="flex min-w-0 flex-1 items-center gap-1.5">
+              <Inbox size={14} strokeWidth={2} aria-hidden="true" class="shrink-0 opacity-80" />
+              <span class="min-w-0 truncate">{$t('chat.history.pendingRow')}</span>
+            </span>
+            {#if reviewPendingCount > 0}
+              <span
+                class="inbox-rail-badge shrink-0 rounded-full bg-accent px-1.5 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white max-md:text-[11px]"
+                aria-hidden="true"
+              >
+                {reviewPendingCount > 99 ? '99+' : reviewPendingCount}
+              </span>
+            {/if}
+          </button>
+        {/if}
+        {#if brainQueryEnabled}
+          <div class="px-2 pb-2">
+            <button
+              type="button"
+              class={cn(
+                chatHistoryRailPrimaryBtn,
+                'w-full justify-center border border-dashed border-border/80 bg-transparent hover:bg-surface-2',
+              )}
+              data-testid="cold-query-open"
+              onclick={() => {
+                coldQueryOpen = true
+                coldErr = null
+              }}
+            >
+              <Plus size={14} strokeWidth={2.5} aria-hidden="true" class="shrink-0 opacity-80" />
+              <span>{$t('chat.history.coldQuery.button')}</span>
+            </button>
+          </div>
+        {/if}
         {#if tunnelsError}
           <div class="ch-error px-2 pb-1 text-[10px] text-danger max-md:text-xs">{tunnelsError}</div>
         {/if}
@@ -502,41 +676,6 @@
           </div>
         {/if}
       </section>
-
-      {#if brainQueryEnabled && onOpenReview}
-        <section
-          class="ch-group ch-group--pending m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5 pb-2"
-          aria-labelledby="ch-heading-pending"
-        >
-          <h2
-            class="ch-group-label m-0 px-2 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted max-md:text-[11px]"
-            id="ch-heading-pending"
-          >
-            {$t('chat.review.nav.label')}
-          </h2>
-          <button
-            type="button"
-            class={cn(
-              chatHistoryRailViewAllBtn,
-              'pending-rail-link border-0 hover:text-foreground',
-              reviewPendingCount > 0 ? 'text-foreground' : 'text-muted',
-            )}
-            aria-label={
-              reviewPendingCount > 0
-                ? $t('chat.history.pendingOpenAriaWithCount', { count: reviewPendingCount })
-                : $t('chat.history.pendingOpenAria')
-            }
-            onclick={() => onOpenReview()}
-          >
-            <Inbox size={14} strokeWidth={2} aria-hidden="true" class="shrink-0 opacity-80" />
-            <span class="min-w-0 truncate">
-              {reviewPendingCount > 0
-                ? $t('chat.history.pendingRowWithCount', { count: reviewPendingCount })
-                : $t('chat.history.pendingRow')}
-            </span>
-          </button>
-        </section>
-      {/if}
 
       <section
         class="ch-group ch-group--wiki m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5"
@@ -586,5 +725,67 @@
     {#if pendingDelete}
       <p>{$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}</p>
     {/if}
+  </ConfirmDialog>
+
+  <ConfirmDialog
+    open={coldQueryOpen}
+    title={$t('chat.history.coldQuery.title')}
+    titleId="cold-query-title"
+    panelClass="max-w-[24rem]"
+    onDismiss={() => {
+      coldQueryOpen = false
+      coldErr = null
+    }}
+    onConfirm={() => void submitColdQuery()}
+  >
+    {#snippet children()}
+      <div class="flex flex-col gap-2">
+        <label class="m-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted" for="cold-q-handle">
+          {$t('chat.history.coldQuery.targetLabel')}
+        </label>
+        <input
+          id="cold-q-handle"
+          class="box-border w-full rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground"
+          bind:value={coldTarget}
+          disabled={coldBusy}
+          placeholder={$t('chat.history.coldQuery.targetPlaceholder')}
+          autocomplete="off"
+        />
+        <label class="m-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted" for="cold-q-msg">
+          {$t('chat.history.coldQuery.messageLabel')}
+        </label>
+        <textarea
+          id="cold-q-msg"
+          class="box-border min-h-[4.5rem] w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground"
+          bind:value={coldMessage}
+          disabled={coldBusy}
+          placeholder={$t('chat.history.coldQuery.messagePlaceholder')}
+        ></textarea>
+        {#if coldErr}
+          <p class="m-0 text-xs text-danger" role="alert">{coldErr}</p>
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet actions()}
+      <button
+        type="button"
+        class="rounded-md border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
+        disabled={coldBusy}
+        onclick={() => {
+          coldQueryOpen = false
+          coldErr = null
+        }}
+      >
+        {$t('common.actions.cancel')}
+      </button>
+      <button
+        type="button"
+        class="rounded-md border border-border bg-accent px-3 py-[0.4rem] text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+        disabled={coldBusy}
+        onclick={() => void submitColdQuery()}
+      >
+        {$t('chat.history.coldQuery.send')}
+      </button>
+    {/snippet}
   </ConfirmDialog>
 </div>

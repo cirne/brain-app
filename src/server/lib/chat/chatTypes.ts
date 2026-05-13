@@ -34,7 +34,7 @@ export type ChatMessage = {
 }
 
 export type ChatSessionType = 'own' | 'b2b_outbound' | 'b2b_inbound'
-export type ApprovalState = 'pending' | 'approved' | 'declined' | 'auto'
+export type ApprovalState = 'pending' | 'approved' | 'declined' | 'auto' | 'dismissed'
 
 /** One in-progress assistant message while streaming SSE (server mirror of client state). */
 export type AssistantTurnState = {
@@ -53,5 +53,9 @@ export type ChatSessionDocV1 = {
   remoteHandle: string | null
   remoteDisplayName: string | null
   approvalState: ApprovalState | null
+  /** Cold-query handshake (OPP-112): present when `is_cold_query` in tenant DB. */
+  isColdQuery?: boolean
+  coldPeerUserId?: string | null
+  coldLinkedSessionId?: string | null
   messages: ChatMessage[]
 }

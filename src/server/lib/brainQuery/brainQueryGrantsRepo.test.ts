@@ -16,7 +16,7 @@ import {
   revokeBrainQueryGrantAndReciprocal,
   revokeBrainQueryGrantAsAsker,
   updateBrainQueryGrantPrivacyPolicy,
-  setBrainQueryGrantAutoSend,
+  setBrainQueryGrantPolicy,
 } from './brainQueryGrantsRepo.js'
 
 describe('brainQueryGrantsRepo', () => {
@@ -44,19 +44,19 @@ describe('brainQueryGrantsRepo', () => {
     })
     expect(row.privacy_policy).toBe(DEFAULT_BRAIN_QUERY_PRIVACY_POLICY)
     expect(row.revoked_at_ms).toBeNull()
-    expect(row.auto_send).toBe(0)
+    expect(row.policy).toBe('review')
   })
 
-  it('setBrainQueryGrantAutoSend toggles and rejects wrong owner', () => {
+  it('setBrainQueryGrantPolicy toggles and rejects wrong owner', () => {
     const owner = 'usr_autosend_own_oooooooooo'
     const asker = 'usr_autosend_ask_aaaaaaaaaa'
     const row = createBrainQueryGrant({ ownerId: owner, askerId: asker })
-    expect(row.auto_send).toBe(0)
-    const on = setBrainQueryGrantAutoSend({ grantId: row.id, ownerId: owner, autoSend: true })
-    expect(on?.auto_send).toBe(1)
-    const off = setBrainQueryGrantAutoSend({ grantId: row.id, ownerId: owner, autoSend: false })
-    expect(off?.auto_send).toBe(0)
-    expect(setBrainQueryGrantAutoSend({ grantId: row.id, ownerId: 'usr_wrong', autoSend: true })).toBeNull()
+    expect(row.policy).toBe('review')
+    const on = setBrainQueryGrantPolicy({ grantId: row.id, ownerId: owner, policy: 'auto' })
+    expect(on?.policy).toBe('auto')
+    const off = setBrainQueryGrantPolicy({ grantId: row.id, ownerId: owner, policy: 'review' })
+    expect(off?.policy).toBe('review')
+    expect(setBrainQueryGrantPolicy({ grantId: row.id, ownerId: 'usr_wrong', policy: 'auto' })).toBeNull()
   })
 
   it('getActiveBrainQueryGrant returns row; null after revoke', () => {

@@ -76,6 +76,10 @@
      * `(max-width: 767px)` (same breakpoint as shell `isMobile`).
      */
     floatingBlockMenu?: boolean
+    /** Overrides default empty-line placeholder (paragraphs). Headings still use "Heading". */
+    editorPlaceholder?: string
+    /** Tighter chrome for embedding in panels (e.g. B2B review regenerate). */
+    compact?: boolean
   }
 
   type WikiNavigateCb = NonNullable<Props['onWikiLinkNavigate']>
@@ -88,6 +92,8 @@
     onPersist,
     onWikiLinkNavigate,
     floatingBlockMenu: floatingBlockMenuProp,
+    editorPlaceholder = '',
+    compact = false,
   }: Props = $props()
 
   const floatingBlockMenuEnabled = $derived.by(() => {
@@ -228,6 +234,7 @@
       await tick()
       if (cancelled || !mountEl || !bubbleMenuEl || !floatingMenuEl) return
       const showFloatingBlockMenu = floatingBlockMenuEnabled
+      const customEmptyPlaceholder = editorPlaceholder.trim()
 
       const appendMenusToBody = () =>
         typeof document !== 'undefined' ? document.body : mountEl!.parentElement!
@@ -249,6 +256,9 @@
             placeholder: ({ node }) => {
               if (node.type.name === 'heading') {
                 return 'Heading'
+              }
+              if (customEmptyPlaceholder.length > 0) {
+                return customEmptyPlaceholder
               }
               return showFloatingBlockMenu
                 ? "Write, or use + for headings & lists"
@@ -468,17 +478,24 @@
   class={cn(
     'tiptap-md-root relative flex min-h-0 flex-1 flex-col overflow-hidden',
     disabled && 'tiptap-md-root-disabled pointer-events-none opacity-65',
+    compact && 'tiptap-md-root-compact flex-none',
   )}
 >
   <div
-    class="tiptap-md-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]"
+    class={cn(
+      'tiptap-md-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]',
+      compact && 'flex-none',
+    )}
     bind:this={scrollAreaEl}
   >
     <div
-      class="tiptap-md-inner box-border w-full max-w-chat px-[clamp(1rem,4%,2.5rem)] pb-5 pt-4 mx-auto"
+      class={cn(
+        'tiptap-md-inner box-border w-full max-w-chat pb-5 pt-4 mx-auto',
+        compact ? 'px-2 pb-2 pt-2 max-w-none' : 'px-[clamp(1rem,4%,2.5rem)]',
+      )}
     >
       <div
-        class="tiptap-md-mount min-h-[12rem]"
+        class={cn('tiptap-md-mount box-border w-full', compact ? 'min-h-[4.5rem]' : 'min-h-[12rem]')}
         data-tiptap-md-mount
         bind:this={mountEl}
       ></div>
@@ -642,6 +659,14 @@
   /* TipTap injects an editor div with class `wiki-md`; ensure usable min-height. */
   .tiptap-md-root :global(.wiki-md) {
     min-height: 11rem;
+  }
+
+  .tiptap-md-root-compact :global(.wiki-md) {
+    min-height: 2.75rem;
+  }
+
+  .tiptap-md-root-compact :global(.wiki-md--tiptap-notion p) {
+    margin: 0.2em 0;
   }
 
   /* Notion-like: calmer block rhythm in edit mode */

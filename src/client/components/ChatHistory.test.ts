@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ChatHistory from './ChatHistory.svelte'
+import { B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET } from '@shared/b2bTunnelDelivery.js'
 import { render, screen, fireEvent, waitFor, within } from '@client/test/render.js'
 import { fetchChatSessionListDeduped } from '@client/lib/chatHistorySessions.js'
 import { loadNavHistory } from '@client/lib/navHistory.js'
@@ -33,6 +34,22 @@ vi.mock('@client/lib/navHistory.js', async (importOriginal) => {
   }
 })
 
+const hubTunnelSubs = vi.hoisted(() => ({ cbs: [] as Array<(p: unknown) => void> }))
+
+vi.mock('@client/lib/hubEvents/hubEventsClient.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@client/lib/hubEvents/hubEventsClient.js')>()
+  return {
+    ...mod,
+    subscribeTunnelActivity: vi.fn((cb: (p: unknown) => void) => {
+      hubTunnelSubs.cbs.push(cb)
+      return () => {
+        const i = hubTunnelSubs.cbs.indexOf(cb)
+        if (i >= 0) hubTunnelSubs.cbs.splice(i, 1)
+      }
+    }),
+  }
+})
+
 const mockedFetchSessions = vi.mocked(fetchChatSessionListDeduped)
 const mockedLoadNav = vi.mocked(loadNavHistory)
 const mockedApiFetch = vi.mocked(apiFetch)
@@ -43,6 +60,7 @@ describe('ChatHistory.svelte', () => {
     mockedApiFetch.mockImplementation(() =>
       Promise.resolve(new Response(JSON.stringify({ tunnels: [] }), { status: 200 })),
     )
+    hubTunnelSubs.cbs.length = 0
   })
 
   it('renders sessions from fetchChatSessionListDeduped', async () => {
@@ -92,7 +110,7 @@ describe('ChatHistory.svelte', () => {
     expect(props.onSelect).toHaveBeenCalledWith('abc', 'Pick me')
   })
 
-  it('groups own, tunnels from grants API, and Pending rail link when brainQueryEnabled', async () => {
+  it('groups own, tunnels from grants API, and Inbox rail link with count badge when brainQueryEnabled', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
     ])
@@ -127,21 +145,21 @@ describe('ChatHistory.svelte', () => {
 
     const chats = await screen.findByRole('heading', { name: /^chats$/i })
     const tunnels = screen.getByRole('heading', { name: /^tunnels$/i })
-    const pendingHeading = screen.getByRole('heading', { name: /^pending$/i })
 
     expect(within(chats.closest('.ch-group--chats') as HTMLElement).getByText('Local chat')).toBeInTheDocument()
-    expect(within(tunnels.closest('.ch-group--tunnels') as HTMLElement).getByText('Ken Lay')).toBeInTheDocument()
-    const pendingSection = pendingHeading.closest('.ch-group--pending') as HTMLElement
-    expect(within(pendingSection).getByText(/Pending \(1\)/)).toBeInTheDocument()
+    const tunnelsSection = tunnels.closest('.ch-group--tunnels') as HTMLElement
+    expect(within(tunnelsSection).getByText('Ken Lay')).toBeInTheDocument()
 
-    await fireEvent.click(
-      within(pendingSection).getByRole('button', { name: /open pending tunnel messages — 1 waiting/i }),
-    )
+    const inboxBtn = within(tunnelsSection).getByRole('button', { name: /open inbox — 1 waiting/i })
+    expect(within(inboxBtn).getByText('Inbox')).toBeInTheDocument()
+    expect(within(inboxBtn).getByText('1')).toBeInTheDocument()
+
+    await fireEvent.click(inboxBtn)
     expect(onOpenReview).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('heading', { name: /inbound/i })).not.toBeInTheDocument()
   })
 
-  it('shows Pending rail section when brainQueryEnabled even when nothing is waiting', async () => {
+  it('shows Inbox rail link under Tunnels when brainQueryEnabled even when nothing is waiting', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
     ])
@@ -161,14 +179,12 @@ describe('ChatHistory.svelte', () => {
     })
 
     await screen.findByRole('heading', { name: /^chats$/i })
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^pending$/i })).toBeInTheDocument()
-    })
-    const pendingSection = screen.getByRole('heading', { name: /^pending$/i }).closest('.ch-group--pending')
-    expect(pendingSection).toBeTruthy()
-    expect(
-      within(pendingSection as HTMLElement).getByRole('button', { name: /^Open pending tunnel messages$/i }),
-    ).toBeInTheDocument()
+    const tunnelsSection = await waitFor(() =>
+      screen.getByRole('heading', { name: /^tunnels$/i }).closest('.ch-group--tunnels'),
+    )
+    expect(tunnelsSection).toBeTruthy()
+    const inboxBtn = within(tunnelsSection as HTMLElement).getByRole('button', { name: /^open inbox$/i })
+    expect(within(inboxBtn).queryByText(/\d+/)).not.toBeInTheDocument()
   })
 
   it('calls onNewChat when New chat is pressed', async () => {
@@ -330,6 +346,87 @@ describe('ChatHistory.svelte', () => {
     await waitFor(() => {
       expect(props.onSelect).toHaveBeenCalledWith('sess-new-open', 'Open Target')
       expect(mockedApiFetch.mock.calls.some((c) => String(c[0]).includes('/ensure-session'))).toBe(true)
+    })
+  })
+
+  it('tunnel row shows awaiting indicator when outbound preview is waiting on collaborator', async () => {
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({
+        sessionId: 'out-wait',
+        sessionType: 'b2b_outbound',
+        remoteGrantId: 'grant-wait',
+        remoteHandle: '@peer',
+        remoteDisplayName: 'Peer Wait',
+        preview: `Lead text ${B2B_TUNNEL_AWAITING_PEER_PREVIEW_SNIPPET} tail`,
+      }),
+    ])
+    mockedApiFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tunnels: [
+            {
+              grantId: 'grant-wait',
+              ownerId: 'usr_o',
+              ownerHandle: '@peer',
+              ownerDisplayName: 'Peer Wait',
+              sessionId: 'out-wait',
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+
+    render(ChatHistory, { props: chatHistoryTestProps() })
+
+    await screen.findByText('Peer Wait')
+    const indicator = document.querySelector('[data-tunnel-indicator="awaiting"]')
+    expect(indicator).toBeTruthy()
+    expect(document.querySelector('[data-tunnel-indicator="new-reply"]')).not.toBeInTheDocument()
+  })
+
+  it('tunnel outbound SSE marker shows new reply dot after tunnel_activity', async () => {
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({
+        sessionId: 'out-hit',
+        sessionType: 'b2b_outbound',
+        remoteGrantId: 'grant-hit',
+        remoteHandle: '@hit',
+        remoteDisplayName: 'Hit Peer',
+        preview: 'Stale preview before push refresh',
+      }),
+    ])
+    mockedApiFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tunnels: [
+            {
+              grantId: 'grant-hit',
+              ownerId: 'usr_o',
+              ownerHandle: '@hit',
+              ownerDisplayName: 'Hit Peer',
+              sessionId: 'out-hit',
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+
+    render(ChatHistory, { props: chatHistoryTestProps() })
+
+    await screen.findByText('Hit Peer')
+    expect(document.querySelector('[data-tunnel-indicator="new-reply"]')).not.toBeInTheDocument()
+
+    expect(hubTunnelSubs.cbs.length).toBeGreaterThanOrEqual(1)
+    hubTunnelSubs.cbs[hubTunnelSubs.cbs.length - 1]!({
+      scope: 'outbound',
+      outboundSessionId: 'out-hit',
+      grantId: 'grant-hit',
+    })
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-tunnel-indicator="new-reply"]')).toBeTruthy()
     })
   })
 })
