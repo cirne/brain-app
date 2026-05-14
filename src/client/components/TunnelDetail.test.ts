@@ -278,7 +278,7 @@ describe('TunnelDetail.svelte', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText(/they still get a tunnel request/i)).toBeInTheDocument()
+      expect(screen.getByText(/send a request to connect/i)).toBeInTheDocument()
     })
 
     const input = await screen.findByPlaceholderText(/message their assistant/i)

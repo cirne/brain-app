@@ -140,9 +140,13 @@
 </script>
 
 <div
-  class="flex w-full max-w-[min(100%,36rem)] flex-col rounded-2xl border-2 border-accent/40 bg-accent/5 px-3 py-3 text-[0.8125rem] leading-snug shadow-sm"
-  data-testid="tunnel-pending-review"
+  class="flex w-full flex-col items-end"
+  data-testid="tunnel-pending-review-container"
 >
+  <div
+    class="flex w-full max-w-[min(100%,36rem)] flex-col rounded-2xl border-2 border-accent/40 bg-accent/5 px-3 py-3 text-[0.8125rem] leading-snug shadow-sm"
+    data-testid="tunnel-pending-review"
+  >
   <div class="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide text-accent">
     {$t('chat.tunnels.pendingCardTitle')}
   </div>
@@ -261,6 +265,7 @@
       {$t('chat.review.detail.policy.peerAt', { handle: peerLabel })}
     </p>
   {/if}
+</div>
 </div>
 
 <style>
