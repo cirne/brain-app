@@ -28,6 +28,7 @@ vi.mock('@server/agent/b2bAgent.js', () => ({
   createB2BAgent: vi.fn(() => ({})),
   promptB2BAgentForText: vi.fn(async () => 'Mock agent answer'),
   filterB2BResponse: vi.fn(async ({ draftAnswer }: { draftAnswer: string }) => draftAnswer),
+  runB2BPreflight: vi.fn(async () => true),
 }))
 
 function mountB2BChat(): Hono {
@@ -708,6 +709,20 @@ describe('/api/chat/b2b', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { items: Array<{ sessionId: string }> }
     expect(body.items.length).toBeGreaterThanOrEqual(2)
+
+    vi.mocked(b2bAgent.createB2BAgent).mockClear()
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'owner-multi', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        await runB2BQueryForGrant({ ...base, message: 'Third question' })
+      },
+    )
+    const calls = vi.mocked(b2bAgent.createB2BAgent).mock.calls
+    expect(calls.length).toBeGreaterThanOrEqual(1)
+    const lastOpts = calls[calls.length - 1]![2] as { initialMessages?: { content?: { text?: string }[] }[] }
+    expect(lastOpts?.initialMessages?.length).toBeGreaterThan(0)
+    expect(JSON.stringify(lastOpts.initialMessages)).toContain('First question')
+    expect(JSON.stringify(lastOpts.initialMessages)).toContain('Second question')
   })
 
   it('PATCH /grants/:id/auto-send updates flag for owner', async () => {

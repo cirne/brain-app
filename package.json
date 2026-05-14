@@ -38,6 +38,8 @@
     "docker:build:arm64": "docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load .",
     "brain:seed-enron-demo": "BRAIN_DATA_ROOT=./data node scripts/brain/seed-enron-demo-tenant.mjs --all",
     "eval:run": "BRAIN_DATA_ROOT=./data node scripts/eval-run.mjs",
+    "eval:b2b-policies": "BRAIN_DATA_ROOT=./data npx tsx --tsconfig tsconfig.server.json src/server/evals/b2bPoliciesCli.ts",
+    "eval:b2b-preflight": "BRAIN_DATA_ROOT=./data npx tsx --tsconfig tsconfig.server.json src/server/evals/b2bPreflightCli.ts",
     "test:e2e:enron": "vitest run -c vitest.enron-e2e.config.ts",
     "test:e2e:playwright": "playwright test",
     "issues:list": "node scripts/issues-http.mjs list",

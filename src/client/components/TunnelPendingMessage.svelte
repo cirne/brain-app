@@ -44,7 +44,7 @@
   })
 
   const showHandshake = $derived(isColdInbound)
-  const showDraftEditor = $derived(Boolean(row.grantId) && !isDraftingPlaceholder)
+  const showDraftEditor = $derived(Boolean(row.grantId) && !isDraftingPlaceholder && row.expectsResponse !== false)
 
   /** One bump per inbound row/draft revision — avoids reactive ping-pong with TipTap/synced fields. */
   let lastDraftSyncKey = $state('')
@@ -52,6 +52,7 @@
     void row.sessionId
     void row.draftSnippet
     void row.grantId
+    void row.expectsResponse
     selectedTemplateId = 'general'
   })
   $effect.pre(() => {
@@ -158,7 +159,9 @@
         {$t('chat.review.detail.policy.handshakeTitle', { handle: peerLabel })}
       </p>
       <p class="m-0 text-[0.75rem] leading-snug text-muted">
-        {$t('chat.review.detail.policy.handshakeDescription')}
+        {row.expectsResponse === false
+          ? $t('chat.review.detail.policy.handshakeDescriptionFyi')
+          : $t('chat.review.detail.policy.handshakeDescription')}
       </p>
       <fieldset class="m-0 mt-2 space-y-2 border-0 p-0">
         <legend class="sr-only">{$t('chat.tunnels.connection.policySelectLabel')}</legend>
@@ -192,7 +195,7 @@
       <p class="m-0 mt-3 shrink-0 text-[0.75rem] text-muted" data-testid="tunnel-pending-drafting">
         {$t('chat.review.detail.policy.draftingInProgress')}
       </p>
-    {:else if row.grantId}
+    {:else if row.grantId && row.expectsResponse !== false}
       <div class="mt-2 shrink-0 text-[0.65rem] font-medium text-muted">
         {$t('chat.tunnels.pendingDraftLabel')}
       </div>
@@ -210,6 +213,10 @@
           onMarkdownUpdate={handleDraftMarkdownUpdate}
         />
       </div>
+    {:else if row.grantId}
+      <p class="m-0 mt-3 shrink-0 text-[0.75rem] leading-snug text-muted">
+        {$t('chat.tunnels.pendingFyiNoDraft')}
+      </p>
     {/if}
   {/if}
 
@@ -236,7 +243,9 @@
         onclick={() => void postEstablishGrant()}
       >
         <Send size={14} strokeWidth={2} aria-hidden="true" />
-        {$t('chat.review.detail.policy.acceptAndDraft')}
+        {row.expectsResponse === false
+          ? $t('chat.review.detail.policy.connectTunnel')
+          : $t('chat.review.detail.policy.acceptAndDraft')}
       </button>
     {:else}
       <button
@@ -248,15 +257,17 @@
         <CircleX size={14} strokeWidth={2} aria-hidden="true" />
         {$t('chat.review.detail.actions.dismiss')}
       </button>
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-[0.75rem] font-semibold text-white disabled:opacity-50"
-        disabled={busy || !showDraftEditor || !draftMarkdownLive.trim()}
-        onclick={() => void postApprove()}
-      >
-        <Send size={14} strokeWidth={2} aria-hidden="true" />
-        {$t('chat.review.detail.actions.send')}
-      </button>
+      {#if showDraftEditor}
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-[0.75rem] font-semibold text-white disabled:opacity-50"
+          disabled={busy || !draftMarkdownLive.trim()}
+          onclick={() => void postApprove()}
+        >
+          <Send size={14} strokeWidth={2} aria-hidden="true" />
+          {$t('chat.review.detail.actions.send')}
+        </button>
+      {/if}
     {/if}
   </div>
 

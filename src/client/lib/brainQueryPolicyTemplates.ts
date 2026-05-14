@@ -24,29 +24,29 @@ export const BRAIN_QUERY_POLICY_TEMPLATES: BrainQueryPolicyTemplate[] = [
   {
     id: 'trusted',
     label: 'Trusted Confidante',
-    hint: 'Rich personal and work coordination; keep dollars, accounts, and long quotes light.',
+    hint: 'Rich, specific answers for whatever was asked—social plans or serious topics—still respect Brain access never-pass categories.',
     text: [
-      'ALLOWED: Calendar and travel logistics; meeting titles, times, and locations; attendee names and roles when useful; project and work context; people and relationships that matter for coordination; general personal logistics (e.g. childcare pickup, dinner plans) when it is ordinary scheduling or social context—not medical, credential, or identifier detail.',
-      'OMIT: Specific dollar amounts, account numbers, transaction lines, or investment positions; long verbatim quotes from mail or messages when a short paraphrase is enough.',
+      'ALLOWED: Concrete detail from permitted sources (mail, calendar, wiki, and other tools the grant allows) whenever it serves the question: people, times, places, titles, themes, decisions, and logistics—whether the ask is social coordination, household planning, travel, finance-related context, or anything else the owner would reasonably share with a confidant.',
+      'OMIT: Anything in the workspace baseline “never pass through” list (credentials, full financial identifiers, clinical health, identity-recovery facts, unrelated third-party private conversations, privileged legal material)—see Brain access UI. Within this grant, also omit: specific dollar amounts, account or transaction lines, or investment positions unless the question clearly needs a number; long verbatim quotes from mail or documents when a short paraphrase is enough; raw tool or mail plumbing (internal message ids, headers, filesystem paths).',
     ].join('\n\n'),
   },
   {
     id: 'general',
     label: 'General collaborator',
-    hint: 'Work-focused; leave personal life out unless one minimal fact is required for the task.',
+    hint: 'Answer the question fully; stay close to the ask; avoid unrelated sensitive or intimate tangents.',
     text: [
-      'ALLOWED: Professional and work context: active projects, deadlines, meeting subjects, workplace decisions, and named colleagues or contacts when needed for the work topic.',
-      'OMIT: Non-work personal life by default: family and household detail, health and medical topics, finances and major purchases, housing, religion, politics, hobbies, and social relationships—unless one minimal fact is strictly required to answer a work-scoped question and is not credential, identifier, or clinical content.',
-      'Prefer paraphrase over long verbatim quotes from mail or documents when the content is sensitive; still give a complete answer to the work question in one reply.',
+      'ALLOWED: A complete, useful reply grounded in permitted mail, calendar, wiki, and other tools. Include names, times, places, and concrete facts when they answer what was asked—personal coordination is fine when the question is personal; business or public-context detail is fine when the question goes there.',
+      'OMIT: Drift into sensitive categories the question did not require: clinical health, credentials, full financial identifiers, unrelated intimate detail about third parties, or other baseline never-pass content (see Brain access). Prefer paraphrase over long verbatim of sensitive source material. Skip hobby, political, or social backstory unless it is needed to answer.',
+      'Still give one coherent answer that covers the ask without padding unrelated topics.',
     ].join('\n\n'),
   },
   {
     id: 'minimal-disclosure',
     label: 'Minimal disclosure',
-    hint: 'Smallest privacy surface: omit sensitive names, places, and backstory when the question can still be answered truthfully—this is not an excuse for one-line non-answers.',
+    hint: 'Smallest truthful surface—often high-level or brief; judgment beats padding.',
     text: [
-      'ALLOWED: Enough facts, names, dates, or amounts that the answer stays true and usable in one message. Minimize sensitive identifiers: if the question can be answered without naming a person or place, omit them.',
-      'OMIT: Extra background, unrelated projects, secondary participants, opinions, and any sensitive detail not needed for the ask. This limits what crosses the tunnel—not how “chatty” the model sounds; still answer the question completely within those bounds.',
+      'ALLOWED: A truthful answer with the narrowest disclosure: a short summary or a few key facts is often enough. Add names, times, places, or numbers only when omitting them would mislead or dodge the question.',
+      'OMIT: Backstory, side threads, rumor, editorializing, and any detail that does not change what the requester can fairly conclude. For coordination-style questions, prefer the smallest truthful sketch (e.g. that plans exist and roughly when) over guest lists, venues, or play-by-play unless those specifics are essential to the ask. Brevity is success when still honest. Raw tool or mail plumbing is never allowed.',
     ].join('\n\n'),
   },
 ]

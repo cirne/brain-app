@@ -46,7 +46,28 @@ describe('Tunnels.svelte', () => {
     expect(baseProps.onPickTunnelHandle).not.toHaveBeenCalled()
   })
 
-  it('without route shows empty prompt and connect', async () => {
+  it('without route loads tunnels index list and connect', async () => {
+    vi.mocked(apiFetch).mockImplementation((input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : String(input)
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ tunnels: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (u.includes('/api/chat/b2b/review')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response(null, { status: 404 }))
+    })
+
     render(Tunnels, {
       props: {
         ...baseProps,
@@ -54,8 +75,69 @@ describe('Tunnels.svelte', () => {
       },
     })
 
-    expect(await screen.findByTestId('tunnels-empty')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /connect/i })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/api/chat/b2b/tunnels')
+    })
+    expect(await screen.findByTestId('tunnels-list')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /connect/i })).toBeInTheDocument()
+  })
+
+  it('tunnel row navigates to handle', async () => {
+    vi.mocked(apiFetch).mockImplementation((input: RequestInfo | URL) => {
+      const u = typeof input === 'string' ? input : String(input)
+      if (u.includes('/api/chat/b2b/tunnels')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              tunnels: [
+                {
+                  peerUserId: 'u1',
+                  outboundGrantId: 'og',
+                  inboundGrantId: 'ig',
+                  peerHandle: 'alpha-peer',
+                  peerDisplayName: 'Alpha',
+                  outboundSessionId: null,
+                  grantId: 'og',
+                  ownerDisplayName: 'Alpha',
+                  ownerHandle: 'alpha-peer',
+                  ownerId: 'u1',
+                  sessionId: null,
+                  lastActivityMs: 1_700_000_000_000,
+                  snippet: 'Last msg',
+                  pendingReviewCount: 1,
+                  inboundPolicy: 'review',
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+      }
+      if (u.includes('/api/chat/b2b/review')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response(null, { status: 404 }))
+    })
+
+    const onPickTunnelHandle = vi.fn()
+    render(Tunnels, {
+      props: {
+        ...baseProps,
+        routeTunnelHandle: null,
+        onPickTunnelHandle,
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tunnels-list-row-alpha-peer')).toBeInTheDocument()
+    })
+    await screen.getByTestId('tunnels-list-row-alpha-peer').click()
+    expect(onPickTunnelHandle).toHaveBeenCalledWith('alpha-peer')
   })
 
   it('resolves legacy review session id and calls onReplaceLegacyReviewRoute', async () => {

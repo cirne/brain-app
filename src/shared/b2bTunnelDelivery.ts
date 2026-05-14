@@ -14,7 +14,7 @@ const AWAITING_PEER_REVIEW_LEGACY_ASSISTANT_TEXT = [
 
 export type B2bAwaitingPeerReviewAssistantProbe = {
   role?: string
-  b2bDelivery?: 'awaiting_peer_review'
+  b2bDelivery?: 'awaiting_peer_review' | 'no_reply_expected' | 'dismissed'
   content?: string
   parts?: Array<{ type: string; content?: string }>
 }

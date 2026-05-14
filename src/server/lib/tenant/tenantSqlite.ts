@@ -7,7 +7,7 @@ import { brainLayoutTenantSqlitePath } from '@server/lib/platform/brainLayout.js
 /**
  * Bump when `brain-tenant.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  */
-export const TENANT_SCHEMA_VERSION = 5
+export const TENANT_SCHEMA_VERSION = 6
 
 /**
  * Per-tenant Brain app SQLite (chat, notifications). Ripmail keeps its own DB under `ripmail/` until OPP-108 merges schemas.
@@ -49,7 +49,8 @@ CREATE TABLE chat_sessions (
   remote_grant_id TEXT,
   remote_handle TEXT,
   remote_display_name TEXT,
-  approval_state TEXT CHECK (approval_state IS NULL OR approval_state IN ('pending', 'approved', 'declined', 'auto', 'dismissed')),
+  approval_state TEXT CHECK (approval_state IS NULL OR approval_state IN ('pending', 'approved', 'declined', 'auto', 'dismissed', 'no_response_expected')),
+  expects_response INTEGER NOT NULL DEFAULT 1 CHECK (expects_response IN (0, 1)),
   is_cold_query INTEGER NOT NULL DEFAULT 0 CHECK (is_cold_query IN (0, 1)),
   cold_peer_user_id TEXT,
   cold_linked_session_id TEXT,

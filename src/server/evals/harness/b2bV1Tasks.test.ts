@@ -10,5 +10,6 @@ describe('b2b-v1 tasks', () => {
     expect(tasks.every(t => t.asker === 'kean')).toBe(true)
     expect(tasks.every(t => t.owner === 'lay')).toBe(true)
     expect(tasks.some(t => JSON.stringify(t.expect).includes('finalTextExcludes'))).toBe(true)
+    expect(tasks.some(t => Array.isArray(t.grantHistory) && t.grantHistory!.length > 0)).toBe(true)
   })
 })

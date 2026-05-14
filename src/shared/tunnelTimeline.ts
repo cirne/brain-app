@@ -14,6 +14,8 @@ export type TunnelTimelineMessageApi = {
   body: string
   /** When true, {@link body} may be empty — show `chat.b2b.awaitingReceiptLabel` in the client. */
   b2bAwaitingPeerReview?: boolean
+  /** When true, {@link body} may be empty — show `chat.b2b.dismissedReceiptLabel` in the client. */
+  b2bDismissed?: boolean
   hint?: 'auto_sent' | 'to_their_brain'
 }
 
@@ -32,6 +34,8 @@ export type TunnelTimelinePendingReviewApi = {
   /** UI-sent state label (pending | sent aliases). */
   state: string
   updatedAtMs: number
+  /** Preflight: false when the peer message is FYI (no draft / different handshake copy). */
+  expectsResponse: boolean
 }
 
 export type TunnelTimelineEntryApi = TunnelTimelineMessageApi | TunnelTimelinePendingReviewApi

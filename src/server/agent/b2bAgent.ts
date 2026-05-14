@@ -8,7 +8,12 @@ import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.j
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { createAgentTools, type CreateAgentToolsOptions } from './tools.js'
 import { B2B_QUERY_ONLY } from './agentToolSets.js'
-import { buildDateContext, requireStandardBrainLlm, type PromptClockOptions } from './agentFactory.js'
+import {
+  buildDateContext,
+  requireFastBrainLlm,
+  requireStandardBrainLlm,
+  type PromptClockOptions,
+} from './agentFactory.js'
 import { meProfilePromptSection } from './assistantAgent.js'
 
 export type B2BGrantPolicy = {
@@ -55,6 +60,67 @@ export function buildB2BFilterPrompt(params: { privacyPolicy: string; draftAnswe
     privacyPolicy: params.privacyPolicy,
     draftAnswer: params.draftAnswer,
   })
+}
+
+export function buildB2BPreflightPrompt(message: string): string {
+  return renderPromptTemplate('b2b/preflight.hbs', { message })
+}
+
+/** Exported for eval harness / unit tests (same logic as production preflight). */
+export function parsePreflightExpectsResponse(raw: string): boolean | null {
+  const t = raw.trim()
+  if (!t) return null
+  const tryParse = (s: string): boolean | null => {
+    try {
+      const j = JSON.parse(s) as { expectsResponse?: unknown }
+      if (typeof j.expectsResponse === 'boolean') return j.expectsResponse
+    } catch {
+      /* ignore */
+    }
+    return null
+  }
+  const direct = tryParse(t)
+  if (direct !== null) return direct
+  const start = t.indexOf('{')
+  const end = t.lastIndexOf('}')
+  if (start >= 0 && end > start) return tryParse(t.slice(start, end + 1))
+  return null
+}
+
+/**
+ * Classifier-only agent: **optional `BRAIN_FAST_LLM`** (cheaper); when unset uses **`BRAIN_LLM`**
+ * (see {@link requireFastBrainLlm}).
+ */
+export function createB2BPreflightAgent(message: string): Agent {
+  const model = requireFastBrainLlm()
+  return new Agent({
+    initialState: {
+      systemPrompt: buildB2BPreflightPrompt(message),
+      model,
+      tools: [],
+      thinkingLevel: 'off',
+    },
+    onPayload: (params, m) => chainLlmOnPayloadNoThinking(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
+    convertToLlm,
+  })
+}
+
+/** User turn for preflight (system prompt carries the inbound message). */
+export const B2B_PREFLIGHT_USER_TURN =
+  'Return only the JSON object described in your system prompt (one line, no markdown).'
+
+/**
+ * One-shot preflight: same model selection as {@link createB2BPreflightAgent} (`BRAIN_FAST_LLM` when set, else `BRAIN_LLM`).
+ * When parsing fails, defaults to `true` (draft) to avoid silently dropping real questions.
+ */
+export async function runB2BPreflight(message: string): Promise<boolean> {
+  const trimmed = message.trim()
+  if (!trimmed) return true
+  const agent = createB2BPreflightAgent(trimmed)
+  const raw = await promptB2BAgentForText(agent, B2B_PREFLIGHT_USER_TURN)
+  const parsed = parsePreflightExpectsResponse(raw)
+  return parsed ?? true
 }
 
 export function createB2BAgent(grant: B2BGrantPolicy, wikiRoot: string, options: B2BAgentOptions): Agent {

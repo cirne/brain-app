@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
@@ -42,7 +43,7 @@
   /** From tunnel-timeline API; enables cold-query send when peer has not granted outbound access yet. */
   let peerUserId = $state('')
   let policyDraft = $state<'auto' | 'review' | 'ignore'>('review')
-  /** Matches SegmentedControl: Manual / Automatic; `undefined` when server policy is ignore. */
+  /** Matches SegmentedControl: Review each / Autosend; `undefined` when server policy is ignore. */
   let replyUiBind = $state<'review' | 'auto' | undefined>('review')
   let policyBusy = $state(false)
   let inboundPrivacyPolicy = $state('')
@@ -60,6 +61,9 @@
     assistantText: string
     atMs: number
     awaitingPeerReview: boolean
+    dismissed?: boolean
+    /** When true, only the outbound user bubble is shown (FYI / no reply expected from peer brain). */
+    omitAssistantRow?: boolean
   } | null>(null)
 
   let logEl = $state<HTMLDivElement | undefined>()
@@ -83,7 +87,7 @@
     return c != null && (c.kind === 'adhoc' || c.kind === 'custom')
   })
 
-  /** Manual / Automatic only (Ignore not exposed in toolbar). */
+  /** Review each / Autosend only (Ignore not exposed in toolbar). */
   const replySegmentOptions = $derived.by(
     (): SegmentedOption<'review' | 'auto'>[] => [
       {
@@ -238,7 +242,6 @@
       return
     }
     await patchInboundPrivacyPreset(next)
-    connectionSheetOpen = false
   }
 
   function onPolicySelect(e: Event) {
@@ -264,14 +267,11 @@
     }
 
     await patchInboundPolicy('review')
-    connectionSheetOpen = false
   }
 
   function confirmAutoSend() {
     autoSendConfirmOpen = false
-    void patchInboundPolicy('auto').then(() => {
-      connectionSheetOpen = false
-    })
+    void patchInboundPolicy('auto')
   }
 
   async function sendOutboundMessage(message: string): Promise<void> {
@@ -370,6 +370,15 @@
           awaitingPeerReview: true,
         }
       }
+      if (pendingOutbound && streamResult.b2bNoReplyExpected) {
+        pendingOutbound = {
+          userText: text,
+          assistantText: '',
+          atMs,
+          awaitingPeerReview: false,
+          omitAssistantRow: true,
+        }
+      }
       emit({ type: 'chat:sessions-changed' })
       await loadTimeline()
     } catch {
@@ -410,11 +419,14 @@
   })
 </script>
 
-{#snippet policyDropdown(selTestId: string)}
+{#snippet policyDropdown(selTestId: string, className = '')}
   <select
     data-testid={selTestId}
     aria-label={$t('chat.tunnels.connection.policySelectAria')}
-    class="box-border min-w-[11rem] max-w-[min(42vw,15rem)] shrink-0 truncate rounded-lg border border-border bg-background px-2 py-1.5 text-[0.78rem] text-foreground outline-none disabled:opacity-50"
+    class={cn(
+      'box-border shrink-0 truncate rounded-lg border border-border bg-background px-2 py-1.5 text-[0.78rem] text-foreground outline-none disabled:opacity-50',
+      className,
+    )}
     disabled={connectionDisabled}
     value={accessSelect}
     title={accessHintText}
@@ -429,7 +441,7 @@
   </select>
 {/snippet}
 
-{#snippet replyManualAutoHeader()}
+{#snippet replyReviewAutosendHeader()}
   <SegmentedControl
     class="w-[10.75rem] min-w-[9.5rem] shrink-0"
     options={replySegmentOptions}
@@ -441,9 +453,9 @@
   />
 {/snippet}
 
-{#snippet replyManualAutoSheet()}
+{#snippet replyReviewAutosendSheet()}
   <SegmentedControl
-    class="w-[10.75rem] min-w-[9.5rem] shrink-0"
+    class="w-full shrink-0"
     options={replySegmentOptions}
     value={replyUiBind}
     groupLabel={$t('chat.review.detail.policy.groupLabel')}
@@ -465,8 +477,8 @@
         <Settings size={16} strokeWidth={2} />
       </a>
     {/if}
-    {@render policyDropdown('tunnel-detail-policy-select')}
-    {@render replyManualAutoHeader()}
+    {@render policyDropdown('tunnel-detail-policy-select', 'min-w-[11rem] max-w-[min(42vw,15rem)]')}
+    {@render replyReviewAutosendHeader()}
   </div>
 {/snippet}
 
@@ -476,7 +488,8 @@
       <div class="mb-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted">
         {$t('chat.tunnels.connection.accessHeading')}
       </div>
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-col gap-2">
+        {@render policyDropdown('tunnel-detail-policy-select-sheet', 'w-full')}
         {#if showCustomizeLink}
           <a
             class="text-[0.7rem] font-medium text-accent underline-offset-2 hover:underline"
@@ -485,7 +498,6 @@
             {$t('chat.tunnels.connection.customizeBrainAccess')}
           </a>
         {/if}
-        {@render policyDropdown('tunnel-detail-policy-select-sheet')}
       </div>
       {#if accessHintText}
         <p class="mt-1.5 m-0 text-[0.7rem] leading-snug text-muted">{accessHintText}</p>
@@ -497,7 +509,7 @@
         {$t('chat.tunnels.connection.repliesHeading')}
       </div>
       <div class="min-w-0 overflow-x-auto">
-        {@render replyManualAutoSheet()}
+        {@render replyReviewAutosendSheet()}
       </div>
       <p class="mt-1.5 m-0 text-[0.7rem] leading-snug text-muted">{replyHintText}</p>
     </div>
@@ -570,14 +582,19 @@
         {#if item.kind === 'pending_review'}
           <TunnelPendingMessage row={item} onMutate={() => loadTimeline()} />
         {:else}
-          <TunnelMessage
-            side={item.side}
-            authorKind={authorKindFor(item.actor)}
-            actorLabel={actorLabelFor(item.actor, peerDisplayName)}
-            body={item.b2bAwaitingPeerReview ? $t('chat.b2b.awaitingReceiptLabel') : item.body}
-            hint={hintFor(item)}
-            atMs={item.atMs}
-          />
+        <TunnelMessage
+          side={item.side}
+          authorKind={authorKindFor(item.actor)}
+          actorLabel={actorLabelFor(item.actor, peerDisplayName)}
+          body={item.b2bAwaitingPeerReview 
+            ? $t('chat.b2b.awaitingReceiptLabel') 
+            : item.b2bDismissed 
+              ? $t('chat.b2b.dismissedReceiptLabel') 
+              : item.body}
+          hint={hintFor(item)}
+          atMs={item.atMs}
+          class={item.b2bDismissed ? 'opacity-60 grayscale-[0.5]' : ''}
+        />
         {/if}
       {/each}
       {#if pendingOutbound}
@@ -588,17 +605,22 @@
           body={pendingOutbound.userText}
           atMs={pendingOutbound.atMs}
         />
+        {#if !pendingOutbound.omitAssistantRow}
         <TunnelMessage
           side="theirs"
           authorKind="assistant"
           actorLabel={actorLabelFor('their_brain', peerDisplayName)}
           body={pendingOutbound.awaitingPeerReview
             ? $t('chat.b2b.awaitingReceiptLabel')
-            : pendingOutbound.assistantText.trim()
-              ? pendingOutbound.assistantText
-              : '…'}
+            : pendingOutbound.dismissed
+              ? $t('chat.b2b.dismissedReceiptLabel')
+              : pendingOutbound.assistantText.trim()
+                ? pendingOutbound.assistantText
+                : '…'}
           atMs={pendingOutbound.atMs}
+          class={pendingOutbound.dismissed ? 'opacity-60 grayscale-[0.5]' : ''}
         />
+        {/if}
       {/if}
     </div>
   </div>

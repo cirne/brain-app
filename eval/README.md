@@ -64,6 +64,40 @@ Tasks in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl). Harness matches product
 | `EVAL_AGENT_TRACE` | `1` for per-case `[eval:agent]` JSON lines (tool / turn timeline on stdout) |
 | `BRAIN_RIPMAIL_SUBPROCESS_LOG` | `errors` to quiet successful ripmail subprocess logs |
 
+### B2B tunnel policy eval (LLM-as-judge)
+
+[`tasks/b2b-policies.jsonl`](tasks/b2b-policies.jsonl) is generated from the same strings as [`src/client/lib/brainQueryPolicyTemplates.ts`](../src/client/lib/brainQueryPolicyTemplates.ts) so grant text matches the picker. Regenerate after editing templates:
+
+```bash
+npx tsx --tsconfig tsconfig.server.json src/server/evals/generateB2bPoliciesJsonl.ts
+```
+
+It runs the B2B eval harness with **Ken Lay (asker) → Steve Kean (owner)** and three built-in **`privacyPolicy`** templates (wording is **domain-neutral**—personal coordination and non-work asks are first-class in Trusted/General). The **sample question** is fixed to **late-2001 Enron credit / agency themes** so the seeded mail corpus can answer it; judge rubrics still score against that question in policy-neutral terms. Expectations combine substring/tool checks with **`expect.kind: "llmJudge"`**.
+
+```bash
+npm run eval:b2b-policies
+# single case (same flags as other eval CLIs):
+npm run eval:b2b-policies -- --id b2b-policy-minimal-kean-lay
+```
+
+| Env | Purpose |
+|-----|---------|
+| `EVAL_B2B_POLICY_TASKS` | Override JSONL path (default `eval/tasks/b2b-policies.jsonl`) |
+| `BRAIN_EVAL_JUDGE_LLM` | Judge model (`provider/model` or nickname); default in code: `openai/gpt-5.4-nano` |
+
+### B2B tunnel preflight eval (fast LLM)
+
+[`tasks/b2b-preflight.jsonl`](tasks/b2b-preflight.jsonl) labels whether each inbound tunnel message should run the research+draft pipeline. The harness uses the same preflight agent stack as production: **optional `BRAIN_FAST_LLM`** (cheaper model when set); **when unset, preflight uses `BRAIN_LLM`** (standard tier). No tools. **No ripmail seed** is required.
+
+```bash
+npm run eval:b2b-preflight
+npm run eval:b2b-preflight -- --id b2b-preflight-thanks
+```
+
+| Env | Purpose |
+|-----|---------|
+| `EVAL_B2B_PREFLIGHT_TASKS` | Override JSONL path (default `eval/tasks/b2b-preflight.jsonl`) |
+
 ## Authoring a new eval: explore, then assert
 
 The corpus is **large** and **not memorized** while you write tasks. You usually **cannot** predict the exact **tool order**, **tool bodies**, or **final wording** from a user message alone. Treat it as a **two-phase** workflow.

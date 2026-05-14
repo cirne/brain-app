@@ -81,7 +81,7 @@ describe('TunnelDetail.svelte', () => {
     })
   })
 
-  it('changing reply to Automatic opens confirm then PATCHes b2b grants to auto', async () => {
+  it('changing reply to Autosend opens confirm then PATCHes b2b grants to auto', async () => {
     vi.mocked(apiFetch)
       .mockResolvedValueOnce(
         new Response(JSON.stringify(timelineJson()), { status: 200, headers: { 'Content-Type': 'application/json' } }),
@@ -106,7 +106,7 @@ describe('TunnelDetail.svelte', () => {
     await fireEvent.click(screen.getByTestId('tunnel-detail-reply-auto'))
 
     const dialog = await screen.findByRole('dialog')
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Turn on auto-send' }))
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Autosend' }))
 
     await waitFor(() => {
       expect(
@@ -157,7 +157,7 @@ describe('TunnelDetail.svelte', () => {
             init.method === 'PATCH' &&
             typeof init.body === 'string' &&
             init.body.includes('"privacyPolicy"') &&
-            init.body.includes('Professional and work context'),
+            init.body.includes('A complete, useful reply'),
         ),
       ).toBe(true)
     })
@@ -318,6 +318,7 @@ describe('TunnelDetail.svelte', () => {
       sessionId: 'out-123',
       assistantText: 'Hello from brain',
       b2bAwaitingPeerReview: false,
+      b2bNoReplyExpected: false,
       sawDone: true,
     })
 

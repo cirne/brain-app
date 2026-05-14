@@ -1,6 +1,6 @@
 /** Matches `GET /api/chat/sessions` list items. */
 export type ChatSessionType = 'own' | 'b2b_outbound' | 'b2b_inbound'
-export type ApprovalState = 'pending' | 'approved' | 'declined' | 'auto' | 'dismissed'
+export type ApprovalState = 'pending' | 'approved' | 'declined' | 'auto' | 'dismissed' | 'no_response_expected'
 
 export type ChatSessionListItem = {
   sessionId: string

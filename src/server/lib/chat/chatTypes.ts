@@ -28,13 +28,19 @@ export type ChatMessage = {
   parts?: MessagePart[]
   thinking?: string
   /** Outbound tunnel: placeholder assistant row until the answering side approves (`b2bChat` / OPP-111). */
-  b2bDelivery?: 'awaiting_peer_review'
+  b2bDelivery?: 'awaiting_peer_review' | 'no_reply_expected' | 'dismissed'
   /** Set on assistant rows when the model reported usage (sum over tool rounds for that reply). */
   usage?: LlmUsageSnapshot
 }
 
 export type ChatSessionType = 'own' | 'b2b_outbound' | 'b2b_inbound'
-export type ApprovalState = 'pending' | 'approved' | 'declined' | 'auto' | 'dismissed'
+export type ApprovalState =
+  | 'pending'
+  | 'approved'
+  | 'declined'
+  | 'auto'
+  | 'dismissed'
+  | 'no_response_expected'
 
 /** One in-progress assistant message while streaming SSE (server mirror of client state). */
 export type AssistantTurnState = {
@@ -57,5 +63,7 @@ export type ChatSessionDocV1 = {
   isColdQuery?: boolean
   coldPeerUserId?: string | null
   coldLinkedSessionId?: string | null
+  /** Inbound B2B: false when preflight classified the peer message as FYI (no draft/review). */
+  expectsResponse?: boolean
   messages: ChatMessage[]
 }

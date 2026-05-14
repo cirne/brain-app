@@ -56,7 +56,7 @@ export async function runAgentEvalCase(task: EnronV1Task, options: { timezone?: 
     }
   }
 
-  const check = checkExpect(task.expect, m.finalText, m.toolTextConcat, m.toolNames)
+  const check = await checkExpect(task.expect, m.finalText, m.toolTextConcat, m.toolNames)
   if (!check.ok) {
     for (const r of check.reasons) failReasons.push(r)
   }

@@ -30,7 +30,7 @@ describe('enron-v1 task file', () => {
       const t = tasks.find((x) => x.id === id)
       expect(t, id).toBeDefined()
       for (const toolJson of [pretty, minified]) {
-        const r = checkExpect(t!.expect, '', toolJson, [])
+        const r = await checkExpect(t!.expect, '', toolJson, [])
         expect(r.ok, `${id} ${toolJson.slice(0, 40)}… → ${r.reasons.join('; ')}`).toBe(true)
       }
     }
@@ -38,8 +38,8 @@ describe('enron-v1 task file', () => {
 })
 
 describe('checkExpect', () => {
-  it('toolResultIncludes passes when haystack has substring', () => {
-    const r = checkExpect(
+  it('toolResultIncludes passes when haystack has substring', async () => {
+    const r = await checkExpect(
       { kind: 'toolResultIncludes', substring: 'abc' },
       '',
       'foo abc bar',
@@ -47,8 +47,8 @@ describe('checkExpect', () => {
     )
     expect(r.ok).toBe(true)
   })
-  it('finalTextIncludesOneOf is case-insensitive when requested', () => {
-    const r = checkExpect(
+  it('finalTextIncludesOneOf is case-insensitive when requested', async () => {
+    const r = await checkExpect(
       { kind: 'finalTextIncludesOneOf', substrings: ['Dubuque'], caseInsensitive: true },
       'I went to DUBUQUE',
       '',
@@ -56,8 +56,8 @@ describe('checkExpect', () => {
     )
     expect(r.ok).toBe(true)
   })
-  it('any branch passes if one matches', () => {
-    const r = checkExpect(
+  it('any branch passes if one matches', async () => {
+    const r = await checkExpect(
       { any: [{ kind: 'toolResultIncludes', substring: 'nope' }, { kind: 'toolResultIncludes', substring: 'yes' }] },
       '',
       'yes',
@@ -65,15 +65,15 @@ describe('checkExpect', () => {
     )
     expect(r.ok).toBe(true)
   })
-  it('toolNamesIncludeAll requires each tool name', () => {
-    const r = checkExpect({ kind: 'toolNamesIncludeAll', names: ['read', 'grep'] }, '', '', ['grep', 'read', 'edit'])
+  it('toolNamesIncludeAll requires each tool name', async () => {
+    const r = await checkExpect({ kind: 'toolNamesIncludeAll', names: ['read', 'grep'] }, '', '', ['grep', 'read', 'edit'])
     expect(r.ok).toBe(true)
   })
   it('enron-022-suggest-reply-chips requires mail tools plus suggest_reply_options', async () => {
     const tasks = await loadEnronV1TasksFromFile(taskFile)
     const t = tasks.find((x) => x.id === 'enron-022-suggest-reply-chips')
     expect(t, 'enron-022 in enron-v1.jsonl').toBeDefined()
-    const r = checkExpect(
+    const r = await checkExpect(
       t!.expect,
       '',
       '15323857.1075855428713.JavaMail.evans@thyme',
@@ -90,7 +90,7 @@ describe('checkExpect', () => {
       'From: Kenneth Lay <kenneth.lay@enron.com> … 123.456.JavaMail.evans@thyme …'
     const finalText =
       'Ken Lay emphasized growth and strategic priorities around energy markets in this period.'
-    const r = checkExpect(t!.expect, finalText, haystack, ['search_index', 'read_mail_message'])
+    const r = await checkExpect(t!.expect, finalText, haystack, ['search_index', 'read_mail_message'])
     expect(r.ok, r.reasons.join('; ')).toBe(true)
   })
 
@@ -104,7 +104,7 @@ describe('checkExpect', () => {
 
 Crisis and gratitude themes. 15323857.1075855428713.JavaMail.evans@thyme
 `
-    const r = checkExpect(t!.expect, 'Main themes included crisis and gratitude.', haystack, [
+    const r = await checkExpect(t!.expect, 'Main themes included crisis and gratitude.', haystack, [
       'read_mail_message',
       'write',
     ])

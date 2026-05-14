@@ -1,0 +1,18 @@
+# B2B preflight: expectsResponse = should we run research+draft? (ground truth for eval)
+{"id":"b2b-preflight-ask-q1","message":"What were Q3 revenue figures for the wholesale unit?","expectsResponse":true}
+{"id":"b2b-preflight-ask-schedule","message":"Can you send me your availability next Tuesday afternoon for a 30-min sync?","expectsResponse":true}
+{"id":"b2b-preflight-ask-confirm","message":"Please confirm you received the signed contract and whether legal has any open items.","expectsResponse":true}
+{"id":"b2b-preflight-ask-followup","message":"Following up on my note from Monday — did you get a chance to review the deck?","expectsResponse":true}
+{"id":"b2b-preflight-ask-opinion","message":"Do you think we should pull forward the launch given the competitor news?","expectsResponse":true}
+{"id":"b2b-preflight-thanks","message":"Thanks — this is exactly what I needed.","expectsResponse":false}
+{"id":"b2b-preflight-thanks-short","message":"Thanks!","expectsResponse":false}
+{"id":"b2b-preflight-ack","message":"Got it, sounds good.","expectsResponse":false}
+{"id":"b2b-preflight-fyi","message":"FYI: I uploaded the slides to the shared drive; no action needed on your side.","expectsResponse":false}
+{"id":"b2b-preflight-closer","message":"Appreciate the quick turnaround. Talk soon.","expectsResponse":false}
+{"id":"b2b-preflight-status-only","message":"Shipped the build to staging at 4pm; monitoring looks clean.","expectsResponse":false}
+{"id":"b2b-preflight-emoji-ok","message":"👍","expectsResponse":false}
+{"id":"b2b-preflight-question-marketing","message":"Could you draft a short customer-facing blurb we can use in the newsletter?","expectsResponse":true}
+{"id":"b2b-preflight-opinion-market","message":"i think the market will come around","expectsResponse":false}
+{"id":"b2b-preflight-opinion-track","message":"I believe we're on track for the deadline.","expectsResponse":false}
+{"id":"b2b-preflight-opinion-worry","message":"i wouldnt worry about it","expectsResponse":false}
+{"id":"b2b-preflight-statement-view","message":"In my view this deal makes sense long-term.","expectsResponse":false}

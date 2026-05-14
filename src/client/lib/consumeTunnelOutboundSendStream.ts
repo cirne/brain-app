@@ -5,6 +5,7 @@ export type ConsumeTunnelOutboundSendStreamResult = {
   sessionId: string | null
   assistantText: string
   b2bAwaitingPeerReview: boolean
+  b2bNoReplyExpected: boolean
   sawDone: boolean
 }
 
@@ -15,10 +16,11 @@ export async function consumeTunnelOutboundSendStream(
   let sessionId: string | null = null
   let assistantText = ''
   let b2bAwaitingPeerReview = false
+  let b2bNoReplyExpected = false
   let sawDone = false
   const body = res.body
   if (!body) {
-    return { sessionId, assistantText, b2bAwaitingPeerReview, sawDone }
+    return { sessionId, assistantText, b2bAwaitingPeerReview, b2bNoReplyExpected, sawDone }
   }
 
   const reader = body.getReader()
@@ -68,10 +70,17 @@ export async function consumeTunnelOutboundSendStream(
         ) {
           b2bAwaitingPeerReview = true
         }
+        if (
+          data &&
+          typeof data === 'object' &&
+          (data as { b2bDelivery?: unknown }).b2bDelivery === 'no_reply_expected'
+        ) {
+          b2bNoReplyExpected = true
+        }
         continue
       }
     }
   }
 
-  return { sessionId, assistantText, b2bAwaitingPeerReview, sawDone }
+  return { sessionId, assistantText, b2bAwaitingPeerReview, b2bNoReplyExpected, sawDone }
 }

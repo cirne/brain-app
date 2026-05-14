@@ -45,6 +45,8 @@ export type LlmJsonlEvalConfig<TTask extends { id: string }> = {
   formatCaseLogLine: (r: RunAgentEvalCaseResult) => string
   caseToReport: (c: RunAgentEvalCaseResult, task: TTask, index: number) => Record<string, unknown>
   ripIndexHint: string
+  /** When false, do not require `ripmail/ripmail.db` under eval BRAIN_HOME (e.g. preflight-only suites). */
+  requireRipmailDb?: boolean
 }
 
 /**
@@ -64,6 +66,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
     formatCaseLogLine,
     caseToReport,
     ripIndexHint,
+    requireRipmailDb = true,
   } = config
 
   /** JSONL evals must not perform real `ripmail send` (set `EVAL_RIPMAIL_SEND_DRY_RUN=0` to allow). */
@@ -89,7 +92,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
       process.exit(1)
     }
   }
-  if (!existsSync(rip)) {
+  if (requireRipmailDb && !existsSync(rip)) {
     console.error(`${logPrefix} ripmail index missing. ${ripIndexHint} (expected ${rip})`)
     process.exit(1)
   }

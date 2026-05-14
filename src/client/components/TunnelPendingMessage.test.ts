@@ -36,6 +36,7 @@ describe('TunnelPendingMessage.svelte', () => {
     draftSnippet: 'Suggested reply.',
     state: 'pending',
     updatedAtMs: 1,
+    expectsResponse: true,
   })
 
   it('approve posts /approve and emits b2b:review-changed', async () => {

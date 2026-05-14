@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cn } from '@client/lib/cn.js'
   import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
 
   let {
@@ -8,6 +9,7 @@
     body,
     hint,
     atMs,
+    class: className = '',
   }: {
     side: 'yours' | 'theirs'
     /** Human-authored (you/them) vs assistant reply bubbles — distinct chrome per OPP-113. */
@@ -16,6 +18,7 @@
     body: string
     hint?: string | undefined
     atMs: number
+    class?: string
   } = $props()
 
   let rel = $state('')
@@ -47,7 +50,7 @@
 </script>
 
 <div
-  class="flex w-full min-w-0 flex-col gap-0.5 {side === 'yours' ? 'items-end' : 'items-start'}"
+  class={cn("flex w-full min-w-0 flex-col gap-0.5", side === 'yours' ? 'items-end' : 'items-start', className)}
   data-testid="tunnel-message"
 >
   <div

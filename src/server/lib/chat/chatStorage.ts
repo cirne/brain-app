@@ -75,7 +75,7 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
   const sess = db
     .prepare(
       `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-        approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
+        approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
        FROM chat_sessions WHERE lower(session_id) = lower(?)`,
     )
     .get(sessionId) as ChatSessionRow | undefined
@@ -105,6 +105,7 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
           coldLinkedSessionId: sess.cold_linked_session_id,
         }
       : {}),
+    expectsResponse: sessionExpectsResponseFromRow(sess),
     messages,
   }
 }
@@ -131,6 +132,7 @@ type ChatSessionRow = {
   remote_handle: string | null
   remote_display_name: string | null
   approval_state: ApprovalState | null
+  expects_response: number
   is_cold_query: number
   cold_peer_user_id: string | null
   cold_linked_session_id: string | null
@@ -148,6 +150,12 @@ export type EnsureSessionStubOptions = {
   isColdQuery?: boolean
   coldPeerUserId?: string | null
   coldLinkedSessionId?: string | null
+  /** B2B inbound: false when preflight says peer message is FYI (default true). */
+  expectsResponse?: boolean
+}
+
+function sessionExpectsResponseFromRow(r: { expects_response?: number }): boolean {
+  return r.expects_response !== 0
 }
 
 function rowToListItem(r: ChatSessionRow, preview?: string): ChatSessionListItem {
@@ -209,7 +217,7 @@ export async function listSessions(limit?: number): Promise<ChatSessionListItem[
   const db = getTenantDb()
   const cap = typeof limit === 'number' && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined
   const projection = `session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-    approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms`
+    approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms`
   const sql =
     cap !== undefined
       ? `SELECT ${projection} FROM chat_sessions ORDER BY updated_at_ms DESC LIMIT ?`
@@ -253,11 +261,12 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
   }
   const coldLink = options.coldLinkedSessionId?.trim() || null
   const coldFlag = isCold ? 1 : 0
+  const expectsResponse = options.expectsResponse === false ? 0 : 1
   db.prepare(
     `INSERT INTO chat_sessions (
        session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-       approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
-     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
+     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     sessionId,
     sessionType,
@@ -265,6 +274,7 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
     options.remoteHandle?.trim() || null,
     options.remoteDisplayName?.trim() || null,
     options.approvalState ?? null,
+    expectsResponse,
     coldFlag,
     coldPeer,
     coldLink,
@@ -283,7 +293,7 @@ export async function findB2BSession(
   const row = db
     .prepare(
       `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-        approval_state, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
+        approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
        FROM chat_sessions
        WHERE session_type = ? AND remote_grant_id = ?
        LIMIT 1`,
@@ -549,6 +559,59 @@ export async function replaceLastAwaitingPeerReviewOutboundAssistant(params: {
   return true
 }
 
+/** Outbound tunnel: turn `awaiting_peer_review` placeholder into FYI terminal state (no substantive reply). */
+export async function replaceLastAwaitingPeerReviewWithNoReplyExpected(sessionId: string): Promise<boolean> {
+  return replaceLastAwaitingPeerReviewWithB2bDelivery(sessionId, 'no_reply_expected')
+}
+
+/** Outbound tunnel: turn `awaiting_peer_review` placeholder into dismissed terminal state. */
+export async function replaceLastAwaitingPeerReviewWithDismissed(sessionId: string): Promise<boolean> {
+  return replaceLastAwaitingPeerReviewWithB2bDelivery(sessionId, 'dismissed')
+}
+
+async function replaceLastAwaitingPeerReviewWithB2bDelivery(
+  sessionId: string,
+  delivery: 'no_reply_expected' | 'dismissed',
+): Promise<boolean> {
+  const db = getTenantDb()
+  const sid = sessionId.trim()
+  if (!sid) return false
+  const row = db
+    .prepare(
+      `SELECT seq, content_json FROM chat_messages WHERE session_id = ? AND role = 'assistant' ORDER BY seq DESC LIMIT 1`,
+    )
+    .get(sid) as { seq: number; content_json: string } | undefined
+  if (!row) return false
+  let prev: ChatMessage
+  try {
+    prev = JSON.parse(row.content_json) as ChatMessage
+  } catch {
+    return false
+  }
+  if (prev.b2bDelivery !== 'awaiting_peer_review') return false
+  const next: ChatMessage = {
+    ...prev,
+    role: 'assistant',
+    content: '',
+    parts: undefined,
+    b2bDelivery: delivery,
+  }
+  const now = Date.now()
+  db.prepare(`UPDATE chat_messages SET content_json = ?, created_at_ms = ? WHERE session_id = ? AND seq = ?`).run(
+    JSON.stringify(ensureChatMessageId(next)),
+    now,
+    sid,
+    row.seq,
+  )
+  const previewVal = recomputePreview(db, sid)
+  db.prepare(`UPDATE chat_sessions SET preview = ?, updated_at_ms = ? WHERE session_id = ?`).run(
+    previewVal,
+    now,
+    sid,
+  )
+  return true
+}
+
 /** Replace the last assistant message (e.g. B2B regenerate while review is pending). */
 export async function replaceLastAssistantMessageInSession(sessionId: string, assistantMessage: ChatMessage): Promise<boolean> {
   const db = getTenantDb()
@@ -587,6 +650,8 @@ export type B2BInboundReviewRow = {
   updatedAtMs: number
   /** Grant policy when `grantId` is set; null for cold pre-handshake rows. */
   policy: BrainQueryGrantPolicy | null
+  /** Preflight: false when peer message is FYI (no draft expected). */
+  expectsResponse: boolean
 }
 
 function snippetFromPlainText(text: string): string {
@@ -618,7 +683,7 @@ export async function listB2BInboundReviewRows(params: {
   const db = getTenantDb()
   const rows = db
     .prepare(
-      `SELECT session_id, remote_grant_id, remote_handle, remote_display_name, approval_state, updated_at_ms, is_cold_query
+      `SELECT session_id, remote_grant_id, remote_handle, remote_display_name, approval_state, expects_response, updated_at_ms, is_cold_query
        FROM chat_sessions
        WHERE session_type = 'b2b_inbound'
        ORDER BY updated_at_ms DESC`,
@@ -629,6 +694,7 @@ export async function listB2BInboundReviewRows(params: {
     remote_handle: string | null
     remote_display_name: string | null
     approval_state: ApprovalState | null
+    expects_response: number
     updated_at_ms: number
     is_cold_query: number
   }[]
@@ -638,11 +704,15 @@ export async function listB2BInboundReviewRows(params: {
   for (const r of rows) {
     const st: ApprovalState = r.approval_state ?? 'pending'
     if (st === 'dismissed') continue
+    if (st === 'no_response_expected') continue
     if (params.stateFilter === 'pending' && st !== 'pending') continue
     if (params.stateFilter === 'sent' && st !== 'approved' && st !== 'auto') continue
     const grantIdRaw = r.remote_grant_id?.trim() ?? ''
     const isCold = r.is_cold_query === 1
     if (!grantIdRaw && !isCold) continue
+
+    const expectsResponse = sessionExpectsResponseFromRow(r)
+    if (st === 'pending' && grantIdRaw.length > 0 && !expectsResponse) continue
 
     const msgRows = db
       .prepare(`SELECT role, content_json FROM chat_messages WHERE session_id = ? ORDER BY seq ASC`)
@@ -681,6 +751,7 @@ export async function listB2BInboundReviewRows(params: {
       rowState: st,
       updatedAtMs: r.updated_at_ms,
       policy,
+      expectsResponse,
     })
   }
 

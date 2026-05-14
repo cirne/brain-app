@@ -32,7 +32,7 @@ export async function runWikiAgentEvalCase(
       : task.userMessage
     const m = await collectAgentPromptMetrics(agent, fullMessage, { evalTraceCaseId: task.id })
     deleteWikiBuildoutSession(sessionId)
-    return finishWikiCase(task, m, failReasons)
+    return await finishWikiCase(task, m, failReasons)
   }
 
   const systemPrompt = buildCleanupSystemPrompt(tz)
@@ -41,14 +41,14 @@ export async function runWikiAgentEvalCase(
     ? `${prefix}${task.userMessage}`
     : task.userMessage
   const m = await collectAgentPromptMetrics(agent, fullMessage, { evalTraceCaseId: task.id })
-  return finishWikiCase(task, m, failReasons)
+  return await finishWikiCase(task, m, failReasons)
 }
 
-function finishWikiCase(
+async function finishWikiCase(
   task: WikiV1Task,
   m: CollectedAgentPromptMetrics,
   failReasons: string[],
-): RunAgentEvalCaseResult {
+): Promise<RunAgentEvalCaseResult> {
   if (m.error) {
     return {
       id: task.id,
@@ -65,7 +65,7 @@ function finishWikiCase(
       provider: m.provider,
     }
   }
-  const check = checkExpect(task.expect, m.finalText, m.toolTextConcat, m.toolNames)
+  const check = await checkExpect(task.expect, m.finalText, m.toolTextConcat, m.toolNames)
   if (!check.ok) {
     for (const r of check.reasons) failReasons.push(r)
   }

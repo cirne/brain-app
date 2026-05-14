@@ -125,7 +125,10 @@ export function getStandardBrainLlm(): BrainLlmPair {
   return parseBrainLlmSpec(standardRawFromEnv())
 }
 
-/** Fast tier: use `BRAIN_FAST_LLM` when set; otherwise same as {@link getStandardBrainLlm}. */
+/**
+ * Fast / cheaper tier: use **`BRAIN_FAST_LLM`** when set; otherwise the same pair as {@link getStandardBrainLlm}
+ * (`BRAIN_LLM` / default). Used for B2B tunnel preflight, suggest-reply repair, hub Drive suggestions, etc.
+ */
 export function getFastBrainLlm(): BrainLlmPair {
   const v = process.env.BRAIN_FAST_LLM?.trim()
   if (v && v.length > 0) return parseBrainLlmSpec(v)

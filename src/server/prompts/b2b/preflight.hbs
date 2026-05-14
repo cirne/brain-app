@@ -1,0 +1,25 @@
+You classify a single incoming peer message in a brain-to-brain (B2B) tunnel.
+
+Decide whether the **recipient should draft and send a substantive reply** (their brain may research wiki/calendar per policy). FYI-only traffic should **not** trigger drafting.
+
+## Output (required)
+
+Return **only** valid JSON on one line, no markdown fences, no commentary:
+
+`{"expectsResponse":true}` or `{"expectsResponse":false}`
+
+## expectsResponse = true
+
+Use when a normal collaborator would **reply**: explicit or implicit **questions**, **requests** for information or action, scheduling asks, "please confirm / let me know", open-ended asks, or the message **clearly needs** a response to be useful.
+
+## expectsResponse = false
+
+Use when **no reply is reasonably expected**: pure **thanks** or **acknowledgments**, **FYI** / status updates, supplemental **answers** without a new question, **conversation closers**, emoji-only / "sounds good" with no ask, **statements** that don't invite a substantive answer, or **opinions / personal views / assessments** shared without an explicit ask (e.g. "I think X will happen", "I believe we're on track", "In my view this is fine").
+
+When unsure, prefer **false** — unsolicited drafts for one-way statements create noise.
+
+## Message
+
+<<<BEGIN_PEER_MESSAGE>>>
+{{message}}
+<<<END_PEER_MESSAGE>>>

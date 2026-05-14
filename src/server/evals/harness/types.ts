@@ -35,6 +35,11 @@ export type EvalExpect =
   | { kind: 'toolNamesIncludeAll'; names: string[] }
   /** At least one of these tool names was invoked. */
   | { kind: 'toolNamesIncludeOneOf'; names: string[] }
+  /**
+   * Semantic pass/fail via a second LLM call (see {@link runLlmJudgeCheck}).
+   * `prompt` is the rubric; the harness appends the tunnel `finalText` under a fixed delimiter.
+   */
+  | { kind: 'llmJudge'; prompt: string; model?: string }
 
 /** Alias for older references; same as {@link EvalExpect}. */
 export type EnronV1Expect = EvalExpect
@@ -51,7 +56,20 @@ export type B2BV1Task = {
   owner: 'kean' | 'lay' | 'skilling'
   userMessage: string
   privacyPolicy?: string
+  /**
+   * Simulated prior tunnel Q&A for the grant (same shape as persisted inbound transcript).
+   * Harness maps this to agent `initialMessages` before `userMessage` (see {@link runB2BEvalCase}).
+   */
+  grantHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   expect: EvalExpect
+}
+
+/** B2B tunnel preflight only — classifies whether the peer message expects a drafted reply. */
+export type B2BPreflightTask = {
+  id: string
+  message: string
+  /** Ground truth: should the product run the research+draft pipeline? */
+  expectsResponse: boolean
 }
 
 /** Wiki buildout (enrich) or cleanup (lint) agent — see eval/tasks/wiki-v1.jsonl. */

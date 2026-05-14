@@ -70,7 +70,7 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 | Variable | Purpose |
 |----------|---------|
 | **`BRAIN_LLM`** | Standard agent model (`provider/model`, shorthand, or supported id) ([`effectiveBrainLlm.ts`](../../src/server/lib/llm/effectiveBrainLlm.ts)). |
-| **`BRAIN_FAST_LLM`** | Faster/cheaper tier for selected call sites ([`effectiveBrainLlm.ts`](../../src/server/lib/llm/effectiveBrainLlm.ts)). |
+| **`BRAIN_FAST_LLM`** | Optional faster/cheaper tier; when unset, fast-tier call sites use **`BRAIN_LLM`** ([`effectiveBrainLlm.ts`](../../src/server/lib/llm/effectiveBrainLlm.ts)). Used for B2B tunnel preflight, suggest-reply repair, hub Drive suggestions. |
 | **`LLM_PROVIDER`** / **`LLM_MODEL`** | Deprecated split; startup warns if set ([`effectiveBrainLlm.ts`](../../src/server/lib/llm/effectiveBrainLlm.ts)). |
 | **`LLM_SKIP_STARTUP_SMOKE`** | Set to **`true`** to skip startup LLM probe ([`llmStartupSmoke.ts`](../../src/server/lib/llm/llmStartupSmoke.ts)). |
 | **`ANTHROPIC_API_KEY`** | Anthropic API (agent + draft extraction) ([`draftExtract.ts`](../../src/server/lib/llm/draftExtract.ts)). |

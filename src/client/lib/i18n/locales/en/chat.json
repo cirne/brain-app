@@ -107,6 +107,8 @@
     "awaitingReceiptLabel": "Received · they'll approve the reply before it sends",
     "awaitingReceiptBody": "Their assistant received your message. When they approve the suggested reply, you'll see it here.",
     "awaitingReceiptTooltip": "You'll see their reply here after they approve it to send.",
+    "dismissedReceiptLabel": "Received · reply dismissed",
+    "dismissedReceiptBody": "They received your message but chose not to send a response.",
     "approval": {
       "title": "Review answer before sending",
       "description": "Edit the answer if needed, then approve or decline the inbound request.",
@@ -169,19 +171,21 @@
         "peerAt": "@{{handle}}",
         "groupLabel": "How your replies are sent",
         "segment": {
-          "review": "Manual",
-          "auto": "Automatic",
+          "review": "Review",
+          "auto": "Autosend",
           "ignore": "Ignore"
         },
         "autoSendConfirm": {
-          "title": "Turn on auto-send for {{handle}}?",
+          "title": "Autosend replies to {{handle}}?",
           "body1": "Your assistant will automatically respond on your behalf without your review. You can still read the full thread afterward.",
           "body2": "You can change this anytime here or under Brain access.",
-          "confirm": "Turn on auto-send"
+          "confirm": "Autosend"
         },
         "handshakeTitle": "First message from @{{handle}}",
         "handshakeDescription": "How should your assistant handle queries from this person?",
+        "handshakeDescriptionFyi": "This note may not need a written reply. Choose how much workspace access to allow for future messages from this person, or ignore.",
         "acceptAndDraft": "Accept & draft",
+        "connectTunnel": "Connect",
         "ignoreUser": "Ignore",
         "draftingInProgress": "Drafting a suggested reply…",
         "replyPendingPolicy": "A draft will load here after you accept."
@@ -191,6 +195,7 @@
   "tunnels": {
     "pendingCardTitle": "Awaiting your review",
     "pendingDraftLabel": "Your brain drafted",
+    "pendingFyiNoDraft": "No suggested reply for this message. You can dismiss it or wait if a draft appears later.",
     "detailLoadFailed": "Could not load tunnel activity.",
     "emptyTimeline": "No messages yet.",
     "policyLabel": "Policy",
@@ -204,6 +209,20 @@
     "outboundUnavailable": "Messaging isn’t available until we can load this tunnel.",
     "outboundPreConnectHint": "This message will also send a request to connect.",
     "pickPrompt": "Pick a tunnel in the sidebar to see activity here.",
+    "list": {
+      "pendingHeading": "Needs your approval",
+      "allHeading": "All tunnels",
+      "emptyPending": "Nothing waiting for approval.",
+      "emptyTunnels": "No tunnels yet.",
+      "loadFailed": "Could not load tunnels.",
+      "reviewLoadFailed": "Could not load pending approvals.",
+      "openTunnelAria": "Open tunnel with {{name}}",
+      "pendingBadge": "{{count}} pending",
+      "policyReviewShort": "Review each",
+      "policyAutosendShort": "Autosend",
+      "policyIgnoreShort": "Not answering",
+      "lastActivity": "Last activity {{time}}"
+    },
     "connection": {
       "sheetTitle": "Tunnel with {{name}}",
       "sheetTriggerAria": "Open tunnel access and reply settings",
@@ -223,10 +242,10 @@
         "review": "Nothing is sent until you approve each draft in this thread.",
         "auto": "Your assistant may send answers as soon as they are ready. You can read them here afterward.",
         "ignore": "Their questions will not receive answers through this tunnel.",
-        "ignoreActiveHeader": "Not answering their questions — pick Manual or Automatic to resume replies."
+        "ignoreActiveHeader": "Not answering their questions — pick Review each or Autosend to resume replies."
       },
       "customizeBrainAccess": "Customize under Brain access…",
-      "autoSendTitle": "Turn on auto-send for @{{handle}}?"
+      "autoSendTitle": "Autosend replies to @{{handle}}?"
     }
   },
   "historyPage": {

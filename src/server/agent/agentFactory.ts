@@ -2,7 +2,11 @@ import { Agent } from '@mariozechner/pi-agent-core'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Api, Model } from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
-import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
+import {
+  brainLlmEnvDiagnosticLabel,
+  getFastBrainLlm,
+  getStandardBrainLlm,
+} from '@server/lib/llm/effectiveBrainLlm.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import {
@@ -133,6 +137,22 @@ export function requireStandardBrainLlm(): Model<Api> {
   if (!model) {
     throw new Error(
       `[brain-app] Unknown LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
+    )
+  }
+  return model
+}
+
+/**
+ * Fast tier: **`BRAIN_FAST_LLM`** when set (cheaper / smaller model for classifiers and repairs).
+ * When **`BRAIN_FAST_LLM`** is unset, uses the **standard** tier (`BRAIN_LLM`, same as {@link requireStandardBrainLlm}).
+ * Same registry resolution as the standard helper. Call sites include B2B tunnel preflight.
+ */
+export function requireFastBrainLlm(): Model<Api> {
+  const { provider, modelId } = getFastBrainLlm()
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    throw new Error(
+      `[brain-app] Unknown fast LLM: ${brainLlmEnvDiagnosticLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
     )
   }
   return model

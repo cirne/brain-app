@@ -1,3 +1,4 @@
+import { runLlmJudgeCheck } from './llmJudgeCheck.js'
 import type { EvalExpect } from './types.js'
 
 function norm(s: string, ins: boolean): string {
@@ -6,30 +7,31 @@ function norm(s: string, ins: boolean): string {
 
 /**
  * Check eval expectation against final assistant text, tool output text, and tool name list.
+ * Async to support {@link EvalExpect} `llmJudge` nodes.
  */
-export function checkExpect(
+export async function checkExpect(
   expect: EvalExpect,
   finalText: string,
   toolTextConcat: string,
   toolNames: string[] = [],
-): { ok: boolean; reasons: string[] } {
+): Promise<{ ok: boolean; reasons: string[] }> {
   const reasons: string[] = []
-  const ok = checkExpectInner(expect, finalText, toolTextConcat, toolNames, reasons)
+  const ok = await checkExpectInner(expect, finalText, toolTextConcat, toolNames, reasons)
   return { ok, reasons }
 }
 
-function checkExpectInner(
+async function checkExpectInner(
   expect: EvalExpect,
   finalText: string,
   toolTextConcat: string,
   toolNames: string[],
   reasons: string[],
-): boolean {
+): Promise<boolean> {
   if ('all' in expect && Array.isArray(expect.all)) {
     let pass = true
     for (let i = 0; i < expect.all.length; i++) {
       const r: string[] = []
-      if (!checkExpectInner(expect.all[i]!, finalText, toolTextConcat, toolNames, r)) {
+      if (!(await checkExpectInner(expect.all[i]!, finalText, toolTextConcat, toolNames, r))) {
         pass = false
         for (const x of r) {
           reasons.push(`all[${i}]: ${x}`)
@@ -43,7 +45,7 @@ function checkExpectInner(
     const anyReasons: string[] = []
     for (const branch of expect.any) {
       const r: string[] = []
-      if (checkExpectInner(branch, finalText, toolTextConcat, toolNames, r)) return true
+      if (await checkExpectInner(branch, finalText, toolTextConcat, toolNames, r)) return true
       anyReasons.push(...r)
     }
     reasons.push(`any: no branch passed (${anyReasons.join(' | ')})`)
@@ -119,6 +121,18 @@ function checkExpectInner(
         `none of the expected tools were invoked: ${JSON.stringify(expect.names)} (have: ${JSON.stringify(toolNames)})`,
       )
       return false
+    }
+    case 'llmJudge': {
+      const judge = await runLlmJudgeCheck({
+        rubricPrompt: expect.prompt,
+        finalText,
+        modelSpec: expect.model,
+      })
+      if (!judge.ok) {
+        reasons.push(`llmJudge: ${judge.reason}`)
+        return false
+      }
+      return true
     }
     default: {
       reasons.push(`unknown expect kind: ${(expect as { kind?: string }).kind}`)

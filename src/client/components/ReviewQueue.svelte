@@ -5,7 +5,7 @@
   import { t } from '@client/lib/i18n/index.js'
   import { cn } from '@client/lib/cn.js'
   import { formatRelativeDate } from '@client/lib/hub/hubRipmailSource.js'
-  import type { B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
+  import { parseB2BReviewListResponse, type B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
   import ReviewDetail from '@components/ReviewDetail.svelte'
   import { ChevronLeft, ChevronRight, ListChecks, MousePointerClick } from 'lucide-svelte'
 
@@ -65,34 +65,8 @@
         rows = []
         return
       }
-      const j = (await res.json()) as { items?: unknown }
-      const list = Array.isArray(j.items) ? j.items : []
-      const next: B2BReviewRowApi[] = []
-      for (const x of list) {
-        if (!x || typeof x !== 'object') continue
-        const o = x as Record<string, unknown>
-        const sessionId = typeof o.sessionId === 'string' ? o.sessionId.trim() : ''
-        if (!sessionId) continue
-        const grantRaw = o.grantId
-        const grantId =
-          typeof grantRaw === 'string' && grantRaw.trim().length > 0 ? grantRaw.trim() : null
-        const polRaw = o.policy
-        const policy =
-          polRaw === 'auto' || polRaw === 'review' || polRaw === 'ignore' ? polRaw : null
-        next.push({
-          sessionId,
-          grantId,
-          isColdQuery: o.isColdQuery === true,
-          policy,
-          peerHandle: typeof o.peerHandle === 'string' ? o.peerHandle : null,
-          peerDisplayName: typeof o.peerDisplayName === 'string' ? o.peerDisplayName : null,
-          askerSnippet: typeof o.askerSnippet === 'string' ? o.askerSnippet : '',
-          draftSnippet: typeof o.draftSnippet === 'string' ? o.draftSnippet : '',
-          state: typeof o.state === 'string' ? o.state : 'pending',
-          updatedAtMs: typeof o.updatedAtMs === 'number' ? o.updatedAtMs : 0,
-        })
-      }
-      rows = next
+      const j = (await res.json()) as unknown
+      rows = parseB2BReviewListResponse(j)
 
       const want = initialSessionId?.trim() ?? ''
       if (want && rows.some((r) => r.sessionId === want)) {

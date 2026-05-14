@@ -20,7 +20,7 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `RIPMAIL_GOOGLE_OAUTH_CLIENT_ID` / `RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET` | — | Ripmail token refresh; if unset, Braintunnel maps from `GOOGLE_OAUTH_*` in `ripmailProcessEnv` |
 | `OPENAI_API_KEY` | — | Ripmail validation / optional ripmail LLM features |
 | `BRAIN_LLM` | `openai/gpt-5.4-mini` (hard-coded default when unset) | **Standard** agent LLM: `provider/model` (split on first `/`), a [supported](../../src/server/evals/supported-llm-models.json) bare model id, or a curated shorthand (`sonnet`, `haiku`, `gpt-5.4`, …). See [pi-agent-stack.md](./pi-agent-stack.md#llm-providers-pi-ai). **`LLM_PROVIDER` / `LLM_MODEL` are deprecated** (startup warns if still set). |
-| `BRAIN_FAST_LLM` | — | Optional **fast / cheaper** tier for selected call sites (e.g. suggest-reply repair, hub Drive folder suggestions). Same grammar as `BRAIN_LLM`. When unset, those sites use the standard tier. |
+| `BRAIN_FAST_LLM` | — | Optional **fast / cheaper** tier for selected call sites (B2B tunnel preflight, suggest-reply repair, hub Drive folder suggestions). Same grammar as `BRAIN_LLM`. When unset, those sites use the standard tier. |
 | `MLX_LOCAL_THINKING` | off | When standard/fallback model uses **`mlx-local`**: set `1` / `true` / `yes` to enable Qwen **extended thinking** (`chat_template_kwargs.enable_thinking`); unset = off (faster). See `.env.example` for `MLX_LOCAL_*` URLs and keys. |
 | `ANTHROPIC_API_KEY` | — | Required when using Anthropic for the agent |
 | `EXA_API_KEY` | — | `web_search` tool |

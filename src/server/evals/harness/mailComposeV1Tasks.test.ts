@@ -33,7 +33,7 @@ describe('mail-compose-v1 task file', () => {
       'Subject: Weekly reports question',
       'To: janet.butler@enron.com',
     ].join('\n')
-    const r = checkExpect(t!.expect, '(ack)', toolHaystack, ['draft_email'])
+    const r = await checkExpect(t!.expect, '(ack)', toolHaystack, ['draft_email'])
     expect(r.ok, r.reasons.join('; ')).toBe(true)
   })
 
@@ -48,7 +48,7 @@ describe('mail-compose-v1 task file', () => {
       'Subject: Re: My Thoughts',
       'To: richard.shapiro@enron.com, stacey.bolton@enron.com',
     ].join('\n')
-    const r = checkExpect(t!.expect, 'Draft created.', haystack, [
+    const r = await checkExpect(t!.expect, 'Draft created.', haystack, [
       'search_index',
       'draft_email',
       'suggest_reply_options',
