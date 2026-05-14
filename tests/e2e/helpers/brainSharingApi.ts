@@ -39,6 +39,42 @@ export async function revokeBrainQueryGrantsForAskerHandleViaApi(
   }
 }
 
+/**
+ * Withdraws all Braintunnels (outbound) for the current session,
+ * covering both grants and cold queries.
+ */
+export async function withdrawAllTunnelsViaApi(
+  request: APIRequestContext,
+  baseURL: string,
+  sessionCookie: string,
+): Promise<void> {
+  const headers = sessionHeaders(sessionCookie)
+  const res = await request.get(`${baseURL}/api/chat/b2b/tunnels`, { headers })
+  if (!res.ok()) {
+    if (res.status() === 404) return
+    throw new Error(`GET /api/chat/b2b/tunnels failed: ${res.status()} ${await res.text()}`)
+  }
+  const { tunnels } = (await res.json()) as { tunnels: any[] }
+  for (const t of tunnels) {
+    const body: any = {}
+    if (t.outboundSessionId) {
+      body.sessionId = t.outboundSessionId
+    } else if (t.outboundGrantId) {
+      body.grantId = t.outboundGrantId
+    } else {
+      continue
+    }
+
+    const withdraw = await request.post(`${baseURL}/api/chat/b2b/withdraw-as-asker`, {
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      data: JSON.stringify(body),
+    })
+    if (!withdraw.ok() && withdraw.status() !== 404) {
+      throw new Error(`POST /api/chat/b2b/withdraw-as-asker failed: ${withdraw.status()} ${await withdraw.text()}`)
+    }
+  }
+}
+
 export async function dismissUnreadNotificationsViaApi(
   request: APIRequestContext,
   baseURL: string,

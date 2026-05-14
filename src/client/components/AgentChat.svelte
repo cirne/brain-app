@@ -34,7 +34,8 @@
   }
   import { consumeAgentChatStream } from '@client/lib/agentChat/streamClient.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { subscribeHubNotificationsRefresh, subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
+  import { parseB2BTunnelListResponse } from '@client/lib/b2bTunnelTypes.js'
+  import { subscribeHubNotificationsRefresh } from '@client/lib/hubEvents/hubEventsClient.js'
   import {
     collectStreamingSessionIds,
     createPendingSessionKey,
@@ -46,7 +47,6 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
-  import { formatTunnelPeerCloseDialogLabel, formatTunnelPeerMention } from '@client/lib/chatTunnelPeerMention.js'
   import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
   import {
     EMPTY_CHAT_NOTIFICATION_DISPLAY_CAP,
@@ -119,6 +119,10 @@
           _opts?: { notificationIdMarkReadOnFinish?: string | null },
         ) => void | Promise<void>)
       | undefined,
+    /**
+     * When the user opens an outbound tunnel chat session URL, redirect to Tunnels primary for that peer.
+     */
+    onNavigateToTunnelByHandle = undefined as ((_handle: string) => void) | undefined,
     /** Active session id changed (new chat, load, or SSE session event). */
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
@@ -183,7 +187,9 @@
     brainQueryEnabled = false,
     coldTunnelInlineOpen = false,
     onColdTunnelInlineDismiss = undefined as (() => void) | undefined,
-    onColdTunnelSubmitted = undefined as ((_sessionId: string) => void | Promise<void>) | undefined,
+    onColdTunnelSubmitted = undefined as
+      | ((_sessionId: string, _peerHandle: string) => void | Promise<void>)
+      | undefined,
     /** Main shell: first-run onboarding-agent chat shows a wiki welcome banner during initial bootstrap stream. */
     onboardingBootstrapAgent = false,
   }: {
@@ -224,6 +230,7 @@
       _title?: string,
       _opts?: { notificationIdMarkReadOnFinish?: string | null },
     ) => void | Promise<void>
+    onNavigateToTunnelByHandle?: (_handle: string) => void
     onSessionChange?: (
       _sessionId: string | null,
       _meta?: { chatTitle?: string | null },
@@ -255,7 +262,7 @@
     brainQueryEnabled?: boolean
     coldTunnelInlineOpen?: boolean
     onColdTunnelInlineDismiss?: () => void
-    onColdTunnelSubmitted?: (_sessionId: string) => void | Promise<void>
+    onColdTunnelSubmitted?: (_sessionId: string, _peerHandle: string) => void | Promise<void>
     onboardingBootstrapAgent?: boolean
   } = $props()
 
@@ -356,8 +363,7 @@
 
   const b2bHeaderIdentity = $derived.by((): { label: string; subtitle: string } | null => {
     const row = currentSession
-    if (!row) return null
-    if (row.sessionType !== 'b2b_outbound' && row.sessionType !== 'b2b_inbound') return null
+    if (!row || row.sessionType !== 'b2b_inbound') return null
     const label =
       row.remoteDisplayName?.trim() ||
       row.remoteHandle?.trim() ||
@@ -365,27 +371,14 @@
       headerFallbackTitle
     return {
       label,
-      subtitle:
-        row.sessionType === 'b2b_outbound'
-          ? $t('chat.b2b.viaTunnel')
-          : $t('chat.b2b.askingYourBrain'),
+      subtitle: $t('chat.b2b.askingYourBrain'),
     }
-  })
-
-  /** Outbound tunnel thread: user is messaging someone else's Brain (`POST /api/chat/b2b/send`). */
-  const tunnelOutboundEmptyChat = $derived(currentSession?.sessionType === 'b2b_outbound')
-
-  const tunnelOutboundPeer = $derived.by((): string | null => {
-    if (currentSession?.sessionType !== 'b2b_outbound') return null
-    const mention = formatTunnelPeerMention(currentSession.remoteHandle, currentSession.remoteDisplayName)
-    return mention.length > 0 ? mention : null
   })
 
   /** Cold-tunnel entry replaces default empty copy and hides the main composer until dismissed or submitted. */
   const coldTunnelReplacesEmpty = $derived(
     brainQueryEnabled &&
       coldTunnelInlineOpen &&
-      !tunnelOutboundEmptyChat &&
       messages.length === 0 &&
       !streaming,
   )
@@ -395,7 +388,7 @@
     const you = $t('chat.messageRow.you')
     const assistant = $t('chat.messageRow.assistant')
     const assistantAria = $t('chat.messageRow.assistantWorkingAria')
-    if (!row || row.sessionType === 'own' || !row.sessionType) {
+    if (!row || row.sessionType === 'own' || row.sessionType === 'b2b_outbound' || !row.sessionType) {
       return { userLabel: you, assistantLabel: assistant, assistantWorkingAria: assistantAria }
     }
     const peerPrimary = (
@@ -403,20 +396,6 @@
       row.remoteHandle?.trim() ||
       ''
     ).trim()
-    if (row.sessionType === 'b2b_outbound') {
-      const assistantLabel =
-        peerPrimary !== ''
-          ? $t('chat.messageRow.tunnelAssistant', {
-              peer: peerPrimary,
-              via: $t('chat.b2b.viaTunnel'),
-            })
-          : $t('chat.messageRow.tunnelAssistantFallback')
-      return {
-        userLabel: you,
-        assistantLabel,
-        assistantWorkingAria: assistantAria,
-      }
-    }
     const userLabel =
       peerPrimary !== ''
         ? $t('chat.messageRow.inboundRequester', { peer: peerPrimary })
@@ -715,6 +694,13 @@
       if (sessionLoadLatest.isStale(token)) {
         return
       }
+      if (doc.sessionType === 'b2b_outbound') {
+        const h = typeof doc.remoteHandle === 'string' ? doc.remoteHandle.trim() : ''
+        if (h && onNavigateToTunnelByHandle) {
+          onNavigateToTunnelByHandle(h)
+          return
+        }
+      }
       const list = ensureChatMessageIds(Array.isArray(doc.messages) ? doc.messages : [])
       const sid = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
       sessions = setSessionImmutable(sessions, sid, {
@@ -756,22 +742,6 @@
       conversationEl?.scrollToBottom()
     }
   }
-
-  $effect(() => {
-    const unsub = subscribeTunnelActivity((payload) => {
-      if (!payload || payload.scope !== 'outbound') return
-      const outSid = typeof payload.outboundSessionId === 'string' ? payload.outboundSessionId.trim() : ''
-      if (!outSid) return
-      untrack(() => {
-        const key = displayedSessionId
-        if (!key || key !== outSid) return
-        const st = sessions.get(key)
-        if (st?.sessionType !== 'b2b_outbound') return
-        void loadSession(key)
-      })
-    })
-    return unsub
-  })
 
   function stopChat() {
     const id = displayedSessionId
@@ -821,8 +791,6 @@
     const mentionedFiles =
       initialBootstrapKickoff || interviewKickoffHidden ? [] : extractMentionedFiles(text)
     const isFirstMessage = st.messages.length === 0
-    const outboundGrantId =
-      st.sessionType === 'b2b_outbound' ? st.remoteGrantId?.trim() || null : null
 
     const hideUserBubble = initialBootstrapKickoff || interviewKickoffHidden
     const userBubbleContent = sendOpts?.userBubbleText ?? text
@@ -852,14 +820,8 @@
     await tick()
     conversationEl?.scrollToBottom()
 
-    const endpoint = outboundGrantId ? '/api/chat/b2b/send' : chatEndpoint
-    const body = outboundGrantId
-      ? {
-          grantId: outboundGrantId,
-          message: text,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }
-      : buildChatBody({
+    const endpoint = chatEndpoint
+    const body = buildChatBody({
           message: text,
           sessionId: st.sessionId,
           context,
@@ -1044,15 +1006,20 @@
     }
   }
 
-  async function ensureTunnelOutboundSessionClient(grantId: string): Promise<string | null> {
-    const res = await apiFetch('/api/chat/b2b/ensure-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ grantId }),
-    })
-    if (!res.ok) return null
-    const body = (await res.json()) as { sessionId?: unknown }
-    return typeof body.sessionId === 'string' ? body.sessionId : null
+  async function peerHandleForOutboundGrant(grantId: string): Promise<string | null> {
+    const gid = grantId.trim()
+    if (!gid) return null
+    try {
+      const res = await apiFetch('/api/chat/b2b/tunnels')
+      if (!res.ok) return null
+      const body = (await res.json()) as unknown
+      const rows = parseB2BTunnelListResponse(body)
+      const row = rows.find((t) => ((t.outboundGrantId ?? t.grantId) ?? '').trim() === gid)
+      const h = row?.peerHandle?.trim()
+      return h && h.length > 0 ? h : null
+    } catch {
+      return null
+    }
   }
 
   async function fetchInboundSessionIdForGrant(grantId: string): Promise<string | null> {
@@ -1125,15 +1092,9 @@
             if (row.sourceKind === 'brain_query_grant_received') {
               const gid = h.grantId?.trim()
               if (gid) {
-                const outSid = await ensureTunnelOutboundSessionClient(gid)
-                if (outSid) {
-                  if (onSelectChatSession) await onSelectChatSession(outSid, row.summaryLine)
-                  else await loadSession(outSid)
-                  await tick()
-                  const st = sessions.get(outSid)
-                  if (st && st.messages.length === 0) {
-                    await send($t('chat.notifications.grantReceivedTunnelWelcome'), outSid)
-                  }
+                const peerHandle = await peerHandleForOutboundGrant(gid)
+                if (peerHandle && onNavigateToTunnelByHandle) {
+                  onNavigateToTunnelByHandle(peerHandle)
                   await patchNotificationReadNow(row.id)
                   return
                 }
@@ -1224,12 +1185,7 @@
   }
 
   const placeholder = $derived(
-    inputPlaceholder ??
-      (tunnelOutboundEmptyChat
-        ? tunnelOutboundPeer != null
-          ? $t('chat.input.tunnelOutboundPlaceholderNamed', { peer: tunnelOutboundPeer })
-          : $t('chat.input.tunnelOutboundPlaceholderAnonymous')
-        : contextPlaceholder(context, messages.length > 0)),
+    inputPlaceholder ?? contextPlaceholder(context, messages.length > 0),
   )
 
   const contextChip = $derived.by((): string | null => {
@@ -1249,8 +1205,8 @@
   /** When true, vertically center the empty transcript and (when shown) the composer. */
   const centerEmptyInPane = $derived(messages.length === 0)
 
-  /** Outbound tunnel: keep L2 header (title + close tunnel) visible even with no messages yet — unlike own-chat empty state. */
-  const showPaneL2ChatHeader = $derived(!centerEmptyInPane || currentSession?.sessionType === 'b2b_outbound')
+  /** When true, show L2 header (title + actions) — hidden only for centered empty own-chat. */
+  const showPaneL2ChatHeader = $derived(!centerEmptyInPane)
 
   const showEmptyNotificationStrip = $derived.by(() => {
     const p = emptyChatNotificationsPayload
@@ -1267,19 +1223,10 @@
 
   let pendingDelete = $state<{
     serverId: string | null
-    /** Outbound tunnel: revoke grant via withdraw-as-asker (not DELETE /api/chat only). */
-    withdrawAskerTunnel: boolean
-    /** When set, withdraw body can use grantId if session row was missing. */
-    remoteGrantId: string | null
     label: string
   } | null>(null)
 
   function titleForDeleteDialog(): string {
-    const row = sessions.get(displayedSessionId)
-    if (row?.sessionType === 'b2b_outbound') {
-      const peer = formatTunnelPeerCloseDialogLabel(row.remoteHandle, row.remoteDisplayName)
-      if (peer) return peer
-    }
     if (chatTitle?.trim()) return chatTitle.trim()
     for (const m of messages) {
       if (m.role === 'user' && m.content) {
@@ -1306,13 +1253,9 @@
   }
 
   export function requestDeleteCurrentChat() {
-    const row = sessions.get(displayedSessionId)
-    if (messages.length === 0 && row?.sessionType !== 'b2b_outbound') return
-    const withdrawAskerTunnel = row?.sessionType === 'b2b_outbound'
+    if (messages.length === 0) return
     pendingDelete = {
-      serverId: row?.sessionId ?? null,
-      withdrawAskerTunnel,
-      remoteGrantId: withdrawAskerTunnel ? row?.remoteGrantId?.trim() || null : null,
+      serverId: sessions.get(displayedSessionId)?.sessionId ?? null,
       label: labelForDeleteChatDialog(titleForDeleteDialog()),
     }
   }
@@ -1324,23 +1267,9 @@
   async function confirmDeleteCurrentChat() {
     if (!pendingDelete) return
     stopChat()
-    const { serverId, withdrawAskerTunnel, remoteGrantId } = pendingDelete
+    const { serverId } = pendingDelete
     try {
-      if (withdrawAskerTunnel) {
-        const body =
-          serverId != null && serverId.trim().length > 0
-            ? { sessionId: serverId.trim() }
-            : remoteGrantId != null && remoteGrantId.trim().length > 0
-              ? { grantId: remoteGrantId.trim() }
-              : null
-        if (!body) return
-        const res = await apiFetch('/api/chat/b2b/withdraw-as-asker', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (!res.ok) return
-      } else if (serverId) {
+      if (serverId) {
         const res = await apiFetch(`/api/chat/${encodeURIComponent(serverId)}`, { method: 'DELETE' })
         if (!res.ok) return
       }
@@ -1365,8 +1294,8 @@
     <ColdTunnelComposer
       layout="inline"
       onDismiss={() => onColdTunnelInlineDismiss?.()}
-      onSubmitted={async (sid) => {
-        await onColdTunnelSubmitted?.(sid)
+      onSubmitted={async (sid, peerHandle) => {
+        await onColdTunnelSubmitted?.(sid, peerHandle)
       }}
     />
   {/snippet}
@@ -1458,14 +1387,13 @@
                 <VolumeX size={16} strokeWidth={2} aria-hidden="true" />
               {/if}
             </button>
-            {#if messages.length > 0 || currentSession?.sessionType === 'b2b_outbound'}
-              {@const headerDeleteTunnel = currentSession?.sessionType === 'b2b_outbound'}
+            {#if messages.length > 0}
               <button
                 type="button"
                 class={cn('delete-chat-btn', iconBtnClass)}
                 onclick={requestDeleteCurrentChat}
-                title={headerDeleteTunnel ? $t('chat.agentChat.deleteTunnelAria') : $t('chat.agentChat.deleteChatAria')}
-                aria-label={headerDeleteTunnel ? $t('chat.agentChat.deleteTunnelAria') : $t('chat.agentChat.deleteChatAria')}
+                title={$t('chat.agentChat.deleteChatAria')}
+                aria-label={$t('chat.agentChat.deleteChatAria')}
               >
                 <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -1605,8 +1533,8 @@
                   streamingWrite={streamingWritePreview}
                   {multiTenant}
                   conversationRoleLabels={conversationRoleLabels}
-                  tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
-                  tunnelOutboundPeer={tunnelOutboundPeer}
+                  tunnelOutboundEmptyChat={false}
+                  tunnelOutboundPeer={null}
                   empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
                 />
               </div>
@@ -1641,8 +1569,8 @@
                 streamingWrite={streamingWritePreview}
                 {multiTenant}
                 conversationRoleLabels={conversationRoleLabels}
-                tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
-                tunnelOutboundPeer={tunnelOutboundPeer}
+                tunnelOutboundEmptyChat={false}
+                tunnelOutboundPeer={null}
                 empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
               />
             </div>
@@ -1676,8 +1604,8 @@
                 streamingWrite={streamingWritePreview}
                 {multiTenant}
                 conversationRoleLabels={conversationRoleLabels}
-                tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
-                tunnelOutboundPeer={tunnelOutboundPeer}
+                tunnelOutboundEmptyChat={false}
+                tunnelOutboundPeer={null}
                 empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
               />
             </div>
@@ -1712,8 +1640,8 @@
               streamingWrite={streamingWritePreview}
               {multiTenant}
               conversationRoleLabels={conversationRoleLabels}
-              tunnelOutboundEmptyChat={tunnelOutboundEmptyChat}
-              tunnelOutboundPeer={tunnelOutboundPeer}
+              tunnelOutboundEmptyChat={false}
+              tunnelOutboundPeer={null}
               empty={coldTunnelReplacesEmpty ? coldTunnelEmptySlot : undefined}
             />
           </div>
@@ -1733,13 +1661,9 @@
 
   <ConfirmDialog
     open={pendingDelete !== null}
-    title={pendingDelete?.withdrawAskerTunnel
-      ? $t('chat.agentChat.deleteTunnelDialogTitle')
-      : $t('chat.agentChat.deleteDialogTitle')}
+    title={$t('chat.agentChat.deleteDialogTitle')}
     titleId="agent-chat-delete-title"
-    confirmLabel={pendingDelete?.withdrawAskerTunnel
-      ? $t('chat.agentChat.deleteTunnelConfirmLabel')
-      : $t('chat.agentChat.deleteConfirmLabel')}
+    confirmLabel={$t('chat.agentChat.deleteConfirmLabel')}
     cancelLabel={$t('common.actions.cancel')}
     confirmVariant="danger"
     onDismiss={cancelDeleteCurrentChat}
@@ -1747,9 +1671,7 @@
   >
     {#if pendingDelete}
       <p>
-        {pendingDelete.withdrawAskerTunnel
-          ? $t('chat.agentChat.deleteTunnelDialogBody', { label: pendingDelete.label })
-          : $t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}
+        {$t('chat.agentChat.deleteDialogBody', { label: pendingDelete.label })}
       </p>
     {/if}
   </ConfirmDialog>

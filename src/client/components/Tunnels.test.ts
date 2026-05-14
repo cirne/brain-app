@@ -17,7 +17,6 @@ describe('Tunnels.svelte', () => {
     brainQueryEnabled: true,
     onPickTunnelHandle: vi.fn(),
     onReplaceLegacyReviewRoute: undefined,
-    onOpenOutboundChat: vi.fn(),
     onOpenColdTunnelEntry: vi.fn(),
   }
 
@@ -57,5 +56,28 @@ describe('Tunnels.svelte', () => {
 
     expect(await screen.findByTestId('tunnels-empty')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /connect/i })).toBeInTheDocument()
+  })
+
+  it('resolves legacy review session id and calls onReplaceLegacyReviewRoute', async () => {
+    vi.mocked(apiFetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ tunnelHandle: 'resolved-peer' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const onReplaceLegacyReviewRoute = vi.fn()
+    render(Tunnels, {
+      props: {
+        ...baseProps,
+        legacyInboundSessionId: 'legacy-sid',
+        onReplaceLegacyReviewRoute,
+      },
+    })
+
+    await waitFor(() => {
+      expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/api/chat/b2b/peer-handle-for-review/legacy-sid')
+      expect(onReplaceLegacyReviewRoute).toHaveBeenCalledWith('resolved-peer')
+    })
   })
 })

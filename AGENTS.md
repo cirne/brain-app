@@ -14,9 +14,9 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 - **No data migrations.** When SQLite schema, config files, cache layout, or any persisted format changes, **delete local data / reset stores / start fresh** as needed. Document breaking changes in commits or PRs; do not ship migration scripts for developer-local or pre-release data.
 - **Avoid compatibility complexity.** Prefer a clean break and re-seeding over version flags, upgrade steps, or defensive readers for superseded formats.
 - **Agent diagnostics** (`$BRAIN_HOME/var/agent-diagnostics/`): dev-only JSONL/JSON. **Never** migrate old log files, **never** add code that reads legacy on-disk shapes. Change schema (e.g. `AGENT_DIAGNOSTICS_SCHEMA_VERSION` in `agentDiagnostics.ts`) and fields as needed; delete stale files locally if they confuse you.
-- **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
+- **Bug fixes and regressions: TDD.** Write the failing test first (or lock behavior in a new test), then implement the fix, then make sure tests pass—coverage belongs in `src/**/*.test.ts` (and component tests where the bug is UI-level).
+- **New substantial features: defer automated tests during implementation.** Do not spend cycles on test coverage while the feature is still taking shape; validate with the user (manual or obvious checks). **After** the user confirms the behavior is what they want, **add test coverage at commit time** before landing the change.
 - **Component tests**: Svelte UI uses Vitest (jsdom) + `@testing-library/svelte`; helpers and conventions are in [docs/component-testing.md](docs/component-testing.md).
-- **CRITICAL: TDD**: write the test case first, then the code, then make sure the test passes. especially when fixing bugs.
 - **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests; run `cargo fmt -p brain`, `cargo clippy -p brain`, and `cargo t -p brain` when you change `desktop/`.
 - **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p brain` after Rust/desktop changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes. Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
 - **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
@@ -30,7 +30,7 @@ These guidelines are derived from [Karpathy-inspired coding agent principles](ht
 - **Think before coding.** Surface assumptions, ambiguity, and tradeoffs before implementing; ask a quick clarifying question instead of silently guessing.
 - **Simplicity first.** Write the minimum code that solves the requested problem; do not add speculative features, configurability, or abstractions.
 - **Surgical changes.** Touch only what the task requires, match nearby style, and mention unrelated dead code or cleanup instead of changing it.
-- **Goal-driven execution.** For non-trivial work, define the success criteria up front, write the test first for bug fixes or new behavior, and run the relevant verification before calling the task done.
+- **Goal-driven execution.** For non-trivial work, define the success criteria up front. Use TDD for **bugs and regressions**; for **new substantial features**, get user sign-off first, then add tests when committing stable behavior—and run the relevant verification before calling the task done.
 - **DRY with restraint.** Extract shared helpers when the same logic is repeated or clearly will be reused; do not preemptively abstract one-off fixes.
 - **Velocity does not mean guessing.** Early-development velocity favors small PRs and low ceremony, not hidden assumptions; backlog and process skills widen scope only when explicitly invoked.
 

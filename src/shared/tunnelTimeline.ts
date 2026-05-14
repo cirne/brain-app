@@ -12,9 +12,9 @@ export type TunnelTimelineMessageApi = {
   side: TunnelTimelineActorSide
   actor: TunnelTimelineActorKind
   body: string
+  /** When true, {@link body} may be empty — show `chat.b2b.awaitingReceiptLabel` in the client. */
+  b2bAwaitingPeerReview?: boolean
   hint?: 'auto_sent' | 'to_their_brain'
-  /** Associated chat session (outbound bubble deep-link). */
-  chatSessionId?: string | null
 }
 
 export type TunnelTimelinePendingReviewApi = {

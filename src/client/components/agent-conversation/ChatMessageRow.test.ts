@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import ChatMessageRow from './ChatMessageRow.svelte'
 import { render, screen } from '@client/test/render.js'
 import type { ChatMessage } from '@client/lib/agentUtils.js'
+import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT_DEPRECATED } from '@shared/b2bTunnelDelivery.js'
 
 describe('ChatMessageRow.svelte', () => {
   it('renders user messages', () => {
@@ -184,7 +185,7 @@ describe('ChatMessageRow.svelte', () => {
   it('renders a compact receipt row for awaiting_peer_review messages', () => {
     const msg: ChatMessage = {
       role: 'assistant',
-      content: 'Sent · pending approval',
+      content: '',
       b2bDelivery: 'awaiting_peer_review',
     }
     render(ChatMessageRow, {
@@ -198,14 +199,14 @@ describe('ChatMessageRow.svelte', () => {
     expect(document.querySelector('.tunnel-receipt-row')).toBeTruthy()
     expect(document.querySelector('.tunnel-receipt')).toBeTruthy()
     expect(screen.queryByText('Assistant')).not.toBeInTheDocument()
-    expect(screen.getByText(/When they approve their assistant's draft/u)).toBeInTheDocument()
+    expect(screen.getByText(/When they approve the suggested reply/u)).toBeInTheDocument()
   })
 
-  it('renders tunnel receipt when content matches awaiting placeholder without b2bDelivery flag', () => {
+  it('renders tunnel receipt when legacy English placeholder persisted without b2bDelivery flag', () => {
     const msg: ChatMessage = {
       role: 'assistant',
-      content: 'Sent · pending approval',
-      parts: [{ type: 'text', content: 'Sent · pending approval' }],
+      content: B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT_DEPRECATED,
+      parts: [{ type: 'text', content: B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT_DEPRECATED }],
     }
     render(ChatMessageRow, {
       props: {
@@ -216,7 +217,7 @@ describe('ChatMessageRow.svelte', () => {
       },
     })
     expect(document.querySelector('.tunnel-receipt-row')).toBeTruthy()
-    expect(screen.queryByText(/When they approve their assistant's draft/u)).toBeInTheDocument()
+    expect(screen.queryByText(/When they approve the suggested reply/u)).toBeInTheDocument()
   })
 
   it('uses conversationRoleLabels assistantWorkingAria when streaming', () => {

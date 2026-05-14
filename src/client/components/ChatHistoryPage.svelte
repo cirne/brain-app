@@ -35,10 +35,14 @@
   let searchQuery = $state('')
   let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
 
+  const sessionsWithoutOutboundTunnel = $derived(
+    sessions.filter((s) => s.sessionType !== 'b2b_outbound'),
+  )
+
   const filtered = $derived.by(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return sessions
-    return sessions.filter((s) => {
+    if (!q) return sessionsWithoutOutboundTunnel
+    return sessionsWithoutOutboundTunnel.filter((s) => {
       const title = (s.title ?? '').toLowerCase()
       const preview = (s.preview ?? '').toLowerCase()
       return (
@@ -181,7 +185,7 @@
           class={cn(
             'chp-row group/chprow flex w-full items-start gap-2 px-2 py-[9px] mb-0.5 text-left text-foreground cursor-pointer transition-colors hover:bg-surface-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
             activeSessionId === s.sessionId &&
-              'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected rounded-sm',
+              'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected',
           )}
           role="button"
           tabindex="0"

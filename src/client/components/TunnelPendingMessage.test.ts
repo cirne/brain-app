@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@client/test/render.js'
 import TunnelPendingMessage from './TunnelPendingMessage.svelte'
+
+vi.mock('./TipTapMarkdownEditor.svelte', () => import('./test-stubs/TipTapMarkdownEditorStub.svelte'))
+
 import { apiFetch } from '@client/lib/apiFetch.js'
 import { emit } from '@client/lib/app/appEvents.js'
 import type { TunnelTimelinePendingReviewApi } from '@shared/tunnelTimeline.js'
+import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
 
 vi.mock('@client/lib/apiFetch.js', () => ({
   apiFetch: vi.fn(),

@@ -11,6 +11,8 @@
     onValueChange,
     groupLabel,
     disabled = false,
+    /** When true, selection is driven only by `value` + `onValueChange` (no internal bind). Use for duplicate UI (e.g. mobile sheet mirror). */
+    readOnly = false,
     class: className = '',
   }: {
     options: SegmentedOption<T>[]
@@ -19,11 +21,17 @@
     /** Sets `aria-label` on the radiogroup (required for a11y unless you wire a visible label). */
     groupLabel: string
     disabled?: boolean
+    readOnly?: boolean
     class?: string
   } = $props()
 
+  /** Equal-width columns: `minmax(0,1fr)` avoids flex bugs in nested `min-w-0` parents (e.g. tunnel header). */
+  const gridTemplate = $derived(
+    options.length > 0 ? `repeat(${options.length}, minmax(0, 1fr))` : '1fr',
+  )
+
   const baseBtn =
-    'flex min-h-7 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1 whitespace-nowrap border border-border px-2 py-1.5 text-xs transition-[background-color,color,border-color] duration-200'
+    'box-border flex min-h-8 min-w-0 w-full cursor-pointer flex-row items-center justify-center gap-1 border-r border-border px-2 py-1.5 text-center text-xs font-medium transition-[background-color,color,border-color] duration-200 last:border-r-0'
 
   function isSelected(option: SegmentedOption<T>): boolean {
     return option.value === value
@@ -32,6 +40,10 @@
   function selectAt(index: number) {
     const opt = options[index]
     if (!opt || disabled || opt.disabled) return
+    if (readOnly) {
+      onValueChange?.(opt.value)
+      return
+    }
     value = opt.value
     onValueChange?.(opt.value)
   }
@@ -59,9 +71,10 @@
 
 <div
   class={cn(
-    'flex h-fit w-full overflow-hidden rounded-lg outline-none',
+    'grid h-fit w-full overflow-hidden rounded-lg border border-border outline-none',
     className,
   )}
+  style={`grid-template-columns: ${gridTemplate}`}
   role="radiogroup"
   aria-label={groupLabel}
 >
@@ -70,8 +83,6 @@
     {@const Icon = getSegmentedControlIcon(opt.icon)}
     {@const iconPx = opt.iconSize ?? 14}
     {@const segmentDisabled = disabled || !!opt.disabled}
-    {@const isFirst = i === 0}
-    {@const isLast = i === options.length - 1}
     <button
       type="button"
       role="radio"
@@ -82,9 +93,6 @@
       data-testid={opt.testId}
       class={cn(
         baseBtn,
-        isFirst && 'ml-0 rounded-bl-lg rounded-tl-lg',
-        !isFirst && '-ml-px',
-        isLast && 'rounded-br-lg rounded-tr-lg',
         selected
           ? 'relative z-10 bg-accent text-accent-foreground'
           : 'bg-transparent text-foreground',
@@ -93,12 +101,14 @@
       onclick={() => selectAt(i)}
       onkeydown={(e) => onSegmentKeydown(e, i)}
     >
-      {#if Icon}
-        <span class="flex items-center" aria-hidden="true">
-          <Icon size={iconPx} strokeWidth={2} class="shrink-0" />
-        </span>
-      {/if}
-      {opt.label}
+      <span class="flex min-w-0 max-w-full flex-row items-center justify-center gap-1">
+        {#if Icon}
+          <span class="flex shrink-0 items-center" aria-hidden="true">
+            <Icon size={iconPx} strokeWidth={2} class="shrink-0" />
+          </span>
+        {/if}
+        <span class="min-w-0 truncate">{opt.label}</span>
+      </span>
     </button>
   {/each}
 </div>

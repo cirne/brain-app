@@ -64,40 +64,41 @@ import {
 import { notifyBrainTunnelActivity, notifyBrainTunnelActivityForWorkspace } from '@server/lib/hub/hubSseBroker.js'
 import {
   B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT,
-  B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT,
+  isB2bAwaitingPeerReviewAssistantMessage,
+  isLastAssistantMessageAwaitingPeerReview,
 } from '@shared/b2bTunnelDelivery.js'
 import type { TunnelTimelineEntryApi } from '@shared/tunnelTimeline.js'
 
 const b2bChat = new Hono()
 
-/** LLM + replace inbound placeholder; push tunnel_activity so open sidebars refetch review copy. */
-async function deliverColdQueryInboundAssistantDraft(params: {
+/** LLM + replace inbound last assistant; push tunnel_activity so open sidebars refetch review copy. */
+async function redraftInboundAssistantForGrant(params: {
   recvCtx: TenantContext
-  syn: BrainQueryGrantRow
+  grant: BrainQueryGrantRow
   inboundId: string
-  message: string
-  targetUserId: string
+  userQuestion: string
+  ownerUserId: string
   timezone: string | undefined
 }): Promise<void> {
-  const { recvCtx, syn, inboundId, message, targetUserId, timezone } = params
+  const { recvCtx, grant, inboundId, userQuestion, ownerUserId, timezone } = params
   await runWithTenantContextAsync(recvCtx, async () => {
     try {
-      const ownerVis = await displayNameForUser(targetUserId)
-      const agent = createB2BAgent(syn, wikiDir(), {
+      const ownerVis = await displayNameForUser(ownerUserId)
+      const agent = createB2BAgent(grant, wikiDir(), {
         ownerDisplayName: ownerVis.displayName,
         ownerHandle: ownerVis.handle,
         timezone,
-        promptClock: { tenantUserId: targetUserId },
+        promptClock: { tenantUserId: ownerUserId },
       })
-      const draft = await promptB2BAgentForText(agent, message)
-      const answer = await filterB2BResponse({ privacyPolicy: syn.privacy_policy, draftAnswer: draft })
+      const draft = await promptB2BAgentForText(agent, userQuestion)
+      const answer = await filterB2BResponse({ privacyPolicy: grant.privacy_policy, draftAnswer: draft })
       await replaceLastAssistantMessageInSession(inboundId, {
         role: 'assistant',
         content: answer,
         parts: [{ type: 'text', content: answer }],
       })
     } catch (err) {
-      console.warn('[cold-query] inbound draft failed', err)
+      console.warn('[b2b] inbound redraft failed', err)
       /** Persisted assistant text in the inbound review thread (English; visible in Review queue). */
       const errText =
         'Could not draft a suggested reply. You can still respond manually from the review queue.'
@@ -111,7 +112,7 @@ async function deliverColdQueryInboundAssistantDraft(params: {
       JSON.stringify({
         scope: 'inbox',
         inboundSessionId: inboundId,
-        grantId: null,
+        grantId: grant.id,
       }),
     )
   })
@@ -261,7 +262,7 @@ async function tunnelActivitySnapshotForPeer(params: {
       const msgDoc = await loadSession(ob.sessionId)
       if (msgDoc?.messages?.length) {
         const sn = lastOutboundTurnSnippets(msgDoc.messages)
-        const awaiting = sn.reply.includes(B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT)
+        const awaiting = isLastAssistantMessageAwaitingPeerReview(msgDoc.messages)
         const line = awaiting ? sn.query || sn.reply : sn.reply || sn.query || ''
         if (lastRow) cues.push({ ms: lastRow.createdAtMs, text: line })
         else cues.push({ ms: outboundGrant.updated_at_ms, text: line })
@@ -280,7 +281,7 @@ async function tunnelActivitySnapshotForPeer(params: {
       const msgDoc = await loadSession(cold.sessionId)
       if (msgDoc?.messages?.length) {
         const sn = lastOutboundTurnSnippets(msgDoc.messages)
-        const awaiting = sn.reply.includes(B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT)
+        const awaiting = isLastAssistantMessageAwaitingPeerReview(msgDoc.messages)
         const line = awaiting ? sn.query || sn.reply : sn.reply || sn.query || ''
         if (lastRow) cues.push({ ms: lastRow.createdAtMs, text: line })
         else cues.push({ ms: cold.updatedAtMs, text: line })
@@ -429,9 +430,10 @@ async function buildMergedTunnelRowsForTenant(ctx: TenantContext): Promise<Tunne
   return rows
 }
 
-function timelineMessagePlainText(msg: ChatMessage): string {
+/** Full assistant/user text for tunnel timeline bubbles (sidebar snippets use {@link snippetOneLine} elsewhere). */
+function timelineMessageFullText(msg: ChatMessage): string {
   const p = msg.parts?.find((q): q is { type: 'text'; content: string } => q.type === 'text' && !!q.content)
-  return snippetOneLine((p?.content ?? msg.content ?? '').trim())
+  return (p?.content ?? msg.content ?? '').trim()
 }
 
 async function buildTunnelTimeline(params: {
@@ -452,18 +454,20 @@ async function buildTunnelTimeline(params: {
   async function appendOutboundTimelineMessages(sessionId: string): Promise<void> {
     const rows = listTimelineMessages(sessionId)
     for (const r of rows) {
-      const body = timelineMessagePlainText(r.message)
-      if (!body) continue
+      const awaitingAssistantPlaceholder =
+        r.role === 'assistant' && isB2bAwaitingPeerReviewAssistantMessage(r.message)
+      const body = timelineMessageFullText(r.message)
+      if (!body && !awaitingAssistantPlaceholder) continue
       if (r.role === 'user') {
+        /** Human-authored outbound to their assistant (people ask; brains answer). */
         pushTimeline({
           kind: 'message',
           id: `out:${sessionId}:${r.seq}`,
           atMs: r.createdAtMs,
           side: 'yours',
-          actor: 'your_brain',
+          actor: 'you',
           body,
           hint: 'to_their_brain',
-          chatSessionId: sessionId,
         })
       } else {
         pushTimeline({
@@ -473,7 +477,7 @@ async function buildTunnelTimeline(params: {
           side: 'theirs',
           actor: 'their_brain',
           body,
-          chatSessionId: sessionId,
+          ...(awaitingAssistantPlaceholder ? { b2bAwaitingPeerReview: true as const } : {}),
         })
       }
     }
@@ -516,14 +520,15 @@ async function buildTunnelTimeline(params: {
     const rows = listTimelineMessages(inboundSid)
     const firstUserRow = rows.find((r) => r.role === 'user')
     if (firstUserRow) {
-      const q = timelineMessagePlainText(firstUserRow.message)
+      const q = timelineMessageFullText(firstUserRow.message)
       if (q) {
+        /** Peer human question (delivery may be assistant-mediated; label is the person). */
         pushTimeline({
           kind: 'message',
           id: `in:${inboundSid}:q:${firstUserRow.seq}`,
           atMs: firstUserRow.createdAtMs,
           side: 'theirs',
-          actor: 'their_brain',
+          actor: 'them',
           body: q,
         })
       }
@@ -543,8 +548,8 @@ async function buildTunnelTimeline(params: {
     const isColdInbound = !!(doc.isColdQuery === true && !grantSnap)
 
     const st = doc.approvalState ?? 'pending'
-    const draftSnippet = lastAssistRow ? timelineMessagePlainText(lastAssistRow.message) : ''
-    const askerSnippet = firstUserRow ? timelineMessagePlainText(firstUserRow.message) : ''
+    const draftSnippet = lastAssistRow ? timelineMessageFullText(lastAssistRow.message) : ''
+    const askerSnippet = firstUserRow ? timelineMessageFullText(firstUserRow.message) : ''
     const sessionWallMs = new Date(doc.updatedAt).getTime()
     const updatedAtMsRaw = rows[rows.length - 1]?.createdAtMs ?? sessionWallMs
 
@@ -855,6 +860,8 @@ b2bChat.get('/tunnel-timeline/:handle', async (c) => {
     peerHandle: peerVis.handle,
     peerDisplayName: peerVis.displayName,
     inboundPolicy: inboundGrant?.policy ?? null,
+    /** Owner-only inbound grant privacy prose (for preset UI); null when no inbound grant. */
+    inboundPrivacyPolicy: inboundGrant?.privacy_policy ?? null,
     timeline,
   })
 })
@@ -1016,10 +1023,9 @@ b2bChat.post('/send', async (c) => {
     })
   }
 
-  const placeholder = B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT
   return streamStaticAssistantSse(c, {
     announceSessionId: outbound.sessionId,
-    text: placeholder,
+    text: '',
     userMessageForPersistence: message,
     doneB2bDelivery: 'awaiting_peer_review',
     onTurnComplete: async ({ userMessage: _userMessage }) => {
@@ -1028,13 +1034,96 @@ b2bChat.post('/send', async (c) => {
         userMessage: message,
         assistantMessage: {
           role: 'assistant',
-          content: placeholder,
-          parts: [{ type: 'text', content: placeholder }],
+          content: '',
           b2bDelivery: 'awaiting_peer_review',
         },
       })
     },
   })
+})
+
+/** Cold inbound: owner picks privacy policy; creates grant + links sessions, then redrafts assistant in background. */
+b2bChat.post('/establish-grant', async (c) => {
+  const ctx = getTenantContext()
+  let body: { sessionId?: unknown; privacyPolicy?: unknown; timezone?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  const privacyPolicy = typeof body.privacyPolicy === 'string' ? body.privacyPolicy.trim() : ''
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
+  if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
+  if (!privacyPolicy) return c.json({ error: 'privacy_policy_required' }, 400)
+
+  const session = await loadSession(sessionId)
+  if (!session || session.sessionType !== 'b2b_inbound') {
+    return c.json({ error: 'not_found' }, 404)
+  }
+
+  const cold =
+    session.isColdQuery === true &&
+    (session.remoteGrantId == null || session.remoteGrantId === '') &&
+    typeof session.coldPeerUserId === 'string' &&
+    session.coldPeerUserId.trim().length > 0
+
+  if (!cold || !session.coldPeerUserId) {
+    return c.json({ error: 'not_cold_pending' }, 400)
+  }
+
+  if (session.approvalState !== 'pending') {
+    return c.json({ error: 'not_pending' }, 400)
+  }
+
+  const askerId = session.coldPeerUserId.trim()
+  const outboundSid = (session.coldLinkedSessionId ?? '').trim()
+  if (!outboundSid) return c.json({ error: 'cold_link_missing' }, 500)
+
+  const existing = getActiveBrainQueryGrant({ ownerId: ctx.tenantUserId, askerId })
+  if (existing) {
+    return c.json({ error: 'grant_exists', grantId: existing.id }, 409)
+  }
+
+  let lastUser = ''
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    const m = session.messages[i]
+    if (m?.role === 'user' && (m.content ?? '').trim()) {
+      lastUser = (m.content ?? '').trim()
+      break
+    }
+  }
+  if (!lastUser) return c.json({ error: 'no_user_message' }, 400)
+
+  const grant = createBrainQueryGrant({
+    ownerId: ctx.tenantUserId,
+    askerId,
+    privacyPolicy,
+    policy: 'review',
+  })
+
+  finalizeColdSessionWithGrant(sessionId, grant.id)
+  const askerCtx = await tenantContextForUser(askerId)
+  await runWithTenantContextAsync(askerCtx, async () => {
+    finalizeColdSessionWithGrant(outboundSid, grant.id)
+  })
+
+  const ownerCtx = await tenantContextForUser(ctx.tenantUserId)
+  const grantSnap = getBrainQueryGrantById(grant.id)
+  if (!grantSnap) return c.json({ error: 'grant_create_failed' }, 500)
+
+  void redraftInboundAssistantForGrant({
+    recvCtx: ownerCtx,
+    grant: grantSnap,
+    inboundId: sessionId,
+    userQuestion: lastUser,
+    ownerUserId: ctx.tenantUserId,
+    timezone,
+  }).catch((err) => {
+    console.warn('[establish-grant] background redraft failed', err)
+  })
+
+  return c.json({ ok: true as const, grantId: grant.id })
 })
 
 b2bChat.post('/approve', async (c) => {
@@ -1063,6 +1152,10 @@ b2bChat.post('/approve', async (c) => {
     session.coldPeerUserId.trim().length > 0
 
   if (cold) {
+    const draftingLc = B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT.toLowerCase()
+    if (draft.trim().toLowerCase() === draftingLc) {
+      return c.json({ error: 'establish_grant_first' }, 400)
+    }
     const rawPol = body.establishPolicy
     const establishPolicy: BrainQueryGrantPolicy =
       rawPol === 'auto' || rawPol === 'review' || rawPol === 'ignore' ? rawPol : 'review'
@@ -1356,7 +1449,7 @@ b2bChat.post('/cold-query', async (c) => {
   const targetEmail = typeof body.targetEmail === 'string' ? body.targetEmail.trim() : ''
   const targetUserId = typeof body.targetUserId === 'string' ? body.targetUserId.trim() : ''
   const message = typeof body.message === 'string' ? body.message.trim() : ''
-  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
+  const _timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   const modes = [targetHandle, targetEmail, targetUserId].filter((s) => s.length > 0)
   if (modes.length === 0) {
     return c.json({ error: 'target_required', message: 'Provide targetHandle, targetEmail, or targetUserId.' }, 400)
@@ -1438,8 +1531,6 @@ b2bChat.post('/cold-query', async (c) => {
     })
   })
 
-  const syn = syntheticGrantForCold({ ownerId: target.userId, askerId: ctx.tenantUserId })
-
   await runWithTenantContextAsync(recvCtx, async () => {
     await ensureSessionStub(inboundId, {
       sessionType: 'b2b_inbound',
@@ -1487,31 +1578,18 @@ b2bChat.post('/cold-query', async (c) => {
   })
 
   await runWithTenantContextAsync(senderCtx, async () => {
-    const placeholder = B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT
     await appendTurn({
       sessionId: outboundId,
       userMessage: message,
       assistantMessage: {
         role: 'assistant',
-        content: placeholder,
-        parts: [{ type: 'text', content: placeholder }],
+        content: '',
         b2bDelivery: 'awaiting_peer_review',
       },
     })
   })
 
   recordColdQuerySent({ senderHandle: ctx.workspaceHandle, receiverHandle: target.handle })
-
-  void deliverColdQueryInboundAssistantDraft({
-    recvCtx,
-    syn,
-    inboundId,
-    message,
-    targetUserId: target.userId,
-    timezone,
-  }).catch((err) => {
-    console.warn('[cold-query] background delivery task failed', err)
-  })
 
   return c.json({ sessionId: outboundId, inboundSessionId: inboundId })
 })

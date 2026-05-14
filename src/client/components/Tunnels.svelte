@@ -10,7 +10,6 @@
     brainQueryEnabled = false,
     onPickTunnelHandle,
     onReplaceLegacyReviewRoute,
-    onOpenOutboundChat,
     onOpenColdTunnelEntry,
   }: {
     routeTunnelHandle?: string | null
@@ -19,7 +18,6 @@
     onPickTunnelHandle: (_handle: string | undefined) => void
     /** After resolving `/review/:sid` deep link → `/tunnels/:handle`; clears stale `reviewSessionId` in Route. */
     onReplaceLegacyReviewRoute?: ((_handle: string) => void) | undefined
-    onOpenOutboundChat: (_sessionId: string, _titleHint?: string) => void
     onOpenColdTunnelEntry?: (() => void) | undefined
   } = $props()
 
@@ -81,7 +79,6 @@
         inboundGrantIdInitial={null}
         outboundGrantIdInitial={null}
         peerDisplayNameInitial=""
-        onOpenOutboundChat={onOpenOutboundChat}
       />
     </div>
   {:else}

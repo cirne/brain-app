@@ -4,6 +4,11 @@
   import { t } from '@client/lib/i18n/index.js'
   import type { ChatMessage } from '@client/lib/agentUtils.js'
   import type { B2BGrantPolicyApi, B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
+  import {
+    BRAIN_QUERY_POLICY_TEMPLATES,
+    type BrainQueryBuiltInPolicyId,
+  } from '@client/lib/brainQueryPolicyTemplates.js'
+  import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
@@ -31,16 +36,15 @@
   let loadError = $state<string | null>(null)
   let busy = $state(false)
   let actionError = $state<string | null>(null)
-  /** Cold-query rows: policy to store on the new grant when you hit Send. */
-  let coldEstablishPolicy = $state<B2BGrantPolicyApi>('review')
   let autoSendConfirmOpen = $state(false)
+  let selectedTemplateId = $state<BrainQueryBuiltInPolicyId>('general')
 
   const isColdInbound = $derived(Boolean(row.isColdQuery && !row.grantId))
   const canEditGrantPolicy = $derived(Boolean(row.grantId && row.policy != null))
 
   $effect(() => {
     void row.sessionId
-    coldEstablishPolicy = 'review'
+    selectedTemplateId = 'general'
   })
 
   const peerLabel = $derived.by(() => {
@@ -52,15 +56,15 @@
 
   const isPending = $derived(row.state === 'pending')
 
-  const effectivePolicy = $derived<B2BGrantPolicyApi | null>(
-    isColdInbound ? coldEstablishPolicy : row.policy,
+  const isDraftingPlaceholder = $derived(
+    draftText.trim().toLowerCase() === B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT.toLowerCase(),
   )
 
   const policySegBase =
     'relative min-w-0 flex-1 touch-manipulation items-center justify-center gap-1 border-0 px-2 py-1.5 text-center text-[0.6875rem] font-semibold transition-colors focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 disabled:opacity-50 sm:flex-none sm:px-2.5'
   const policySegClass = (p: B2BGrantPolicyApi) =>
     `inline-flex ${policySegBase} ${
-      effectivePolicy === p
+      row.policy === p
         ? 'bg-accent text-white'
         : 'bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground'
     }`
@@ -135,14 +139,7 @@
       let body: Record<string, unknown>
       if (endpoint.endsWith('/approve')) {
         const editedAnswer = replyEditor?.serializeMarkdown().trim() ?? replyMarkdownLive.trim()
-        body =
-          isColdInbound
-            ? {
-                sessionId: row.sessionId,
-                editedAnswer,
-                establishPolicy: coldEstablishPolicy,
-              }
-            : { sessionId: row.sessionId, editedAnswer }
+        body = { sessionId: row.sessionId, editedAnswer }
       } else {
         body = { sessionId: row.sessionId }
       }
@@ -214,18 +211,6 @@
 
   async function handlePolicyPick(p: B2BGrantPolicyApi): Promise<void> {
     if (busy || !isPending) return
-    if (isColdInbound) {
-      if (p === 'ignore') {
-        await dismiss()
-        return
-      }
-      if (p === 'auto') {
-        autoSendConfirmOpen = true
-        return
-      }
-      coldEstablishPolicy = p
-      return
-    }
     if (!canEditGrantPolicy) return
     if (p === row.policy) return
     if (p === 'auto') {
@@ -235,21 +220,43 @@
     await applyGrantPolicyPatch(p)
   }
 
+  async function postEstablishGrant(): Promise<void> {
+    if (busy || !isPending) return
+    busy = true
+    actionError = null
+    try {
+      const tpl = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === selectedTemplateId)
+      const privacyPolicy = tpl?.text ?? BRAIN_QUERY_POLICY_TEMPLATES[0]!.text
+      const res = await apiFetch('/api/chat/b2b/establish-grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: row.sessionId, privacyPolicy }),
+      })
+      if (!res.ok) {
+        actionError = $t('chat.review.detail.actionFailed')
+        return
+      }
+      emit({ type: 'b2b:review-changed' })
+      await onMutate()
+      await reloadSession()
+    } catch {
+      actionError = $t('chat.review.detail.actionFailed')
+    } finally {
+      busy = false
+    }
+  }
+
   function dismissAutoSendConfirm(): void {
     autoSendConfirmOpen = false
   }
 
   function confirmAutoSend(): void {
     autoSendConfirmOpen = false
-    if (isColdInbound) {
-      coldEstablishPolicy = 'auto'
-      return
-    }
     void applyGrantPolicyPatch('auto')
   }
 
   async function regenerateFromComposer(notes: string): Promise<void> {
-    if (busy || !isPending) return
+    if (busy || !isPending || isColdInbound || isDraftingPlaceholder) return
     busy = true
     actionError = null
     try {
@@ -307,7 +314,7 @@
         {$t('chat.review.detail.policy.peerAt', { handle: peerLabel })}
       </span>
     </div>
-    {#if isPending && (isColdInbound || canEditGrantPolicy)}
+    {#if isPending && canEditGrantPolicy}
       <div class="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto sm:max-w-full sm:items-end">
         <span
           id="review-policy-segments-label"
@@ -326,7 +333,7 @@
               class={policySegClass(p as B2BGrantPolicyApi)}
               disabled={busy}
               data-testid={`review-policy-${p}`}
-              aria-pressed={effectivePolicy === p}
+              aria-pressed={row.policy === p}
               onclick={() => void handlePolicyPick(p as B2BGrantPolicyApi)}
             >
               <span class="hidden shrink-0 md:inline-flex md:items-center" aria-hidden="true">
@@ -346,6 +353,71 @@
     {/if}
   </div>
 
+  {#if isPending && isColdInbound}
+    <div
+      class="mb-3 shrink-0 space-y-2 rounded-md border border-border/70 bg-[color-mix(in_srgb,var(--bg-2)_40%,transparent)] px-3 py-3"
+      data-testid="review-cold-handshake"
+    >
+      <p class="m-0 text-[0.875rem] font-semibold text-foreground">
+        {$t('chat.review.detail.policy.handshakeTitle', { handle: peerLabel })}
+      </p>
+      <p class="m-0 text-[0.8125rem] leading-snug text-muted">
+        {$t('chat.review.detail.policy.handshakeDescription')}
+      </p>
+      <fieldset class="m-0 mt-2 space-y-2 border-0 p-0">
+        <legend class="sr-only">{$t('chat.tunnels.connection.policySelectLabel')}</legend>
+        {#each BRAIN_QUERY_POLICY_TEMPLATES as tpl (tpl.id)}
+          <label
+            class="flex cursor-pointer gap-2 rounded-md border px-2 py-2 {!busy
+              ? selectedTemplateId === tpl.id
+                ? 'border-accent bg-accent/10'
+                : 'border-border bg-surface-2 hover:bg-surface-3'
+              : 'cursor-not-allowed opacity-50'}"
+          >
+            <input
+              type="radio"
+              name="review-cold-policy-{row.sessionId}"
+              class="mt-0.5 shrink-0"
+              value={tpl.id}
+              checked={selectedTemplateId === tpl.id}
+              disabled={busy}
+              onchange={() => (selectedTemplateId = tpl.id)}
+            />
+            <span class="min-w-0 flex-1">
+              <span class="block text-[0.8125rem] font-semibold text-foreground">{tpl.label}</span>
+              <span class="mt-0.5 block text-[0.6875rem] leading-snug text-muted">{tpl.hint}</span>
+            </span>
+          </label>
+        {/each}
+      </fieldset>
+      <div class="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+          disabled={busy}
+          onclick={() => void dismiss()}
+        >
+          <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
+            <Ban class="size-3.5 shrink-0" strokeWidth={2} />
+          </span>
+          {$t('chat.review.detail.policy.ignoreUser')}
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          disabled={busy}
+          data-testid="review-accept-establish"
+          onclick={() => void postEstablishGrant()}
+        >
+          <span class="hidden md:inline-flex md:items-center" aria-hidden="true">
+            <Send class="size-3.5 shrink-0" strokeWidth={2} />
+          </span>
+          {$t('chat.review.detail.policy.acceptAndDraft')}
+        </button>
+      </div>
+    </div>
+  {/if}
+
   <div class="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--bg-2)_40%,transparent)] px-3 py-2">
     <p class="m-0 mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wider text-muted">
       {$t('chat.review.detail.layers.from', { peer: peerLabel })}
@@ -363,15 +435,25 @@
       aria-label={$t('chat.review.detail.layers.reply')}
     >
       {#if isPending}
-        <TipTapMarkdownEditor
-          bind:this={replyEditor}
-          initialMarkdown={draftText}
-          markdownSyncEpoch={markdownSyncEpoch}
-          disabled={busy}
-          autoPersist={false}
-          compact={true}
-          onMarkdownUpdate={handleReplyMarkdownUpdate}
-        />
+        {#if isColdInbound}
+          <p class="m-0 shrink-0 py-2 text-[0.8125rem] leading-snug text-muted">
+            {$t('chat.review.detail.policy.replyPendingPolicy')}
+          </p>
+        {:else if isDraftingPlaceholder}
+          <p class="m-0 shrink-0 py-2 text-[0.8125rem] text-muted" data-testid="review-drafting">
+            {$t('chat.review.detail.policy.draftingInProgress')}
+          </p>
+        {:else}
+          <TipTapMarkdownEditor
+            bind:this={replyEditor}
+            initialMarkdown={draftText}
+            markdownSyncEpoch={markdownSyncEpoch}
+            disabled={busy}
+            autoPersist={false}
+            compact={true}
+            onMarkdownUpdate={handleReplyMarkdownUpdate}
+          />
+        {/if}
       {:else}
         <div
           class="review-will-receive h-full min-h-0 flex-1 overflow-y-auto py-1 text-[0.8125rem] leading-relaxed text-muted"
@@ -390,7 +472,7 @@
     </div>
   </div>
 
-  {#if isPending}
+  {#if isPending && !isColdInbound && !isDraftingPlaceholder}
     <div class="review-regenerate-composer shrink-0 border-t border-border pt-3 md:mt-3 md:pt-3">
       <UnifiedChatComposer
         voiceEligible={false}
@@ -422,7 +504,7 @@
       </span>
       {$t('chat.review.detail.actions.openThread')}
     </button>
-    {#if isPending}
+    {#if isPending && !isColdInbound}
       <button
         type="button"
         class="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
@@ -448,7 +530,7 @@
       <button
         type="button"
         class="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        disabled={busy || !replyMarkdownLive.trim()}
+        disabled={busy || !replyMarkdownLive.trim() || isDraftingPlaceholder}
         onclick={() => void postApproveOrDecline('/api/chat/b2b/approve')}
       >
         <span class="hidden md:inline-flex md:items-center" aria-hidden="true">

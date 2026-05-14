@@ -14,7 +14,7 @@ import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
-import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT, B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
+import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
 import {
   createBrainQueryGrant,
   getBrainQueryGrantById,
@@ -110,6 +110,95 @@ describe('/api/chat/b2b', () => {
     const tlJson = (await tl.json()) as { timeline?: unknown[]; peerHandle?: string }
     expect(tlJson.peerHandle).toBe('demo-ken-lay')
     expect(Array.isArray(tlJson.timeline)).toBe(true)
+  })
+
+  it('GET /tunnel-timeline labels outbound user turns as you and inbound peer questions as them', async () => {
+    const ownerId = 'usr_a1111111111111111111'
+    const askerId = 'usr_b2222222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'demo-ken-lay')
+    await registerSessionTenant(ownerSid, ownerId)
+    const askerSid = await sessionFor(askerId, 'demo-steve-kean')
+    await registerSessionTenant(askerSid, askerId)
+    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+
+    const outboundSid = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+    await runWithTenantContextAsync(
+      { tenantUserId: askerId, workspaceHandle: 'tl-asker', homeDir: tenantHomeDir(askerId) },
+      async () => {
+        const { ensureSessionStub, appendTurn } = await import('@server/lib/chat/chatStorage.js')
+        await ensureSessionStub(outboundSid, {
+          sessionType: 'b2b_outbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'tl-owner',
+          remoteDisplayName: 'Owner',
+        })
+        await appendTurn({
+          sessionId: outboundSid,
+          userMessage: 'My outbound question',
+          assistantMessage: {
+            role: 'assistant',
+            content: 'Their brain reply',
+            parts: [{ type: 'text', content: 'Their brain reply' }],
+          },
+        })
+      },
+    )
+
+    const inboundId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+    await runWithTenantContextAsync(
+      { tenantUserId: ownerId, workspaceHandle: 'tl-owner', homeDir: tenantHomeDir(ownerId) },
+      async () => {
+        const { ensureSessionStub, appendTurn } = await import('@server/lib/chat/chatStorage.js')
+        await ensureSessionStub(inboundId, {
+          sessionType: 'b2b_inbound',
+          remoteGrantId: grant.id,
+          remoteHandle: 'tl-asker',
+          remoteDisplayName: 'Asker',
+          approvalState: 'pending',
+        })
+        await appendTurn({
+          sessionId: inboundId,
+          userMessage: 'Peer asks this',
+          assistantMessage: {
+            role: 'assistant',
+            content: 'Draft',
+            parts: [{ type: 'text', content: 'Draft' }],
+          },
+        })
+      },
+    )
+
+    const app = mountB2BChat()
+    const askerTl = await app.request(
+      `http://localhost/api/chat/b2b/tunnel-timeline/${encodeURIComponent('demo-ken-lay')}`,
+      { headers: { cookie: `brain_session=${askerSid}` } },
+    )
+    expect(askerTl.status).toBe(200)
+    const askerJson = (await askerTl.json()) as {
+      timeline: Array<{ kind: string; actor?: string; body?: string; hint?: string }>
+    }
+    const outboundUser = askerJson.timeline.find(
+      (e) => e.kind === 'message' && e.body === 'My outbound question',
+    )
+    expect(outboundUser?.actor).toBe('you')
+    expect(outboundUser?.hint).toBe('to_their_brain')
+    const outboundAssist = askerJson.timeline.find(
+      (e) => e.kind === 'message' && e.body === 'Their brain reply',
+    )
+    expect(outboundAssist?.actor).toBe('their_brain')
+
+    const ownerTl = await app.request(
+      `http://localhost/api/chat/b2b/tunnel-timeline/${encodeURIComponent('demo-steve-kean')}`,
+      { headers: { cookie: `brain_session=${ownerSid}` } },
+    )
+    expect(ownerTl.status).toBe(200)
+    const ownerJson = (await ownerTl.json()) as {
+      timeline: Array<{ kind: string; actor?: string; body?: string }>
+      inboundPrivacyPolicy?: string | null
+    }
+    expect(ownerJson.inboundPrivacyPolicy).toBe('Limited.')
+    const inboundQ = ownerJson.timeline.find((e) => e.kind === 'message' && e.body === 'Peer asks this')
+    expect(inboundQ?.actor).toBe('them')
   })
 
   it('POST /ensure-session creates a stable outbound session for an active grant', async () => {
@@ -466,7 +555,7 @@ describe('/api/chat/b2b', () => {
     })
     expect(res.status).toBe(200)
     const text = await res.text()
-    expect(text).toContain(B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT)
+    expect(text).toContain('"b2bDelivery":"awaiting_peer_review"')
   })
 
   it('POST /send streams agent answer when auto_send is on', async () => {
@@ -743,24 +832,19 @@ describe('/api/chat/b2b', () => {
     expect((row?.pendingReviewCount ?? 0) >= 1).toBe(true)
   })
 
-  it('POST /cold-query returns 200 before promptB2BAgentForText resolves', async () => {
-    let releaseAnswer!: (v: string) => void
-    const answerGate = new Promise<string>((res) => {
-      releaseAnswer = res
-    })
+  it('POST /cold-query does not call promptB2BAgentForText until establish-grant', async () => {
     const order: string[] = []
     vi.mocked(b2bAgent.promptB2BAgentForText).mockImplementation(async () => {
-      order.push('prompt-await')
-      const ans = await answerGate
-      order.push('prompt-done')
-      return ans
+      order.push('prompt')
+      return 'Mock agent answer'
     })
 
     const ownerId = 'usr_a0000000000000000000'
     const askerId = 'usr_b0000000000000000000'
-    await sessionFor(ownerId, 'cold-owner-async')
+    const ownerSid = await sessionFor(ownerId, 'cold-owner-async')
     const askerSid = await sessionFor(askerId, 'cold-asker-async')
     await registerSessionTenant(askerSid, askerId)
+    await registerSessionTenant(ownerSid, ownerId)
     const app = mountB2BChat()
 
     const res = await app.request('http://localhost/api/chat/b2b/cold-query', {
@@ -775,13 +859,7 @@ describe('/api/chat/b2b', () => {
     const j = (await res.json()) as { sessionId?: string; inboundSessionId?: string }
     expect(j.sessionId).toMatch(/^[0-9a-f-]{36}$/i)
     expect(j.inboundSessionId).toMatch(/^[0-9a-f-]{36}$/i)
-
-    await vi.waitFor(
-      () => {
-        expect(order).toEqual(['prompt-await'])
-      },
-      { timeout: 2000 },
-    )
+    expect(order).toEqual([])
 
     const inboundId = j.inboundSessionId!
     const ownerHome = tenantHomeDir(ownerId)
@@ -796,10 +874,25 @@ describe('/api/chat/b2b', () => {
       },
     )
 
-    releaseAnswer('Mock agent answer')
+    const est = await app.request('http://localhost/api/chat/b2b/establish-grant', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `brain_session=${ownerSid}`,
+      },
+      body: JSON.stringify({
+        sessionId: inboundId,
+        privacyPolicy: 'ALLOWED: Work topics only.\n\nOMIT: Personal life.',
+      }),
+    })
+    expect(est.status).toBe(200)
+    const estBody = (await est.json()) as { ok?: boolean; grantId?: string }
+    expect(estBody.ok).toBe(true)
+    expect(estBody.grantId).toMatch(/^bqg_/)
+
     await vi.waitFor(
       () => {
-        expect(order).toContain('prompt-done')
+        expect(order).toEqual(['prompt'])
       },
       { timeout: 3000 },
     )

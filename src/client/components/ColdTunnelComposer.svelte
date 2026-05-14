@@ -17,7 +17,7 @@
   type Props = {
     layout?: 'inline' | 'sheet'
     onDismiss: () => void
-    onSubmitted: (_sessionId: string) => void | Promise<void>
+    onSubmitted: (_sessionId: string, _peerHandle: string) => void | Promise<void>
   }
 
   let { layout = 'inline', onDismiss, onSubmitted }: Props = $props()
@@ -187,7 +187,7 @@
         return
       }
       emit({ type: 'b2b:review-changed' })
-      await onSubmitted(sid)
+      await onSubmitted(sid, selected.handle)
     } catch {
       err = $t('chat.history.coldQuery.error')
       restoreComposerDraft(trimmed)

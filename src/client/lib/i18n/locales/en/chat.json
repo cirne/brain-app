@@ -79,8 +79,8 @@
     "tunnelIndicatorAwaiting": "Waiting for collaborator to send",
     "tunnelIndicatorPendingReview": "Pending review — collaborator question",
     "coldQuery": {
-      "button": "+ Connect",
-      "sheetTitle": "Who do you want to reach?",
+      "button": "Connect",
+      "sheetTitle": "Connect with a collaborator's assistant",
       "introHeading": "What is a Braintunnel?",
       "introLead": "A Braintunnel is a private line to another user's assistant. Get quick answers from their assistant to get things done.",
       "recipientSearchLabel": "Find them",
@@ -104,9 +104,9 @@
   "b2b": {
     "viaTunnel": "via tunnel",
     "askingYourBrain": "asking your brain",
-    "awaitingReceiptLabel": "Sent · pending approval",
-    "awaitingReceiptBody": "Your message was sent. When they approve their assistant's draft, the reply will appear here.",
-    "awaitingReceiptTooltip": "You'll see their reply in this chat after they approve it to send.",
+    "awaitingReceiptLabel": "Received · they'll approve the reply before it sends",
+    "awaitingReceiptBody": "Their assistant received your message. When they approve the suggested reply, you'll see it here.",
+    "awaitingReceiptTooltip": "You'll see their reply here after they approve it to send.",
     "approval": {
       "title": "Review answer before sending",
       "description": "Edit the answer if needed, then approve or decline the inbound request.",
@@ -174,11 +174,17 @@
           "ignore": "Ignore"
         },
         "autoSendConfirm": {
-          "title": "Turn on auto-send for @{{handle}}?",
-          "body1": "Their assistant can send replies without asking you each time, within the access you allow. You can still read the full thread afterward.",
+          "title": "Turn on auto-send for {{handle}}?",
+          "body1": "Your assistant will automatically respond on your behalf without your review. You can still read the full thread afterward.",
           "body2": "You can change this anytime here or under Brain access.",
           "confirm": "Turn on auto-send"
-        }
+        },
+        "handshakeTitle": "First message from @{{handle}}",
+        "handshakeDescription": "How should your assistant handle queries from this person?",
+        "acceptAndDraft": "Accept & draft",
+        "ignoreUser": "Ignore",
+        "draftingInProgress": "Drafting a suggested reply…",
+        "replyPendingPolicy": "A draft will load here after you accept."
       }
     }
   },
@@ -189,17 +195,39 @@
     "emptyTimeline": "No messages yet.",
     "policyLabel": "Policy",
     "autoRespondLabel": "Auto-respond",
-    "composePlaceholderBrain": "Message {{peerPossessiveBrain}}…",
-    "humanDmComingSoon": "Direct messaging is not available yet — stay on Their brain.",
-    "actorYourBrain": "Your brain",
-    "actorTheirBrain": "{{name}}'s brain",
+    "composePlaceholderAssistant": "Message their assistant…",
+    "composeFooterAssistOnly": "This goes to their assistant, not as a direct message to them.",
+    "actorYourBrain": "Your assistant",
+    "actorTheirBrain": "{{name}}'s assistant",
     "hintAutoSent": "Auto-sent",
     "hintToTheirBrain": "To their brain",
-    "composeToLabel": "To",
-    "recipientBrain": "Their brain",
-    "recipientHuman": "Them (direct)",
-    "outboundUnavailable": "Outbound tunnel not established yet — you can reply when they granted access.",
-    "pickPrompt": "Pick a tunnel in the sidebar to see activity here."
+    "outboundUnavailable": "Messaging isn’t available until we can load this tunnel.",
+    "outboundPreConnectHint": "This message will also send a request to connect.",
+    "pickPrompt": "Pick a tunnel in the sidebar to see activity here.",
+    "connection": {
+      "sheetTitle": "Tunnel with {{name}}",
+      "sheetTriggerAria": "Open tunnel access and reply settings",
+      "sheetTriggerShort": "Access & replies",
+      "policySelectLabel": "Workspace access policy",
+      "policySelectAria": "What this person may learn from your workspace",
+      "otherPolicyOption": "Other — Brain access",
+      "accessHeading": "What they may learn from your workspace",
+      "accessShort": {
+        "trusted": "Trusted",
+        "general": "Collaborator",
+        "minimal-disclosure": "Minimal"
+      },
+      "accessHintOther": "This connection uses custom policy text. Edit it under Brain access.",
+      "repliesHeading": "Replies to their questions",
+      "replyHint": {
+        "review": "Nothing is sent until you approve each draft in this thread.",
+        "auto": "Your assistant may send answers as soon as they are ready. You can read them here afterward.",
+        "ignore": "Their questions will not receive answers through this tunnel.",
+        "ignoreActiveHeader": "Not answering their questions — pick Manual or Automatic to resume replies."
+      },
+      "customizeBrainAccess": "Customize under Brain access…",
+      "autoSendTitle": "Turn on auto-send for @{{handle}}?"
+    }
   },
   "historyPage": {
     "searchChatsLabel": "Search chats",

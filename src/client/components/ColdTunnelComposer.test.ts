@@ -68,7 +68,7 @@ describe('ColdTunnelComposer.svelte', () => {
           body: JSON.stringify({ targetUserId: 'usr_peer111111111111111111', message: 'Hello there' }),
         }),
       )
-      expect(onSubmitted).toHaveBeenCalledWith('sess-cold-1')
+      expect(onSubmitted).toHaveBeenCalledWith('sess-cold-1', 'peer-one')
     })
   })
 
@@ -93,5 +93,91 @@ describe('ColdTunnelComposer.svelte', () => {
     })
     expect(onSubmitted).not.toHaveBeenCalled()
     expect(mockedApiFetch).not.toHaveBeenCalled()
+  })
+
+  it('submits with targetEmail when input looks like email', async () => {
+    const onSubmitted = vi.fn()
+    mockedApiFetch.mockResolvedValue(new Response(JSON.stringify({ sessionId: 'sess-email' }), { status: 200 }))
+
+    render(ColdTunnelComposer, {
+      props: { layout: 'inline', onDismiss: vi.fn(), onSubmitted },
+    })
+
+    const search = screen.getByPlaceholderText(/search by name/i)
+    await fireEvent.input(search, { target: { value: 'test@example.com' } })
+
+    const msg = screen.getByPlaceholderText(/what do you want to ask/i)
+    await fireEvent.input(msg, { target: { value: 'Hello email' } })
+    await fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        '/api/chat/b2b/cold-query',
+        expect.objectContaining({
+          body: JSON.stringify({ targetEmail: 'test@example.com', message: 'Hello email' }),
+        }),
+      )
+    })
+  })
+
+  it('submits with targetHandle when input is @handle', async () => {
+    const onSubmitted = vi.fn()
+    mockedApiFetch.mockResolvedValue(new Response(JSON.stringify({ sessionId: 'sess-handle' }), { status: 200 }))
+
+    render(ColdTunnelComposer, {
+      props: { layout: 'inline', onDismiss: vi.fn(), onSubmitted },
+    })
+
+    const search = screen.getByPlaceholderText(/search by name/i)
+    await fireEvent.input(search, { target: { value: '@somehandle' } })
+
+    const msg = screen.getByPlaceholderText(/what do you want to ask/i)
+    await fireEvent.input(msg, { target: { value: 'Hello handle' } })
+    await fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        '/api/chat/b2b/cold-query',
+        expect.objectContaining({
+          body: JSON.stringify({ targetHandle: 'somehandle', message: 'Hello handle' }),
+        }),
+      )
+    })
+  })
+
+  it('handles 429 rate limit error', async () => {
+    mockedApiFetch.mockResolvedValue(new Response(null, { status: 429 }))
+
+    render(ColdTunnelComposer, {
+      props: { layout: 'inline', onDismiss: vi.fn(), onSubmitted: vi.fn() },
+    })
+
+    const search = screen.getByPlaceholderText(/search by name/i)
+    await fireEvent.input(search, { target: { value: '@somehandle' } })
+    const msg = screen.getByPlaceholderText(/what do you want to ask/i)
+    await fireEvent.input(msg, { target: { value: 'Hello' } })
+    await fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/reached out recently/i)
+    })
+  })
+
+  it('handles 409 grant exists error', async () => {
+    mockedApiFetch.mockResolvedValue(new Response(null, { status: 409 }))
+
+    render(ColdTunnelComposer, {
+      props: { layout: 'inline', onDismiss: vi.fn(), onSubmitted: vi.fn() },
+    })
+
+    const search = screen.getByPlaceholderText(/search by name/i)
+    await fireEvent.input(search, { target: { value: '@somehandle' } })
+    const msg = screen.getByPlaceholderText(/what do you want to ask/i)
+    await fireEvent.input(msg, { target: { value: 'Hello' } })
+    await fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/already have a tunnel/i)
+    })
   })
 })

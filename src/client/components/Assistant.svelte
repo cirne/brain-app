@@ -268,10 +268,14 @@ import AppShell from '@components/app/AppShell.svelte'
       return
     }
     try {
-      const res = await fetch('/api/chat/b2b/review?state=pending', { credentials: 'include' })
+      const res = await fetch('/api/chat/b2b/tunnels', { credentials: 'include' })
       if (!res.ok) return
-      const j = (await res.json()) as { items?: unknown }
-      b2bReviewPendingCount = Array.isArray(j.items) ? j.items.length : 0
+      const j = (await res.json()) as { tunnels?: Array<{ pendingReviewCount?: unknown }> }
+      const rows = Array.isArray(j.tunnels) ? j.tunnels : []
+      b2bReviewPendingCount = rows.reduce((n, t) => {
+        const c = t.pendingReviewCount
+        return n + (typeof c === 'number' && Number.isFinite(c) ? c : 0)
+      }, 0)
     } catch {
       /* ignore */
     }
@@ -303,16 +307,10 @@ import AppShell from '@components/app/AppShell.svelte'
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
-  function openOutboundChatFromTunnel(sessionId: string, titleHint?: string) {
-    const sid = sessionId.trim()
-    if (!sid) return
-    navigateShell({ sessionId: sid }, titleHint?.trim() ? { chatTitleForUrl: titleHint.trim() } : undefined)
-    if (shell.isMobile) shell.sidebarOpen = false
-  }
-
   function resolveLegacyReviewToTunnel(handle: string) {
     navigateShell({ zone: 'tunnels', tunnelHandle: handle.trim(), reviewSessionId: undefined }, { replace: true })
   }
+
   /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
   let wikiPrimarySlideHeader = $state<WikiSlideHeaderState | null>(null)
 
@@ -332,6 +330,17 @@ import AppShell from '@components/app/AppShell.svelte'
       priorStack: shell.mobileWikiOverlayStack
       })
   }
+
+  /** Bare `/review` (no session id) now maps to the tunnels index URL. */
+  $effect(() => {
+    if (typeof window === 'undefined') return
+    if (shell.route.zone !== 'tunnels') return
+    const path = window.location.pathname
+    const bare = path === '/review' || path === '/review/'
+    if (!bare) return
+    if (shell.route.reviewSessionId?.trim()) return
+    navigateShell({ zone: 'tunnels' }, { replace: true })
+  })
 
   function syncMobileWikiStackFromHubSettings(prevOverlay: Overlay | undefined) {
     shell.mobileWikiOverlayStack = nextMobileWikiOverlayStack({
@@ -1132,9 +1141,11 @@ import AppShell from '@components/app/AppShell.svelte'
     }
   }
 
-  async function onColdTunnelSubmitted(sessionId: string): Promise<void> {
+  async function onColdTunnelSubmitted(sessionId: string, peerHandle?: string): Promise<void> {
     closeColdTunnelEntry()
-    await selectChatSession(sessionId)
+    const h = peerHandle?.trim()
+    if (h) navigateTunnelRoute(h)
+    else await selectChatSession(sessionId)
     void refs.chatHistory?.refresh({ background: true })
   }
 
@@ -1733,7 +1744,6 @@ import AppShell from '@components/app/AppShell.svelte'
                   brainQueryEnabled={brainQueryEnabled}
                   onPickTunnelHandle={(h) => navigateTunnelRoute(h)}
                   onReplaceLegacyReviewRoute={(h) => resolveLegacyReviewToTunnel(h)}
-                  onOpenOutboundChat={(sid, hint) => openOutboundChatFromTunnel(sid, hint)}
                   onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
                 />
               </div>
@@ -1863,6 +1873,7 @@ import AppShell from '@components/app/AppShell.svelte'
             <AgentChat
               bind:this={refs.agentChat}
               onSelectChatSession={selectChatSession}
+              onNavigateToTunnelByHandle={(h) => navigateTunnelRoute(h)}
               context={shell.agentContext}
               conversationHidden={!!shell.route.overlay && !useDesktopSplitDetail}
               suppressMobileChatL2Header={shell.isMobile && !!shell.route.overlay && !useDesktopSplitDetail}
@@ -1910,7 +1921,7 @@ import AppShell from '@components/app/AppShell.svelte'
               brainQueryEnabled={brainQueryEnabled}
               coldTunnelInlineOpen={coldTunnelInlineOpen}
               onColdTunnelInlineDismiss={closeColdTunnelEntry}
-              onColdTunnelSubmitted={(sid) => onColdTunnelSubmitted(sid)}
+              onColdTunnelSubmitted={(sid, handle) => onColdTunnelSubmitted(sid, handle)}
               onboardingBootstrapAgent={onboardingMachineState === 'onboarding-agent'}
             >
               {#snippet mobileDetail()}

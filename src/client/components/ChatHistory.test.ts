@@ -211,7 +211,7 @@ describe('ChatHistory.svelte', () => {
     })
   })
 
-  it('calls onOpenColdTunnelEntry when + Connect is pressed', async () => {
+  it('calls onOpenColdTunnelEntry when Connect is pressed', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
     ])

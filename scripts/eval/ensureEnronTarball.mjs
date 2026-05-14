@@ -3,8 +3,9 @@
  *
  * Resolution order:
  * 1. `EVAL_ENRON_TAR` — if set and the file exists, SHA must match the manifest (or `ENRON_SHA256` override).
- * 2. Stable cache: `<repoRoot>/data/.cache/enron/enron_mail_20150507.tar.gz` — use if present and SHA matches.
- * 3. Download from `ENRON_SOURCE_URL` or `manifest.sourceUrl` into that cache path (with `.part` + rename), then verify SHA.
+ * 2. Stable caches (SHA match); see `enronSharedTarballCachePathCandidates` in `enronDemoSeed.ts` — same order:
+ *    `<repoRoot>/data/.cache/enron/`, then legacy `<repoRoot>/data-eval/.cache/enron/`.
+ * 3. Download from `ENRON_SOURCE_URL` or `manifest.sourceUrl` into the primary cache path (with `.part` + rename), then verify SHA.
  *
  * Download: prefers **`curl`** (HTTP/1.1, retries, **resume** via `-C -`) — much faster and more reliable on large
  * files than Node `fetch` streaming. Set `EVAL_ENRON_USE_NODE_FETCH=1` to force the old path. Partial `.part` files
@@ -109,16 +110,25 @@ export async function ensureEnronTarballPath({ manifest, repoRoot }) {
   }
 
   const cacheDir = join(repoRoot, 'data', '.cache', 'enron')
-  mkdirSync(cacheDir, { recursive: true })
-  const cached = join(cacheDir, 'enron_mail_20150507.tar.gz')
+  const baseName = 'enron_mail_20150507.tar.gz'
+  const cacheCandidates = [
+    join(cacheDir, baseName),
+    join(repoRoot, 'data-eval', '.cache', 'enron', baseName),
+  ]
 
-  if (existsSync(cached)) {
+  for (const cached of cacheCandidates) {
+    if (!existsSync(cached)) continue
     const got = sha256File(cached)
     if (got === expectedSha) {
       console.error('[eval:enron-tar] Using cached tarball:', cached)
       return cached
     }
-    console.error('[eval:enron-tar] Cached tarball SHA mismatch; removing and re-downloading.')
+    console.error('[eval:enron-tar] Tarball SHA mismatch at', cached, '(trying other locations or re-download)')
+  }
+
+  mkdirSync(cacheDir, { recursive: true })
+  const cached = join(cacheDir, baseName)
+  if (existsSync(cached)) {
     try {
       rmSync(cached)
     } catch {

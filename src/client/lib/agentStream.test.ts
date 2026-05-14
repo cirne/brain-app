@@ -83,7 +83,7 @@ describe('consumeAgentChatStream', () => {
   it('applies b2bDelivery from done event to the assistant message', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
-      { role: 'assistant', content: '', parts: [{ type: 'text', content: 'Sent · pending approval' }] },
+      { role: 'assistant', content: '', b2bDelivery: 'awaiting_peer_review' },
     ]
     const touchMessages = vi.fn()
     const res = sseResponse([

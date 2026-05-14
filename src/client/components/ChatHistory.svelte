@@ -377,13 +377,13 @@
         if (sid) next = next.filter((s) => s.sessionId !== sid)
         if (gid) next = next.filter((s) => !(s.sessionType === 'b2b_outbound' && s.remoteGrantId === gid))
         sessions = next
-        tunnels =
-          gid
-            ? tunnels.filter((t) => {
-                const og = (t.outboundGrantId ?? t.grantId ?? '').trim()
-                return og !== gid
-              })
-            : tunnels
+        tunnels = tunnels.filter((t) => {
+          const og = (t.outboundGrantId ?? t.grantId ?? '').trim()
+          const osid = (t.outboundSessionId ?? t.sessionId ?? '').trim()
+          if (gid && og === gid) return false
+          if (sid && osid === sid) return false
+          return true
+        })
         emit({ type: 'chat:sessions-changed' })
         const active = activeSessionId?.trim() ?? ''
         if (active && !next.some((s) => s.sessionId === active)) onNewChat()
@@ -464,8 +464,8 @@
       item.type === 'chat' &&
         !!item.sessionId &&
         activeSessionId === item.sessionId &&
-        'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected rounded-sm',
-      tunnelActive && 'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected rounded-sm',
+        'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected',
+      tunnelActive && 'active bg-surface-selected outline outline-1 outline-accent hover:bg-surface-selected',
     )}
     role="button"
     tabindex="0"

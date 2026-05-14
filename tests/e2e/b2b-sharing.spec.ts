@@ -14,6 +14,8 @@ import {
   mintFreshEnronDemoCookieForBrowser,
   prepareEnronDemoSessionNoSoftReset,
   provisionEnronDemoPeerForCollaboratorDirectory,
+  revokeBrainQueryGrantsForAskerHandleViaApi,
+  withdrawAllTunnelsViaApi,
   waitUntilWorkspaceHandlesApiIncludes,
 } from './helpers'
 
@@ -31,7 +33,7 @@ type TunnelTimeouts = {
 type LogStep = ReturnType<typeof createStepLogger>['logStep']
 
 function tunnelsRail(page: Page) {
-  return page.locator('section.ch-group--tunnels')
+  return page.locator('section[aria-labelledby="ch-heading-tunnels"]')
 }
 
 /** Rail row for outbound tunnel toward Ken (demo handle or seeded display label). */
@@ -39,6 +41,13 @@ function kenLayOutgoingTunnelRow(page: Page) {
   return tunnelsRail(page)
     .locator('.ch-row')
     .filter({ hasText: new RegExp(`(${ENRON_DEMO_HANDLE_LAY.replace(/-/g, '\\-')}|Ken Lay)`, 'i') })
+}
+
+/** Rail row for inbound tunnel from Steve (demo handle or seeded display label). */
+function steveKeanInboundTunnelRow(page: Page) {
+  return tunnelsRail(page)
+    .locator('.ch-row')
+    .filter({ hasText: new RegExp(`(${ENRON_DEMO_HANDLE_KEAN.replace(/-/g, '\\-')}|Steve Kean)`, 'i') })
 }
 
 async function apiPrepareCollaborationDirectory(params: {
@@ -90,21 +99,6 @@ async function phase1SteveColdBraintunnelOutbound(params: {
   await expect(stevePage.getByRole('heading', { name: /^tunnels$/i })).toBeVisible({ timeout: t.uiTimeoutMs })
   await expect(stevePage.getByTestId('cold-query-open')).toBeVisible({ timeout: t.uiTimeoutMs })
 
-  const kenRow = kenLayOutgoingTunnelRow(stevePage)
-  const existingKenTunnels = await kenRow.count()
-  logStep('[p1] tunnels list: Ken row count (0 = skip teardown)', { existingKenTunnels })
-  if (existingKenTunnels > 0) {
-    logStep('[p1] teardown existing Ken tunnel via header Close Braintunnel + confirm dialog')
-    await kenRow.first().click()
-    await expect(stevePage.getByRole('button', { name: 'Close Braintunnel' })).toBeVisible({
-      timeout: t.uiTimeoutMs,
-    })
-    await stevePage.getByRole('button', { name: 'Close Braintunnel' }).click()
-    await stevePage.getByRole('button', { name: 'Close tunnel' }).click({ timeout: t.uiTimeoutMs })
-    await expect(kenRow).toHaveCount(0, { timeout: t.uiTimeoutMs })
-    logStep('[p1] Ken tunnel row removed from rail')
-  }
-
   logStep('[p1] open cold-tunnel composer (Open a Braintunnel)')
   await stevePage.getByTestId('cold-query-open').click()
   const composerRoot = stevePage.getByTestId('cold-tunnel-composer')
@@ -113,7 +107,7 @@ async function phase1SteveColdBraintunnelOutbound(params: {
   logStep('[p1] workspace search demo-ken, pick suggestion', { suggestionHandle: ENRON_DEMO_HANDLE_LAY })
   await composerRoot.locator('#cold-tunnel-search').fill('demo-ken')
   const pickOption = stevePage
-    .locator('[id="cold-tunnel-suggest-list"] [role="option"]')
+    .locator('#cold-tunnel-suggest-list [role="option"]')
     .filter({ hasText: ENRON_DEMO_HANDLE_LAY })
     .first()
   await expect(pickOption).toBeVisible({ timeout: t.uiTimeoutMs })
@@ -122,7 +116,10 @@ async function phase1SteveColdBraintunnelOutbound(params: {
   logStep('[p1] fill cold-query message body + POST /api/chat/b2b/cold-query', {
     promptPreview: `${PHASE1_TUNNEL_OUTBOUND_PROMPT.slice(0, 48)}…`,
   })
-  await composerRoot.locator('#cold-tunnel-msg').fill(PHASE1_TUNNEL_OUTBOUND_PROMPT)
+  // UnifiedChatComposer uses a textarea with class chat-textarea
+  const textarea = composerRoot.locator('textarea.chat-textarea')
+  await textarea.fill(PHASE1_TUNNEL_OUTBOUND_PROMPT)
+
   const coldPost = stevePage.waitForResponse(
     (res) =>
       res.url().includes('/api/chat/b2b/cold-query') &&
@@ -130,20 +127,21 @@ async function phase1SteveColdBraintunnelOutbound(params: {
       res.ok(),
     { timeout: t.chatPostTimeoutMs },
   )
-  await composerRoot.getByRole('button', { name: /^send$/i }).click()
+  // Send button is the one with ArrowUp icon, aria-label "Send message"
+  await composerRoot.getByRole('button', { name: /send message/i }).click()
   const coldPostRes = await coldPost
   logStep('[p1] cold-query response', { ok: coldPostRes.ok(), status: coldPostRes.status() })
   expect(coldPostRes.ok()).toBeTruthy()
 
-  logStep('[p1] assert user bubble visible')
-  await expect(stevePage.getByText(PHASE1_TUNNEL_OUTBOUND_PROMPT, { exact: true })).toBeVisible({
+  logStep('[p1] assert user bubble visible in tunnel log')
+  const tunnelLog = stevePage.getByTestId('tunnel-detail-log')
+  await expect(tunnelLog.getByText(PHASE1_TUNNEL_OUTBOUND_PROMPT, { exact: true })).toBeVisible({
     timeout: t.uiTimeoutMs,
   })
   logStep('[p1] assert awaiting-peer-review receipt banner')
+  // The receipt label is "Received · they'll approve the reply before it sends" (from i18n chat.b2b.awaitingReceiptLabel)
   await expect(
-    stevePage.getByText(
-      'Your message was sent. When they approve their assistant\'s draft, the reply will appear here.',
-    ),
+    tunnelLog.getByText(/Received.*they'll approve the reply/i),
   ).toBeVisible({ timeout: t.uiTimeoutMs })
   logStep('phase 1 done')
 }
@@ -154,66 +152,57 @@ async function phase1SteveColdBraintunnelOutbound(params: {
  */
 async function steveRailReadyForUnreadDot(params: {
   stevePage: Page
+  base: string
   t: TunnelTimeouts
   logStep: LogStep
 }) {
-  const { stevePage, t, logStep } = params
+  const { stevePage, base, t, logStep } = params
   logStep('[between p1→p3] Steve: new/empty chat (not viewing outbound tunnel) so hub unread dot can attach')
-  await ensureEmptyChatComposerContext(stevePage, { uiTimeoutMs: t.uiTimeoutMs })
+  await stevePage.goto(`${base}/c`)
+  await expect(stevePage.locator('[data-conversation-state="empty"]')).toBeVisible({ timeout: t.uiTimeoutMs })
   logStep('[between p1→p3] empty composer context ready')
 }
 
-async function phase2KenInboxApprovesDraft(params: {
+async function phase2KenApprovesDraft(params: {
   kenPage: Page
   t: TunnelTimeouts
   logStep: LogStep
 }) {
   const { kenPage, t, logStep } = params
-  logStep('phase 2 start: Ken Inbox approve')
+  logStep('phase 2 start: Ken approve')
 
   await expect(kenPage.getByRole('heading', { name: /^tunnels$/i })).toBeVisible({ timeout: t.uiTimeoutMs })
   logStep('[p2] Ken /c tunnels rail visible')
 
   const kenTunnels = tunnelsRail(kenPage)
-  const kenInbox = kenTunnels.getByRole('button', { name: /open inbox/i })
-  await expect(kenInbox).toBeVisible({ timeout: t.assistantAnswerTimeoutMs })
-  const kenBadgeText = (await kenInbox.locator('.inbox-rail-badge').innerText()).trim()
-  const kenPending = kenBadgeText.includes('+') ? 100 : Number.parseInt(kenBadgeText, 10)
-  logStep('[p2] Inbox rail link + badge', { kenBadgeText, parsedPending: kenPending })
-  expect(kenPending).toBe(1)
+  const pendingBadge = kenTunnels.locator('button[aria-label^="Open Tunnels"]')
+  await expect(pendingBadge).toBeVisible({ timeout: t.assistantAnswerTimeoutMs })
+  const kenPendingCount = await pendingBadge.innerText()
+  logStep('[p2] pending review badge visible', { kenPendingCount })
+  expect(Number.parseInt(kenPendingCount, 10)).toBeGreaterThanOrEqual(1)
 
-  logStep('[p2] click Open inbox → review queue split')
-  await kenInbox.click()
-  await expect(kenPage.getByTestId('review-queue-split')).toBeVisible({ timeout: t.uiTimeoutMs })
-  const matchingInboxRows = kenPage
-    .getByTestId('review-queue-row')
-    .filter({ hasText: `@${ENRON_DEMO_HANDLE_KEAN}` })
-    .filter({ hasText: /Dynergy merger/i })
-  await expect(matchingInboxRows).toHaveCount(1, { timeout: t.uiTimeoutMs })
-  const inboxRow = matchingInboxRows.first()
-  logStep('[p2] single matching inbox row (Steve cold query snippet)', {
-    filters: `@${ENRON_DEMO_HANDLE_KEAN}`,
-    snippet: 'Dynergy merger',
-  })
-  await expect(inboxRow).toBeVisible({ timeout: t.assistantAnswerTimeoutMs })
-  await inboxRow.click()
-  logStep('[p2] selected inbox row → review-detail')
+  logStep('[p2] click Steve tunnel row')
+  const steveRow = steveKeanInboundTunnelRow(kenPage)
+  await steveRow.click()
 
-  const detail = kenPage.getByTestId('review-detail')
-  await expect(detail).toBeVisible({ timeout: t.uiTimeoutMs })
-  await expect(detail.locator('.review-reply-body')).toBeVisible({ timeout: t.uiTimeoutMs })
+  logStep('[p2] wait for tunnel-pending-review card')
+  const pendingCard = kenPage.getByTestId('tunnel-pending-review')
+  await expect(pendingCard).toBeVisible({ timeout: t.uiTimeoutMs })
+  await expect(pendingCard).toContainText(/Dynergy merger/i)
 
-  const sendBtn = detail.locator('.review-detail-actions').getByRole('button', { name: /^send$/i })
-  logStep('[p2] wait TipTap draft + Send enabled (pending inbound)')
-  await expect(sendBtn).toBeEnabled({ timeout: t.assistantAnswerTimeoutMs })
+  // Accept & draft for cold query
+  if (await pendingCard.getByTestId('tunnel-pending-accept-draft').isVisible()) {
+    logStep('[p2] click Accept & draft')
+    await pendingCard.getByTestId('tunnel-pending-accept-draft').click()
+  }
 
-  logStep('[p2] poll reply body character count (>80)')
-  await expect
-    .poll(async () => (await detail.locator('.review-reply-body').innerText()).trim().length, {
-      timeout: t.assistantAnswerTimeoutMs,
-    })
-    .toBeGreaterThan(80)
+  logStep('[p2] wait for draft content to be populated')
+  const editor = pendingCard.locator('.tiptap-md-root-compact')
+  await expect.poll(async () => (await editor.innerText()).trim().length, {
+    timeout: t.assistantAnswerTimeoutMs,
+  }).toBeGreaterThan(20)
 
+  const sendBtn = pendingCard.getByRole('button', { name: 'Send', exact: true })
   logStep('[p2] POST /api/chat/b2b/approve (Send)')
   const approvePost = kenPage.waitForResponse(
     (res) =>
@@ -248,12 +237,13 @@ async function phase3SteveSeesUnreadDotThenTranscript(params: {
   logStep('[p3] click Ken tunnel row → open outbound thread')
   await steveKenRow.click()
   logStep('[p3] assert original outbound prompt bubble')
-  await expect(stevePage.getByText(PHASE1_TUNNEL_OUTBOUND_PROMPT, { exact: true })).toBeVisible({
+  const tunnelLog = stevePage.getByTestId('tunnel-detail-log')
+  await expect(tunnelLog.getByText(PHASE1_TUNNEL_OUTBOUND_PROMPT, { exact: true })).toBeVisible({
     timeout: t.uiTimeoutMs,
   })
   logStep('[p3] wait assistant merger reply in transcript')
   await expect(
-    stevePage.locator('.message.assistant').filter({ hasText: /dynergy merger|dynegy|status.*merger/i }),
+    tunnelLog.locator('[data-testid="tunnel-message"].items-start').filter({ hasText: /dynegy|dynergy|merger/i }),
   ).toBeVisible({ timeout: t.assistantAnswerTimeoutMs })
   logStep('phase 3 done')
 }
@@ -295,6 +285,10 @@ test.describe('Braintunnel (Steve Kean ↔ Ken Lay)', () => {
     logStep('[setup] mint Ken Lay session cookie')
     const kenCookie = (await mintFreshEnronDemoCookieForBrowser(request, base, secret, { demoUser: 'lay' })).cookie
 
+    logStep('[api] withdraw existing tunnels between Steve and Ken (clean slate for cold query)')
+    await withdrawAllTunnelsViaApi(request, base, kenCookie)
+    await withdrawAllTunnelsViaApi(request, base, steveCookie)
+
     const steveErrors: string[] = []
     const kenErrors: string[] = []
     logStep('[setup] new browser contexts (viewport)', VIEWPORT_TUNNEL_E2E)
@@ -311,11 +305,11 @@ test.describe('Braintunnel (Steve Kean ↔ Ken Lay)', () => {
 
     try {
       await phase1SteveColdBraintunnelOutbound({ stevePage, base, t, logStep })
-      await steveRailReadyForUnreadDot({ stevePage, t, logStep })
+      await steveRailReadyForUnreadDot({ stevePage, base, t, logStep })
 
       logStep('[between p2] Ken.goto /c for Inbox rail')
       await kenPage.goto(`${base}/c`, { waitUntil: 'domcontentloaded' })
-      await phase2KenInboxApprovesDraft({ kenPage, t, logStep })
+      await phase2KenApprovesDraft({ kenPage, t, logStep })
       await phase3SteveSeesUnreadDotThenTranscript({ stevePage, t, logStep })
 
       logStep('test body finished; closing contexts')

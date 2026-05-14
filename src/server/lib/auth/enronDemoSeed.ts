@@ -135,6 +135,17 @@ async function sha256File(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
+/** Same basename + cache dirs as `scripts/eval/ensureEnronTarball.mjs` (CLI / `npm run brain:seed-enron-demo`). */
+export const ENRON_MAIL_TARBALL_BASENAME = 'enron_mail_20150507.tar.gz'
+
+export function enronSharedTarballCachePathCandidates(repoRoot: string): string[] {
+  const e = ENRON_MAIL_TARBALL_BASENAME
+  return [
+    join(repoRoot, 'data', '.cache', 'enron', e),
+    join(repoRoot, 'data-eval', '.cache', 'enron', e),
+  ]
+}
+
 async function ensureTarball(repoRoot: string): Promise<string> {
   const pre = process.env.EVAL_ENRON_TAR?.trim()
   if (pre && existsSync(pre)) {
@@ -150,8 +161,8 @@ async function ensureTarball(repoRoot: string): Promise<string> {
     throw new Error('Missing Enron tarball URL or SHA (manifest or ENRON_SOURCE_URL / ENRON_SHA256).')
   }
 
-  const sharedCache = join(repoRoot, 'data-eval', '.cache', 'enron', 'enron_mail_20150507.tar.gz')
-  if (existsSync(sharedCache)) {
+  for (const sharedCache of enronSharedTarballCachePathCandidates(repoRoot)) {
+    if (!existsSync(sharedCache)) continue
     const sha = await sha256File(sharedCache)
     if (sha === expectedSha) {
       return sharedCache

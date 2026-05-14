@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@client/test/render.js'
 import { tick } from 'svelte'
 import ReviewDetail from './ReviewDetail.svelte'
 import * as apiFetchMod from '@client/lib/apiFetch.js'
+import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
 
 vi.mock('@components/TipTapMarkdownEditor.svelte', () =>
   import('./test-stubs/TipTapMarkdownEditorStub.svelte'),
@@ -38,6 +39,12 @@ function mockSession(draft = 'Original draft') {
     }
     if (u.includes('/api/chat/b2b/dismiss') || u.includes('/api/chat/b2b/approve') || u.includes('/api/chat/b2b/decline')) {
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    if (u.includes('/api/chat/b2b/establish-grant')) {
+      return new Response(JSON.stringify({ ok: true, grantId: 'bqg_x' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
     if (u.includes('/api/chat/b2b/grants/')) {
       return new Response(JSON.stringify({ ok: true, policy: 'review' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -220,4 +227,65 @@ describe('ReviewDetail.svelte', () => {
       expect(sessionFetchCount).toBeGreaterThanOrEqual(2)
       expect(textarea.value).toContain('full drafted reply')
     })
-  })})
+  })
+
+  it('cold inbound shows policy handshake and posts establish-grant on accept', async () => {
+    let establishBody: Record<string, unknown> | null = null
+    vi.spyOn(apiFetchMod, 'apiFetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const u = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (u.includes('/api/chat/sessions/')) {
+        return new Response(
+          JSON.stringify({
+            sessionId: 's-cold',
+            messages: [
+              { role: 'user', content: 'Cold question' },
+              { role: 'assistant', content: B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (u.includes('/api/chat/b2b/establish-grant')) {
+        establishBody = JSON.parse((init?.body as string) ?? '{}') as Record<string, unknown>
+        return new Response(JSON.stringify({ ok: true, grantId: 'bqg_cold' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      if (u.includes('/api/chat/b2b/dismiss')) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response('{}', { status: 404 })
+    })
+
+    const coldRow = {
+      sessionId: 's-cold',
+      grantId: null,
+      isColdQuery: true,
+      policy: null,
+      peerHandle: 'peer',
+      peerDisplayName: null,
+      askerSnippet: 'Cold question',
+      draftSnippet: B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT,
+      state: 'pending' as const,
+      updatedAtMs: Date.now(),
+    }
+    const onMutate = vi.fn()
+
+    render(ReviewDetail, {
+      props: { row: coldRow, onOpenInboundThread: vi.fn(), onMutate },
+    })
+
+    await waitFor(() => expect(screen.getByTestId('review-cold-handshake')).toBeInTheDocument())
+    expect(screen.queryByTestId('review-reply-textarea')).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByTestId('review-accept-establish'))
+
+    await waitFor(() => {
+      expect(establishBody?.sessionId).toBe('s-cold')
+      expect(typeof establishBody?.privacyPolicy).toBe('string')
+      expect((establishBody?.privacyPolicy as string).length).toBeGreaterThan(20)
+      expect(onMutate).toHaveBeenCalled()
+    })
+  })
+})

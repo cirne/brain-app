@@ -4,7 +4,9 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
   ENRON_DEMO_PROVISIONED_FILENAME,
+  ENRON_MAIL_TARBALL_BASENAME,
   ensureProvisionedMarkerWhenMailReady,
+  enronSharedTarballCachePathCandidates,
   isEnronDemoTenantProvisioned,
   isEnronDemoTenantReady,
   resetEnronDemoSeedStateForTests,
@@ -43,6 +45,12 @@ describe('enronDemoSeed', () => {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  })
+
+  it('enronSharedTarballCachePathCandidates matches npm brain:seed-enron-demo cache layout', () => {
+    const c = enronSharedTarballCachePathCandidates('/repo')
+    expect(c[0]).toBe(join('/repo', 'data', '.cache', 'enron', ENRON_MAIL_TARBALL_BASENAME))
+    expect(c[1]).toBe(join('/repo', 'data-eval', '.cache', 'enron', ENRON_MAIL_TARBALL_BASENAME))
   })
 
   it('ensureProvisionedMarkerWhenMailReady writes marker when ripmail.db is non-empty', async () => {

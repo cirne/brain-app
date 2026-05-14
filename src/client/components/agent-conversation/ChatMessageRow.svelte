@@ -10,7 +10,7 @@
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import { t } from '@client/lib/i18n/index.js'
   import { Send } from 'lucide-svelte'
-  import { B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT } from '@shared/b2bTunnelDelivery.js'
+  import { isB2bAwaitingPeerReviewAssistantMessage } from '@shared/b2bTunnelDelivery.js'
   import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
   import StreamingBusyDots from './StreamingBusyDots.svelte'
   import ToolCallBlock from './ToolCallBlock.svelte'
@@ -68,19 +68,8 @@
     msg.role === 'assistant' && streaming && isLastMessage && !assistantHasVisibleTextPart(msg),
   )
 
-  function assistantPlainTextForReceipt(m: ChatMessage): string {
-    const parts = m.parts ?? []
-    const fromPart = parts.find(
-      (p): p is { type: 'text'; content: string } => p.type === 'text' && typeof p.content === 'string',
-    )
-    if (fromPart?.content) return fromPart.content
-    return typeof m.content === 'string' ? m.content : ''
-  }
-
   const awaitingPeerReviewReceipt = $derived(
-    msg.b2bDelivery === 'awaiting_peer_review' ||
-      (msg.role === 'assistant' &&
-        assistantPlainTextForReceipt(msg).trim() === B2B_OUTBOUND_AWAITING_PEER_REVIEW_TEXT.trim()),
+    msg.role === 'assistant' && isB2bAwaitingPeerReviewAssistantMessage(msg),
   )
 
   const displayParts = $derived(expandPartsForToolDisplay(msg.parts, toolDisplayMode, msg.role))

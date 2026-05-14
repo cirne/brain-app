@@ -1,23 +1,34 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { subscribe } from '@client/lib/app/appEvents.js'
+  import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
   import { t } from '@client/lib/i18n/index.js'
+  import { consumeTunnelOutboundSendStream } from '@client/lib/consumeTunnelOutboundSendStream.js'
+  import { classifyGrantPolicy, normalizePolicyText } from '@client/lib/brainAccessPolicyGrouping.js'
+  import { loadBrainAccessCustomPolicies } from '@client/lib/brainAccessCustomPolicies.js'
+  import {
+    BRAIN_QUERY_POLICY_TEMPLATES,
+    templateById,
+    type BrainQueryBuiltInPolicyId,
+  } from '@client/lib/brainQueryPolicyTemplates.js'
   import TunnelMessage from '@components/TunnelMessage.svelte'
   import TunnelPendingMessage from '@components/TunnelPendingMessage.svelte'
+  import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
+  import SegmentedControl from '@components/SegmentedControl.svelte'
+  import BottomSheet from '@components/shell/BottomSheet.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import type { TunnelTimelineEntryApi } from '@shared/tunnelTimeline.js'
+  import type { SegmentedOption } from '@client/lib/segmentedControl.js'
+  import { SlidersHorizontal, Settings } from 'lucide-svelte'
 
   let {
     tunnelHandle,
-    onOpenOutboundChat,
     inboundGrantIdInitial = null as string | null,
     outboundGrantIdInitial = null as string | null,
     peerDisplayNameInitial = '',
   }: {
     tunnelHandle: string
-    /** Jump to outbound B2B chat session from the unified log. */
-    onOpenOutboundChat: (_sessionId: string, _chatTitleHint?: string) => void
     inboundGrantIdInitial?: string | null
     outboundGrantIdInitial?: string | null
     peerDisplayNameInitial?: string
@@ -26,27 +37,79 @@
   let loadError = $state<string | null>(null)
   let timeline = $state<TunnelTimelineEntryApi[]>([])
   let peerDisplayName = $state('')
-  /** Owner-side inbound grant (PATCH policy/auto-respond). */
   let inboundGrantId = $state<string | null>(null)
-  /** Asker outbound grant (`POST …/send`). */
   let outboundGrantId = $state<string | null>(null)
+  /** From tunnel-timeline API; enables cold-query send when peer has not granted outbound access yet. */
+  let peerUserId = $state('')
   let policyDraft = $state<'auto' | 'review' | 'ignore'>('review')
+  /** Matches SegmentedControl: Manual / Automatic; `undefined` when server policy is ignore. */
+  let replyUiBind = $state<'review' | 'auto' | undefined>('review')
   let policyBusy = $state(false)
+  let inboundPrivacyPolicy = $state('')
+  /** Built-in preset id when text matches template; '' when custom / other policy. */
+  let accessSelect = $state<'' | BrainQueryBuiltInPolicyId>('')
+  let accessBusy = $state(false)
+  let connectionSheetOpen = $state(false)
+  let autoSendConfirmOpen = $state(false)
 
-  /** Compose recipient: query their assistant vs DM human (stub). */
-  let recipient = $state<'brain' | 'human'>('brain')
-  let composeBody = $state('')
   let sending = $state(false)
+  let tunnelComposerRef = $state<ReturnType<typeof UnifiedChatComposer> | undefined>(undefined)
   let sendError = $state<string | null>(null)
-  let humanNotice = $state(false)
+  let pendingOutbound = $state<{
+    userText: string
+    assistantText: string
+    atMs: number
+    awaitingPeerReview: boolean
+  } | null>(null)
 
   let logEl = $state<HTMLDivElement | undefined>()
 
-  function possessiveBrainLabel(nameRaw: string): string {
-    const n = nameRaw.trim()
-    const base = (n.split(/\s+/)[0] ?? n).trim() || '?'
-    if (base.endsWith('s') || base.endsWith('S')) return `${base}' brain`
-    return `${base}'s brain`
+  const accessClassified = $derived.by(() => {
+    const raw = inboundPrivacyPolicy.trim()
+    if (!raw) return null
+    return classifyGrantPolicy(inboundPrivacyPolicy, loadBrainAccessCustomPolicies())
+  })
+
+  const accessHintText = $derived.by(() => {
+    const c = accessClassified
+    if (!c) return ''
+    if (c.hint) return c.hint
+    if (c.kind === 'custom') return c.label
+    return $t('chat.tunnels.connection.accessHintOther')
+  })
+
+  const showCustomizeLink = $derived.by(() => {
+    const c = accessClassified
+    return c != null && (c.kind === 'adhoc' || c.kind === 'custom')
+  })
+
+  /** Manual / Automatic only (Ignore not exposed in toolbar). */
+  const replySegmentOptions = $derived.by(
+    (): SegmentedOption<'review' | 'auto'>[] => [
+      {
+        value: 'review',
+        label: $t('chat.review.detail.policy.segment.review'),
+        testId: 'tunnel-detail-reply-review',
+      },
+      {
+        value: 'auto',
+        label: $t('chat.review.detail.policy.segment.auto'),
+        testId: 'tunnel-detail-reply-auto',
+      },
+    ],
+  )
+
+  const replyHintText = $derived.by(() => {
+    if (policyDraft === 'ignore') return $t('chat.tunnels.connection.replyHint.ignoreActiveHeader')
+    if (replyUiBind === 'auto') return $t('chat.tunnels.connection.replyHint.auto')
+    return $t('chat.tunnels.connection.replyHint.review')
+  })
+
+  const connectionDisabled = $derived(policyBusy || accessBusy)
+  const peerAtHandle = $derived(`@${tunnelHandle.trim()}`)
+
+  function authorKindFor(actor: 'you' | 'your_brain' | 'them' | 'their_brain'): 'human' | 'assistant' {
+    return actor === 'you' || actor === 'them' ? 'human' : 'assistant'
   }
 
   function actorLabelFor(actor: 'you' | 'your_brain' | 'them' | 'their_brain', peerFirstName: string): string {
@@ -83,9 +146,12 @@
         timeline?: unknown
         inboundPolicy?: unknown
         peerDisplayName?: unknown
+        peerUserId?: unknown
         inboundGrantId?: unknown
         outboundGrantId?: unknown
+        inboundPrivacyPolicy?: unknown
       }
+      peerUserId = typeof j.peerUserId === 'string' && j.peerUserId.trim() ? j.peerUserId.trim() : ''
       peerDisplayName =
         typeof j.peerDisplayName === 'string' && j.peerDisplayName.trim()
           ? j.peerDisplayName.trim()
@@ -96,8 +162,21 @@
         typeof j.outboundGrantId === 'string' && j.outboundGrantId.trim()
           ? j.outboundGrantId.trim()
           : outboundGrantIdInitial ?? null
+
+      inboundPrivacyPolicy =
+        typeof j.inboundPrivacyPolicy === 'string' ? j.inboundPrivacyPolicy : ''
+      {
+        const cls = inboundPrivacyPolicy.trim()
+          ? classifyGrantPolicy(inboundPrivacyPolicy, loadBrainAccessCustomPolicies())
+          : null
+        accessSelect = cls?.kind === 'builtin' && cls.builtinId ? cls.builtinId : ''
+      }
+
       const pol = j.inboundPolicy
-      if (pol === 'auto' || pol === 'review' || pol === 'ignore') policyDraft = pol
+      if (pol === 'auto' || pol === 'review' || pol === 'ignore') {
+        policyDraft = pol
+        replyUiBind = pol === 'ignore' ? undefined : pol
+      }
 
       const list = Array.isArray(j.timeline) ? j.timeline : []
       timeline = list.filter(Boolean) as TunnelTimelineEntryApi[]
@@ -127,6 +206,7 @@
       })
       if (res.ok) {
         policyDraft = p
+        replyUiBind = p === 'ignore' ? undefined : p
         await loadTimeline()
       }
     } finally {
@@ -134,12 +214,128 @@
     }
   }
 
-  async function sendBrain(): Promise<void> {
+  async function patchInboundPrivacyPreset(presetId: BrainQueryBuiltInPolicyId): Promise<void> {
+    const tmpl = templateById(presetId)
+    const gid = inboundGrantId?.trim() ?? ''
+    if (!tmpl || !gid) return
+    accessBusy = true
+    try {
+      const res = await apiFetch(`/api/brain-query/grants/${encodeURIComponent(gid)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privacyPolicy: tmpl.text }),
+      })
+      if (res.ok) await loadTimeline()
+    } finally {
+      accessBusy = false
+    }
+  }
+
+  async function onAccessPresetChange(next: BrainQueryBuiltInPolicyId): Promise<void> {
+    if (connectionDisabled) return
+    const tmpl = templateById(next)
+    if (tmpl && normalizePolicyText(inboundPrivacyPolicy) === normalizePolicyText(tmpl.text)) {
+      return
+    }
+    await patchInboundPrivacyPreset(next)
+    connectionSheetOpen = false
+  }
+
+  function onPolicySelect(e: Event) {
+    if (connectionDisabled) return
+    const el = e.currentTarget as HTMLSelectElement
+    const v = el.value as '' | BrainQueryBuiltInPolicyId
+    accessSelect = v
+    if (v === '') return
+    void onAccessPresetChange(v)
+  }
+
+  async function onReplySegmentChange(next: 'review' | 'auto'): Promise<void> {
+    if (connectionDisabled) return
+    const effective = policyDraft
+
+    if (next === effective) return
+
+    if (next === 'auto') {
+      autoSendConfirmOpen = true
+      await tick()
+      replyUiBind = effective === 'ignore' ? undefined : effective === 'auto' ? 'auto' : 'review'
+      return
+    }
+
+    await patchInboundPolicy('review')
+    connectionSheetOpen = false
+  }
+
+  function confirmAutoSend() {
+    autoSendConfirmOpen = false
+    void patchInboundPolicy('auto').then(() => {
+      connectionSheetOpen = false
+    })
+  }
+
+  async function sendOutboundMessage(message: string): Promise<void> {
     const gid = outboundGrantId?.trim() ?? ''
-    const text = composeBody.trim()
-    if (!gid || !text) return
+    const uid = peerUserId.trim()
+    const text = message.trim()
+    if (!text) return
+    if (!gid && !uid) return
     sendError = null
     sending = true
+    const atMs = Date.now()
+
+    if (!gid) {
+      pendingOutbound = { userText: text, assistantText: '', atMs, awaitingPeerReview: true }
+      try {
+        const res = await apiFetch('/api/chat/b2b/cold-query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetUserId: uid,
+            message: text,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+        })
+        if (res.status === 409) {
+          sendError = $t('chat.history.coldQuery.grantExists')
+          tunnelComposerRef?.appendText(text)
+          pendingOutbound = null
+          return
+        }
+        if (res.status === 429) {
+          sendError = $t('chat.history.coldQuery.rateLimited')
+          tunnelComposerRef?.appendText(text)
+          pendingOutbound = null
+          return
+        }
+        if (!res.ok) {
+          sendError = $t('chat.history.coldQuery.error')
+          tunnelComposerRef?.appendText(text)
+          pendingOutbound = null
+          return
+        }
+        const j = (await res.json()) as { sessionId?: unknown }
+        const sid = typeof j.sessionId === 'string' ? j.sessionId.trim() : ''
+        if (!sid) {
+          sendError = $t('chat.history.coldQuery.error')
+          tunnelComposerRef?.appendText(text)
+          pendingOutbound = null
+          return
+        }
+        emit({ type: 'b2b:review-changed' })
+        emit({ type: 'chat:sessions-changed' })
+        await loadTimeline()
+      } catch {
+        sendError = $t('chat.history.coldQuery.error')
+        tunnelComposerRef?.appendText(text)
+      } finally {
+        pendingOutbound = null
+        sending = false
+      }
+      return
+    }
+
+    pendingOutbound = { userText: text, assistantText: '', atMs, awaitingPeerReview: false }
     try {
       const res = await apiFetch('/api/chat/b2b/send', {
         method: 'POST',
@@ -152,25 +348,37 @@
       })
       if (!res.ok) {
         sendError = `${res.status}`
+        tunnelComposerRef?.appendText(text)
+        pendingOutbound = null
         return
       }
-      await res.text().catch(() => '')
-      composeBody = ''
+      const streamResult = await consumeTunnelOutboundSendStream(res, {
+        onAssistantDelta: (full) => {
+          pendingOutbound = {
+            userText: text,
+            assistantText: full,
+            atMs,
+            awaitingPeerReview: false,
+          }
+        },
+      })
+      if (pendingOutbound && streamResult.b2bAwaitingPeerReview) {
+        pendingOutbound = {
+          userText: text,
+          assistantText: '',
+          atMs,
+          awaitingPeerReview: true,
+        }
+      }
+      emit({ type: 'chat:sessions-changed' })
       await loadTimeline()
     } catch {
       sendError = 'network'
+      tunnelComposerRef?.appendText(text)
     } finally {
+      pendingOutbound = null
       sending = false
     }
-  }
-
-  function submitComposer() {
-    if (recipient === 'human') {
-      humanNotice = true
-      setTimeout(() => (humanNotice = false), 5000)
-      return
-    }
-    void sendBrain()
   }
 
   $effect(() => {
@@ -178,6 +386,7 @@
     peerDisplayName = peerDisplayNameInitial
     inboundGrantId = inboundGrantIdInitial ?? null
     outboundGrantId = outboundGrantIdInitial ?? null
+    peerUserId = ''
     void loadTimeline()
   })
 
@@ -201,35 +410,147 @@
   })
 </script>
 
+{#snippet policyDropdown(selTestId: string)}
+  <select
+    data-testid={selTestId}
+    aria-label={$t('chat.tunnels.connection.policySelectAria')}
+    class="box-border min-w-[11rem] max-w-[min(42vw,15rem)] shrink-0 truncate rounded-lg border border-border bg-background px-2 py-1.5 text-[0.78rem] text-foreground outline-none disabled:opacity-50"
+    disabled={connectionDisabled}
+    value={accessSelect}
+    title={accessHintText}
+    onchange={onPolicySelect}
+  >
+    {#if accessSelect === ''}
+      <option value="" disabled>{$t('chat.tunnels.connection.otherPolicyOption')}</option>
+    {/if}
+    {#each BRAIN_QUERY_POLICY_TEMPLATES as tmpl (tmpl.id)}
+      <option value={tmpl.id}>{tmpl.label}</option>
+    {/each}
+  </select>
+{/snippet}
+
+{#snippet replyManualAutoHeader()}
+  <SegmentedControl
+    class="w-[10.75rem] min-w-[9.5rem] shrink-0"
+    options={replySegmentOptions}
+    bind:value={replyUiBind}
+    groupLabel={$t('chat.review.detail.policy.groupLabel')}
+    disabled={connectionDisabled}
+    readOnly={false}
+    onValueChange={(next) => void onReplySegmentChange(next)}
+  />
+{/snippet}
+
+{#snippet replyManualAutoSheet()}
+  <SegmentedControl
+    class="w-[10.75rem] min-w-[9.5rem] shrink-0"
+    options={replySegmentOptions}
+    value={replyUiBind}
+    groupLabel={$t('chat.review.detail.policy.groupLabel')}
+    disabled={connectionDisabled}
+    readOnly={true}
+    onValueChange={(next) => void onReplySegmentChange(next)}
+  />
+{/snippet}
+
+{#snippet headerCompactControls()}
+  <div class="flex shrink-0 items-center gap-2" data-testid="tunnel-detail-header-controls">
+    {#if showCustomizeLink}
+      <a
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-2 text-muted transition-colors hover:bg-surface-3 hover:text-accent"
+        href="/settings/brain-access"
+        title={$t('chat.tunnels.connection.customizeBrainAccess')}
+        aria-label={$t('chat.tunnels.connection.customizeBrainAccess')}
+      >
+        <Settings size={16} strokeWidth={2} />
+      </a>
+    {/if}
+    {@render policyDropdown('tunnel-detail-policy-select')}
+    {@render replyManualAutoHeader()}
+  </div>
+{/snippet}
+
+{#snippet sheetConnectionBody()}
+  <div class="flex flex-col gap-4 px-1" data-testid="tunnel-detail-connection-controls">
+    <div class="min-w-0">
+      <div class="mb-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted">
+        {$t('chat.tunnels.connection.accessHeading')}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        {#if showCustomizeLink}
+          <a
+            class="text-[0.7rem] font-medium text-accent underline-offset-2 hover:underline"
+            href="/settings/brain-access"
+          >
+            {$t('chat.tunnels.connection.customizeBrainAccess')}
+          </a>
+        {/if}
+        {@render policyDropdown('tunnel-detail-policy-select-sheet')}
+      </div>
+      {#if accessHintText}
+        <p class="mt-1.5 m-0 text-[0.7rem] leading-snug text-muted">{accessHintText}</p>
+      {/if}
+    </div>
+
+    <div class="min-w-0">
+      <div class="mb-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted">
+        {$t('chat.tunnels.connection.repliesHeading')}
+      </div>
+      <div class="min-w-0 overflow-x-auto">
+        {@render replyManualAutoSheet()}
+      </div>
+      <p class="mt-1.5 m-0 text-[0.7rem] leading-snug text-muted">{replyHintText}</p>
+    </div>
+  </div>
+{/snippet}
+
 <div class="tunnel-detail flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
   <header
-    class="shrink-0 border-b border-border px-3 py-3 md:px-4"
+    class="shrink-0 border-b border-border px-3 py-2.5 md:px-4"
     data-testid="tunnel-detail-header"
   >
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="min-w-0 flex-1">
-        <h1 class="m-0 truncate text-base font-semibold text-foreground md:text-lg">{peerDisplayName}</h1>
-        <div class="truncate text-[0.75rem] text-muted">@{tunnelHandle.trim()}</div>
+    <div
+      class="flex min-h-10 min-w-0 flex-nowrap items-center gap-x-2 gap-y-1 overflow-x-auto md:gap-x-3"
+    >
+      <div class="min-w-0 flex-1 basis-[7.5rem] shrink">
+        <h1 class="m-0 truncate text-sm font-semibold text-foreground md:text-base lg:text-lg">
+          {peerDisplayName}
+        </h1>
+        <div class="truncate text-[0.7rem] leading-tight text-muted md:text-[0.75rem]">{peerAtHandle}</div>
       </div>
 
       {#if inboundGrantId}
-        <label class="flex min-w-0 flex-col gap-1 text-[0.7rem] font-medium text-muted">
-          {$t('chat.tunnels.autoRespondLabel')}
-          <select
-            data-testid="tunnel-detail-policy-select"
-            class="rounded-md border border-border bg-background px-2 py-1.5 text-[0.8rem] text-foreground disabled:opacity-50"
-            disabled={policyBusy}
-            bind:value={policyDraft}
-            onchange={(e) => void patchInboundPolicy(e.currentTarget.value as 'auto' | 'review' | 'ignore')}
-          >
-            <option value="review">{$t('chat.review.detail.policy.segment.review')}</option>
-            <option value="auto">{$t('chat.review.detail.policy.segment.auto')}</option>
-            <option value="ignore">{$t('chat.review.detail.policy.segment.ignore')}</option>
-          </select>
-        </label>
+        <div class="hidden shrink-0 items-center md:flex">
+          {@render headerCompactControls()}
+        </div>
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground md:hidden"
+          data-testid="tunnel-detail-connection-mobile-trigger"
+          aria-label={$t('chat.tunnels.connection.sheetTriggerAria')}
+          onclick={() => (connectionSheetOpen = true)}
+        >
+          <SlidersHorizontal size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
       {/if}
     </div>
   </header>
+
+  {#if inboundGrantId}
+    <BottomSheet
+      open={connectionSheetOpen}
+      title={$t('chat.tunnels.connection.sheetTitle', {
+        name: peerDisplayName.trim() || peerAtHandle,
+      })}
+      titleId="tunnel-connection-sheet-title"
+      onDismiss={() => (connectionSheetOpen = false)}
+      panelClass="pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+    >
+      {#snippet children()}
+        {@render sheetConnectionBody()}
+      {/snippet}
+    </BottomSheet>
+  {/if}
 
   {#if loadError}
     <p class="m-0 shrink-0 px-3 py-2 text-danger text-sm" role="alert">{loadError}</p>
@@ -251,75 +572,79 @@
         {:else}
           <TunnelMessage
             side={item.side}
+            authorKind={authorKindFor(item.actor)}
             actorLabel={actorLabelFor(item.actor, peerDisplayName)}
-            body={item.body}
+            body={item.b2bAwaitingPeerReview ? $t('chat.b2b.awaitingReceiptLabel') : item.body}
             hint={hintFor(item)}
             atMs={item.atMs}
-            chatSessionId={item.chatSessionId ?? null}
-            onclickOpenChat={onOpenOutboundChat}
           />
         {/if}
       {/each}
+      {#if pendingOutbound}
+        <TunnelMessage
+          side="yours"
+          authorKind="human"
+          actorLabel={$t('chat.messageRow.you')}
+          body={pendingOutbound.userText}
+          atMs={pendingOutbound.atMs}
+        />
+        <TunnelMessage
+          side="theirs"
+          authorKind="assistant"
+          actorLabel={actorLabelFor('their_brain', peerDisplayName)}
+          body={pendingOutbound.awaitingPeerReview
+            ? $t('chat.b2b.awaitingReceiptLabel')
+            : pendingOutbound.assistantText.trim()
+              ? pendingOutbound.assistantText
+              : '…'}
+          atMs={pendingOutbound.atMs}
+        />
+      {/if}
     </div>
   </div>
 
-  {#if humanNotice}
-    <p class="m-0 shrink-0 px-3 py-2 text-accent text-[0.8rem]" role="status">
-      {$t('chat.tunnels.humanDmComingSoon')}
-    </p>
-  {/if}
-
-  <footer class="tunnel-detail-compose shrink-0 border-t border-border bg-surface-2 px-3 py-2 md:px-4">
+  <footer class="tunnel-detail-compose shrink-0 px-3 py-2 md:px-4">
     <div class="mx-auto flex w-full max-w-3xl flex-col gap-2">
       {#if sendError}
         <p class="m-0 text-danger text-[0.75rem]" role="alert">{sendError}</p>
       {/if}
 
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-[0.7rem] text-muted">{$t('chat.tunnels.composeToLabel')}</span>
-        <select
-          class="rounded-full border border-border bg-background px-2 py-1 text-[0.75rem]"
-          bind:value={recipient}
-        >
-          <option value="brain">{$t('chat.tunnels.recipientBrain')}</option>
-          <option value="human">{$t('chat.tunnels.recipientHuman')}</option>
-        </select>
-      </div>
+      <p class="m-0 text-[0.7rem] leading-snug text-muted">{$t('chat.tunnels.composeFooterAssistOnly')}</p>
 
-      <div class="flex w-full gap-2">
-        <textarea
-          class="box-border min-h-[2.75rem] flex-1 resize-y rounded-lg border border-border bg-background px-2 py-1.5 text-[0.85rem]"
-          placeholder={$t('chat.tunnels.composePlaceholderBrain', {
-            peerPossessiveBrain: possessiveBrainLabel(peerDisplayName),
-          })}
-          bind:value={composeBody}
-          disabled={sending || recipient === 'human' || !outboundGrantId}
-          onkeydown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              submitComposer()
-            }
-          }}
-        ></textarea>
-        <button
-          type="button"
-          class="shrink-0 self-end rounded-lg bg-accent px-3 py-2 text-[0.8rem] font-semibold text-white disabled:opacity-50"
-          disabled={sending || !composeBody.trim() || recipient === 'human' || !outboundGrantId}
-          onclick={() => submitComposer()}
-        >
-          {#if sending}
-            …
-          {:else}
-            {$t('chat.history.coldQuery.send')}
-          {/if}
-        </button>
-      </div>
-      {#if !outboundGrantId}
+      <UnifiedChatComposer
+        bind:this={tunnelComposerRef}
+        voiceEligible={false}
+        sessionResetKey={tunnelHandle.trim()}
+        placeholder={$t('chat.tunnels.composePlaceholderAssistant')}
+        wikiFiles={[]}
+        skills={[]}
+        streaming={false}
+        inputDisabled={sending || (!outboundGrantId?.trim() && !peerUserId.trim())}
+        autoFocusInputOnMount={false}
+        onTranscribe={() => {}}
+        onSend={(t) => void sendOutboundMessage(t)}
+      />
+
+      {#if !outboundGrantId?.trim() && peerUserId.trim()}
+        <p class="m-0 text-[0.7rem] text-muted">{$t('chat.tunnels.outboundPreConnectHint')}</p>
+      {:else if !outboundGrantId?.trim() && !peerUserId.trim()}
         <p class="m-0 text-[0.7rem] text-muted">{$t('chat.tunnels.outboundUnavailable')}</p>
       {/if}
     </div>
   </footer>
 </div>
+
+<ConfirmDialog
+  open={autoSendConfirmOpen}
+  title={$t('chat.tunnels.connection.autoSendTitle', { handle: peerAtHandle })}
+  titleId="tunnel-auto-send-confirm-title"
+  confirmLabel={$t('chat.review.detail.policy.autoSendConfirm.confirm')}
+  onDismiss={() => (autoSendConfirmOpen = false)}
+  onConfirm={confirmAutoSend}
+>
+  <p>{$t('chat.review.detail.policy.autoSendConfirm.body1')}</p>
+  <p>{$t('chat.review.detail.policy.autoSendConfirm.body2')}</p>
+</ConfirmDialog>
 
 <style>
 </style>

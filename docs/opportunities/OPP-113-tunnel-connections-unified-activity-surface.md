@@ -46,13 +46,15 @@ This restores clarity: footer = **fresh outbound you write** to their assistant;
 
 ### 3. Bubble differentiation (their brain vs yours, approved vs authored)
 
+**Attribution rule (non‑negotiable for UX copy and labels):** **Human‑initiated asks never use a brain label** (yours or theirs). A line like “please summarize the Dynergy merger” that **demo‑steve‑kean** sent is **Steve / @handle**, not “Steve’s brain.” The same for **their** questions to you — e.g. “What are Cirne’s Q3 availability policies?” from **Alice** is **`Alice`**, not “Alice’s brain.” **Assistant** turns use brain labels for **replies** (auto‑sent or approved), **draft‑pending** copy (“your brain drafted…”), etc. Your assistant may still **relay** messages on the wire; the timeline reads ***people ask*, *brains answer*.**
+
 Today similar styling for “your brain vs you” hides important nuance:
 
 - Add **distinct visual treatment** (e.g. **color, accent, icons**) for:
-  - **Messages you authored** (human-typed outbound in your voice).
-  - **Messages sent by your brain on your behalf** where **you explicitly approved** the send — optionally badged differently when you **edited before approve** vs **approved verbatim**.
+  - **Messages you authored** (human-typed outbound in your voice — **including outbound queries to their assistant**; never mis‑label those as “your brain”).
+  - **Responses your brain produced** (auto‑sent or after **you** approved) — optionally badged differently when you **edited before approve** vs **approved verbatim**.
 
-Goal: At a glance, see “I said this” vs “my brain composed this after I blessed it.”
+Goal: At a glance, see “**I asked this**” / “**Alice asked this**” vs “**my brain answered / drafted this**” vs “**their brain answered**.”
 
 ### 4. Simplifying rule of thumb for users
 
@@ -110,16 +112,16 @@ A tunnel connection involves four distinct actors, and the detail pane must make
 | Actor | Description |
 |-------|-------------|
 | **You** | The signed-in human user |
-| **Your Brain** | Your assistant — handles inbound queries, sends outbound queries on your behalf |
+| **Your Brain** | Your assistant — drafts/handles **responses** to inbound queries; **may relay** outbound asks you compose, but the tunnel log **attributes the ask to you**, not to “your brain” (see UX refinement §3) |
 | **Them** | The other human user |
-| **Their Brain** | Their assistant — receives your outbound queries, sends their inbound queries to you |
+| **Their Brain** | Their assistant — **responds** to your outbound (and paths through it); **bubble labels** use **Alice** for **her** asks, **Alice’s Brain** for **assistant-authored replies** (see UX refinement §3) |
 
 The communication flows that matter in a single tunnel relationship:
 
 | Flow | Direction | Who acts |
 |------|-----------|----------|
-| **Inbound queries** | Their Brain → Your Brain | Their assistant asks yours something; your brain drafts a response; you approve or auto-respond |
-| **Outbound queries** | Your Brain → Their Brain | You (or your brain) sends a query; their brain responds automatically or with their approval |
+| **Inbound queries** | Their Brain → Your Brain (wire) | **Alice** (or handle) on the **question** bubble when she originated the ask; your brain drafts a response; you approve or auto-respond |
+| **Outbound queries** | You → Their Brain (often **relayed** by your assistant) | **You** originate the ask (composer / session); **label the outbound bubble as the person**, not “your brain.” Their brain responds (or their human approves); those legs are brain‑labeled as appropriate |
 | **Direct message** | You → Them | You can send a direct human-to-human message through the tunnel |
 
 The first two flows are what most B2B tunnel activity is. The third is a simpler "ping this person" capability that doesn't go through either brain.
@@ -147,10 +149,10 @@ Rows are sorted by most recent activity. A `+ Connect` button at the top opens t
 
 The four-actor model collapses to **two sides** in the chat:
 
-- **Your side** (right-aligned): messages from **You** and from **Your Brain**
-- **Their side** (left-aligned): messages from **Them** and from **Their Brain**
+- **Your side** (right-aligned): **You** (human outbound + direct messages) and **Your Brain** (**responses** / auto-sent / approved replies — not the outbound question bubble)
+- **Their side** (left-aligned): **Them** (their **questions** and direct messages) and **Their Brain** (**their assistant’s replies** to you — not their human’s question bubbles)
 
-Each message bubble has a small actor label (`You`, `Your Brain`, `Alice`, `Alice's Brain`) and a timestamp. That label is the *only* place the four-actor distinction appears — there are no tabs, no filters, no sub-views. You read down the log like any other chat and the actor labels tell you who said what.
+Each message bubble has a small actor label (`You`, `Your Brain`, `Alice`, `Alice's Brain`) and a timestamp. **Use brain labels for assistant *responses*** (and draft/review copy: “your brain drafted…”). **Peer *questions* they originate** are **`Alice` / handle**, not “Alice’s brain,” even when delivery is assistant-mediated (same rule as your outbound: *people ask*, *brains answer*). **Do not** label **your** outbound ask as “your brain.” See **UX refinement §3**. That label is the *only* place the four-actor distinction appears — there are no tabs, no filters, no sub-views. You read down the log like any other chat and the actor labels tell you who said what.
 
 ### Sketch
 
@@ -160,7 +162,7 @@ Each message bubble has a small actor label (`You`, `Your Brain`, `Alice`, `Alic
 │           Policy: [Read-only ▾]   Auto-respond: [Off ▾]     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Alice's Brain · 3d ago                                     │
+│  Alice · 3d ago                                             │
 │  "What are Cirne's Q3 availability policies?"               │
 │                                                             │
 │                            Your Brain · 3d ago · auto-sent  │
@@ -172,12 +174,12 @@ Each message bubble has a small actor label (`You`, `Your Brain`, `Alice`, `Alic
 │                                       You · 2d ago          │
 │                                       "On it, ping me 4pm." │
 │                                                             │
-│                          Your Brain · 5h ago · to her brain │
-│                       "Can you summarize Alice's Acme notes?"│
+│                                       You · 5h ago          │
+│              "Can you summarize Alice's Acme notes?"        │
 │  Alice's Brain · 5h ago                                     │
 │  "Alice has three notes on Acme: …"                         │
 │                                                             │
-│  ┌─ Alice's Brain · 30m ago · awaiting your review ───────┐ │
+│  ┌─ Alice · 30m ago · awaiting your review ────────────────┐ │
 │  │ "What's your stance on the partnership?"               │ │
 │  │ Your Brain drafted:                                    │ │
 │  │ "Based on recent notes, leaning toward…"               │ │
@@ -206,7 +208,7 @@ A single chronological message log. Cases that fall out naturally from the metap
 
 - **Auto-respond is on:** your brain's responses appear in the log as normal "Your Brain" messages, marked `auto-sent`. You scroll back to audit what your brain said on your behalf — exactly the use case that makes auto-respond comfortable to enable.
 - **A response is pending your review:** the inbound query and the drafted response appear as a single highlighted "card" bubble in the log, in chronological position, with inline `Approve & send` / `Edit` / `Dismiss` actions. No separate review queue, no jump-to-action surface — the action *is* in the chat.
-- **You queried their brain:** shows as a **“You” bubble** vs **Your Brain bubble** differentiated by styling (custody cues per refinement). The reply from their brain shows as a normal "Alice's Brain" bubble below. Tapping opens the full outbound chat session in Chats when needed.
+- **You queried their brain:** the **outbound question** is always a **“You”** bubble (human attribution — see refinement §3). **Your Brain** appears only on **your side’s replies** (and pending‑draft cards), not on the ask. The reply from their side shows as a normal "Alice's Brain" bubble below. Tapping opens the full outbound chat session in Chats when needed.
 
 - **You messaged Alice directly:** if still desired, modeled outside the ambiguous sticky footer (**placement TBD** — see Open questions).
 
@@ -255,7 +257,7 @@ flowchart LR
     subgraph detail["Tunnel Detail — Alice Chen"]
         direction TB
         header["Header\n─────────────────────────────────\nPolicy: Read-only ▾   Auto-respond: Off ▾"]
-        log["Chat Log  (chronological, newest at bottom)\n─────────────────────────────────\n← Alice's Brain  ·  3d ago\n← Alice           ·  2d ago\n                     Your Brain  ·  3d ago →\n                            You  ·  2d ago →\n← ┌ pending · awaiting review ─────────────┐\n  │ Alice's Brain · 30m ago                 │\n  │ Your Brain drafted: …                   │\n  │ Approve & send   Edit   Dismiss         │\n  └──────────────────────────────────────── ┘"]
+        log["Chat Log  (chronological, newest at bottom)\n─────────────────────────────────\n← Alice  ·  3d ago\n← Alice           ·  2d ago\n                     Your Brain  ·  3d ago →\n                            You  ·  2d ago →\n← ┌ pending · awaiting review ─────────────┐\n  │ Alice · 30m ago                       │\n  │ Your Brain drafted: …                   │\n  │ Approve & send   Edit   Dismiss         │\n  └──────────────────────────────────────── ┘"]
         compose["Sticky footer ─ assistant-only outbound you type ── Send"]
         header --- log --- compose
     end
@@ -283,9 +285,9 @@ sequenceDiagram
 
     Note over You,AB: Outbound query
     You->>YB: send query via compose bar
-    YB->>AB: outbound query
+    YB->>AB: outbound query (relay)
     AB->>YB: response
-    Note over You: bubbles appear in chat log
+    Note over You: log labels the ask as You; brains only on reply bubbles
 
     Note over You,Alice: Direct human-to-human
     You->>Alice: direct message
@@ -345,7 +347,7 @@ Key changes:
 
 The four-actor model is genuinely complex. The point of "make it feel like a chat history" is to *not* expose that complexity as UI. The principles:
 
-1. **One log, two sides, four labels.** Right side = your messages and your brain's. Left side = theirs and their brain's. Actor labels on every bubble. No tabs. No filter chips. No "Inbound" / "Outbound" / "Pending" sub-views. The user reads down the log like any chat thread.
+1. **One log, two sides, four labels.** Right side = **you** plus **your brain's replies**. Left side = **them** plus **their brain's replies**. **Brains are for assistant-authored *responses*** (and related draft UI); **people** label **questions** (you and the peer). Actor labels on every bubble. No tabs. No filter chips. No "Inbound" / "Outbound" / "Pending" sub-views. The user reads down the log like any chat thread.
 
 2. **Header is the only settings surface.** Policy and auto-respond live in the header — always visible, one click to change, no drawer or settings view. If a future setting needs to live here, it goes in the header or it doesn't exist.
 
@@ -355,7 +357,7 @@ The four-actor model is genuinely complex. The point of "make it feel like a cha
 
 5. **Sticky footer = outbound you author to their assistant.** In-context widget = drafts and approvals near the originating bubble — different shapes for different intents; avoid collapsing both into one recipient dropdown.
 
-6. **Bubble styling encodes custody.** Differentiate bubbles for human-authored vs assistant-authored-with-approval (and optionally edited-vs-verbatim approvals).
+6. **Bubble styling encodes custody.** Differentiate bubbles for human-authored outbound vs assistant-authored **responses** (and optionally edited-vs-verbatim approvals). Do not label outbound questions as coming from a brain.
 
 7. **Outbound chat sessions stay in Chats.** When you query their brain, the full back-and-forth lives in Chats as a normal chat session. The Tunnels detail shows the query and reply as bubbles in the log; tapping opens the Chats session for the full context. We don't duplicate the chat UI inside Tunnels.
 

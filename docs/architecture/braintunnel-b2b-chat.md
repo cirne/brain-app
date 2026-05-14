@@ -59,6 +59,11 @@ Types and fields: [`chatTypes.ts`](../../src/server/lib/chat/chatTypes.ts).
 | Cold handshake | `isColdQuery`, `coldPeerUserId`, `coldLinkedSessionId` until grant is finalized; then **`remote_grant_id`** is set and cold flags cleared (`finalizeColdSessionWithGrant`). |
 | Outbound placeholder | Assistant messages may set `b2bDelivery: 'awaiting_peer_review'` with copy from [`b2bTunnelDelivery.ts`](../../src/shared/b2bTunnelDelivery.ts). |
 
+### Web UI (asker)
+
+- **Outbound threads** are meant to be read and composed from **`/tunnels/:handle`** ([`TunnelDetail.svelte`](../../src/client/components/TunnelDetail.svelte)): unified timeline + `POST /api/chat/b2b/send`, with the **response body SSE** (`text_delta` / `done`) driving immediate assistant text in-pane (no main-chat tool transcript).
+- The primary **`/c` AgentChat** surface does **not** host `b2b_outbound` sessions; opening one redirects to Tunnels for the peer **handle**. **`tunnel_activity`** / notifications still nudge clients to **refetch the timeline** when the peer or server updates state.
+
 ---
 
 ## HTTP API (`/api/chat/b2b`)

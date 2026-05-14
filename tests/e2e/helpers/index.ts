@@ -29,6 +29,7 @@ export {
   dismissUnreadNotificationsViaApi,
   getBrainQueryEnabledFromServer,
   revokeBrainQueryGrantsForAskerHandleViaApi,
+  withdrawAllTunnelsViaApi,
 } from './brainSharingApi'
 export {
   prepareEnronDemoSessionNoSoftReset,

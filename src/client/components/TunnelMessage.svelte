@@ -1,20 +1,21 @@
 <script lang="ts">
+  import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
+
   let {
     side,
+    authorKind = 'assistant' as 'human' | 'assistant',
     actorLabel,
     body,
     hint,
     atMs,
-    chatSessionId = null as string | null,
-    onclickOpenChat,
   }: {
     side: 'yours' | 'theirs'
+    /** Human-authored (you/them) vs assistant reply bubbles — distinct chrome per OPP-113. */
+    authorKind?: 'human' | 'assistant'
     actorLabel: string
     body: string
     hint?: string | undefined
     atMs: number
-    chatSessionId?: string | null
-    onclickOpenChat?: ((_sessionId: string) => void) | undefined
   } = $props()
 
   let rel = $state('')
@@ -33,38 +34,34 @@
   $effect(() => {
     rel = relLabel(atMs)
   })
+
+  const bubbleSurface = $derived(
+    authorKind === 'human'
+      ? side === 'yours'
+        ? 'bg-surface-2 text-foreground ring-1 ring-border/70 border-s-[3px] border-s-accent'
+        : 'bg-muted/20 text-foreground ring-1 ring-border/60 border-s-[3px] border-s-foreground/25'
+      : side === 'yours'
+        ? 'bg-accent/12 text-foreground ring-1 ring-border/60'
+        : 'bg-surface-3 text-foreground ring-1 ring-border/60',
+  )
 </script>
 
 <div
   class="flex w-full min-w-0 flex-col gap-0.5 {side === 'yours' ? 'items-end' : 'items-start'}"
   data-testid="tunnel-message"
 >
-  <!-- Bubble is only interactive when wired tojump to an outbound tunnel chat -->
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div
-    class="max-w-[min(100%,36rem)] rounded-2xl px-3 py-2 text-[0.8125rem] leading-snug shadow-sm ring-1 ring-border/60 {side ===
-    'yours'
-      ? 'bg-accent/12 text-foreground'
-      : 'bg-surface-3 text-foreground'}"
-    role={chatSessionId && onclickOpenChat ? 'button' : undefined}
-    tabindex={chatSessionId && onclickOpenChat ? 0 : undefined}
-    onclick={() => chatSessionId && onclickOpenChat?.(chatSessionId)}
-    onkeydown={(e) => {
-      if (!chatSessionId || !onclickOpenChat) return
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        onclickOpenChat(chatSessionId)
-      }
-    }}
+    class="max-w-[min(100%,36rem)] rounded-2xl px-3 py-2 text-[0.8125rem] leading-snug shadow-sm {bubbleSurface}"
   >
     <div class="text-[0.65rem] font-medium uppercase tracking-wide text-muted">{actorLabel}</div>
-    <div class="whitespace-pre-wrap break-words">{body}</div>
+    {#if authorKind === 'assistant'}
+      <StreamingAgentMarkdown class="msg-content min-w-0" content={body} />
+    {:else}
+      <div class="whitespace-pre-wrap break-words">{body}</div>
+    {/if}
     {#if hint}
       <div class="mt-1 text-[0.65rem] text-muted" data-testid="tunnel-message-hint">{hint}</div>
     {/if}
   </div>
-  {#if chatSessionId && onclickOpenChat}
-    <span class="max-w-[min(100%,36rem)] text-[0.65rem] text-muted">Open full chat</span>
-  {/if}
   <span class="text-[0.65rem] text-muted/80">{rel}</span>
 </div>
