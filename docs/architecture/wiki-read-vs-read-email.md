@@ -31,7 +31,9 @@ Keep **two tool families**:
 | Surface | Mechanism | Paths / IDs |
 |--------|-----------|-------------|
 | Wiki | `createReadTool` / `createEditTool` / … from `@mariozechner/pi-coding-agent`, scoped to `wikiDir` | Paths **relative to wiki root** (same contract as grep/find) |
-| Indexed mail & files | `read_mail_message`, `read_indexed_file`, `search_index`, … — **`ripmail` CLI** (`ripmail read`, `ripmail search`, …) | **`read_mail_message`:** RFC Message-ID only (mail bodies). **`read_indexed_file`:** indexed Drive/file **`messageId`** or **absolute filesystem path** under tenant allowlist (e.g. `~/…`); JSON from ripmail; local files get **extracted text** (PDF, etc.) as implemented in ripmail, not raw bytes through the wiki reader |
+| Indexed mail & files | `read_mail_message`, `read_indexed_file`, `search_index`, … — **ripmail-backed** (`ripmail read`, `ripmail search`, … or in-process `@server/ripmail` equivalents on hot paths) | **`read_mail_message`:** RFC Message-ID only (mail bodies). **`read_indexed_file`:** indexed Drive/file **`messageId`** or **absolute filesystem path** under tenant allowlist (e.g. `~/…`); JSON from ripmail; local files get **extracted text** (PDF, etc.) as implemented in ripmail, not raw bytes through the wiki reader |
+
+**Remote corpus reads (Drive, future Notion-style sources):** search hits come from **local FTS** on **bounded** synced text + metadata; **`read_doc` / `read_indexed_file`** paths for remote ids should treat the provider as **authoritative** for full body—**fetch on read** with a **short TTL cache** (~10 minutes target), not “SQLite holds the full document forever.” See [external-data-sources.md](./external-data-sources.md).
 
 The system prompt instructs the model to use grep / find / `read` for wiki content vs `search_index` plus **`read_mail_message` / `read_indexed_file`** for the index. Separate **tool names, descriptions, and parameters** encode the distinction without relying on path heuristics alone.
 

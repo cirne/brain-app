@@ -2,11 +2,13 @@
 
 ## TL;DR
 
-**Search is always local.** The agent queries **`ripmail search`** (SQLite FTS5). Remote APIs run only during **`ripmail refresh`** (sync), not during chat turns.
+**Discovery is local.** The agent uses **`ripmail search`** (SQLite FTS5) to find candidates. **Search must not require a live network call.**
 
-**MCP** (or any agent-facing remote tool protocol) is **not** the query layer for personal corpus data—it can inform **sync-time** API clients, but hits come from the local index.
+**Materialization depends on source kind.** **Mail** keeps bodies locally for offline read. **Remote documents** (cloud file trees such as Google Drive, and SaaS pages such as Notion) share one contract: **metadata + bounded extracted text** in the index for FTS; **authoritative body on read** via provider fetch with an optional **short TTL cache** (target: on the order of **~10 minutes**) so reads stay fresh without hammering APIs.
 
-**Implementation split:** **ripmail** owns sync execution, SQLite, FTS, and `search` / `read`. **brain-app** owns connect UX, OAuth/API-key flows, scheduling refresh, and agent tools that spawn ripmail.
+**MCP** (or similar) is **not** the primary query layer for the personal corpus—it may inform connector code or experiments, but **hits come from the local index** and **connector reads** use predictable HTTP/API clients in-process where possible.
+
+**Implementation split:** **`@server/ripmail`** (TypeScript, in-process SQLite on each tenant’s **`ripmail/`** tree) owns sync execution, SQLite, FTS, and search/read pipelines. **brain-app** owns connect UX, OAuth/API-key flows, scheduling refresh, and agent tools that invoke ripmail.
 
 Canonical corpus model: [archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md) (`sources[]`, per-source `kind`).
 
@@ -14,26 +16,45 @@ Canonical corpus model: [archived OPP-087](../opportunities/archive/OPP-087-unif
 
 ## Why local-first at query time
 
-Agent turns often issue several searches. **`ripmail search`** stays on the order of **&lt;50 ms**. A live Drive/Notion/Slack round-trip per search adds **hundreds of ms to seconds**, plus rate limits and failure modes.
+Agent turns often issue several searches. **`ripmail search`** stays on the order of **&lt;50 ms**. A live Drive/Notion/Slack round-trip **per search** adds **hundreds of ms to seconds**, plus rate limits and failure modes.
 
-**Principle:** no source the user expects to search should **require** a live network call at query time.
+**Principle:** anything the user expects to **search** across should be **indexed locally** (at least through the bounded text we sync).
 
-On-demand API calls are fine for **browsing** (e.g. folder picker, Hub navigation)—not as the primary search path.
+On-demand API calls are appropriate for **browsing** (folder picker, Hub navigation), **connector refresh**, and **explicit document read** after the agent picks a hit—not as the inner loop of every search.
+
+---
+
+## Indexed unit, catalog, and materialization
+
+These terms apply across connectors:
+
+| Concept | Meaning |
+|--------|---------|
+| **Indexed unit** | The granularity of one corpus row (e.g. mail message, Drive file, Notion page, chat message). |
+| **Catalog fields** | Stable remote id, titles/names, containers/parents, timestamps, MIME/kind, participants/channel where relevant, sync cursor/version/hash—everything needed to filter, display snippets, and **fetch** the full body later. |
+| **Search payload** | Text passed to FTS—**bounded** (max chars/tokens per unit, policy per `kind`) so sync stays predictable and the DB does not mirror the entire remote corpus. |
+| **Authoritative read** | Full body at agent request time: **local disk**, **local mail store**, or **provider API** (+ TTL cache for remote), depending on kind. |
+
+**Rule of thumb:** the index answers *“what exists and what might match?”* Full content for **remote** kinds is **not** the long-lived source of truth in SQLite—FTS uses a **deliberately capped** text slice plus metadata; **read** refreshes from the provider when needed (within TTL cache).
 
 ---
 
 ## Source taxonomy
 
-All kinds share one index and CLI surface (`--source <id>`); mail-only commands stay scoped to mail sources.
+All kinds share one index surface and consistent agent tools (`search_index`, `read_doc`, …); mail-only commands stay scoped to mail sources.
 
-| Category | Examples | Characteristic | Sync model |
-|---|---|---|---|
-| **Mail** | Gmail, IMAP | Append-heavy + expunge | UID checkpoint, IDLE where available |
-| **Local files** | `~/Documents`, granted dirs | Mutable on disk | Crawl: `mtime` / size |
-| **Cloud file trees** | Google Drive ([archived OPP-045](../opportunities/archive/OPP-045-google-drive.md)), similar providers later | Files live remotely; user selects trees | Incremental API sync + tokens/cursors |
-| **Remote SaaS docs** | Notion, Linear, Slack | Mutable by anyone; CRUD | Cursor / webhook / periodic full rescan |
+| Category | Examples | Indexed unit | Typical sync |
+|----------|-----------|--------------|--------------|
+| **Mail** | Gmail, IMAP | Message | UID checkpoint, IDLE where available |
+| **Local files** | `localDir`, granted dirs | File path | Crawl: `mtime` / size |
+| **Remote documents — cloud files** | Google Drive ([archived OPP-045](../opportunities/archive/OPP-045-google-drive.md)), similar hosts | File / exported doc | Incremental API sync + cursors/hashes |
+| **Remote documents — SaaS** | Notion, Linear, Slack (scoped), … | Page / record / message (per connector contract) | Cursor / webhook / periodic rescan |
 
-**Calendar** and other gateway-backed sources follow the same idea: data lands locally for fast agent access (see archived calendar notes linked from [integrations.md](./integrations.md) / ripmail docs).
+**Remote documents** (cloud file tree **and** SaaS) share the **same architectural contract** below; only extraction and API details differ.
+
+**Calendar** and other gateway-backed sources: data lands locally for fast agent access (see [integrations.md](./integrations.md) / calendar docs).
+
+**Messaging** (e.g. Apple Messages via `chat.db`): distinct trust boundary and tooling today—see [integrations.md](./integrations.md); deeper index direction in [archived OPP-037](../opportunities/archive/OPP-037-messages-index-and-unified-people.md), [archived OPP-083](../opportunities/archive/OPP-083-imessage-and-unified-messaging-index.md). Chat favors **short bodies** and often **local** canonical stores; materialization policy may inline text in SQLite when it matches product constraints—still separate from **remote document** reads.
 
 ---
 
@@ -42,128 +63,119 @@ All kinds share one index and CLI surface (`--source <id>`); mail-only commands 
 Avoid exploding tools (`google_drive_search`, `notion_search`, …). One shape, parameterized by **`source`** / **`sourceId`**:
 
 | Tool | Role |
-|---|---|
+|------|------|
 | `search_index(query, source?)` | FTS across the corpus; optional source filter |
-| `list_files(folder?, source?)` | Browse trees (localDir, Drive, …) |
-| `read_doc(id_or_path, source?)` | Resolve body: disk, cloud fetch + cache, or local indexed row (see below) |
+| `list_files(folder?, source?)` | Browse trees (`localDir`, Drive, …) |
+| `read_doc(id_or_path, source?)` | Resolve **authoritative** body: local disk, local mail row, or **remote fetch + TTL cache** (see policies below) |
 | `manage_sources(op, …)` | Add/remove/configure sources by `kind` |
-| `refresh_sources(source?)` | Trigger sync inside ripmail |
+| `refresh_sources(source?)` | Trigger sync / re-index slice |
 
 JSON hits carry **`sourceId`** / **`sourceKind`** so callers need no provider-specific routing.
 
 ---
 
-## Indexing strategy by category
+## Materialization policies by category
 
 ### Mail
 
-Existing ripmail model: bodies and metadata in SQLite; **`ripmail read`** serves from local maildir/index without a network call.
+- **Indexed unit:** message.
+- **Local store:** bodies and metadata in SQLite / maildir-aligned layout; **`ripmail read`** serves from the local index **without** a network call for normal mail paths.
+- **Search:** full mailbox FTS semantics as implemented in `@server/ripmail` (not bounded in the same way as remote docs; product is “search my mail,” not “search previews only”).
 
-### File-backed sources (localDir **and** cloud file trees)
+### Local directory files (`localDir`)
 
-Duplicating **full file text** in SQLite for every indexed path mirrors the corpus and balloons the DB.
+- **Indexed unit:** file path.
+- **Search payload:** **contentless FTS5** (`content=''`) — persist **tokens**, not a full duplicate of file text in SQLite; store a **short excerpt** (~500 chars) for snippets. See ADR-030 on the Rust ripmail snapshot tag ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)), [archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md).
+- **Authoritative read:** **live filesystem read** (plus extraction for PDFs/office formats as implemented). No cloud fetch.
 
-**Decision:** **contentless FTS5** (`content=''`) — persist the **token index**, not the full original text. Store a **short excerpt** (~500 chars) for result snippets. Details: ADR-030 on Rust ripmail snapshot tag ([ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)), [archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md).
+### Remote documents (cloud file **`googleDrive`** and SaaS **`notion`-style kinds`)
 
-**Read path:** **`ripmail read`** for files resolves to **on-disk path** (local) or **re-download via provider API** with a **short-TTL cache** under `RIPMAIL_HOME/<source-id>/cache/` (cloud). Sync still **fetches bytes long enough to tokenize** during refresh; the durable store is not “full text × every file.”
+**Same plan for both:**
 
-### File-source change detection and Markdown cache
+1. **Catalog + bounded search text**  
+   Persist metadata and enough **extracted/plain text** to drive FTS—**capped** per document (max chars/tokens, tuned per `kind`) so search quality is strong for typical queries without storing the entire remote corpus.
 
-**Applies to:** all non-mail sources — `localDir`, `googleDrive`, and any future cloud file kind.
+2. **Contentless FTS pattern**  
+   Use FTS5 **without** storing full original text in SQLite—**token index + excerpt/snippet fields** for display—consistent with file-backed indexing ([archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
 
-**Principle:** never re-fetch or re-extract a file whose content has not changed since the last sync.
+3. **Authoritative read**  
+   When the agent selects a hit, **fetch current body from the provider** (HTTP export, blocks API, etc.). Optionally satisfy from a **short TTL cache** (~10 minutes by default) keyed by remote id + revision/hash to balance freshness and rate limits.
 
-#### Change detection signals
+4. **Sync responsibilities**  
+   Handle **updates and deletes**, not only append: change detection (hash / `modifiedTime` / provider revision), **reindex bounded text** when content changes, remove tombstoned remote ids locally. Prefer **cursor- or token-based incremental APIs**; fallback: enumeration + hash compare during **refresh** only.
 
-| Source kind | Signal | Where stored |
-|---|---|---|
-| `localDir` | `mtime` + `size` from `fs::metadata` | `files.mtime`, `files.size` |
-| Cloud sources (Drive, …) | Provider-reported hash + modified timestamp | `cloud_file_meta.content_hash`, `cloud_file_meta.remote_mtime` |
+5. **Row metadata (conceptual)**  
+   `remote_id`, `remote_updated_at`, `content_hash` (or provider equivalent), excerpt; cursor in `ripmail/<source-id>/sync-state.json` (paths per [`brain-layout.json`](../../shared/brain-layout.json)).
 
-For **Google Drive**: `files.list` and `changes` responses include `md5Checksum` (binary files) and `modifiedTime`. For exported Google Docs/Sheets/Slides there is no `md5Checksum` — compute SHA256 of the exported bytes after download.
+**Implementation note:** persistent files under `ripmail/<source-id>/cache/` may still exist as an **optimization** (e.g. avoid re-downloading large exports within TTL, or survive process restarts). The **product contract** remains: **FTS from bounded local slice; full body from fetch-on-read with TTL semantics**, not “SQLite is the document server.”
 
-On each `refresh`, compare the stored signal against the API/stat response before fetching content. Skip extraction and `document_index` upsert entirely if both signals match.
+---
 
-#### Markdown cache
+## Change detection and skipping redundant sync work
 
-Extracted/exported plain text is stored under `RIPMAIL_HOME/<source-id>/cache/<remote_id>.md` (cloud) or served live from disk (local). For cloud sources:
+**Applies to:** `localDir` and all **remote document** kinds.
 
-- **Write**: after fetching and extracting, write cache file and store its path in `cloud_file_meta.cached_md_path`.
-- **Validate**: on `ripmail read <remote-id>`, check `cloud_file_meta.content_hash` + `remote_mtime` against a lightweight Drive metadata fetch (fields: `id,md5Checksum,modifiedTime` only). If unchanged, serve from cache. If changed, re-download, re-extract, overwrite cache, update `cloud_file_meta`.
-- **Invalidate**: when a drive change event marks a file deleted or trashed, remove the `document_index` row, `cloud_file_meta` row, and cache file.
+**Principle:** do not re-fetch or re-extract content solely to refresh FTS when the provider says nothing changed.
 
-#### Schema
+### Signals
+
+| Source kind | Signal | Typical storage |
+|-------------|--------|-----------------|
+| `localDir` | `mtime` + `size` | `files.mtime`, `files.size` |
+| Remote documents | Provider hash + modified timestamp (or revision id) | e.g. `cloud_file_meta.content_hash`, `cloud_file_meta.remote_mtime` |
+
+For **Google Drive**, `files.list` / `changes` expose `md5Checksum` (binary) and `modifiedTime`; native Google Docs may require hashing exported bytes. Compare on each `refresh` before downloading full content for re-indexing.
+
+### Deletes
+
+When the remote marks a unit deleted or out of scope, remove **FTS rows**, **catalog rows**, and **cache entries** for that id.
+
+### Schema sketch (cloud-style meta)
+
+Per-remote-id metadata remains useful for change detection and cache pointers (exact columns evolve with implementation):
 
 ```sql
--- Per-file change detection + cache pointer for cloud sources
 CREATE TABLE IF NOT EXISTS cloud_file_meta (
   source_id      TEXT NOT NULL,
-  remote_id      TEXT NOT NULL,   -- stable provider ID (Drive file ID)
-  content_hash   TEXT,            -- md5Checksum from Drive (binary) or SHA256 of exported text
-  remote_mtime   TEXT,            -- provider modifiedTime (ISO)
-  cached_md_path TEXT,            -- relative path under RIPMAIL_HOME for cached extracted text
+  remote_id      TEXT NOT NULL,
+  content_hash   TEXT,
+  remote_mtime   TEXT,
+  cached_body_path TEXT,  -- optional; TTL + invalidation policy applies
   PRIMARY KEY (source_id, remote_id)
 );
 ```
 
-**localDir** uses the **`files`** table (`mtime`, `size`) with the same principle: unchanged files skip re-read and `document_index` upsert; paths that disappear from disk are deleted from the index.
-
-#### General pattern for future connectors
-
-Every cloud file source added after Drive must follow the same contract:
-1. Request `content_hash` (or equivalent) and `modified_at` from the provider API
-2. Check `cloud_file_meta` before fetching content — skip unchanged files
-3. Write extracted Markdown to the cache and record `cached_md_path`
-4. On deletion, purge `document_index` + `cloud_file_meta` + cache file
-
-This keeps `ripmail refresh` fast on subsequent runs regardless of corpus size.
-
----
-
-### Remote mutable SaaS documents (Notion-style)
-
-Sync must handle **updates and deletes**, not only append:
-
-1. Change detection  
-2. Reindex when content changes  
-3. Remove tombstoned / deleted remote IDs locally  
-
-Prefer **cursor- or token-based incremental APIs**. Fallback: full enumeration + content-hash compare (background refresh only).
-
-Extra row metadata (conceptual): `remote_id`, `remote_updated_at`, `content_hash`; cursor in `RIPMAIL_HOME/<source-id>/sync-state.json`.
-
-**Read path:** **`ripmail read`** typically returns **materialized content from the index** for these rows (no query-time provider hop)—exact schema is clean-slate per OPP-087.
+**localDir** uses the same “skip if unchanged” idea via filesystem metadata before re-reading bytes into the bounded FTS pipeline.
 
 ---
 
 ## MCP’s role
 
-**MCP is optional sync-transport / reference**, not the query API.
+**MCP is optional sync-transport / exploration**, not the query API.
 
-Preferred connector implementation: **HTTP client inside `src/server/ripmail/sync/`** for refresh loops (predictable errors, no extra process). Official MCP servers can help explore API shapes; they are a poor fit as the inner loop of high-frequency sync.
+Preferred connector implementation: **HTTP client inside `src/server/ripmail/sync/`** (or shared lib) for refresh and read paths—predictable errors, no extra process on hot paths. MCP servers can help prototype API shapes; they are a poor fit as the inner loop of high-frequency sync.
 
-If brain-app gains MCP-driven extensibility later, sync results must still **land in ripmail** before search—not bypass the index.
+If brain-app gains MCP-driven extensibility later, **search hits must still come from the local FTS index**; **read** may delegate to a connector that happens to speak MCP, but results should still respect **TTL / tenancy / secrets** policy—not ad hoc bypass of the corpus contract.
 
 ---
 
-## brain-app vs ripmail
+## brain-app vs `@server/ripmail`
 
 | Responsibility | Owner |
-|---|---|
+|----------------|--------|
 | Settings / connect UI | brain-app ([OPP-021](../opportunities/OPP-021-user-settings-page.md)) |
-| OAuth / secrets placement | brain-app drives flow → **`RIPMAIL_HOME/<source-id>/`** |
-| When to sync | brain-app triggers **`ripmail refresh`** |
-| API calls during sync, SQLite/FTS | **ripmail** binary |
-| **`ripmail search` / `ripmail read`** | **ripmail** |
-| Agent | brain-app tools → ripmail only at query time |
+| OAuth / secrets placement | brain-app drives flow → tenant **`ripmail/<source-id>/`** |
+| When to sync | brain-app triggers refresh (`POST /api/…`, agent tools, onboarding, …) |
+| API calls during sync, SQLite/FTS, search/read implementation | **`@server/ripmail`** (TypeScript; in-process on `main`) |
+| Agent | brain-app tools → ripmail search/read |
 
 ---
 
 ## Product sequencing (high level)
 
-- **Cloud files:** **Google Drive** first — [archived OPP-045](../opportunities/archive/OPP-045-google-drive.md). Additional file hosts reuse the same `kind` + tooling pattern.
-- **SaaS docs:** **Notion → Linear → Slack** (read-only sync first; write-back only where justified)—breadth vs complexity tradeoff.
-- **Low-friction local-adjacent:** Apple Notes / Reminders (macOS stores)—same local-query pattern, simpler sync story.
+- **Remote documents — cloud:** Google Drive first ([archived OPP-045](../opportunities/archive/OPP-045-google-drive.md)); additional hosts reuse the same **remote document** contract.
+- **Remote documents — SaaS:** Notion → Linear → Slack (read-only sync first; explicit **scope** knobs for high-volume sources)—same bounded FTS + fetch-on-read pattern.
+- **Low-friction local-adjacent:** Apple Notes / Reminders (macOS stores)—often closer to **`localDir`** / local crawl than SaaS.
 
 Optional breadth accelerator (hosted connector layer): [OPP-040](../opportunities/OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md).
 
@@ -171,19 +183,22 @@ Optional breadth accelerator (hosted connector layer): [OPP-040](../opportunitie
 
 ## Open questions
 
-1. **Polling defaults** — per-`kind` intervals (mail near-realtime, docs ~minutes, calendar event-sensitive windows).
-2. **Webhooks** — which sources justify public endpoints + push vs poll-only.
-3. **Write-back** — deferred until read-only sync is stable.
-4. **Binary rename** — “ripmail” as universal corpus carrier ([archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
-5. **Conflict policy** — if write-back exists later: **remote wins** unless explicitly designed otherwise.
+1. **Bounded FTS limits** — exact caps per `kind` (chars vs tokens; head-only vs future summarization).
+2. **TTL defaults** — global vs per-provider read cache duration; interaction with conditional GET / metadata-only checks.
+3. **Polling defaults** — per-`kind` refresh intervals (mail near-realtime, remote docs ~minutes).
+4. **Webhooks** — which sources justify push vs poll-only.
+5. **Write-back** — deferred until read-only sync is stable.
+6. **Binary rename** — “ripmail” as universal corpus carrier ([archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
+7. **Conflict policy** — if write-back exists later: **remote wins** unless explicitly designed otherwise.
 
 ---
 
 ## Related
 
-- [integrations.md](./integrations.md) — `@server/ripmail`, `/api/search`, trust notes  
-- [archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources[]` target architecture  
-- [archived OPP-045](../opportunities/archive/OPP-045-google-drive.md) — Google Drive product milestone  
-- [packaging-and-distribution.md](../packaging-and-distribution.md) — OAuth / cloud-drive constraints  
+- [integrations.md](./integrations.md) — `@server/ripmail`, `/api/search`, trust boundaries (mail vs Messages).
+- [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) — wiki tools vs indexed corpus reads.
+- [archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources[]` target architecture.
+- [archived OPP-045](../opportunities/archive/OPP-045-google-drive.md) — Google Drive milestone.
+- [packaging-and-distribution.md](./packaging-and-distribution.md) — OAuth / cloud-drive constraints.
 
 **Supersedes:** earlier standalone write-up `external-sources-and-mcp.md` (merged into this document).

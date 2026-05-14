@@ -1,6 +1,6 @@
 # Archived: OPP-045 — Google Drive
 
-**Status: Archived (2026-05-11).** Backlog tracking closed. Plan and scopes: [external-data-sources.md](../../architecture/external-data-sources.md).
+**Status: Archived (2026-05-11).** Backlog tracking closed. **Current SSOT** for indexing/read direction—including **Drive grouped with SaaS as “remote documents”** (bounded FTS slice + metadata; **fetch-on-read** with **~10m TTL cache**): [external-data-sources.md](../../architecture/external-data-sources.md).
 
 
 ---

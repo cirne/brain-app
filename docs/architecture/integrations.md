@@ -32,4 +32,4 @@ When Apple’s **`chat.db`** is readable, the server exposes iMessage/SMS tools 
 
 ---
 
-*See also: [runtime-and-routes.md](./runtime-and-routes.md) · [configuration.md](./configuration.md) · [onboarding-state-machine.md](./onboarding-state-machine.md)*
+*See also: [external-data-sources.md](./external-data-sources.md) (indexed-unit + materialization: mail vs `localDir` vs remote docs) · [runtime-and-routes.md](./runtime-and-routes.md) · [configuration.md](./configuration.md) · [onboarding-state-machine.md](./onboarding-state-machine.md)*

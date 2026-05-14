@@ -1,6 +1,6 @@
 # Archived: OPP-087 — Unified `sources[]` corpus
 
-**Status: Archived (2026-05-11).** Direction shipped in **`src/server/ripmail/`**; further connectors are product follow-ons, not this backlog doc.
+**Status: Archived (2026-05-11).** Direction shipped in **`src/server/ripmail/`**; further connectors are product follow-ons, not this backlog doc. **Evolving materialization policy** (e.g. cloud Drive + Notion sharing one **remote document** contract) is documented in **[external-data-sources.md](../../architecture/external-data-sources.md)**—this archived spec remains historical detail on schema sketches.
 
 
 ---
