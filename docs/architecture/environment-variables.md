@@ -137,7 +137,7 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 
 | Variable | Purpose |
 |----------|---------|
-| **`SYNC_INTERVAL_SECONDS`** | Parsed for sync interval helpers ([`syncAll.ts`](../../src/server/lib/platform/syncAll.ts)); see [background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md) for current scheduling behavior. |
+| **`SYNC_INTERVAL_SECONDS`** | Parsed in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts); drives **`startScheduledRipmailSync()`** ([`scheduledRipmailSync.ts`](../../src/server/lifecycle/scheduledRipmailSync.ts)). See [background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md); scaling notes: [scheduled-ripmail-sync-at-scale.md](./scheduled-ripmail-sync-at-scale.md). |
 
 ### Hosted Enron demo / seeding
 

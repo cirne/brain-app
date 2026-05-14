@@ -47,7 +47,7 @@ Together with WAL, this is why we are **comfortable staying on SQLite** for chat
 
 **Preferred direction (hypothesis, not implemented).** Prefer **HTTP from the app to itself** over introducing a **dedicated global cross-container message queue** as the default: an **internal** API (service auth — HMAC, mutual TLS, or equivalent TBD) where the asker’s handler issues a **tenant-targeted** HTTP call; the **load balancer or ingress** routes that request to the **container that holds the peer tenant’s lease**, which applies the inbound write and runs owner-side work locally. The initiator path might **not synchronously await** the full pipeline (e.g. fire-and-forget or poll); exact **SSE/UI** behavior is **TBD** when this work is scheduled.
 
-**Related:** [multi-tenant-cloud-architecture.md § Cross-tenant B2B and cell locality](./multi-tenant-cloud-architecture.md#cross-tenant-b2b-and-cell-locality).
+**Related:** [multi-tenant-cloud-architecture.md § Cross-tenant B2B and cell locality](./multi-tenant-cloud-architecture.md#cross-tenant-b2b-and-cell-locality) · **[multi-container-architecture.md](./multi-container-architecture.md)** (tenant LB across replicas, GA checklist).
 
 ---
 

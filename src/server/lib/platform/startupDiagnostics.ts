@@ -21,7 +21,7 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
   logFdaProbeForStartup((line) => brainLogger.info(line))
   brainLogger.info(`BRAIN_DATA_ROOT=${process.env.BRAIN_DATA_ROOT}`)
   brainLogger.info(
-    'multi-tenant: BRAIN_HOME is per-request; periodic sync / your-wiki loop disabled at process level',
+    'multi-tenant: BRAIN_HOME is per-request; Your Wiki supervisor not auto-started globally; scheduled ripmail sweep uses SYNC_INTERVAL_SECONDS (see scheduledRipmailSync)',
   )
   brainLogger.info(
     'ripmail home (Brain)=per-tenant `$BRAIN_DATA_ROOT/<tenantUserId>/<layout ripmail>/` (resolved per request; not logged globally)',

@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 056 -->
-**Next bug id:** **BUG-056**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 057 -->
+**Next bug id:** **BUG-057**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -87,6 +87,10 @@ Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-pas
 ### [BUG-055](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md): Agent search: mail-only filters skip non-mail index (e.g. Drive)
 
 **Open (design).** Optional fields like **`from`** / **`since`** can cause **whole indexed sources** (e.g. Google Drive) to be **omitted** when those predicates don’t apply, instead of running **text search** with filters stripped or **timestamps mapped** (mail received vs file modified). See [bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md).
+
+### [BUG-056](bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md): Agent: “introduced me to …” resolves late — search-first and wrong-thread anchoring
+
+**Open.** Assistant leans on broad **`search_index`** and anchors on unrelated hits before **`find_person`** / contact-centric resolution; relational intro questions should pivot to people/entities earlier. Related mail search gaps: [BUG-019](bugs/BUG-019-mail-visible-in-client-but-missing-from-search.md). User feedback **#18**. See [bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md](bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md).
 
 
 ## Fixed (archived)

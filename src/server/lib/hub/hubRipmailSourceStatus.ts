@@ -175,7 +175,14 @@ export async function getHubSourceMailStatus(sourceId: string): Promise<HubSourc
         indexedMessages: parsed.indexedTotal ?? 0,
         ftsReady: parsed.ftsReady ?? 0,
       },
-      mailboxes: [{ mailboxId: id, messageCount: parsed.indexedTotal ?? 0 }],
+      mailboxes: [
+        {
+          mailboxId: id,
+          messageCount: parsed.indexedTotal ?? 0,
+          earliestDate: parsed.dateRange.from,
+          latestDate: parsed.dateRange.to,
+        },
+      ],
       freshness: {},
     })
     const result = parseHubSourceMailStatusFromStdout(stdout, id)

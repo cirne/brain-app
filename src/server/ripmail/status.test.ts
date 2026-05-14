@@ -19,6 +19,10 @@ import {
 } from './sync/persist.js'
 
 function insertOneMessage(db: ReturnType<typeof openRipmailDb>): void {
+  insertMessage(db, `2026-01-15T10:00:00Z`)
+}
+
+function insertMessage(db: ReturnType<typeof openRipmailDb>, isoDate: string): void {
   const mid = `<t-${randomUUID()}>`
   db.prepare(`
     INSERT INTO messages (message_id, thread_id, folder, uid, from_address, from_name,
@@ -26,8 +30,8 @@ function insertOneMessage(db: ReturnType<typeof openRipmailDb>): void {
                           subject, date, body_text, raw_path, source_id, is_archived)
     VALUES (?, ?, 'INBOX', 1, 'a@example.com', 'A',
             '["b@example.com"]', '[]', '[]', '[]',
-            'Hi', '2026-01-15T10:00:00Z', 'body', '', 'gsrc', 0)
-  `).run(mid, mid)
+            'Hi', ?, 'body', '', 'gsrc', 0)
+  `).run(mid, mid, isoDate)
 }
 
 describe('statusParsed', () => {
@@ -98,5 +102,14 @@ describe('statusParsed', () => {
     markFirstBackfillCompleted(db, 'gsrc')
     p = statusParsed(db, home)
     expect(p.deepHistoricalPending).toBe(false)
+  })
+
+  it('fills dateRange from MIN/MAX messages.date when sync_summary omits coverage', () => {
+    const db = openRipmailDb(home)
+    insertMessage(db, '2020-06-01T00:00:00Z')
+    insertMessage(db, '2025-01-02T12:00:00Z')
+    const p = statusParsed(db, home)
+    expect(p.dateRange.from).toContain('2020-06-01')
+    expect(p.dateRange.to).toContain('2025-01-02')
   })
 })

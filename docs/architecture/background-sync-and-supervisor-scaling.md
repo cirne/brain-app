@@ -6,8 +6,8 @@ How **incremental mail index refresh** and the **Your Wiki** supervisor relate t
 
 ## TL;DR
 
-- There is **no** process-wide timer that runs `runFullSync()` every *N* seconds for all tenants. **`SYNC_INTERVAL_SECONDS` / `getSyncIntervalMs()`** exist in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts) but are **not** wired to a server `setInterval` today.
-- **Mail refresh** runs when something **explicitly** triggers it: API routes, agent tools, the **Your Wiki** lap preamble, onboarding flows, or the **`sync-cli`** helper — not because “the user has a tab open.” Implementation is **`ripmailRefresh`** from **`@server/ripmail/sync`** (TypeScript, in-process), not a `ripmail refresh` subprocess.
+- **Periodic multi-tenant mail refresh:** `startScheduledRipmailSync()` ([`scheduledRipmailSync.ts`](../../src/server/lifecycle/scheduledRipmailSync.ts)) runs on **`getSyncIntervalMs()`** from **`SYNC_INTERVAL_SECONDS`** (default **300s**), sweeping **all tenants on disk** each tick (with onboarding/mail/defer guards), concurrency capped across tenants. **`runFullSync()`** itself is **not** what the timer calls — the sweep uses **`syncInboxRipmail()`** ([`syncAll.ts`](../../src/server/lib/platform/syncAll.ts)). Fat-tail scaling limits → **[scheduled-ripmail-sync-at-scale.md](./scheduled-ripmail-sync-at-scale.md)** · **[OPP-115](../opportunities/OPP-115-multi-tenant-scheduled-mail-sync-at-scale.md)**.
+- **Mail refresh** also runs when something **explicitly** triggers it: API routes, agent tools, the **Your Wiki** lap preamble, onboarding flows, periodic sweep above, or the **`sync-cli`** helper — not because “the user has a tab open.” Implementation is **`ripmailRefresh`** from **`@server/ripmail/sync`** (TypeScript, in-process), not a `ripmail refresh` subprocess.
 - **Hub** polling of **`GET /api/background-status`** is **per browser** and updates **status UI**; it does not, by itself, run a mail refresh (though that route **does** call the wiki indexed-gate kick — see below).
 - **Your Wiki** uses **at most one in-process supervisor loop** per Node OS process (`loopRunning` in [`yourWikiSupervisor.ts`](../../src/server/agent/yourWikiSupervisor.ts)). That loop binds **one tenant** via `AsyncLocalStorage.run` for its lifetime. **Many tenants on one process do not get N parallel supervisor loops.**
 
@@ -58,7 +58,7 @@ When a loop **starts**, the **tenant** is captured (`tryGetTenantContext()` at *
 
 **`isPaused`** is also **module-level**. **`ensureYourWikiRunning`** reloads it from **the current request’s** persisted state (`loadPersistedState()` uses **`brainHome()`** for that request). In **hosted multi-tenant**, interleaved requests from **different** users can **overwrite the same in-memory `isPaused`** with **their** tenant’s `state.json` value — coupling tenants at the process level. **Persisted** pause files remain per-tenant on disk; the hazard is **in-memory** coherence when many workspaces share one long-lived server.
 
-**Startup diagnostics** note that **`BRAIN_HOME` is per-request** in hosted mode and that there is **no** process-level periodic wiki/sync cron ([`startupDiagnostics.ts`](../../src/server/lib/platform/startupDiagnostics.ts)): background work is driven by **requests** and the **single** supervisor loop when it is active.
+**Startup diagnostics** note that **`BRAIN_HOME` is per-request** in hosted mode and that the **Your Wiki** supervisor is **not** started automatically for all tenants at process boot ([`startupDiagnostics.ts`](../../src/server/lib/platform/startupDiagnostics.ts)): wiki background work is driven by **Hub kicks / requests** and **at most one** supervisor loop when active. **Scheduled ripmail refresh** for all tenants **does** run on a timer — see TL;DR above.
 
 ### Mail refresh concurrency
 
@@ -77,7 +77,7 @@ Related: in-memory **agent session Map** limits for multi-instance chat — **[a
 
 ## Shutdown
 
-**`registerPeriodicSyncAndShutdown`** ([`periodicSyncAndShutdown.ts`](../../src/server/lifecycle/periodicSyncAndShutdown.ts)) handles **SIGINT/SIGTERM**: stops tunnel, prepares wiki supervisor shutdown, terminates any **tracked ripmail child processes** (rare subprocess adapters), closes the HTTP server — **not** a periodic sync ticker. (The name reflects “lifecycle hooks” bundled in one registration.)
+**`registerPeriodicSyncAndShutdown`** ([`periodicSyncAndShutdown.ts`](../../src/server/lifecycle/periodicSyncAndShutdown.ts)) handles **SIGINT/SIGTERM**: **stops the scheduled ripmail sweep** (`stopScheduledRipmail` from `startScheduledRipmailSync`), stops tunnel, prepares wiki supervisor shutdown, terminates any **tracked ripmail child processes** (rare subprocess adapters), closes Vite + HTTP server within budgets.
 
 **`prepareWikiSupervisorShutdown`** aborts in-flight lap refresh and agent phases cleanly.
 
@@ -88,14 +88,15 @@ Related: in-memory **agent session Map** limits for multi-instance chat — **[a
 | Doc | Relevance |
 |-----|------------|
 | **[background-task-orchestration.md](./background-task-orchestration.md)** | **`/api/background-status`**, bootstrap vs supervisor, orchestrator queue, lap mail failures |
-| **[runtime-and-routes.md](./runtime-and-routes.md)** | Server listen, route map, auth; **background sync** section defers here (no global `runFullSync` timer) |
+| **[runtime-and-routes.md](./runtime-and-routes.md)** | Server listen, route map, auth; background sync notes defer here; periodic mail sweep is `scheduledRipmailSync` (not `runFullSync`) |
 | **[onboarding-state-machine.md](./onboarding-state-machine.md)** | Phased mail, **`GET /api/onboarding/mail`** poll, refresh vs backfill |
 | **[data-and-sync.md](./data-and-sync.md)** | `$BRAIN_HOME`, ripmail layout, **`runFullSync`** semantics |
 | [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) | Rust-era **`refresh`** vs **`backfill`** lanes (`ripmail/docs/SYNC.md` on tag) |
+| **[scheduled-ripmail-sync-at-scale.md](./scheduled-ripmail-sync-at-scale.md)** | Many tenants / one container: tail latency, sweep overlap, queue-and-worker directions (**[OPP-115](../opportunities/OPP-115-multi-tenant-scheduled-mail-sync-at-scale.md)**) |
 | **[multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md)** | Cells, locks, one-tenant-per-container direction |
 | **[deployment-models.md](./deployment-models.md)** | Desktop vs cloud |
 | [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md) | Product framing for unified background status |
 
 ---
 
-*Last reviewed against server sources: `yourWikiSupervisor.ts`, `syncAll.ts`, `backgroundStatus.ts`, `periodicSyncAndShutdown.ts`, `startupDiagnostics.ts`.*
+*Last reviewed against server sources: `yourWikiSupervisor.ts`, `syncAll.ts`, `backgroundStatus.ts`, `periodicSyncAndShutdown.ts`, `scheduledRipmailSync.ts`, `startupDiagnostics.ts`.*

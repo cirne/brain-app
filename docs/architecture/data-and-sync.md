@@ -35,7 +35,7 @@ Product framing: [product/personal-wiki.md](../product/personal-wiki.md).
 
 ## Ripmail sync
 
-[`runFullSync()`](../../src/server/lib/platform/syncAll.ts) runs **`syncWikiFromDisk()`** (no-op) and **`syncInboxRipmail()`**, which **`await`** in-process **`refresh`** from **`@server/ripmail/sync`** (timeout-bounded via the same helpers as legacy CLI parity). **`SYNC_INTERVAL_SECONDS`** is defined alongside but **not** wired to a server periodic timer. Triggers, Your Wiki pre-lap refresh, and multi-tenant scaling — **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**. Rust-era mail architecture / refresh-vs-backfill notes — **[ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)** (tagged tree includes `ripmail/docs/ARCHITECTURE.md`, `SYNC.md`).
+[`runFullSync()`](../../src/server/lib/platform/syncAll.ts) runs **`syncWikiFromDisk()`** (no-op) and **`syncInboxRipmail()`**, which **`await`** in-process **`refresh`** from **`@server/ripmail/sync`** (timeout-bounded via the same helpers as legacy CLI parity). The server also runs **`startScheduledRipmailSync()`** on an interval from **`SYNC_INTERVAL_SECONDS`** / **`getSyncIntervalMs()`** (default **300s**), calling **`syncInboxRipmail()`** per tenant — not **`runFullSync()`**. Tail-risk at huge tenant counts → **[scheduled-ripmail-sync-at-scale.md](./scheduled-ripmail-sync-at-scale.md)**. Other triggers, Your Wiki pre-lap refresh, and scaling caveats — **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**. Rust-era mail architecture / refresh-vs-backfill notes — **[ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md)** (tagged tree includes `ripmail/docs/ARCHITECTURE.md`, `SYNC.md`).
 
 ---
 

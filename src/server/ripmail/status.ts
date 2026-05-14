@@ -34,6 +34,16 @@ function sqliteStartedAtToAgeMs(syncLockStartedAt: unknown): number | null {
   return age >= 0 ? age : null
 }
 
+function messageDateBoundsFromIndex(db: RipmailDb): { from: string | null; to: string | null } {
+  const row = db
+    .prepare(`SELECT MIN(date) AS mn, MAX(date) AS mx FROM messages`)
+    .get() as { mn: unknown; mx: unknown } | undefined
+  return {
+    from: row?.mn != null && String(row.mn).trim() !== '' ? String(row.mn) : null,
+    to: row?.mx != null && String(row.mx).trim() !== '' ? String(row.mx) : null,
+  }
+}
+
 /**
  * Build a ParsedRipmailStatus from the in-process DB — compatible with parseRipmailStatusJson consumers.
  */
@@ -58,8 +68,13 @@ export function statusParsed(db: RipmailDb, ripmailHome: string): ParsedRipmailS
 
   const lastSyncAt =
     row1?.last_sync_at != null ? String(row1.last_sync_at) : row2?.last_sync_at != null ? String(row2.last_sync_at) : null
-  const earliestDate = row1?.earliest_synced_date != null ? String(row1.earliest_synced_date) : null
-  const latestDate = row1?.latest_synced_date != null ? String(row1.latest_synced_date) : null
+  let earliestDate = row1?.earliest_synced_date != null ? String(row1.earliest_synced_date) : null
+  let latestDate = row1?.latest_synced_date != null ? String(row1.latest_synced_date) : null
+  if (msgCount > 0 && (!earliestDate || !latestDate)) {
+    const b = messageDateBoundsFromIndex(db)
+    earliestDate ??= b.from
+    latestDate ??= b.to
+  }
 
   const stale = false
   const config = loadRipmailConfig(ripmailHome)
@@ -128,12 +143,20 @@ export function status(db: RipmailDb): StatusResult {
   const row2 = db.prepare(`SELECT is_running FROM sync_summary WHERE id = 2`).get() as { is_running: number } | undefined
   const backfillLane = (row2?.is_running ?? 0) === 1
 
+  let earliestSynced = summaryRow?.earliest_synced_date ?? undefined
+  let latestSynced = summaryRow?.latest_synced_date ?? undefined
+  if (msgCount > 0 && (!earliestSynced || !latestSynced)) {
+    const b = messageDateBoundsFromIndex(db)
+    earliestSynced ??= b.from ?? undefined
+    latestSynced ??= b.to ?? undefined
+  }
+
   return {
     indexedMessages: msgCount,
     sources,
     isRunning: refreshLane || backfillLane,
-    earliestSyncedDate: summaryRow?.earliest_synced_date ?? undefined,
-    latestSyncedDate: summaryRow?.latest_synced_date ?? undefined,
+    earliestSyncedDate: earliestSynced,
+    latestSyncedDate: latestSynced,
     lastSyncAt: summaryRow?.last_sync_at ?? undefined,
   }
 }

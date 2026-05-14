@@ -4,7 +4,7 @@
 
 **Not to confuse with:** [Cloudflare Quick Tunnel / named tunnel](../../src/server/lib/platform/tunnelManager.ts) (`BRAIN_TUNNEL_URL`) for exposing the local dev server — unrelated to B2B “Braintunnel” collaboration.
 
-**See also:** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md) (trust / policy model), [chat-history-sqlite.md](./chat-history-sqlite.md) (persistence + cell-scaling caveats), [`brain_query_grants`](../../src/server/lib/brainQuery/brainQueryGrantsRepo.ts) (global DB).
+**See also:** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md) (trust / policy model), [chat-history-sqlite.md](./chat-history-sqlite.md) (persistence + cell-scaling caveats), [`brain_query_grants`](../../src/server/lib/brainQuery/brainQueryGrantsRepo.ts) (global DB). **Tenant load balancing across containers:** [multi-container-architecture.md](./multi-container-architecture.md).
 
 ---
 

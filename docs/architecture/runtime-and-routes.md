@@ -94,11 +94,11 @@ The server stores a vault password verifier under `$BRAIN_HOME/var/` (`vault-ver
 
 ## Background mail sync and shutdown hooks
 
-The server does **not** register a global timer that calls [`runFullSync()`](../../src/server/lib/platform/syncAll.ts) on an interval. **`SYNC_INTERVAL_SECONDS`** / **`getSyncIntervalMs()`** exist for operators or future wiring but are **unused** by `src/server/index.ts` today.
+[`registerPeriodicSyncAndShutdown`](../../src/server/lifecycle/periodicSyncAndShutdown.ts) starts **`startScheduledRipmailSync()`**: a **`setInterval`** driven by **`SYNC_INTERVAL_SECONDS`** / **`getSyncIntervalMs()`** (default **300s**) that sweeps **all tenants on disk** with **`syncInboxRipmail()`** — not **`runFullSync()`** (wiki component is a separate no-op today). See **[scheduled-ripmail-sync-at-scale.md](./scheduled-ripmail-sync-at-scale.md)** for scaling limits.
 
-**`ripmail refresh`** (and related paths) run when **HTTP handlers, agent tools, Your Wiki laps, or `sync-cli`** invoke them — see **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)** and **[background-task-orchestration.md](./background-task-orchestration.md)**.
+**`ripmail refresh`** also runs when **HTTP handlers, agent tools, Your Wiki laps, onboarding, or `sync-cli`** invoke it — see **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)** and **[background-task-orchestration.md](./background-task-orchestration.md)**.
 
-**Graceful shutdown** (SIGINT/SIGTERM) tears down tunnels, prepares the wiki supervisor, and terminates tracked ripmail children via [`registerPeriodicSyncAndShutdown`](../../src/server/lifecycle/periodicSyncAndShutdown.ts) (name is historical; it does **not** schedule periodic sync). **Manual sync** remains available from the **Brain Hub** (`POST /api/inbox/sync` / calendar routes).
+**Graceful shutdown** (SIGINT/SIGTERM) **stops that periodic sweep**, tears down tunnels, prepares the wiki supervisor, and terminates tracked ripmail children via the same registration. **Manual sync** remains available from the **Brain Hub** (`POST /api/inbox/sync` / calendar routes).
 
 ---
 

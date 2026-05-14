@@ -23,6 +23,8 @@ See [google-oauth.md](../google-oauth.md#multi-tenant-hosted-brain_data_root).
 
 **Full lifecycle details** (startup, runtime, transitions, locks, crash recovery) are documented in **[cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md)**.
 
+**Multi-container / tenant load balancing** (several replicas behind one LB; migration, routing, background sync, cross-container B2B): **[multi-container-architecture.md](./multi-container-architecture.md)**.
+
 ## Storage Strategy: S3 + Container-Local
 
 We use **local SSD for hot data** during sessions and **S3 for durable backups**, avoiding the latency and complexity of network-attached block storage (NFS, EBS multi-attach) or continuous distributed replication.

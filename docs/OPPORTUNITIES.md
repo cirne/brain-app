@@ -4,8 +4,8 @@ Improvement ideas and future features discovered through usage. Each entry captu
 
 Active and future work lives in [opportunities/](opportunities/). Shipped and deprioritized work moves to [opportunities/archive/](opportunities/archive/).
 
-<!-- NEXT_OPP_ID: 115 -->
-**Next opportunity id:** **OPP-115**. Allocate new opportunities monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_OPP_ID: 116 -->
+**Next opportunity id:** **OPP-116**. Allocate new opportunities monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 ### Ripmail corpus (CLI + SQLite)
 
@@ -49,6 +49,10 @@ Add an `llmJudge` expect kind to the wiki eval harness so quality properties —
 ### [OPP-114](opportunities/OPP-114-settings-brain-access-policies-only-and-b2b-color-parity.md): Settings B2B: policies only + picker color parity
 
 **Open.** Remove collaborator/grant management from Settings → Brain access (owned by Tunnels); keep policy definition editing. Reuse `policyColors.ts` tones in Tunnel / B2B policy pickers so built-ins match card purple/blue/green identities.
+
+### [OPP-115](opportunities/OPP-115-multi-tenant-scheduled-mail-sync-at-scale.md): Multi-tenant scheduled mail sync at scale
+
+**Open — research.** Periodic ripmail sweep works for small N; **thousands of tenants per container** needs tail-aware scheduling (queues, jitter, isolation). Problem + directions: [scheduled-ripmail-sync-at-scale.md](architecture/scheduled-ripmail-sync-at-scale.md).
 
 
 

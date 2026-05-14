@@ -1,5 +1,39 @@
-import { describe, expect, it } from 'vitest'
-import { parseHubSourceMailStatusFromStdout } from './hubRipmailSourceStatus.js'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+const mockExistsSync = vi.hoisted(() => vi.fn())
+const mockRipmailStatusParsed = vi.hoisted(() => vi.fn())
+
+vi.mock('node:fs', () => ({
+  existsSync: (...a: Parameters<typeof import('node:fs').existsSync>) => mockExistsSync(...a),
+}))
+
+vi.mock('@server/lib/platform/brainHome.js', () => ({
+  ripmailHomeForBrain: () => '/brain-home/ripmail',
+}))
+
+vi.mock('@server/ripmail/index.js', () => ({
+  ripmailDbPath: (home: string) => `${home}/ripmail.db`,
+  ripmailStatusParsed: (home: string) => mockRipmailStatusParsed(home),
+}))
+
+import { parseHubSourceMailStatusFromStdout, getHubSourceMailStatus } from './hubRipmailSourceStatus.js'
+
+const parsedStatusFixture = {
+  indexedTotal: 15_265,
+  lastSyncedAt: '2026-05-14T12:00:00Z',
+  dateRange: { from: '2018-09-03', to: '2026-05-13' },
+  syncRunning: true,
+  refreshRunning: true,
+  backfillRunning: false,
+  syncLockAgeMs: 125_000,
+  ftsReady: 15_265,
+  staleLockInDb: false,
+  initialSyncHangSuspected: false,
+  pendingRefresh: false,
+  deepHistoricalPending: false,
+  backfillListedTarget: null,
+  messageAvailableForProgress: 15_265,
+}
 
 const minimalStatus = (mailboxes: unknown[]) =>
   JSON.stringify({
@@ -125,5 +159,19 @@ describe('parseHubSourceMailStatusFromStdout', () => {
 
   it('returns null on invalid JSON', () => {
     expect(parseHubSourceMailStatusFromStdout('not json', 'x')).toBeNull()
+  })
+})
+
+describe('getHubSourceMailStatus', () => {
+  beforeEach(() => {
+    mockExistsSync.mockReturnValue(true)
+    mockRipmailStatusParsed.mockResolvedValue(parsedStatusFixture)
+  })
+
+  it('fills mailbox earliestDate and latestDate from ripmail status dateRange', async () => {
+    const r = await getHubSourceMailStatus('lewiscirne_gmail_com')
+    expect(r.ok && r.mailbox?.messageCount).toBe(15_265)
+    expect(r.ok && r.mailbox?.earliestDate?.startsWith('2018-09-03')).toBe(true)
+    expect(r.ok && r.mailbox?.latestDate?.startsWith('2026-05-13')).toBe(true)
   })
 })
