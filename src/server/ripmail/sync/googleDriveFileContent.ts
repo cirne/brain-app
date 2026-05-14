@@ -34,6 +34,14 @@ export function exportMimeForGoogleNative(mime: string | null | undefined): stri
   return null
 }
 
+/** Drive `files` resource `size` when present; `undefined` if omitted (unknown length). */
+export function driveFileListedSizeBytes(f: drive_v3.Schema$File): number | undefined {
+  const raw = f.size
+  if (raw == null || raw === '') return undefined
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : undefined
+}
+
 async function writeMediaToPath(
   drive: drive_v3.Drive,
   fileId: string,
@@ -46,7 +54,7 @@ async function writeMediaToPath(
     headers.Range = `bytes=0-${maxDownloadBytes - 1}`
   }
   const res = await drive.files.get(
-    { fileId, alt: 'media' },
+    { fileId, alt: 'media', supportsAllDrives: true },
     {
       ...httpOpts,
       responseType: 'arraybuffer',
@@ -70,10 +78,12 @@ async function exportGoogleFileToPath(
   const exportMime = exportMimeForGoogleNative(mime)
   if (!exportMime) return false
   try {
-    const res = await drive.files.export(
-      { fileId, mimeType: exportMime },
-      { ...httpOpts, responseType: 'arraybuffer' },
-    )
+    const exportParams: drive_v3.Params$Resource$Files$Export & { supportsAllDrives?: boolean } = {
+      fileId,
+      mimeType: exportMime,
+      supportsAllDrives: true,
+    }
+    const res = await drive.files.export(exportParams, { ...httpOpts, responseType: 'arraybuffer' })
     writeFileSync(destPath, Buffer.from(res.data as ArrayBuffer))
     return true
   } catch (e) {
@@ -141,10 +151,22 @@ export async function extractDriveFileText(
 
   const path = join(workDir, `${id}-${name}`)
   try {
-    const known = Number(f.size ?? 0)
+    const listed = driveFileListedSizeBytes(f)
+    /**
+     * Large file cap uses HTTP Range on the first N bytes. A Range request is **unsatisfiable**
+     * for a 0-byte object (no overlap → HTTP 416), so never send Range when the API reports size 0.
+     * Missing `size` still uses Range when capped so unknown-length blobs stay bounded.
+     */
+    if (listed === 0) {
+      return ''
+    }
     let maxDownloadBytes: number | undefined
     if (cap != null && cap > 0) {
-      maxDownloadBytes = known === 0 || known > cap ? cap : undefined
+      if (listed === undefined) {
+        maxDownloadBytes = cap
+      } else if (listed > cap) {
+        maxDownloadBytes = cap
+      }
     }
     await writeMediaToPath(drive, id, path, req, maxDownloadBytes)
     return await extractAttachmentText(path, mime)
