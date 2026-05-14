@@ -75,6 +75,57 @@ function insertMessage(
   return mid
 }
 
+function ensureRipmailSource(db: RipmailDb, id: string, kind: string) {
+  db.prepare(`INSERT OR IGNORE INTO sources (id, kind, include_in_default) VALUES (?, ?, 1)`).run(id, kind)
+}
+
+function insertIndexedLocalFile(
+  db: RipmailDb,
+  opts: {
+    sourceId: string
+    relPath?: string
+    title?: string
+    bodyText?: string
+    dateIso?: string
+  },
+) {
+  const relPath = opts.relPath ?? 'notes/x.md'
+  const absPath = `/vault/${opts.sourceId}/${relPath.replace(/\\/g, '/')}`
+  ensureRipmailSource(db, opts.sourceId, 'localDir')
+  db.prepare(`
+    INSERT INTO files (source_id, rel_path, abs_path, mtime, size, mime, title, body_text)
+    VALUES (?, ?, ?, 0, 0, ?, ?, ?)
+  `).run(opts.sourceId, relPath.replace(/\\/g, '/'), absPath, null, opts.title ?? '', opts.bodyText ?? '')
+  db.prepare(`
+    INSERT INTO document_index (source_id, kind, ext_id, title, body, date_iso)
+    VALUES (?, 'file', ?, ?, ?, ?)
+  `).run(
+    opts.sourceId,
+    relPath.replace(/\\/g, '/'),
+    opts.title ?? '',
+    opts.bodyText ?? '',
+    opts.dateIso ?? '2026-01-01',
+  )
+}
+
+function insertIndexedDriveDoc(
+  db: RipmailDb,
+  opts: {
+    sourceId: string
+    extId?: string
+    title?: string
+    body?: string
+    dateIso?: string
+  },
+) {
+  const extId = opts.extId ?? 'gdrive-ext-1'
+  ensureRipmailSource(db, opts.sourceId, 'googleDrive')
+  db.prepare(`
+    INSERT INTO document_index (source_id, kind, ext_id, title, body, date_iso)
+    VALUES (?, 'googleDrive', ?, ?, ?, ?)
+  `).run(opts.sourceId, extId, opts.title ?? '', opts.body ?? '', opts.dateIso ?? '2026-01-01')
+}
+
 // ---------------------------------------------------------------------------
 // Schema tests
 // ---------------------------------------------------------------------------
@@ -193,6 +244,226 @@ describe('search', () => {
   it('respects limit', () => {
     const r = search(db, { includeAll: true, limit: 1 })
     expect(r.results.length).toBeLessThanOrEqual(1)
+  })
+
+  it('treats pattern as an alias for query', () => {
+    const rq = search(db, { query: 'Invoice', includeAll: true })
+    const rp = search(db, { pattern: 'Invoice', includeAll: true })
+    expect(rp.results.length).toBe(rq.results.length)
+    expect(new Set(rq.results.map((x) => x.messageId))).toEqual(new Set(rp.results.map((x) => x.messageId)))
+  })
+
+  it('rejects inline from:/to:/subject:/category: in the regex string', () => {
+    const r = search(db, { query: 'from:alice@corp.com Budget', includeAll: true })
+    expect(r.results).toHaveLength(0)
+    expect(r.hints.join('\n')).toMatch(/inline operators/i)
+    expect(r.hints.join('\n')).toMatch(/from:/i)
+  })
+
+  it('respects caseSensitive for mail regex matching', () => {
+    insertMessage(db, {
+      subject: 'Case ping',
+      bodyText: 'TokenUPPERCASE unique',
+      fromAddress: 'case@corp.com',
+      date: '2026-04-01T12:00:00Z',
+    })
+    insertMessage(db, {
+      subject: 'Case pong',
+      bodyText: 'Tokenuppercase unique',
+      fromAddress: 'case2@corp.com',
+      date: '2026-04-02T12:00:00Z',
+    })
+    const ins = search(db, { query: 'Tokenuppercase', caseSensitive: false, includeAll: true })
+    expect(ins.results.filter((x) => x.sourceKind === 'mail' && x.bodyPreview.includes('Token'))).toHaveLength(2)
+
+    const sens = search(db, { query: 'Tokenuppercase', caseSensitive: true, includeAll: true })
+    expect(sens.results.filter((x) => x.sourceKind === 'mail' && x.bodyPreview.includes('Tokenuppercase'))).toHaveLength(1)
+  })
+
+  it('applies offset and reports totalMatched for pattern search', () => {
+    insertMessage(db, {
+      subject: 'Z1',
+      bodyText: 'ZEBRA_TERM one',
+      fromAddress: 'z@corp.com',
+      date: '2026-01-20T12:00:00Z',
+    })
+    insertMessage(db, {
+      subject: 'Z2',
+      bodyText: 'ZEBRA_TERM two',
+      fromAddress: 'z@corp.com',
+      date: '2026-01-21T12:00:00Z',
+    })
+    insertMessage(db, {
+      subject: 'Z3',
+      bodyText: 'ZEBRA_TERM three',
+      fromAddress: 'z@corp.com',
+      date: '2026-01-22T12:00:00Z',
+    })
+    const anchor = new Date(Date.UTC(2026, 5, 1, 0, 0, 0))
+    const full = search(db, { query: 'ZEBRA_TERM', includeAll: true, rollingAnchorDate: anchor })
+    expect(full.totalMatched).toBe(3)
+
+    const page = search(db, {
+      query: 'ZEBRA_TERM',
+      includeAll: true,
+      rollingAnchorDate: anchor,
+      limit: 1,
+      offset: 2,
+    })
+    expect(page.results).toHaveLength(1)
+    expect(page.results[0]!.subject).toBe('Z1')
+    expect(page.totalMatched).toBe(3)
+  })
+
+  it('matches Google Drive rows in document_index (regex across title, ext id, body)', () => {
+    insertIndexedDriveDoc(db, {
+      sourceId: 'drive-unit',
+      extId: 'file-unique-99',
+      title: 'Quarterly roadmap',
+      body: 'Discuss widgets and rollout',
+      dateIso: '2026-02-01',
+    })
+    const r = search(db, { query: 'widgets', includeAll: true })
+    const hit = r.results.find((x) => x.sourceKind === 'googleDrive')
+    expect(hit?.messageId).toBe('file-unique-99')
+    expect(hit?.subject).toContain('Quarterly')
+  })
+
+  it('matches indexed localDir files joined to document_index(kind=file)', () => {
+    insertIndexedLocalFile(db, {
+      sourceId: 'vault-local',
+      relPath: 'team/notes.md',
+      title: '',
+      bodyText: 'PIN_LOCAL_DIR_TOKEN for search',
+      dateIso: '2026-03-05',
+    })
+    const r = search(db, { query: 'PIN_LOCAL_DIR_TOKEN', includeAll: true })
+    const hit = r.results.find((x) => x.sourceKind === 'localDir')
+    expect(hit?.indexedRelPath).toBe('team/notes.md')
+    expect(hit?.messageId).toContain('/vault/vault-local/team/notes.md')
+  })
+
+  it('omits indexed file/Drive hits when structured from is set (mail filters still apply)', () => {
+    const d = openMemoryRipmailDb()
+    insertIndexedDriveDoc(d, {
+      sourceId: 'g-only',
+      extId: 'only-drive',
+      title: 'ALPHA_DRIVE_ONLY_TERM',
+      body: '',
+      dateIso: '2026-01-01',
+    })
+    insertMessage(d, {
+      subject: 'No keyword here',
+      bodyText: 'unrelated mail body',
+      fromAddress: 'someone@corp.com',
+      date: '2026-06-01T12:00:00Z',
+    })
+    expect(search(d, { query: 'ALPHA_DRIVE_ONLY_TERM', includeAll: true }).results.some((x) => x.sourceKind === 'googleDrive')).toBe(
+      true,
+    )
+    expect(
+      search(d, {
+        query: 'ALPHA_DRIVE_ONLY_TERM',
+        from: 'someone@corp.com',
+        includeAll: true,
+      }).results,
+    ).toHaveLength(0)
+  })
+
+  it('omits indexed file/Drive hits when structured to is set', () => {
+    const d = openMemoryRipmailDb()
+    insertIndexedLocalFile(d, {
+      sourceId: 'lv',
+      bodyText: 'BETA_LOCAL_ONLY_TERM',
+    })
+    insertMessage(d, {
+      subject: 'x',
+      bodyText: 'x',
+      fromAddress: 'sender@corp.com',
+      toAddresses: '["target@corp.com"]',
+      date: '2026-06-01T12:00:00Z',
+    })
+    expect(search(d, { query: 'BETA_LOCAL_ONLY_TERM', includeAll: true }).results.some((x) => x.sourceKind === 'localDir')).toBe(
+      true,
+    )
+    expect(
+      search(d, { query: 'BETA_LOCAL_ONLY_TERM', to: 'target@corp.com', includeAll: true }).results,
+    ).toHaveLength(0)
+  })
+
+  it('omits indexed file/Drive hits when structured subject filter is set', () => {
+    const d = openMemoryRipmailDb()
+    insertIndexedDriveDoc(d, {
+      sourceId: 'gx',
+      extId: 'e1',
+      title: 'GAMMA_DOC_ONLY_TERM',
+      body: '',
+    })
+    insertMessage(d, { subject: 'Filter subject latch', bodyText: 'zzz', date: '2026-06-02T12:00:00Z' })
+    expect(search(d, { query: 'GAMMA_DOC_ONLY_TERM', includeAll: true }).results.some((x) => x.sourceKind === 'googleDrive')).toBe(
+      true,
+    )
+    expect(search(d, { query: 'GAMMA_DOC_ONLY_TERM', subject: 'latch', includeAll: true }).results).toHaveLength(0)
+  })
+
+  it('omits indexed file/Drive hits when structured category filter is set', () => {
+    const d = openMemoryRipmailDb()
+    insertIndexedDriveDoc(d, {
+      sourceId: 'gy',
+      extId: 'e2',
+      title: 'DELTA_DOC_TERM',
+      body: '',
+    })
+    insertMessage(d, {
+      subject: 'categorized',
+      bodyText: 'zzz',
+      fromAddress: 'c@corp.com',
+      category: 'work',
+      date: '2026-06-03T12:00:00Z',
+    })
+    expect(search(d, { query: 'DELTA_DOC_TERM', includeAll: true }).results.some((x) => x.sourceKind === 'googleDrive')).toBe(
+      true,
+    )
+    expect(search(d, { query: 'DELTA_DOC_TERM', category: 'work', includeAll: true }).results).toHaveLength(0)
+  })
+
+  it('restricts Google Drive candidates with sourceIds', () => {
+    insertIndexedDriveDoc(db, { sourceId: 'drive-A', extId: 'fa', title: 'SharedTitle', body: 'OMEGA_BOTH' })
+    insertIndexedDriveDoc(db, { sourceId: 'drive-B', extId: 'fb', title: 'SharedTitle', body: 'OMEGA_BOTH' })
+    const both = search(db, { query: 'OMEGA_BOTH', includeAll: true })
+    expect(both.results.filter((x) => x.sourceKind === 'googleDrive')).toHaveLength(2)
+
+    const aOnly = search(db, { query: 'OMEGA_BOTH', sourceIds: ['drive-A'], includeAll: true })
+    const driveHits = aOnly.results.filter((x) => x.sourceKind === 'googleDrive')
+    expect(driveHits).toHaveLength(1)
+    expect(driveHits[0]!.sourceId).toBe('drive-A')
+    expect(aOnly.results.every((x) => x.sourceKind !== 'googleDrive' || x.sourceId === 'drive-A')).toBe(true)
+  })
+
+  it('combines mail, local file, and Drive hits in one regex search when file filters are unrestricted', () => {
+    insertIndexedDriveDoc(db, {
+      sourceId: 'combo-g',
+      extId: 'cid-1',
+      title: 'UNIFY_TRIAD',
+      body: '',
+      dateIso: '2026-01-10',
+    })
+    insertIndexedLocalFile(db, {
+      sourceId: 'combo-l',
+      bodyText: 'Also mentions UNIFY_TRIAD in file',
+      dateIso: '2026-01-11',
+    })
+    insertMessage(db, {
+      subject: 'UNIFY_TRIAD in mail',
+      bodyText: '.',
+      fromAddress: 'm@corp.com',
+      date: '2026-01-12T12:00:00Z',
+    })
+    const r = search(db, { query: 'UNIFY_TRIAD', includeAll: true })
+    const kinds = new Set(r.results.map((x) => x.sourceKind))
+    expect(kinds.has('mail')).toBe(true)
+    expect(kinds.has('localDir')).toBe(true)
+    expect(kinds.has('googleDrive')).toBe(true)
   })
 })
 
