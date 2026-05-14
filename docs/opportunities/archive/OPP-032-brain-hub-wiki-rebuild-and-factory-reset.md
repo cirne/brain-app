@@ -8,11 +8,11 @@
 
 ## Summary
 
-Add a **user-facing recovery** area in the [Brain Hub](OPP-021-user-settings-page.md) with **two clearly separated actions**: (1) **rebuild the wiki** from the existing profile and sources, and (2) **erase all local Brain data** (factory reset). Today, equivalent behavior exists only for developers (`POST /api/dev/restart-seed`, `POST /api/dev/hard-reset`, `npm run dev:clean`, `npm run desktop:clean-data`). Product work is to **surface safe, honest copy** and **server-backed operations** that match the **two-root data model** from [OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md).
+Add a **user-facing recovery** area in the [Brain Hub](../OPP-021-user-settings-page.md) with **two clearly separated actions**: (1) **rebuild the wiki** from the existing profile and sources, and (2) **erase all local Brain data** (factory reset). Today, equivalent behavior exists only for developers (`POST /api/dev/restart-seed`, `POST /api/dev/hard-reset`, `npm run dev:clean`, `npm run desktop:clean-data`). Product work is to **surface safe, honest copy** and **server-backed operations** that match the **two-root data model** from [OPP-024](../OPP-024-split-brain-data-synced-wiki-local-ripmail.md).
 
-## Relationship to [OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) (wiki vs local metadata)
+## Relationship to [OPP-024](../OPP-024-split-brain-data-synced-wiki-local-ripmail.md) (wiki vs local metadata)
 
-[OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) split durable state into:
+[OPP-024](../OPP-024-split-brain-data-synced-wiki-local-ripmail.md) split durable state into:
 
 | Root | Typical role (bundled macOS) | User mental model |
 | ---- | ---------------------------- | ----------------- |
@@ -21,7 +21,7 @@ Add a **user-facing recovery** area in the [Brain Hub](OPP-021-user-settings-pag
 
 **Implication for this OPP:** recovery copy and implementation must **name what is touched** in each root. A “wiki rebuild” should affect **primarily the vault** (`wiki/` content) while **preserving** `me.md` and leaving **local metadata and ripmail** intact. A “factory reset” must **wipe both** when the product definition says so — including the **entire wiki content directory** when it lives outside `BRAIN_HOME` (see `wipeBrainHomeContents` in [`brainHome.ts`](../../../src/server/lib/brainHome.ts)) — and **clear mail credentials** under `RIPMAIL_HOME` (e.g. `ripmail clean --yes` as used in dev hard-reset).
 
-Users on **dev** (`./data` unified tree per [OPP-012](OPP-012-brain-home-data-layout.md)) still have one folder; the UI should describe outcomes in **behavioral** terms (“profile file kept”, “mail accounts removed”) rather than only paths.
+Users on **dev** (`./data` unified tree per [OPP-012](../OPP-012-brain-home-data-layout.md)) still have one folder; the UI should describe outcomes in **behavioral** terms (“profile file kept”, “mail accounts removed”) rather than only paths.
 
 ## Problem
 
@@ -83,9 +83,9 @@ Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** �
 
 ## References
 
-- [OPP-024: Split Brain data — synced wiki vs local ripmail](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — **two-root layout**; secrets and ripmail stay local; wiki may sync.
-- [OPP-012: Brain home data layout](OPP-012-brain-home-data-layout.md) — unified `BRAIN_HOME` segments; dev single tree.
-- [OPP-021: Brain Hub (Admin & Settings)](OPP-021-user-settings-page.md) — shell / placement.
+- [OPP-024: Split Brain data — synced wiki vs local ripmail](../OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — **two-root layout**; secrets and ripmail stay local; wiki may sync.
+- [OPP-012: Brain home data layout](../OPP-012-brain-home-data-layout.md) — unified `BRAIN_HOME` segments; dev single tree.
+- [OPP-021: Brain Hub (Admin & Settings)](../OPP-021-user-settings-page.md) — shell / placement.
 - [OPP-006 (archived): Email-bootstrap onboarding](archive/OPP-006-email-bootstrap-onboarding.md) — re-onboarding after wipe.
 - Server: [`src/server/routes/dev.ts`](../../../src/server/routes/dev.ts) (`restart-seed`, `hard-reset`), [`src/server/lib/brainHome.ts`](../../../src/server/lib/brainHome.ts), [`src/server/lib/wikiDir.ts`](../../../src/server/lib/wikiDir.ts), [`src/server/agent/wikiExpansionRunner.ts`](../../../src/server/agent/wikiExpansionRunner.ts).
 - Scripts: [`scripts/clean-brain-dev-data.mjs`](../../scripts/clean-brain-dev-data.mjs), [`scripts/clean-tauri-user-data.mjs`](../../scripts/clean-tauri-user-data.mjs).

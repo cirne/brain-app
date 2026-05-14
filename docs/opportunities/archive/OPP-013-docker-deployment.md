@@ -22,7 +22,7 @@ git show 856eec33f49660b6906a32912a42c629b234611a:docker-compose.yml
 
 # OPP-013: Docker deployment (restoration)
 
-**Status:** Future — in-repo Docker packaging was **removed** in favor of `BRAIN_HOME` + macOS Tauri as the primary release ([OPP-012](OPP-012-brain-home-data-layout.md)). This document captures what existed so a future pass can revive or compare.
+**Status:** Future — in-repo Docker packaging was **removed** in favor of `BRAIN_HOME` + macOS Tauri as the primary release ([OPP-012](../OPP-012-brain-home-data-layout.md)). This document captures what existed so a future pass can revive or compare.
 
 ## Last commit on `main` with Docker artifacts
 

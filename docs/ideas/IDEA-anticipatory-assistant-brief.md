@@ -1,8 +1,8 @@
 # Anticipatory assistant brief — prioritized queue, notification infrastructure, and async approvals
 
-**Status:** Backlog — **SQLite persistence shipped (2026-05)** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (`var/brain-tenant.sqlite`: chat + **`notifications`**, mail **`notify`** mirror); **full brief UX** (unified ranked strip across domains) still backlog. **Braintunnel B2B** approve/decline ships in chat — [architecture/braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md).  
+**Status:** Backlog — **SQLite persistence shipped (2026-05)** — **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (`var/brain-tenant.sqlite`: chat + **`notifications`**, mail **`notify`** mirror); **full brief UX** (unified ranked strip across domains) still backlog. **Braintunnel B2B** approve/decline ships in chat — [architecture/braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md).  
 **Index:** [IDEAS.md](../IDEAS.md)  
-**Relates to:** [VISION.md](../VISION.md), [STRATEGY.md](../STRATEGY.md), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (B2B grants + tunnels; **tunnel HIL** ships in chat — [braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)), [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (notification §; persistence **[shipped — OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), [chat-history-sqlite.md](../architecture/chat-history-sqlite.md), [IDEA-onboarding-insight-gallery](IDEA-onboarding-insight-gallery.md) (showcase vs standing queue), [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (collaboration events), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md); empty chat surfaces such as [`ConversationEmptyState.svelte`](../../src/client/components/agent-conversation/ConversationEmptyState.svelte)
+**Relates to:** [VISION.md](../VISION.md), [STRATEGY.md](../STRATEGY.md), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (B2B grants + tunnels; **tunnel HIL** ships in chat — [braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)), [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (notification §; persistence **[shipped — OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**), [chat-history-sqlite.md](../architecture/chat-history-sqlite.md), [IDEA-onboarding-insight-gallery](IDEA-onboarding-insight-gallery.md) (showcase vs standing queue), [IDEA-wiki-sharing-collaborators (archived)](archive/IDEA-wiki-sharing-collaborators.md) (collaboration events), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md); empty chat surfaces such as [`ConversationEmptyState.svelte`](../../src/client/components/agent-conversation/ConversationEmptyState.svelte)
 
 ---
 
@@ -103,7 +103,7 @@ These are **illustrative**; implementation would enforce caps, merging, and fres
 - **Human-in-the-loop** release of outbound content without treating **audit logs** as the only review surface.
 - **Bidirectional visibility** (asker and answerer) surfaced through **consistent notification semantics**, not ad hoc email.
 
-**This idea is the required product capability** that ties those strands together: a **notification + inbox + brief** layer that brain-query (and future bilateral flows) plug into. See [brain-to-brain-access-policy.md — notification / human-in-the-loop §](../architecture/brain-to-brain-access-policy.md#notification-inbox-and-human-in-the-loop-prerequisite-for-secure-brain-to-brain). **`notifications` + chat in `var/brain-tenant.sqlite`** **shipped** under **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — see [§ Next steps](#next-steps-after-persistence).
+**This idea is the required product capability** that ties those strands together: a **notification + inbox + brief** layer that brain-query (and future bilateral flows) plug into. See [brain-to-brain-access-policy.md — notification / human-in-the-loop §](../architecture/brain-to-brain-access-policy.md#notification-inbox-and-human-in-the-loop-prerequisite-for-secure-brain-to-brain). **`notifications` + chat in `var/brain-tenant.sqlite`** **shipped** under **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — see [§ Next steps](#next-steps-after-persistence).
 
 ---
 
@@ -143,7 +143,7 @@ They can share infrastructure (signals from mail/wiki/calendar) but differ in **
 
 ## Next steps after persistence
 
-**Shipped:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — **`var/brain-tenant.sqlite`** with **`TENANT_SCHEMA_VERSION`** (early-dev wipe on bump): **chat** tables + **`notifications`**; mail **`notify`** mirrored from ripmail (**`source_kind = mail_notify`**).
+**Shipped:** **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** — **`var/brain-tenant.sqlite`** with **`TENANT_SCHEMA_VERSION`** (early-dev wipe on bump): **chat** tables + **`notifications`**; mail **`notify`** mirrored from ripmail (**`source_kind = mail_notify`**).
 
 When the product model and MVP sources are pinned, additional OPPs may cover:
 

@@ -1,6 +1,6 @@
 # Archived: OPP-055 — Tap-to-talk mobile panel
 
-**Archived 2026-04-30.** **Status: Implemented.** `ChatVoicePanel.svelte` + `voiceTapCapture.ts` + `UnifiedChatComposer.svelte`; `POST /api/transcribe` unchanged. **Stable URL:** [stub](../OPP-055-tap-to-talk-mobile-panel-ux.md).
+**Archived 2026-04-30.** **Status: Implemented.** `ChatVoicePanel.svelte` + `voiceTapCapture.ts` + `UnifiedChatComposer.svelte`; `POST /api/transcribe` unchanged.
 
 ---
 
@@ -8,7 +8,7 @@
 
 **Tags:** `mobile` · `chat` · `voice` · `ux`  
 **Replaces:** hold-to-speak in [archived OPP-074](./OPP-074-press-to-talk-dev-only-feature-flag.md)  
-**Continues:** [OPP-046 stub](../OPP-046-voice-input-press-to-talk-wispr-flow.md) / [archive](../archive/OPP-046-voice-input-press-to-talk-wispr-flow.md) (vendor/STT research)
+**Continues:** [archived OPP-046](./OPP-046-voice-input-press-to-talk-wispr-flow.md) (vendor/STT research)
 
 ---
 
@@ -202,7 +202,7 @@ The panel respects the same `pressToTalkEnabled` flag from OPP-074. When `false`
 
 ## Related
 
-- [OPP-046](../OPP-046-voice-input-press-to-talk-wispr-flow.md) — STT vendor research, Wispr Flow vs alternatives; context injection.
+- [OPP-046](./OPP-046-voice-input-press-to-talk-wispr-flow.md) — STT vendor research, Wispr Flow vs alternatives; context injection.
 - [OPP-074 (archived)](./OPP-074-press-to-talk-dev-only-feature-flag.md) — shipped dev gate; component history.
-- [OPP-008 stub](../OPP-008-tunnel-qr-phone-access.md) — phone as primary client; same surface this UX targets.
+- [OPP-008 stub](./OPP-008-tunnel-qr-phone-access.md) — phone as primary client; same surface this UX targets.
 

@@ -16,7 +16,7 @@
 
 This epic **does not** replace the native app ([archived OPP-007](../archive/OPP-007-native-mac-app.md)); it implements the **cloud** branch of [deployment-models.md](../../architecture/deployment-models.md).
 
-**Related:** [OPP-042: Brain network & inter-brain trust](../OPP-042-brain-network-interbrain-trust-epic.md) — **Braintunnel handle–first** identity and inter-brain coordination assume **stable, reachable endpoints**; production HTTPS and `PUBLIC_WEB_ORIGIN` (this epic) are prerequisites for trustworthy cross-brain UX.
+**Related:** [OPP-042: Brain network & inter-brain trust](./OPP-042-brain-network-interbrain-trust-epic.md) — **Braintunnel handle–first** identity and inter-brain coordination assume **stable, reachable endpoints**; production HTTPS and `PUBLIC_WEB_ORIGIN` (this epic) are prerequisites for trustworthy cross-brain UX.
 
 ---
 
@@ -31,7 +31,7 @@ Historical Docker artifacts were removed from the monorepo; the last snapshot is
 ## North-star outcome (test users)
 
 1. User opens a **public HTTPS** URL for the staging/prod environment.
-2. **Sign in with Google** establishes product identity and drives Gmail/Calendar consent in line with [OPP-019](../OPP-019-gmail-first-class-brain.md) and [google-oauth.md](../../google-oauth.md) (hosted redirect URIs, not loopback-only).
+2. **Sign in with Google** establishes product identity and drives Gmail/Calendar consent in line with [OPP-019](./OPP-019-gmail-first-class-brain.md) and [google-oauth.md](../../google-oauth.md) (hosted redirect URIs, not loopback-only).
 3. User chooses a **vault password** (and unlock flow) so sensitive operations remain gated similarly to today’s model ([OPP-035](../OPP-035-local-vault-password-and-session-auth.md)), adapted for hosted cookies/TLS/CSRF.
 4. The system provisions or attaches a **tenant-scoped home directory** containing wiki, chats, `var/`, `cache/`, and `**ripmail/`** (`RIPMAIL_HOME` layout unchanged per tenant).
 5. **Background sync** can run 24/7; **container replacements** do not wipe user data because `**BRAIN_HOME` lives on attached block storage**, not the container’s ephemeral layer.
@@ -69,7 +69,7 @@ Each phase has **exit criteria** so work can pause between them without half-fin
 
 - **Cloud parity matrix:** For every major route in [runtime-and-routes.md](../../architecture/runtime-and-routes.md), mark *supported*, *disabled*, or *stub* in cloud (e.g. `/api/imessage`, bundled-only TLS allowlists, `allowLanDirectAccess`).
 - **Storage decision (wiki):** [PRODUCTIZATION.md §2](../../PRODUCTIZATION.md) still applies—git-backed wiki vs object storage vs “files on volume only” affects onboarding friction. Pick a **default for v1 hosted** (often: **files on tenant volume**, no git, until a later migration story).
-- **OAuth:** Plan **authorized redirect URIs** for real origins (`https://<host>/api/oauth/google/callback`); note [OPP-022](../OPP-022-google-oauth-app-verification.md) for anything beyond testing-mode cohorts.
+- **OAuth:** Plan **authorized redirect URIs** for real origins (`https://<host>/api/oauth/google/callback`); note [OPP-022](./OPP-022-google-oauth-app-verification.md) for anything beyond testing-mode cohorts.
 
 **Exit criteria:** A short internal doc listing *what we ship in cloud v1* and *what we explicitly do not* — satisfied by [cloud-hosted-v1-scope.md](../../architecture/cloud-hosted-v1-scope.md) (includes the `**googleOAuthRedirectUri` loopback gap** to fix in Phase 1+).
 
@@ -184,7 +184,7 @@ Use when bringing up **another** public origin (e.g. production):
 - Threat modeling pass on **agent tools** (path arguments, file reads, search) under multi-tenant load.
 - Optional: IP allowlists, invite-only signup, or OAuth allowlisting for first cohort.
 
-**Exit criteria:** Staging cohort can use `**https://staging.braintunnel.ai`** end-to-end without blocking gaps for the intended test surface. **Known follow-ons** include app-layer path policy vs **kernel-level** isolation ([tenant-filesystem-isolation.md](../../architecture/tenant-filesystem-isolation.md); historical **[BUG-012](../../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)** narrative), deeper rate limits and observability as traffic grows, and [OPP-022](../OPP-022-google-oauth-app-verification.md) when leaving Google test-user caps.
+**Exit criteria:** Staging cohort can use `**https://staging.braintunnel.ai`** end-to-end without blocking gaps for the intended test surface. **Known follow-ons** include app-layer path policy vs **kernel-level** isolation ([tenant-filesystem-isolation.md](../../architecture/tenant-filesystem-isolation.md); historical **[BUG-012](../../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)** narrative), deeper rate limits and observability as traffic grows, and [OPP-022](./OPP-022-google-oauth-app-verification.md) when leaving Google test-user caps.
 
 ---
 
@@ -196,8 +196,8 @@ Use when bringing up **another** public origin (e.g. production):
 | [PRODUCTIZATION.md](../../PRODUCTIZATION.md)                                                | Multi-user blockers: wiki storage, auth, ripmail UX, SQLite strategy |
 | [multi-tenant-cloud-architecture.md](../../architecture/multi-tenant-cloud-architecture.md) | One home per tenant, NAS, isolation phases                           |
 | [deployment-models.md](../../architecture/deployment-models.md)                             | Desktop vs cloud split                                               |
-| [OPP-019](../OPP-019-gmail-first-class-brain.md)                                            | Gmail OAuth in app, token layout under `RIPMAIL_HOME`                |
-| [OPP-022](../OPP-022-google-oauth-app-verification.md)                                      | Verification for non-test Google projects                            |
+| [OPP-019](./OPP-019-gmail-first-class-brain.md)                                            | Gmail OAuth in app, token layout under `RIPMAIL_HOME`                |
+| [OPP-022](./OPP-022-google-oauth-app-verification.md)                                      | Verification for non-test Google projects                            |
 | [OPP-035](../OPP-035-local-vault-password-and-session-auth.md)                              | Vault + session baseline to generalize                               |
 | [packaging-and-distribution.md](../../packaging-and-distribution.md)                        | Cloud security checklist                                             |
 

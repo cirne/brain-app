@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Ripmail corpus backlog closed for tracking.
 
-**Stub:** [../OPP-080-ripmail-home-permissions-and-data-lifecycle.md](../OPP-080-ripmail-home-permissions-and-data-lifecycle.md)
 
 ---
 

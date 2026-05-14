@@ -71,7 +71,7 @@ Path-shaped overlay URLs such as **`/wiki/...`**, **`/inbox`**, **`/hub/wiki/...
 
 The shell renders overlays in the **slide-over / assistant panel** (or full-width chat-history list) — see [client-async-latest.md](./client-async-latest.md).
 
-**Related:** [OPP-058](../opportunities/OPP-058-spa-url-main-pane-vs-overlay-query.md) (implemented); [OPP-056](../opportunities/OPP-056-email-draft-overlay-markdown-editor.md); archived [OPP-027](../opportunities/archive/OPP-027-wiki-nav-indicator-and-activity-surface.md).
+**Related:** [archived OPP-058](../opportunities/archive/OPP-058-spa-url-main-pane-vs-overlay-query.md) (implemented); [archived OPP-056](../opportunities/archive/OPP-056-email-draft-overlay-markdown-editor.md); archived [OPP-027](../opportunities/archive/OPP-027-wiki-nav-indicator-and-activity-surface.md).
 
 ## Production vs bundled native
 

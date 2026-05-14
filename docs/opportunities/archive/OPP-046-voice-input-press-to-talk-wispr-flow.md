@@ -1,8 +1,8 @@
 # Archived: OPP-046 — Voice input (press-to-talk / tap-to-talk)
 
-**Archived 2026-04-30.** **Status: Implemented (core).** Composer voice input ships: **`ChatVoicePanel`**, **`voiceTapCapture.ts`**, **`UnifiedChatComposer`**; **`POST /api/transcribe`** uses **OpenAI STT** ([`openAiStt.ts`](../../../src/server/lib/llm/openAiStt.ts), [`transcribe.ts`](../../../src/server/routes/transcribe.ts)) when configured. Active UX follow-on: **[OPP-055](../OPP-055-tap-to-talk-mobile-panel-ux.md)**. The dev-only guardrail in [OPP-074](./OPP-074-press-to-talk-dev-only-feature-flag.md) was later relaxed ([`pressToTalkEnabled.ts`](../../../src/client/lib/pressToTalkEnabled.ts), [`transcribeHttpAllowed.ts`](../../../src/server/lib/llm/transcribeHttpAllowed.ts)). **Still future / not this ticket:** Wispr Flow API, a neutral `TranscriptionProvider` abstraction, Hub voice toggle — see **Open questions** below.
+**Archived 2026-04-30.** **Status: Implemented (core).** Composer voice input ships: **`ChatVoicePanel`**, **`voiceTapCapture.ts`**, **`UnifiedChatComposer`**; **`POST /api/transcribe`** uses **OpenAI STT** ([`openAiStt.ts`](../../../src/server/lib/llm/openAiStt.ts), [`transcribe.ts`](../../../src/server/routes/transcribe.ts)) when configured. Active UX follow-on: **[OPP-055](./OPP-055-tap-to-talk-mobile-panel-ux.md)**. The dev-only guardrail in [OPP-074](./OPP-074-press-to-talk-dev-only-feature-flag.md) was later relaxed ([`pressToTalkEnabled.ts`](../../../src/client/lib/pressToTalkEnabled.ts), [`transcribeHttpAllowed.ts`](../../../src/server/lib/llm/transcribeHttpAllowed.ts)). **Still future / not this ticket:** Wispr Flow API, a neutral `TranscriptionProvider` abstraction, Hub voice toggle — see **Open questions** below.
 
-**Stable short URL:** [stub](../OPP-046-voice-input-press-to-talk-wispr-flow.md).
+**Stable short URL:** [stub](./OPP-046-voice-input-press-to-talk-wispr-flow.md).
 
 ---
 
@@ -51,7 +51,7 @@ Add **hold-to-dictate** in the main chat so phone users can speak prompts instea
 ## Related
 
 - [OPP-074 (archived, shipped)](./OPP-074-press-to-talk-dev-only-feature-flag.md) — original dev-only gate for press-to-talk + `/api/transcribe` (later relaxed in code; see banner above).
-- [OPP-008 stub](../OPP-008-tunnel-qr-phone-access.md) — phone as client; same surfaces benefit from low-friction input.
+- [OPP-008 stub](./OPP-008-tunnel-qr-phone-access.md) — phone as client; same surfaces benefit from low-friction input.
 - [OPP-021](../OPP-021-user-settings-page.md) / Hub — natural home for a **Voice** toggle and privacy copy (optional follow-on).
 - [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md) — if additional third-party data processing requires disclosure updates, align privacy policy and consent timing.
 

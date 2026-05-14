@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Ripmail corpus backlog closed for tracking.
 
-**Stub:** [../OPP-085-rule-action-extensions.md](../OPP-085-rule-action-extensions.md)
 
 ---
 

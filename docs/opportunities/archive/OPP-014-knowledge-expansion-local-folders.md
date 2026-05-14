@@ -1,6 +1,6 @@
 # Archived: OPP-014 — Knowledge expansion (local folders)
 
-**Status: Deprioritized — archived 2026-04-21.** Covered in practice by [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md) (unified sources / local dirs); a separate Brain Hub “expansion” initiative is not on the near-term roadmap.
+**Status: Deprioritized — archived 2026-04-21.** Covered in practice by [OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md) (unified sources / local dirs); a separate Brain Hub “expansion” initiative is not on the near-term roadmap.
 
 ---
 
@@ -76,4 +76,4 @@ As we add more specialized agents, some flows need **different UI**: related com
 
 - **[OPP-021: User Settings (Brain Hub)](./OPP-021-user-settings-page.md)** — Host for the discovery flow
 - **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)** — Same agent/presentation generalization
-- **[OPP-087: Unified Sources](../OPP-087-unified-sources-mail-local-files-future-connectors.md)** — Implementation home for directory sources
+- **[OPP-087: Unified Sources](./OPP-087-unified-sources-mail-local-files-future-connectors.md)** — Implementation home for directory sources

@@ -12,7 +12,7 @@
 
 **Tags:** `ripmail` · `sync` · `performance` · `sources`
 
-**Related:** [`src/server/ripmail/sync/index.ts`](../../../src/server/ripmail/sync/index.ts), [`src/server/agent/tools/ripmailAgentTools.ts`](../../../src/server/agent/tools/ripmailAgentTools.ts), [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md), [OPP-098](../OPP-098-google-calendar-incremental-sync.md)
+**Related:** [`src/server/ripmail/sync/index.ts`](../../../src/server/ripmail/sync/index.ts), [`src/server/agent/tools/ripmailAgentTools.ts`](../../../src/server/agent/tools/ripmailAgentTools.ts), [OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md), [OPP-098](./OPP-098-google-calendar-incremental-sync.md)
 
 ---
 
@@ -65,4 +65,4 @@ Make **`ripmail refresh`** an orchestrated multi-source refresh:
 
 ## Notes
 
-This is separate from [OPP-098](../OPP-098-google-calendar-incremental-sync.md): incremental Calendar sync reduces the work per calendar source; this OPP reduces wall-clock latency by letting independent sources progress together.
+This is separate from [OPP-098](./OPP-098-google-calendar-incremental-sync.md): incremental Calendar sync reduces the work per calendar source; this OPP reduces wall-clock latency by letting independent sources progress together.

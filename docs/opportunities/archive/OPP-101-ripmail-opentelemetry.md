@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** **Rust** ripmail OTLP experiment obsolete; mail is **in-process TypeScript** (`src/server/ripmail/`). Observability: NR Log API + Node `ripmail.cli/…` segments ([newrelic.md](../../newrelic.md)).
 
-**Stub:** [../OPP-101-ripmail-opentelemetry.md](../OPP-101-ripmail-opentelemetry.md)
 
 ---
 
@@ -86,7 +85,7 @@ Adopt **OpenTelemetry** in the **ripmail** crate so sync, indexing, provider I/O
 
 ## Related
 
-- [OPP-071](OPP-071-llm-telemetry-traces-and-usage-cli.md) — Node “trace-style” correlation; possible future alignment on shared `trace_id`.
-- [OPP-078](OPP-078-code-health-idiomatic-patterns.md) — shared sync orchestration simplifies where spans attach.
-- [OPP-098](OPP-098-google-calendar-incremental-sync.md) — calendar sync is another span surface once incremental paths land.
+- [OPP-071](./OPP-071-llm-telemetry-traces-and-usage-cli.md) — Node “trace-style” correlation; possible future alignment on shared `trace_id`.
+- [OPP-078](./OPP-078-code-health-idiomatic-patterns.md) — shared sync orchestration simplifies where spans attach.
+- [OPP-098](./OPP-098-google-calendar-incremental-sync.md) — calendar sync is another span surface once incremental paths land.
 - [Rust ripmail snapshot](../../architecture/ripmail-rust-snapshot.md) — historical Rust tree on tag `ripmail-rust-before-typescript-port`.

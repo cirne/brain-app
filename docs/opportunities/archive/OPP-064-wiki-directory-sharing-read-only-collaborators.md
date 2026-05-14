@@ -1,8 +1,8 @@
 # Archived: OPP-064 — Wiki directory sharing — read-only collaborator invite (Phase 1)
 
-**Status:** Phase 1 **complete** (shipped). **Follow-on filesystem work** → **[OPP-091: Unified wiki namespace for sharing + tools](OPP-091-wiki-unified-namespace-sharing-projection.md)** (shipped MVP 2026-05-02).
+**Status:** Phase 1 **complete** (shipped). **Follow-on filesystem work** → **[OPP-091: Unified wiki namespace for sharing + tools](./OPP-091-wiki-unified-namespace-sharing-projection.md)** (shipped MVP 2026-05-02).
 
-**Successor:** [OPP-091](OPP-091-wiki-unified-namespace-sharing-projection.md)
+**Successor:** [OPP-091](./OPP-091-wiki-unified-namespace-sharing-projection.md)
 
 **Living architecture (kept current in tree):** [wiki-sharing.md](../../architecture/wiki-sharing.md) · **Vision:** [IDEA: Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md)
 
@@ -151,7 +151,7 @@ Best-effort `ripmail draft new` + send via `shareInviteEmail.ts`; failures do no
 
 ## Follow-on (moved to OPP-091)
 
-Intermediate work shipped **`.brain-share-mount`** symlinks, `@handle` coercion in tools, and related mapping. **Replacing that layout** with a **single parent directory** (`wikis/me`, `wikis/@owner/…`), **policy-manager-only symlink CRUD**, and **ordinary tool roots** was shipped as MVP in **[OPP-091](OPP-091-wiki-unified-namespace-sharing-projection.md)**.
+Intermediate work shipped **`.brain-share-mount`** symlinks, `@handle` coercion in tools, and related mapping. **Replacing that layout** with a **single parent directory** (`wikis/me`, `wikis/@owner/…`), **policy-manager-only symlink CRUD**, and **ordinary tool roots** was shipped as MVP in **[OPP-091](./OPP-091-wiki-unified-namespace-sharing-projection.md)**.
 
 ---
 
@@ -173,5 +173,5 @@ Tool friction alone does **not** cover editors or sync that bypass BrainTunnel u
 - [IDEA: Wiki sharing with collaborators](../../ideas/archive/IDEA-wiki-sharing-collaborators.md) — full idea including open questions this OPP intentionally defers.
 - [Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md) — full vision and sequencing; this OPP is M0.
 - [OPP-034](../OPP-034-wiki-snapshots-and-point-in-time-restore.md) — snapshots; complementary safety net, especially if write access ships in a follow-on.
-- [OPP-061](../OPP-061-wiki-top-level-dir-icons-vault-metadata.md) — wiki top-level dir icons; shared tree UX should fit the same directory model.
-- **[OPP-091](OPP-091-wiki-unified-namespace-sharing-projection.md)** — successor: unified wiki filesystem namespace + sharing projection (shipped MVP 2026-05-02).
+- [OPP-061](./OPP-061-wiki-top-level-dir-icons-vault-metadata.md) — wiki top-level dir icons; shared tree UX should fit the same directory model.
+- **[OPP-091](./OPP-091-wiki-unified-namespace-sharing-projection.md)** — successor: unified wiki filesystem namespace + sharing projection (shipped MVP 2026-05-02).

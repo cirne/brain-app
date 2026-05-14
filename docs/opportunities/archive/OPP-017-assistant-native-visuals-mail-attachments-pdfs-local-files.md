@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** **Shipped:** shared **`visualArtifacts`** contract (`shared/visualArtifacts.ts`), ripmail normalization (`src/server/ripmail/visualArtifacts.ts`), authenticated file surfaces (`src/server/routes/files.ts`), tool/stream adapters, Assistant transcript cards (`VisualArtifactsPreviewCard`, `VisualArtifactImageViewer`). **Tests:** e.g. `src/server/ripmail/visualArtifacts.test.ts`, `src/server/routes/files.test.ts`, `src/client/components/cards/VisualArtifactsPreviewCard.test.ts`.
 
-**Stub:** [../OPP-017-assistant-native-visuals-mail-attachments-pdfs-local-files.md](../OPP-017-assistant-native-visuals-mail-attachments-pdfs-local-files.md)
 
 ---
 
@@ -72,4 +71,4 @@ Structured `readStatus` + hints for **image-heavy PDFs** and similar (`ripmail r
 ## See also
 
 - [Wiki read vs indexed mail/files](../../architecture/wiki-read-vs-read-email.md)
-- **[archived OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md)** — unified sources (**stub:** [../OPP-087-unified-sources-mail-local-files-future-connectors.md](../OPP-087-unified-sources-mail-local-files-future-connectors.md))
+- **[archived OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md)** — unified sources (**stub:** [../OPP-087-unified-sources-mail-local-files-future-connectors.md](./OPP-087-unified-sources-mail-local-files-future-connectors.md))

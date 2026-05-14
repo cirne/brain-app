@@ -1,6 +1,6 @@
 # Archived: OPP-066 — Chat-first wiki / organic growth experiment
 
-**Archived 2026-04-30.** This epic is **closed for backlog tracking**: the shipped pieces below remain in `main`. **Operational “where we are”** (product question, eval harness posture, backlog): [the-wiki-question.md](../../the-wiki-question.md), [wiki-and-agent-evaluation.md](../../wiki-and-agent-evaluation.md); follow-on tickets [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md) (**first-draft bootstrap planning:** [OPP-095](../OPP-095-wiki-first-draft-bootstrap.md)), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md). **Stable short URL:** this archived file (`opportunities/archive/OPP-066-….md`).
+**Archived 2026-04-30.** This epic is **closed for backlog tracking**: the shipped pieces below remain in `main`. **Operational “where we are”** (product question, eval harness posture, backlog): [the-wiki-question.md](../../the-wiki-question.md), [wiki-and-agent-evaluation.md](../../wiki-and-agent-evaluation.md); follow-on tickets [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md) (**first-draft bootstrap planning:** [OPP-095](./OPP-095-wiki-first-draft-bootstrap.md)), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md). **Stable short URL:** this archived file (`opportunities/archive/OPP-066-….md`).
 
 ---
 
@@ -18,11 +18,11 @@
 
 Follow-on work (tracked outside this file):
 
-- **OPP-067 (archived)** — WikiBuilder deepen-only (no new-page creation); eligibility queue from `wiki-edits.jsonl` tail. **First-time wiki surface:** [OPP-095](../OPP-095-wiki-first-draft-bootstrap.md).
+- **OPP-067 (archived)** — WikiBuilder deepen-only (no new-page creation); eligibility queue from `wiki-edits.jsonl` tail. **First-time wiki surface:** [OPP-095](./OPP-095-wiki-first-draft-bootstrap.md).
 - Thin-page detector + lap-level work queue injection
 - **OPP-065** — LLM-as-judge eval scoring for wiki quality properties
 
-## **Related:** [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-054](../OPP-054-guided-onboarding-agent.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md) (historical — **retired 2026-04-30**), [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-095](../OPP-095-wiki-first-draft-bootstrap.md) (wiki first-draft bootstrap), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md), [OPP-011 (archived)](./OPP-011-user-skills-strategy.md), `[wikiExpansionRunner](../../../src/server/agent/wikiExpansionRunner.ts)`, `[wikiBuildoutAgent](../../../src/server/agent/wikiBuildoutAgent.ts)`, [the-wiki-question.md](../../the-wiki-question.md), [karpathy-llm-wiki-post.md](../../karpathy-llm-wiki-post.md)
+## **Related:** [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-054](./OPP-054-guided-onboarding-agent.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md) (historical — **retired 2026-04-30**), [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-095](./OPP-095-wiki-first-draft-bootstrap.md) (wiki first-draft bootstrap), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md), [OPP-011 (archived)](./OPP-011-user-skills-strategy.md), `[wikiExpansionRunner](../../../src/server/agent/wikiExpansionRunner.ts)`, `[wikiBuildoutAgent](../../../src/server/agent/wikiBuildoutAgent.ts)`, [the-wiki-question.md](../../the-wiki-question.md), [karpathy-llm-wiki-post.md](../../karpathy-llm-wiki-post.md)
 
 ## Revised direction — chat capture vs WikiBuilder vs linter
 
@@ -134,7 +134,7 @@ This is the biggest downstream consequence of the chat-first model. The wiki bui
 
 ### What onboarding phases exist today and why
 
-The current onboarding agent ([OPP-054](../OPP-054-guided-onboarding-agent.md)) runs five phases: identity, assistant name, calendars, inbox rules, and important people. In the chat-first model:
+The current onboarding agent ([OPP-054](./OPP-054-guided-onboarding-agent.md)) runs five phases: identity, assistant name, calendars, inbox rules, and important people. In the chat-first model:
 
 
 | Phase                  | Why it exists today                          | Chat-first model                                 |
@@ -321,7 +321,7 @@ At gpt-5.4-mini pricing, the identity-only onboarding costs cents. The open ques
 - **Not a removal of the supervisor.** The enrich → cleanup loop remains; it just has less to do in the first days and kicks in more meaningfully once chat-authored pages need maintenance.
 - **Not a promise the wiki won't need rebuilding.** If the user rarely chats about the same topic twice, the wiki stays sparse. The experiment tests whether real usage patterns generate enough repetition for organic compounding to work.
 - **Not a change to the semantic accuracy bar.** Chat-authored pages follow the same quality rules: synthesize, don't paste email text; recency wins for current-state facts; short paragraphs and bullets.
-- **Not a merge without data.** The core direction shipped (2026-04-30) after eval validation: 24/25 Enron cases pass with zero regressions on the original 23 tasks; WikiBuilder read/grep/find tools confirmed working. Remaining open items are tracked in [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-095](../OPP-095-wiki-first-draft-bootstrap.md), and OPP-065.
+- **Not a merge without data.** The core direction shipped (2026-04-30) after eval validation: 24/25 Enron cases pass with zero regressions on the original 23 tasks; WikiBuilder read/grep/find tools confirmed working. Remaining open items are tracked in [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-095](./OPP-095-wiki-first-draft-bootstrap.md), and OPP-065.
 
 ---
 
@@ -353,7 +353,7 @@ At gpt-5.4-mini pricing, the identity-only onboarding costs cents. The open ques
 ## Related
 
 - [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md) — Your Wiki supervisor and Karpathy alignment umbrella; this OPP is an alternative *ingest path*, not a replacement for maintenance.
-- [OPP-054](../OPP-054-guided-onboarding-agent.md) — Guided onboarding agent; the five-phase interview is simplified by this experiment.
+- [OPP-054](./OPP-054-guided-onboarding-agent.md) — Guided onboarding agent; the five-phase interview is simplified by this experiment.
 - [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md) — Post-turn touch-up (**shipped then retired 2026-04-30**); superseded direction in [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md).
 - [the-wiki-question.md](../../the-wiki-question.md) — The open product question this experiment is designed to answer empirically.
 - [karpathy-llm-wiki-post.md](../../karpathy-llm-wiki-post.md) — Original framing; "file good answers back into the wiki" is the core operation here.

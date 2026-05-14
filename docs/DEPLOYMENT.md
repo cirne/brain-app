@@ -12,7 +12,7 @@
 ## Scale and audience
 
 - **Single staging instance** only, intended to support on the order of **~15 signups** (informal cap for early testing).
-- **Google sign-in (OAuth):** the Google Cloud project is **not** through full production app verification yet. In **testing** mode, Google caps usage at about **~100 total users** unless each address is on the [test user list](https://console.cloud.google.com/auth/audience?project=zmail-492422) (see below). Lifting that limit requires **Google OAuth app verification** — **[OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md)** (see [§ Background](opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022); **stub [OPP-022](opportunities/OPP-022-google-oauth-app-verification.md)**).
+- **Google sign-in (OAuth):** the Google Cloud project is **not** through full production app verification yet. In **testing** mode, Google caps usage at about **~100 total users** unless each address is on the [test user list](https://console.cloud.google.com/auth/audience?project=zmail-492422) (see below). Lifting that limit requires **Google OAuth app verification** — **[OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md)** (see [§ Background](opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022); **[archived OPP-022](opportunities/archive/OPP-022-google-oauth-app-verification.md)**).
 
 ## Google Cloud — test users
 
@@ -85,7 +85,7 @@ Durable data is on a **separate block volume** (not the droplet’s local disk),
 ./scripts/doctl-brain.sh compute volume get dbe73672-3dc0-11f1-ae57-0a58ac1445f1
 ```
 
-**⚠ No snapshots — policy:** DO volume and droplet snapshots are **permanently prohibited**. A snapshot is a plaintext copy of all user email, OAuth tokens, and wiki content, mountable by anyone with the DO master token. All existing snapshots were deleted 2026-04-26. If an operational step seems to require a snapshot, find an alternative; if truly unavoidable, delete it immediately after use and document the action. See [SECURITY.md](SECURITY.md) for the full rationale. **Backup** is handled by wiki-only encrypted export to DO Spaces — see [OPP-050](opportunities/OPP-050-hosted-wiki-backup.md).
+**⚠ No snapshots — policy:** DO volume and droplet snapshots are **permanently prohibited**. A snapshot is a plaintext copy of all user email, OAuth tokens, and wiki content, mountable by anyone with the DO master token. All existing snapshots were deleted 2026-04-26. If an operational step seems to require a snapshot, find an alternative; if truly unavoidable, delete it immediately after use and document the action. See [SECURITY.md](SECURITY.md) for the full rationale. **Backup** is handled by wiki-only encrypted export to DO Spaces — see [archived OPP-050](opportunities/archive/OPP-050-hosted-wiki-backup.md).
 
 ### Load balancer (HTTP to the app)
 

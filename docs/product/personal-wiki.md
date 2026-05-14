@@ -23,7 +23,7 @@ Braintunnel **creates and helps you maintain** a **personal, private wiki**—a 
 - **Grounded:** Email, calendar, and (where enabled) other sources **feed** the wiki; the assistant uses those sources to **summarize and structure**, not to expose raw mail in random places without intent. The wiki is working synthesis, not a substitute for source evidence: when facts may have changed, the assistant should verify against the newest relevant dated source.
 - **Compounding:** The value is in the **network** of pages over time—the same insight as a “second brain” or Obsidian-style vault, with Braintunnel doing more of the scaffolding.
 
-**Collaboration:** **Read-only directory sharing (Phase 1)** is **shipped** — [OPP-064 stub](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md) and [wiki-sharing.md](../architecture/wiki-sharing.md). **Unified filesystem namespace:** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md). Read-write, agent scoped tools, richer identity sequenced in [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md).
+**Collaboration:** **Read-only directory sharing (Phase 1)** is **shipped** — [archived OPP-064](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md) and [wiki-sharing.md](../architecture/wiki-sharing.md). **Unified filesystem namespace:** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md). Read-write, agent scoped tools, richer identity sequenced in [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md).
 
 ---
 
@@ -79,7 +79,7 @@ Optional one-liner for power users: pages live as markdown in a repo you can edi
 
 ## Relation to slash skills
 
-User-editable recipes ([OPP-010](../opportunities/OPP-010-user-skills.md)) should align with this vocabulary: **`/wiki`** is a strong primary name for “create, edit, tidy, and restructure wiki content in natural language” ([OPP-011](../opportunities/OPP-011-user-skills-strategy.md)). The inline help above can also appear when the user first invokes `/wiki` or opens the wiki panel.
+User-editable recipes ([archived OPP-010](../opportunities/archive/OPP-010-user-skills.md)) should align with this vocabulary: **`/wiki`** is a strong primary name for “create, edit, tidy, and restructure wiki content in natural language” ([archived OPP-011](../opportunities/archive/OPP-011-user-skills-strategy.md)). The inline help above can also appear when the user first invokes `/wiki` or opens the wiki panel.
 
 ---
 
@@ -88,5 +88,5 @@ User-editable recipes ([OPP-010](../opportunities/OPP-010-user-skills.md)) shoul
 - [VISION.md](../VISION.md) — second brain, compounding value
 - [Onboarding state machine](../architecture/onboarding-state-machine.md) — persisted states and first-time mail phases (implementation)
 - [OPP-006: Email-bootstrap onboarding (archived)](../opportunities/archive/OPP-006-email-bootstrap-onboarding.md) — product roots of the `/onboarding` flow
-- [OPP-011: User skills strategy](../opportunities/OPP-011-user-skills-strategy.md) — `/wiki` and NL-first skills
+- [archived OPP-011: User skills strategy](../opportunities/archive/OPP-011-user-skills-strategy.md) — `/wiki` and NL-first skills
 - [IDEA Wiki sharing with collaborators](../ideas/archive/IDEA-wiki-sharing-collaborators.md) — future optional sharing of wiki subtrees (see “Collaboration (future)” above)

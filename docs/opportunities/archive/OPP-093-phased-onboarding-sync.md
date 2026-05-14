@@ -1,10 +1,10 @@
 # OPP-093: Phased Onboarding Sync — 30-Day First Pass + Background 1-Year Backfill
 
-**Status:** **Archived (2026-05-06).** **Shipped implementation** (phased backfill + poll-based gating) remains in code and architecture docs. **Superseded by:** **[OPP-094](../OPP-094-holistic-onboarding-background-task-orchestration.md)** (holistic onboarding orchestration — email + interview + wiki coordination, unified Hub status, automatic wiki start).
+**Status:** **Archived (2026-05-06).** **Shipped implementation** (phased backfill + poll-based gating) remains in code and architecture docs. **Superseded by:** **[OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md)** (holistic onboarding orchestration — email + interview + wiki coordination, unified Hub status, automatic wiki start).
 
 **Implementation (authoritative):** **[docs/architecture/onboarding-state-machine.md](../../architecture/onboarding-state-machine.md)** (states, API, `refreshRunning` vs `backfillRunning`, code pointers).
 
-**Related:** [OPP-054](../OPP-054-guided-onboarding-agent.md) (guided onboarding agent), [ripmail SYNC.md](../../../ripmail/docs/SYNC.md) (refresh vs backfill lanes), [ripmail OPP-041 (archived)](../../../ripmail/docs/opportunities/archive/OPP-041-multi-mailbox-first-sync-onboarding.md)
+**Related:** [OPP-054](./OPP-054-guided-onboarding-agent.md) (guided onboarding agent), [ripmail SYNC.md](../../../ripmail/docs/SYNC.md) (refresh vs backfill lanes), [ripmail OPP-041 (archived)](../../../ripmail/docs/opportunities/archive/OPP-041-multi-mailbox-first-sync-onboarding.md)
 
 ---
 

@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Epic **shipped (2026-05-02):** strangler **`tw-components/`** folded into [`src/client/components/`](../../../src/client/components/); **`@components/…`** imports. Follow-on (**tokens**, **`@theme`**, pruning scoped `<style>`) is normal hygiene—[**tailwind-migration.md**](../../architecture/tailwind-migration.md). Supersedes archived [**BUG-005**](../../bugs/archive/BUG-005-tailwind-css-consolidation.md).
 
-**Stub:** [../OPP-049-global-ui-tailwind-refactor.md](../OPP-049-global-ui-tailwind-refactor.md)
 
 ---
 
@@ -112,7 +111,7 @@ New work should follow target conventions **from the start**, even before the br
 - `vite.config.ts` — `@tailwindcss/vite` plugin
 - [Archived BUG-005](../../bugs/archive/BUG-005-tailwind-css-consolidation.md) — consolidated into this epic
 - [AGENTS.md](../../../AGENTS.md) — Svelte 5, lint/test expectations.
-- [archived OPP-007](OPP-007-native-mac-app.md) — Native shell; refactors should remain OK in Tauri webview.
-- [OPP-089](OPP-089-google-design-md-exploratory.md) — **DESIGN.md** spike **shipped** (agent-facing spec + `design:lint`); fuller tooling optional.
+- [archived OPP-007](./OPP-007-native-mac-app.md) — Native shell; refactors should remain OK in Tauri webview.
+- [OPP-089](./OPP-089-google-design-md-exploratory.md) — **DESIGN.md** spike **shipped** (agent-facing spec + `design:lint`); fuller tooling optional.
 - [ARCHITECTURE.md](../../ARCHITECTURE.md) — optional future “client styling” subsection.
 - Svelte 5 + styling skills under `.cursor` / Svelte MCP for component-level best practices when implementing.

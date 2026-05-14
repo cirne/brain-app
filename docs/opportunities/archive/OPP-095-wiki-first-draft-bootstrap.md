@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** Removed from the active backlog (shipped or no longer pursued).
 
-**Stub:** [../OPP-095-wiki-first-draft-bootstrap.md](../OPP-095-wiki-first-draft-bootstrap.md)
 
 ---
 
@@ -11,13 +10,13 @@
 ### OPP-095: Wiki first-draft bootstrap — mail-informed skeleton, then maintenance loop
 
 **Status:** Planned  
-**Related:** [archived OPP-067](./archive/OPP-067-wiki-buildout-agent-no-new-pages.md) (implemented deepen-only enrich; **narrowed** by this OPP — bootstrap may `write`), [OPP-094](../OPP-094-holistic-onboarding-background-task-orchestration.md) (orchestration + wiki kick timing), [OPP-054](../OPP-054-guided-onboarding-agent.md) (`me.md` / interview), [OPP-068](../OPP-068-wiki-template-user-profiles.md) (vault presets), [OPP-077](../OPP-077-who-smart-address-book.md) (address book / identity signals — optional inputs), [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md)
+**Related:** [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md) (implemented deepen-only enrich; **narrowed** by this OPP — bootstrap may `write`), [OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md) (orchestration + wiki kick timing), [OPP-054](./OPP-054-guided-onboarding-agent.md) (`me.md` / interview), [OPP-068](./OPP-068-wiki-template-user-profiles.md) (vault presets), [OPP-077](./OPP-077-who-smart-address-book.md) (address book / identity signals — optional inputs), [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md)
 
 ---
 
 ## Problem
 
-After onboarding, many vaults have **almost no pages** while the mail index already has **thousands of messages**. The current **Your Wiki** loop assumes a **non-empty deepen queue** (recent edits + thin `people/` / `projects/` / `topics/`). **[Archived OPP-067](./archive/OPP-067-wiki-buildout-agent-no-new-pages.md)** correctly avoids speculative page sprawl **in steady state**, but combined with an early **wiki supervisor start** ([indexed gate](../OPP-094-holistic-onboarding-background-task-orchestration.md)) it produces **low-value laps** (re-editing the same one or two files).
+After onboarding, many vaults have **almost no pages** while the mail index already has **thousands of messages**. The current **Your Wiki** loop assumes a **non-empty deepen queue** (recent edits + thin `people/` / `projects/` / `topics/`). **[Archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md)** correctly avoids speculative page sprawl **in steady state**, but combined with an early **wiki supervisor start** ([indexed gate](./OPP-094-holistic-onboarding-background-task-orchestration.md)) it produces **low-value laps** (re-editing the same one or two files).
 
 Users still want a **first useful wiki shape**: who matters, what they are working on, upcoming travel, and a light sense of themes — **without** requiring many chat turns first.
 
@@ -72,7 +71,7 @@ After bootstrap **success**:
 
 **Do not** start the **continuous** wiki supervisor until **bootstrap completed** **or** explicitly skipped (power user / empty mail edge case).
 
-This **updates** [OPP-094](../OPP-094-holistic-onboarding-background-task-orchestration.md) milestone semantics: wiki auto-start attaches to **“bootstrap done → maintenance on”**, not “indexed only.”
+This **updates** [OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md) milestone semantics: wiki auto-start attaches to **“bootstrap done → maintenance on”**, not “indexed only.”
 
 ---
 
@@ -107,7 +106,7 @@ Add a short **terminology** split in prompts or code: `wikiBootstrapAgent` vs `w
 
 ## Open questions
 
-1. **Calendar:** Use ripmail calendar JSON in bootstrap for **travel** when OAuth calendar exists ([OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md)) — default **on** if available?
+1. **Calendar:** Use ripmail calendar JSON in bootstrap for **travel** when OAuth calendar exists ([OPP-070](./OPP-070-full-calendar-read-write-agent-surface.md)) — default **on** if available?
 2. **Hosted vs desktop:** Same bootstrap on both; any **reduced** mode without calendar?
 3. **Re-bootstrap:** Only on explicit “Reset wiki draft” / new tenant, or offer a **rare** manual “Regenerate skeleton” with merge policy?
 4. **OPP-077 / `who`:** Inject ranked **`ripmail who`** or contact hints as **optional** structured input to reduce LLM thrash?
@@ -120,4 +119,4 @@ Add a short **terminology** split in prompts or code: `wikiBootstrapAgent` vs `w
 - [ ] **Continuous** Your Wiki laps **do not** run meaninglessly on an almost empty vault; they follow bootstrap **or** a documented skip.
 - [ ] People list reflects **importance heuristics**, not raw recency; **caps** prevent page explosion.
 - [ ] **Archived OPP-067** steady-state behavior preserved for post-bootstrap laps (deepen / chat creates).
-- [ ] [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md) / [OPP-094](../OPP-094-holistic-onboarding-background-task-orchestration.md) updated when implementation lands (milestones + kick order).
+- [ ] [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md) / [OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md) updated when implementation lands (milestones + kick order).

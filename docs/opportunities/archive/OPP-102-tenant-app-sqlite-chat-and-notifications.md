@@ -1,6 +1,6 @@
 # Archived: OPP-102 — Tenant app SQLite (chat, notifications, schema lifecycle)
 
-**Status: Archived — shipped (2026-05).** **Active pointer:** [../OPP-102-tenant-app-sqlite-chat-and-notifications.md](../OPP-102-tenant-app-sqlite-chat-and-notifications.md) · **Architecture:** [chat-history-sqlite.md](../../architecture/chat-history-sqlite.md) · **`TENANT_SCHEMA_VERSION`:** [`tenantSqlite.ts`](../../../src/server/lib/tenant/tenantSqlite.ts)
+**Status: Archived — shipped (2026-05).** **Active pointer:** [../OPP-102-tenant-app-sqlite-chat-and-notifications.md](./OPP-102-tenant-app-sqlite-chat-and-notifications.md) · **Architecture:** [chat-history-sqlite.md](../../architecture/chat-history-sqlite.md) · **`TENANT_SCHEMA_VERSION`:** [`tenantSqlite.ts`](../../../src/server/lib/tenant/tenantSqlite.ts)
 
 **Shipped (summary):**
 
@@ -76,4 +76,4 @@ Inbox / `ripmail` already encodes **rule disposition** (`notify` / `inform` / `i
 - **[IDEA: Anticipatory assistant brief](../../ideas/IDEA-anticipatory-assistant-brief.md)** (full brief UX, brain-query approvals, mail SSOT open question).
 - **[IDEA: Brain-query delegation](../../ideas/IDEA-brain-query-delegation.md)** — **Per-grant approval** and inbound/outbound surfacing depend on notification persistence; enqueue/approval wiring is follow-on after persistence lands.
 - **[IDEA: Onboarding insight gallery](../../ideas/IDEA-onboarding-insight-gallery.md)** — distinct cadence from standing brief; may share signals or read paths later.
-- [OPP-071](../OPP-071-llm-telemetry-traces-and-usage-cli.md) / [OPP-072](../OPP-072-llm-usage-token-metering.md) may **read** usage from SQLite chat rows instead of scanning `chats/*.json`.
+- [OPP-071](./OPP-071-llm-telemetry-traces-and-usage-cli.md) / [OPP-072](./OPP-072-llm-usage-token-metering.md) may **read** usage from SQLite chat rows instead of scanning `chats/*.json`.

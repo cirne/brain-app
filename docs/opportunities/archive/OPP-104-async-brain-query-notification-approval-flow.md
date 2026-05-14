@@ -1,10 +1,10 @@
 # Archived: OPP-104 — Async brain-query (B2B) — notifications, human-approved drafts, shared agent for auto-send
 
-**Status:** Archived (2026-05-11). **Superseded by** [OPP-106 — Email-first cross-brain collaboration (archive)](OPP-106-email-first-cross-brain-collaboration.md) — mail as the canonical async plane; **`runBrainQuery` / `ask_brain`** removed. **Stub / summary:** [../OPP-106-email-first-cross-brain-collaboration.md](../OPP-106-email-first-cross-brain-collaboration.md).
+**Status:** Archived (2026-05-11). **Superseded by** [OPP-106 — Email-first cross-brain collaboration (archive)](./OPP-106-email-first-cross-brain-collaboration.md) — mail as the canonical async plane; **`runBrainQuery` / `ask_brain`** removed. **Stub / summary:** [../OPP-106-email-first-cross-brain-collaboration.md](./OPP-106-email-first-cross-brain-collaboration.md).
 
 **Historical:** The doc below retained **Phase 1 / Phase 2** framing for the abandoned **`runBrainQuery` + notification** approach.
 
-**See also:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **[OPP-102](./OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant `notifications` — shipped) · [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX patterns) · [OPP-100](../OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT on grants)
+**See also:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · [IDEA: Brain-query delegation](../ideas/IDEA-brain-query-delegation.md) · [IDEA: Anticipatory assistant brief](../ideas/IDEA-anticipatory-assistant-brief.md) · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) · **[OPP-102](./OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (tenant `notifications` — shipped) · [OPP-056](./OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX patterns) · [OPP-100](./OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT on grants)
 
 ## Problem
 
@@ -23,7 +23,7 @@ Product intent: treat cross-brain requests like **high-signal inbound work**—*
 1. When a granted peer sends a brain-query, the **owner** gets a **`notifications` row** (and any brief/empty-chat surfacing built on that substrate — see [IDEA-anticipatory-assistant-brief](../ideas/IDEA-anticipatory-assistant-brief.md)) carrying at least: **asker identity**, **question text**, **correlation id / log pointer**, and **deep link** into the review flow.
 2. **No blocking answer generation** is required before the asker’s client gets an ACK: the asker may see “request queued” / async status (exact UX TBD).
 3. When the owner **opens the notification**, the product runs the **same answering pipeline** as today (research + privacy filter scoped by grant **capabilities and policy**), but outputs into a **review artifact**—**editable** copy the owner can adjust before **sending** the final text to the asker.
-4. UX should **reuse patterns** comparable to **mail drafts** where practical (overlay editor, approve/discard) — see [OPP-056](OPP-056-email-draft-overlay-markdown-editor.md)—so the mental model stays **“draft for me, I edit, I release.”**
+4. UX should **reuse patterns** comparable to **mail drafts** where practical (overlay editor, approve/discard) — see [OPP-056](./OPP-056-email-draft-overlay-markdown-editor.md)—so the mental model stays **“draft for me, I edit, I release.”**
 
 ### Phase 2 — Automatic delivery (after Phase 1 is trusted)
 
@@ -53,4 +53,4 @@ After **Phase 1** has been exercised and product/org testing says auto-send is a
 ## Related implementation notes
 
 - **Persistence:** tenant SQLite **`notifications`** from **[OPP-102](archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** is the natural store; extend `kind` / payload JSON as needed.
-- **Policy:** when **[OPP-100](OPP-100-brain-query-policy-records-and-grant-fk.md)** lands, **delivery mode** should attach to **policy or grant** consistently with other per-connection knobs.
+- **Policy:** when **[OPP-100](./OPP-100-brain-query-policy-records-and-grant-fk.md)** lands, **delivery mode** should attach to **policy or grant** consistently with other per-connection knobs.

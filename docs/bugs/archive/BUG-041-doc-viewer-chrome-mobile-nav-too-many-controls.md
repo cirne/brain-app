@@ -1,6 +1,6 @@
 # BUG-041: Doc / wiki viewer — top chrome and L2 navigation overload (especially mobile)
 
-**Status:** Open — superseded by [OPP-092](../opportunities/OPP-092-mobile-navigation-ia-rethink.md) (mobile navigation IA rethink). This bug is the symptom; OPP-092 is the redesign that fixes it.
+**Status:** Open — superseded by [archived OPP-092](../opportunities/archive/OPP-092-mobile-navigation-ia-rethink.md) (mobile navigation IA rethink). This bug is the symptom; OPP-092 is the redesign that fixes it.
 **Severity:** P2 (readability + primary reading surface; mobile is cramped)
 **Area:** Wiki / document viewer shell, responsive layout
 

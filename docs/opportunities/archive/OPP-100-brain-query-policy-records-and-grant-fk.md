@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** Removed from the active backlog (shipped or no longer pursued).
 
-**Stub:** [../OPP-100-brain-query-policy-records-and-grant-fk.md](../OPP-100-brain-query-policy-records-and-grant-fk.md)
 
 ---
 
@@ -44,4 +43,4 @@ Today each `brain_query_grants` row stores a **full copy** of the privacy policy
 ## Related
 
 - Spike 2 alignment: [brain-to-brain-access-policy.md § Spike 2](../../architecture/brain-to-brain-access-policy.md#spike-2-plaintext-plus)
-- Archived UI epic: [OPP-099](./archive/OPP-099-brain-to-brain-admin-hub-ui.md)
+- Archived UI epic: [OPP-099](./OPP-099-brain-to-brain-admin-hub-ui.md)

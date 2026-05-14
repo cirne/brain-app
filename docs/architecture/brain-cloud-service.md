@@ -2,7 +2,7 @@
 
 **Status:** Pre-opportunity. Not yet scoped for implementation. These are architectural thoughts on what a centrally operated service — run by us — might eventually look like, and what it absolutely must not be.
 
-**Related:** **[Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md)** (brain-to-brain vision, sequencing, security model), **[brain-to-brain-access-policy](./brain-to-brain-access-policy.md)** (draft policy layers for grants and tools), [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) (tunnels), [OPP-030](../opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md) (support/bug pipeline).
+**Related:** **[Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md)** (brain-to-brain vision, sequencing, security model), **[brain-to-brain-access-policy](./brain-to-brain-access-policy.md)** (draft policy layers for grants and tools), [archived OPP-008](../opportunities/archive/OPP-008-tunnel-qr-phone-access.md) (tunnels), [OPP-030](../opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md) (support/bug pipeline).
 
 ---
 
@@ -38,7 +38,7 @@ The natural home for the bug-filing pipeline described in [OPP-030](../opportuni
 
 ### 3. Tunnel Coordination
 
-For features like [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) (phone access via QR / tunnel) and the brain-to-brain direct channels in [Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md), there may be infrastructure we need to run centrally for NAT traversal and tunnel setup — especially when both brains are behind NAT and can't reach each other directly.
+For features like [archived OPP-008](../opportunities/archive/OPP-008-tunnel-qr-phone-access.md) (phone access via QR / tunnel) and the brain-to-brain direct channels in [Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md), there may be infrastructure we need to run centrally for NAT traversal and tunnel setup — especially when both brains are behind NAT and can't reach each other directly.
 
 A TURN/signaling relay or a Cloudflare-style tunnel coordinator would live here. The key constraint is that this infrastructure routes *connections*, not *content*. It helps two endpoints find each other; it does not read, store, or process the payload. The content stays end-to-end encrypted between the brains.
 
@@ -70,7 +70,7 @@ If we ever find ourselves designing a feature that requires the cloud service to
 
 These are not even sketched out yet, but worth naming so they're not forgotten:
 
-- **Version/update distribution.** A stable endpoint for [OPP-029](../opportunities/OPP-029-auto-update.md) update manifests and signed artifact downloads. We'd run this rather than depend on GitHub Releases alone.
+- **Version/update distribution.** A stable endpoint for [archived OPP-029](../opportunities/archive/OPP-029-auto-update.md) update manifests and signed artifact downloads. We'd run this rather than depend on GitHub Releases alone.
 - **Brain-to-brain relay (ephemeral).** During the initial handshake (see [Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) M1), before two brains have established a direct channel, a central relay might broker the initial exchange. After the channel is set up, the relay is no longer involved.
 - **Public directory (opt-in).** An indexed, searchable listing of brains that have chosen to be discoverable — tagged by interests, expertise, availability. Described in the deferred public-brain-identity section of [Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md). No private data; only what each brain explicitly publishes.
 

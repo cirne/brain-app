@@ -14,7 +14,7 @@
 
 # OPP-011: User skills strategy (granularity & UX)
 
-**Status:** Draft — not shipped. Complements [OPP-010: User skills](OPP-010-user-skills.md) (mechanics, seeding, UI fields). This doc answers: **how many skills**, **how coarse**, **how users invoke them**, and how that relates to the **agent toolset**.
+**Status:** Draft — not shipped. Complements [OPP-010: User skills](./OPP-010-user-skills.md) (mechanics, seeding, UI fields). This doc answers: **how many skills**, **how coarse**, **how users invoke them**, and how that relates to the **agent toolset**.
 
 ## 1. Inventory: what the agent can already do
 
@@ -71,4 +71,4 @@ Primary UX: `/skillname` followed by free text. Typed templates are optional pow
 
 - Tool implementation: `[src/server/agent/tools.ts](../../../src/server/agent/tools.ts)`
 - User skill seeds: `[assets/user-skills/](../../assets/user-skills/)`
-- Mechanics and UI: [OPP-010](OPP-010-user-skills.md)
+- Mechanics and UI: [OPP-010](./OPP-010-user-skills.md)

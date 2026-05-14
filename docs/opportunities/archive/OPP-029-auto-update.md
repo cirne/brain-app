@@ -1,6 +1,6 @@
 # Archived: OPP-029 — Desktop auto-update (Braintunnel.app)
 
-**Archived 2026-04-30.** **Status: Partial** — updater plugin wired; **manifest `endpoints`** and signed release pipeline still open. See [AGENTS.md](../../../AGENTS.md). **Stable URL:** [stub](../OPP-029-auto-update.md).
+**Archived 2026-04-30.** **Status: Partial** — updater plugin wired; **manifest `endpoints`** and signed release pipeline still open. See [AGENTS.md](../../../AGENTS.md). **Stable URL:** [stub](./OPP-029-auto-update.md).
 
 ---
 
@@ -14,7 +14,7 @@
 
 Braintunnel ships as a macOS `.app` / DMG. Today, getting a new version means rebuilding from source or manually replacing the bundle. Before any real distribution this must be solved: the app needs to detect a new release, download it silently, and offer a one-click restart into the new version.
 
-**Related:** [OPP-007 archive](./OPP-007-native-mac-app.md) (Tauri bundling), [archived OPP-023](./OPP-023-local-https-loopback-hardening.md) (HTTPS to embedded server), [OPP-022](../OPP-022-google-oauth-app-verification.md) (distribution prerequisites).
+**Related:** [OPP-007 archive](./OPP-007-native-mac-app.md) (Tauri bundling), [archived OPP-023](./OPP-023-local-https-loopback-hardening.md) (HTTPS to embedded server), [OPP-022](./OPP-022-google-oauth-app-verification.md) (distribution prerequisites).
 
 ---
 

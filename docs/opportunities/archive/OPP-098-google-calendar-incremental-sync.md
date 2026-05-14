@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** Removed from the active backlog (shipped or no longer pursued).
 
-**Stub:** [../OPP-098-google-calendar-incremental-sync.md](../OPP-098-google-calendar-incremental-sync.md)
 
 ---
 
@@ -16,13 +15,13 @@
 
 **Tags:** `ripmail` · `calendar` · `google` · `performance`
 
-**Related:** [`src/server/ripmail/calendar.ts`](../../../src/server/ripmail/calendar.ts) (Google Calendar indexing surface); calendar **`sync_token`** in SQLite; Rust-era reference ([ripmail-rust-snapshot.md](../../architecture/ripmail-rust-snapshot.md)); agent calendar surface **[OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md)**; archived **[OPP-069](./archive/OPP-069-calendar-token-efficiency.md)** (tool/token shape — orthogonal to **refresh wall time**).
+**Related:** [`src/server/ripmail/calendar.ts`](../../../src/server/ripmail/calendar.ts) (Google Calendar indexing surface); calendar **`sync_token`** in SQLite; Rust-era reference ([ripmail-rust-snapshot.md](../../architecture/ripmail-rust-snapshot.md)); agent calendar surface **[OPP-070](./OPP-070-full-calendar-read-write-agent-surface.md)**; archived **[OPP-069](./OPP-069-calendar-token-efficiency.md)** (tool/token shape — orthogonal to **refresh wall time**).
 
 ---
 
 ## Problem
 
-Every **`ripmail refresh`** run **deletes all indexed events** for the calendar source (`delete_source_events`) and **re-fetches** a **fixed wide window** (~**2 years** past → ~**3 years** future) with **`singleEvents=true`**, paginating **`maxResults=250`** per calendar. On real accounts this routinely means **thousands** of HTTP rows and **~10–15+ s** of wall clock **even when nothing changed**, and it **dominates** perceived refresh latency when mail uses the Gmail API fast path ([archived OPP-097](./archive/OPP-097-gmail-rest-api-incremental-refresh.md)).
+Every **`ripmail refresh`** run **deletes all indexed events** for the calendar source (`delete_source_events`) and **re-fetches** a **fixed wide window** (~**2 years** past → ~**3 years** future) with **`singleEvents=true`**, paginating **`maxResults=250`** per calendar. On real accounts this routinely means **thousands** of HTTP rows and **~10–15+ s** of wall clock **even when nothing changed**, and it **dominates** perceived refresh latency when mail uses the Gmail API fast path ([archived OPP-097](./OPP-097-gmail-rest-api-incremental-refresh.md)).
 
 Tokens (**`nextSyncToken`**) are already **persisted per `(source_id, calendar_id)`** in places, but the **full wipe + full replay** pattern prevents steady-state incremental behavior.
 

@@ -146,4 +146,4 @@ This is a **known architectural follow-on** for Phase 2–3 scaling: redesign th
 - [per-tenant-storage-defense.md](./per-tenant-storage-defense.md) — Why directory-per-tenant (philosophical defense)
 - [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) — Security isolation strategies
 - [OPP-096](../opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — Implementation tracking
-- [OPP-050](../opportunities/OPP-050-hosted-wiki-backup.md) — Wiki-only backup (predecessor/subset)
+- [archived OPP-050](../opportunities/archive/OPP-050-hosted-wiki-backup.md) — Wiki-only backup (predecessor/subset)

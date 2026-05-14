@@ -94,7 +94,7 @@ Related: in-memory **agent session Map** limits for multi-instance chat — **[a
 | [ripmail-rust-snapshot.md](./ripmail-rust-snapshot.md) | Rust-era **`refresh`** vs **`backfill`** lanes (`ripmail/docs/SYNC.md` on tag) |
 | **[multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md)** | Cells, locks, one-tenant-per-container direction |
 | **[deployment-models.md](./deployment-models.md)** | Desktop vs cloud |
-| [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md) · [stub](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md) | Product framing for unified background status |
+| [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md) | Product framing for unified background status |
 
 ---
 

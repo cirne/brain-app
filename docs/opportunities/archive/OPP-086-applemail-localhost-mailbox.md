@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** In-tree MVP shipped; tracking closed. Residual polish can be new work if needed.
 
-**Stub:** [../OPP-086-applemail-localhost-mailbox.md](../OPP-086-applemail-localhost-mailbox.md)
 
 ---
 
@@ -164,7 +163,7 @@ $ ripmail wizard
 
 ## Related
 
-- [OPP-083](OPP-083-imessage-and-unified-messaging-index.md) — iMessage + unified messaging; same FDA story, different data source.
+- [OPP-083](./OPP-083-imessage-and-unified-messaging-index.md) — iMessage + unified messaging; same FDA story, different data source.
 - [OPP-016 archived](../../ripmail/docs/opportunities/archive/OPP-016-multi-inbox.md) — multi-mailbox architecture this would extend.
 - [OPP-009 archived](../../ripmail/docs/opportunities/archive/OPP-009-agent-friendly-setup.md) — wizard UX patterns.
 

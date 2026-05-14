@@ -1,6 +1,6 @@
 # Archived: OPP-103 — Port ripmail to TypeScript
 
-**Status: Archived — shipped (2026-05-11).** Mail runs **in-process** in **`src/server/ripmail/`** (`better-sqlite3` on `<tenant>/ripmail/ripmail.db`). The Rust **`ripmail/`** crate is off **`main`** ([`ripmail-rust-snapshot.md`](../../architecture/ripmail-rust-snapshot.md)). **Follow-on:** [OPP-108](../OPP-108-unified-tenant-sqlite.md). **Stub:** [../OPP-103-ripmail-ts-port.md](../OPP-103-ripmail-ts-port.md).
+**Status: Archived — shipped (2026-05-11).** Mail runs **in-process** in **`src/server/ripmail/`** (`better-sqlite3` on `<tenant>/ripmail/ripmail.db`). The Rust **`ripmail/`** crate is off **`main`** ([`ripmail-rust-snapshot.md`](../../architecture/ripmail-rust-snapshot.md)). **Follow-on:** [OPP-108](../OPP-108-unified-tenant-sqlite.md)..
 
 ---
 
@@ -172,11 +172,11 @@ Once reads are verified:
 | OPP | Impact |
 |-----|--------|
 | [OPP-108](../OPP-108-unified-tenant-sqlite.md) | **Unblocked by this (shipped).** SQLite schema merge (mail + chat + notifications) is the follow-on. |
-| [OPP-101](../OPP-101-ripmail-opentelemetry.md) | **Moot.** Rust OTLP rolled back; TS port uses Node New Relic agent directly. |
-| [OPP-078](../OPP-078-code-health-idiomatic-patterns.md) | **Absorbed.** Rust code-health cleanup unnecessary if code is ported. |
-| [OPP-098](../OPP-098-google-calendar-incremental-sync.md) | **Carried forward.** Calendar incremental sync logic in TS. |
+| [OPP-101](./OPP-101-ripmail-opentelemetry.md) | **Moot.** Rust OTLP rolled back; TS port uses Node New Relic agent directly. |
+| [OPP-078](./OPP-078-code-health-idiomatic-patterns.md) | **Absorbed.** Rust code-health cleanup unnecessary if code is ported. |
+| [OPP-098](./OPP-098-google-calendar-incremental-sync.md) | **Carried forward.** Calendar incremental sync logic in TS. |
 | [OPP-096](../OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) | **Simplified.** No Rust build step in server-bundle. |
-| [OPP-082](../OPP-082-mcp-deferred-cli-first.md) | **Revisit.** MCP stdio was gated on CLI contract; in-process tools change the calculus. |
+| [OPP-082](./OPP-082-mcp-deferred-cli-first.md) | **Revisit.** MCP stdio was gated on CLI contract; in-process tools change the calculus. |
 
 ---
 

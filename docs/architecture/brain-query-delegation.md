@@ -6,7 +6,7 @@ Cross-brain collaboration is **grant-gated**: who may query whose workspace, wit
 
 **Policy model:** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md) — three layers (capabilities, hard predicates, soft ALLOW/DISALLOW fragments).
 
-**Hub admin (Spike 1)** for grants and policy editing: closed **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — [brain-to-brain-access-policy.md § closure](./brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure).
+**Hub admin (Spike 1)** for grants and policy editing: closed **[archived OPP-099](../opportunities/archive/OPP-099-brain-to-brain-admin-hub-ui.md)** — [brain-to-brain-access-policy.md § closure](./brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure).
 
 **Specs / direction:** [IDEA-brain-query-delegation.md](../ideas/IDEA-brain-query-delegation.md) · Chat-native rollout: [archived OPP-110](../opportunities/archive/OPP-110-chat-native-brain-to-brain.md), [archived OPP-111](../opportunities/archive/OPP-111-tunnel-fast-follows.md) (shipped 2026-05-12).
 
@@ -24,4 +24,4 @@ Cross-brain collaboration is **grant-gated**: who may query whose workspace, wit
 
 ## Historical: mail as collaboration transport (OPP-106)
 
-An earlier experiment used **ordinary email** (subject marker **`[braintunnel]`**), Ripmail, and **`brain_query_mail`** notifications so collaborators could coordinate without a chat tunnel API. That is **not** the current product architecture — **Braintunnel B2B** uses **server-mediated chat sessions** ([braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)). For the archived mail-first design and removal of **`runBrainQuery` / `ask_brain`**, see **[archived OPP-106](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md)** (**stub:** [OPP-106](../opportunities/OPP-106-email-first-cross-brain-collaboration.md)).
+An earlier experiment used **ordinary email** (subject marker **`[braintunnel]`**), Ripmail, and **`brain_query_mail`** notifications so collaborators could coordinate without a chat tunnel API. That is **not** the current product architecture — **Braintunnel B2B** uses **server-mediated chat sessions** ([braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)). For the archived mail-first design and removal of **`runBrainQuery` / `ask_brain`**, see **[archived OPP-106](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md)**.

@@ -57,4 +57,4 @@ For a profile-grounded first message, ensure `**wiki/me.md`** exists (e.g. after
 - `src/server/lib/firstChatPending.ts` — pending marker on disk
 - `src/server/routes/chat.ts` — `tryConsumeFirstChatPending`, `firstChatKickoff` validation
 - `src/server/agent/assistantAgent.ts` — `firstChat` / `firstChatPromptSection()`
-- `docs/opportunities/OPP-018-first-chat-post-onboarding-prompt.md` — product intent
+- `docs/opportunities/archive/OPP-018-first-chat-post-onboarding.md` — product intent

@@ -4,7 +4,7 @@ Read-only **directory-level** wiki shares: an owner invites a collaborator by **
 
 The global file **`brain-global.sqlite`** includes a **`brain_global_schema`** table with a **version** row. When the code’s schema version (`BRAIN_GLOBAL_SCHEMA_VERSION` in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts)) does not match the file, the server **deletes and recreates** the database (no `ALTER TABLE` migrations for this store yet).
 
-**Phase 1 (stub):** [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · **`wikis/` namespace (active):** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Projection ↔ DB sync (ADR):** [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) · **Idea / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Cross-brain policy model (draft, brain-query + future):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md)
+**Phase 1 (archived spec):** [archived OPP-064](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · **`wikis/` namespace (active):** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Projection ↔ DB sync (ADR):** [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) · **Idea / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Cross-brain policy model (draft, brain-query + future):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md)
 
 ---
 
@@ -125,7 +125,7 @@ Renaming the **shared folder** on disk without updating `path_prefix` **breaks**
 
 | Path | Frequency | Expectation |
 | ---- | --------- | ----------- |
-| **Read / list / open shared subtree** | High | Cheap — validated reads ([`/api/wiki/shared/...`](#cross-tenant-wiki-reads)) plus symlink projection under **`.brain-share-mount`** for tool/browser parity ([OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)). |
+| **Read / list / open shared subtree** | High | Cheap — validated reads ([`/api/wiki/shared/...`](#cross-tenant-wiki-reads)) plus symlink projection under **`.brain-share-mount`** for tool/browser parity ([archived OPP-064](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)). |
 | **Invite accept, revoke, narrow prefix, repair granted root after rename** | Low | **`syncWikiShareProjectionsForGrantee`** (or successor) refreshes mounts; retries / explicit repair — **layout simplification:** [OPP-091](../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md). |
 
 ---

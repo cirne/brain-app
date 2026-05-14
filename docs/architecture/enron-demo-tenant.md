@@ -118,7 +118,7 @@ In **Docker**, the image includes **`/app/seed-enron/`** (manifest + ingest scri
 
 ## Related
 
-- Opportunity spec + later phases (E2E tests, CI artifact): [OPP-051](../opportunities/OPP-051-enron-corpus-e2e-and-cloud-testing.md)
+- Opportunity spec + later phases (E2E tests, CI artifact): [archived OPP-051](../opportunities/archive/OPP-051-enron-corpus-e2e-and-cloud-testing.md)
 - Eval home + corpus pipeline: [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md), [eval/README.md](../../eval/README.md)
 
 ---

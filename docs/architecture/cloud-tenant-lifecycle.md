@@ -463,5 +463,5 @@ This is **not about avoiding SaaS**—it's about **user choice as a product valu
 - [multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md) — High-level strategy
 - [deployment-models.md](./deployment-models.md) — Desktop vs. cloud
 - [per-tenant-storage-defense.md](./per-tenant-storage-defense.md) — Why directory-per-tenant
-- [OPP-050](../opportunities/OPP-050-hosted-wiki-backup.md) — Wiki-only backup (predecessor)
+- [archived OPP-050](../opportunities/archive/OPP-050-hosted-wiki-backup.md) — Wiki-only backup (predecessor)
 - [OPP-096](../opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — Implementation tracking

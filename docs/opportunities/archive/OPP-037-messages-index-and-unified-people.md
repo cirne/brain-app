@@ -1,6 +1,6 @@
 # Archived: OPP-037 — Messages index + unified people
 
-**Archived 2026-04-30.** **Status: Deprioritized.** Long-term directional spec only; no Brain-owned message FTS index shipped. **Baseline:** live `chat.db` tools ([archived OPP-003](./OPP-003-iMessage-integration.md)). Reopen when indexing is prioritized. **Stable URL:** [stub](../OPP-037-messages-index-and-unified-people.md).
+**Archived 2026-04-30.** **Status: Deprioritized.** Long-term directional spec only; no Brain-owned message FTS index shipped. **Baseline:** live `chat.db` tools ([archived OPP-003](./OPP-003-iMessage-integration.md)). Reopen when indexing is prioritized. **Stable URL:** [stub](./OPP-037-messages-index-and-unified-people.md).
 
 ---
 
@@ -69,7 +69,7 @@ The **analogy** holds: **index for search and synthesis**, **don’t fork the en
 ## Relationship to existing work
 
 - **Shipped baseline:** [archived OPP-003](./OPP-003-iMessage-integration.md) — tools on live DB + wiki correlation.
-- **Mail / unified sources:** [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md) ([archived spec](./OPP-087-unified-sources-mail-local-files-future-connectors.md)), search language [OPP-052](../../../ripmail/docs/opportunities/archive/OPP-052-search-query-language-regex-metadata-flags.md).
+- **Mail / unified sources:** [OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md) ([archived spec](./OPP-087-unified-sources-mail-local-files-future-connectors.md)), search language [OPP-052](../../../ripmail/docs/opportunities/archive/OPP-052-search-query-language-regex-metadata-flags.md).
 - **Brain layout / where data lives:** [OPP-012](../OPP-012-brain-home-data-layout.md).
 
 ## Open questions

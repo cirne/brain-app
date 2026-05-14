@@ -1,6 +1,6 @@
 # Archived: OPP-106 — Email-first cross-brain collaboration (synchronous pipeline removed)
 
-**Status: Archived — shipped (2026-05-10).** **Live summary:** [brain-query-delegation.md](../../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md). **Stub:** [../OPP-106-email-first-cross-brain-collaboration.md](../OPP-106-email-first-cross-brain-collaboration.md)
+**Status: Archived — shipped (2026-05-10).** **Live summary:** [brain-query-delegation.md](../../architecture/brain-query-delegation.md) · [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md). **Stub:** [../OPP-106-email-first-cross-brain-collaboration.md](./OPP-106-email-first-cross-brain-collaboration.md)
 
 ---
 
@@ -10,7 +10,7 @@
 
 **Supersedes the *engineering approach* of:** [OPP-104](./OPP-104-async-brain-query-notification-approval-flow.md) (async notification-first brain-query built on **`runBrainQuery`** + approve path). That OPP duplicated “inbox + draft + send” semantics; this OPP **deletes that parallel stack**.
 
-**Keeps aligned with:** [OPP-100](../OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT → grants) · [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md) (three-layer policy vision; **`brain_query_grants`** remain consent + policy prose or **`policy_id`**) · [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX) · **`notifications`** substrate ([archived OPP-102](./OPP-102-tenant-app-sqlite-chat-and-notifications.md)).
+**Keeps aligned with:** [OPP-100](./OPP-100-brain-query-policy-records-and-grant-fk.md) (policy SSOT → grants) · [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md) (three-layer policy vision; **`brain_query_grants`** remain consent + policy prose or **`policy_id`**) · [OPP-056](./OPP-056-email-draft-overlay-markdown-editor.md) (draft/review UX) · **`notifications`** substrate ([archived OPP-102](./OPP-102-tenant-app-sqlite-chat-and-notifications.md)).
 
 **Ideas:** [IDEA-brain-query-delegation](../../ideas/IDEA-brain-query-delegation.md) (update after implementation — transport becomes email; grants still boundary) · [IDEA-anticipatory-assistant-brief](../../ideas/IDEA-anticipatory-assistant-brief.md) (still want a **short prioritized queue** — now fed by flagged mail + other sources).
 

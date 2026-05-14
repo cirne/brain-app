@@ -1,9 +1,15 @@
+# Archived: OPP-113 — Tunnel connections: unified B2B activity surface
+
+**Status: Archived (2026-05-14).** **Checkpoint shipped:** Tunnels primary sidebar + list/detail surface, **`/tunnels/:handle`**, timeline-oriented tunnel UI, Connect flow, review API integration for pending rows; residual UX (dual compose model, bubble attribution polish, Vitest coverage) continues as normal product work—file new OPPs if a discrete milestone is needed. **Stub:** [../OPP-113-tunnel-connections-unified-activity-surface.md](./OPP-113-tunnel-connections-unified-activity-surface.md)
+
+---
+
 # OPP-113 — Tunnel connections: unified B2B activity surface
 
-**Status:** In progress — **partial implementation landed** (checkpoint in repo); **automated tests for tunnel-detail messaging and compose flows are not written yet**, pending further UI iteration and manual QA.  
+**Status:** Archived (2026-05-14) — narrative retained for reference.  
 **Area:** Navigation / IA / UI — B2B tunnels  
 **Complexity:** Large (touches nav model, primary surface, new data views)  
-**Related:** [OPP-112](OPP-112-review-queue-ux-overhaul.md) (review UX; Issues 7–8 folded in), [OPP-110](archive/OPP-110-chat-native-brain-to-brain.md) (chat-native B2B), [OPP-111](archive/OPP-111-tunnel-fast-follows.md) (review queue + auto-send)
+**Related:** [OPP-112](./OPP-112-review-queue-ux-overhaul.md) (review UX; Issues 7–8 folded in), [OPP-110](./OPP-110-chat-native-brain-to-brain.md) (chat-native B2B), [OPP-111](./OPP-111-tunnel-fast-follows.md) (review queue + auto-send)
 
 ---
 
@@ -407,7 +413,7 @@ The four-actor model is genuinely complex. The point of "make it feel like a cha
 
 | OPP | Disposition |
 |-----|------------|
-| [OPP-112](OPP-112-review-queue-ux-overhaul.md) Issues 1–6 | Already shipped; action affordances reused in `TunnelActivityCard` |
+| [OPP-112](./OPP-112-review-queue-ux-overhaul.md) Issues 1–6 | Already shipped; action affordances reused in `TunnelActivityCard` |
 | OPP-112 Issue 7 (sender info + policy panel) | Folds into `TunnelDetail` connection header — policy selector lives there |
 | OPP-112 Issue 8 (cold-query initiation) | `+ Connect` in Tunnels section header |
-| [OPP-110](archive/OPP-110-chat-native-brain-to-brain.md) (chat-native B2B) | Outbound query sessions still live in Chats; Tunnels detail shows the query and reply as bubbles in the chat log, linking to the full session in Chats |
+| [OPP-110](./OPP-110-chat-native-brain-to-brain.md) (chat-native B2B) | Outbound query sessions still live in Chats; Tunnels detail shows the query and reply as bubbles in the chat log, linking to the full session in Chats |

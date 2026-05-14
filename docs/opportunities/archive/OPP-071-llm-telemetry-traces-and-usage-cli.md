@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Trace-style NR + local CLI rollup epic closed for tracking. See [newrelic.md](../../newrelic.md).
 
-**Stub:** [../OPP-071-llm-telemetry-traces-and-usage-cli.md](../OPP-071-llm-telemetry-traces-and-usage-cli.md)
 
 ---
 
@@ -16,7 +15,7 @@
 
 Send **well-correlated observability** to New Relic for each `agent.prompt()` “turn”: **LLM token/cost** (per completion and rolled up), **tool execution latency** (existing `ToolCall` path), and **approximate tool-output footprint** so operators and engineers can find **token-efficiency bottlenecks**—including cases where a tool is “expensive” because it returns a **large** result that inflates the **next** model context. In parallel, add a **first-party `npm` script** that reads **local** tenant data — **chat usage from `var/brain-tenant.sqlite`** ([`chatStorage.ts`](../../../src/server/lib/chat/chatStorage.ts))) and **`background/runs/`** ([`backgroundAgentStore.ts`](../../../src/server/lib/backgroundAgentStore.ts))) — and prints rollups, since that ad hoc analysis is a recurring workflow.
 
-**Builds on:** [OPP-072](OPP-072-llm-usage-token-metering.md) (durable `usage` on messages / background docs), [docs/newrelic.md](../../newrelic.md) (`ToolCall` custom events, privacy rules).
+**Builds on:** [OPP-072](./OPP-072-llm-usage-token-metering.md) (durable `usage` on messages / background docs), [docs/newrelic.md](../../newrelic.md) (`ToolCall` custom events, privacy rules).
 
 ---
 
@@ -143,7 +142,7 @@ flowchart TB
 
 ## References
 
-- [OPP-072](OPP-072-llm-usage-token-metering.md) — on-disk token metering
+- [OPP-072](./OPP-072-llm-usage-token-metering.md) — on-disk token metering
 - [newrelic.md](../../newrelic.md) — account, `ToolCall`, privacy
 - [data-and-sync.md](../../architecture/data-and-sync.md) — `var/brain-tenant.sqlite`, `background/`
 - [agent-chat.md](../../architecture/agent-chat.md) — SSE, persistence

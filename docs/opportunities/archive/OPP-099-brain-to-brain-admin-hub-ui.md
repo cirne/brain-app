@@ -1,6 +1,6 @@
 # Archived: OPP-099 — Brain-to-brain admin / Hub UI (grants, policy, audit)
 
-**Status: Archived — epic closed (2026-05).** **Active pointer / shipped summary:** [architecture/brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure). **Stub:** [../OPP-099-brain-to-brain-admin-hub-ui.md](../OPP-099-brain-to-brain-admin-hub-ui.md)
+**Status: Archived — epic closed (2026-05).** **Active pointer / shipped summary:** [architecture/brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure). **Stub:** [../OPP-099-brain-to-brain-admin-hub-ui.md](./OPP-099-brain-to-brain-admin-hub-ui.md)
 
 **Related:** [IDEA brain-query delegation](../../ideas/IDEA-brain-query-delegation.md) · [architecture: brain-query-delegation](../../architecture/brain-query-delegation.md) · **[architecture: brain-to-brain access policy](../../architecture/brain-to-brain-access-policy.md)**
 
@@ -91,7 +91,7 @@ Brain-to-brain flows (“ask `@donna` …”) should feel as natural as wiki `@`
   - **Outbound (asker):** question + **final** only; statuses like `denied_no_grant` / `filter_blocked` readable without jargon.
   - **Empty states** and pagination or cap messaging if logs grow.
 4. **Platform**
-  - **Mobile** Sharing layout (may compose with [OPP-092](OPP-092-mobile-navigation-ia-rethink.md)).
+  - **Mobile** Sharing layout (may compose with [OPP-092](./OPP-092-mobile-navigation-ia-rethink.md)).
   - **Discoverability:** link from onboarding or Sharing overview (“Brain queries”) so users find the feature after Phase 0 ships.
 5. **Trust copy**
   - Short, accurate statements: **no raw mail leaves** the owner’s tenant; **LLM filter is not cryptographic**; **policy is instructions** to the filter model.

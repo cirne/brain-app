@@ -1,8 +1,7 @@
 # Archived: OPP-050 — Hosted wiki backup
 
-**Status: Archived (2026-05-11).** Superseded by [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) + [backup-restore.md](../../architecture/backup-restore.md).
+**Status: Archived (2026-05-11).** Superseded by [OPP-096](../OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) + [backup-restore.md](../../architecture/backup-restore.md).
 
-**Stub:** [../OPP-050-hosted-wiki-backup.md](../OPP-050-hosted-wiki-backup.md)
 
 ---
 
@@ -10,9 +9,9 @@
 
 ### OPP-050: Hosted wiki backup (cloud backup for staging)
 
-**Status:** Superseded by [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — May 2026
+**Status:** Superseded by [OPP-096](../OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — May 2026
 
-**Note:** The "wiki-only, exclude ripmail" principle from this OPP is correct for **lightweight rollback** and low-sensitivity off-site copies. **Full-tenant** compressed archives to S3 for **DR and migration** are the **heavier** tier ([backup-restore.md](../../architecture/backup-restore.md), [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)). The implementation strategy in OPP-096 evolved from **nightly encrypted tarball** toward **write-through S3** on wiki edits plus periodic DB checkpoints plus transition uploads. See [cloud-tenant-lifecycle.md](../../architecture/cloud-tenant-lifecycle.md) for current design.
+**Note:** The "wiki-only, exclude ripmail" principle from this OPP is correct for **lightweight rollback** and low-sensitivity off-site copies. **Full-tenant** compressed archives to S3 for **DR and migration** are the **heavier** tier ([backup-restore.md](../../architecture/backup-restore.md), [OPP-096](../OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)). The implementation strategy in OPP-096 evolved from **nightly encrypted tarball** toward **write-through S3** on wiki edits plus periodic DB checkpoints plus transition uploads. See [cloud-tenant-lifecycle.md](../../architecture/cloud-tenant-lifecycle.md) for current design.
 
 ## Summary
 
@@ -125,6 +124,6 @@ Tradeoff: each tenant's wiki would need its own repo (or branch) to maintain iso
 
 ## Relationship to other OPPs
 
-- [OPP-034](OPP-034-wiki-snapshots-and-point-in-time-restore.md): local/desktop point-in-time restore (ZIP in `BRAIN_HOME`, triggered by Your Wiki laps). That is for user-facing "undo a bad agent edit." This OPP is operator-level hosted DR — different scope and trigger.
+- [OPP-034](../OPP-034-wiki-snapshots-and-point-in-time-restore.md): local/desktop point-in-time restore (ZIP in `BRAIN_HOME`, triggered by Your Wiki laps). That is for user-facing "undo a bad agent edit." This OPP is operator-level hosted DR — different scope and trigger.
 - [DEPLOYMENT.md](../../DEPLOYMENT.md): no DO volume/droplet snapshots; wiki-only backup is the agreed DR path.
 - [OPP-041 (archive)](archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md): the hosted staging infrastructure this backup runs against.

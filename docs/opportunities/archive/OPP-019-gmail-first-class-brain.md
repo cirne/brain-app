@@ -1,6 +1,6 @@
 # Archived: OPP-019 (Gmail as a first-class connector)
 
-**Status: Shipped (2026-04) — core goals met.** Hono **Google OAuth** routes (bundled + hosted), **shared on-disk** token layout with **ripmail** under `RIPMAIL_HOME` / `BRAIN_HOME`, and **Gmail onboarding** on **staging** ([OPP-041](../OPP-041-hosted-cloud-epic-docker-digitalocean.md) — closed for current scale). Residual: **Google OAuth app verification** ([OPP-043](../OPP-043-google-oauth-app-verification-milestones.md), [OPP-022](../OPP-022-google-oauth-app-verification.md)); optional product polish.
+**Status: Shipped (2026-04) — core goals met.** Hono **Google OAuth** routes (bundled + hosted), **shared on-disk** token layout with **ripmail** under `RIPMAIL_HOME` / `BRAIN_HOME`, and **Gmail onboarding** on **staging** ([OPP-041](./OPP-041-hosted-cloud-epic-docker-digitalocean.md) — closed for current scale). Residual: **Google OAuth app verification** ([OPP-043](../OPP-043-google-oauth-app-verification-milestones.md), [OPP-022](./OPP-022-google-oauth-app-verification.md)); optional product polish.
 
 **Original spec follows.**
 

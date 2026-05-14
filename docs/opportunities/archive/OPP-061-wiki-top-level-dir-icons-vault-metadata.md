@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** Removed from the active backlog (shipped or no longer pursued).
 
-**Stub:** [../OPP-061-wiki-top-level-dir-icons-vault-metadata.md](../OPP-061-wiki-top-level-dir-icons-vault-metadata.md)
 
 ---
 
@@ -12,7 +11,7 @@
 
 **Status:** Not started  
 **Tags:** `wiki` · `ux` · `lucide` · `llm` · `metadata` · `local-first`  
-**Related:** [OPP-060](../OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter dirs / templates); [`src/server/routes/wiki.ts`](../../../src/server/routes/wiki.ts) (`GET /api/wiki/dir-icon/:dir`); [`src/client/lib/dirIcons.ts`](../../../src/client/lib/dirIcons.ts); [`shared/brain-layout.json`](../../../shared/brain-layout.json) (`dirIconsCache`); [AGENTS.md](../../AGENTS.md) (Lucide as components); [data-and-sync.md](../../architecture/data-and-sync.md)
+**Related:** [OPP-060](./OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter dirs / templates); [`src/server/routes/wiki.ts`](../../../src/server/routes/wiki.ts) (`GET /api/wiki/dir-icon/:dir`); [`src/client/lib/dirIcons.ts`](../../../src/client/lib/dirIcons.ts); [`shared/brain-layout.json`](../../../shared/brain-layout.json) (`dirIconsCache`); [AGENTS.md](../../AGENTS.md) (Lucide as components); [data-and-sync.md](../../architecture/data-and-sync.md)
 
 ---
 

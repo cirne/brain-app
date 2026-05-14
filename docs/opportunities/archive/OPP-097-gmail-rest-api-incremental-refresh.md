@@ -6,7 +6,7 @@
 
 **Tags:** `ripmail` · `sync` · `gmail` · `oauth`
 
-**Related:** [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md); [OPP-098](../OPP-098-google-calendar-incremental-sync.md) (calendar refresh latency); [Gmail sync guide](https://developers.google.com/gmail/api/guides/sync).
+**Related:** [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md); [OPP-098](./OPP-098-google-calendar-incremental-sync.md) (calendar refresh latency); [Gmail sync guide](https://developers.google.com/gmail/api/guides/sync).
 
 ---
 

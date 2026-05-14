@@ -1,7 +1,7 @@
 # BUG-048: Brain access — “Trusted” collaborator shows under “Other policy” (text snapshot mismatch)
 
 **Status:** Open (root cause: Phase 0 data model)  
-**Fix direction:** [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md) — **policy rows + `policy_id` on grants**, not more client-side string matching.
+**Fix direction:** [archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md) — **policy rows + `policy_id` on grants**, not more client-side string matching.
 
 ## Symptom
 

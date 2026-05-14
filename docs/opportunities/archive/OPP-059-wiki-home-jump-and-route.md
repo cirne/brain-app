@@ -1,6 +1,6 @@
 # Archived: OPP-059 — Wiki home jump + `/wiki`
 
-**Archived 2026-04-30.** **Status: Implemented (Phase 1–2).** Top nav wiki control (`AppTopNav.svelte`); **`/wiki`** + `wikiActive` in [`router.ts`](../../../src/client/router.ts). Composer handoff (Phase 3) may be future. **Stable URL:** [stub](../OPP-059-wiki-home-jump-and-route.md).
+**Archived 2026-04-30.** **Status: Implemented (Phase 1–2).** Top nav wiki control (`AppTopNav.svelte`); **`/wiki`** + `wikiActive` in [`router.ts`](../../../src/client/router.ts). Composer handoff (Phase 3) may be future. **Stable URL:** [stub](./OPP-059-wiki-home-jump-and-route.md).
 
 ---
 

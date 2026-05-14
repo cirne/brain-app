@@ -3,7 +3,7 @@
 **Status:** Open  
 **Tags:** `mail` · `draft` · `agent` · `privacy`  
 
-**Related:** [OPP-056](../opportunities/OPP-056-email-draft-overlay-markdown-editor.md) (draft UI and single source of truth in overlay — orthogonal to LLM factual errors); [OPP-020](../opportunities/OPP-020-brain-owned-sending-address.md) (from-address product); [ripmail OPP-029](../../ripmail/docs/opportunities/OPP-029-compose-voice-context-from-sent-mail.md) (recipient-aware compose prompts — qualitative complement).
+**Related:** [archived OPP-056](../opportunities/archive/OPP-056-email-draft-overlay-markdown-editor.md) (draft UI and single source of truth in overlay — orthogonal to LLM factual errors); [OPP-020](../opportunities/OPP-020-brain-owned-sending-address.md) (from-address product); [ripmail OPP-029](../../ripmail/docs/opportunities/OPP-029-compose-voice-context-from-sent-mail.md) (recipient-aware compose prompts — qualitative complement).
 
 ---
 

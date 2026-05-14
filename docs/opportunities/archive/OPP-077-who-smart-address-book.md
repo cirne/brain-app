@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** **Done enough** for backlog tracking: hygiene, merged identities, `contactRank`, signatures, and heuristic naming are shipped in-tree; richer signature extraction and fancier `who` query polish remain incremental follow-ons if needed.
 
-**Stub:** [../OPP-077-who-smart-address-book.md](../OPP-077-who-smart-address-book.md)
 
 ---
 

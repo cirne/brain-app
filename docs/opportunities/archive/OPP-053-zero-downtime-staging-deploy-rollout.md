@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Deploy rollout epic closed for tracking.
 
-**Stub:** [../OPP-053-zero-downtime-staging-deploy-rollout.md](../OPP-053-zero-downtime-staging-deploy-rollout.md)
 
 ---
 
@@ -59,7 +58,7 @@ Add a **second droplet** or use an orchestrator (**Docker Swarm**, **Kubernetes*
 
 ## Relationship to other opportunities and docs
 
-- [OPP-052](OPP-052-newrelic-change-tracking-on-watchtower-rollout.md) — Observability **during** Watchtower rollouts; complements this OPP but does **not** reduce downtime.
+- [OPP-052](./OPP-052-newrelic-change-tracking-on-watchtower-rollout.md) — Observability **during** Watchtower rollouts; complements this OPP but does **not** reduce downtime.
 - [DEPLOYMENT.md](../../DEPLOYMENT.md) — Current staging topology (Cloudflare → DO LB → droplet `:4000`, firewall, Watchtower).
 - [SECURITY.md](../../SECURITY.md) — **P4** (Watchtower + registry): faster/safer rollouts should **not** weaken pull verification policy if we add hooks or alternate deploy paths.
 
@@ -73,5 +72,5 @@ Pick a lane before implementation:
 
 ## Out of scope (for this OPP)
 
-- Desktop **Braintunnel.app** updates ([OPP-029](OPP-029-auto-update.md)).
+- Desktop **Braintunnel.app** updates ([OPP-029](./OPP-029-auto-update.md)).
 - Replacing staging infrastructure wholesale unless Direction C explicitly selects a platform (that becomes **in scope** for the chosen lane only).

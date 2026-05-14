@@ -1,13 +1,13 @@
 # Archived: OPP-060 — Starter wiki templates + authoring conventions
 
-**Archived 2026-04-30.** **Status: Implemented (core).** `wikiVaultScaffold.ts` / `ensureWikiVaultScaffoldForBuildout`, per-folder `template.md`, `me.md` / `assistant.md` / `index.md`; prompts in `wiki-buildout/system.hbs`, `assistant/base.hbs`. **Stable URL:** [stub](../OPP-060-starter-wiki-templates-and-agent-authoring.md).
+**Archived 2026-04-30.** **Status: Implemented (core).** `wikiVaultScaffold.ts` / `ensureWikiVaultScaffoldForBuildout`, per-folder `template.md`, `me.md` / `assistant.md` / `index.md`; prompts in `wiki-buildout/system.hbs`, `assistant/base.hbs`. **Stable URL:** [stub](./OPP-060-starter-wiki-templates-and-agent-authoring.md).
 
 ---
 
 # OPP-060: Starter wiki templates + agent authoring conventions
 
 **Tags:** `wiki` · `onboarding` · `agent` · `templates` · `vault` · `travel` · `hygiene`  
-**Related:** [OPP-028](../OPP-028-named-assistant-identity-and-living-avatar.md) (`assistant.md`), [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md) (Your Wiki / compounding), [OPP-054](../OPP-054-guided-onboarding-agent.md) (guided onboarding — align `me.md` timing), [trip sheet skill](../../../.cursor/skills/trip-sheet/SKILL.md) (trip-sheet workflow aligns with `travel/`), [archived OPP-006](./OPP-006-email-bootstrap-onboarding.md) (profiling / seeding lineage), [archived OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md) (authoring expectations — superseded context only)
+**Related:** [OPP-028](../OPP-028-named-assistant-identity-and-living-avatar.md) (`assistant.md`), [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md) (Your Wiki / compounding), [OPP-054](./OPP-054-guided-onboarding-agent.md) (guided onboarding — align `me.md` timing), [trip sheet skill](../../../.cursor/skills/trip-sheet/SKILL.md) (trip-sheet workflow aligns with `travel/`), [archived OPP-006](./OPP-006-email-bootstrap-onboarding.md) (profiling / seeding lineage), [archived OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md) (authoring expectations — superseded context only)
 
 ---
 
@@ -139,7 +139,7 @@ Exact folder names and whether `**topics/**` and `**reference/**` are both top-l
 
 ---
 
-## Alignment with guided onboarding ([OPP-054](../OPP-054-guided-onboarding-agent.md))
+## Alignment with guided onboarding ([OPP-054](./OPP-054-guided-onboarding-agent.md))
 
 OPP-054 specifies **no authoritative `me.md` until after the onboarding interview**. Starter templates must **not** contradict that:
 

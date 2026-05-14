@@ -1,6 +1,6 @@
 # Archived: OPP-057 — Chat + detail pane resize
 
-**Archived 2026-04-30.** **Status: Implemented (core).** `WorkspaceSplit.svelte` — desktop **drag handle** between chat and detail; `agentPanelWidth.ts` / measured workspace column. **Stable URL:** [stub](../OPP-057-chat-viewport-resize-or-expand.md).
+**Archived 2026-04-30.** **Status: Implemented (core).** `WorkspaceSplit.svelte` — desktop **drag handle** between chat and detail; `agentPanelWidth.ts` / measured workspace column. **Stable URL:** [stub](./OPP-057-chat-viewport-resize-or-expand.md).
 
 ---
 
@@ -8,7 +8,7 @@
 
 **Tags:** `chat` · `layout` · `ux`  
 
-**Related:** [OPP-049](../OPP-049-global-ui-tailwind-refactor.md) (global Tailwind/layout consistency); pane split patterns in Hub / `Assistant`.
+**Related:** [OPP-049](./OPP-049-global-ui-tailwind-refactor.md) (global Tailwind/layout consistency); pane split patterns in Hub / `Assistant`.
 
 ---
 

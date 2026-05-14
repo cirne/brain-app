@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Core queue + API shipped; epic no longer tracked actively. See AGENTS (issues), [BUGS.md](../../BUGS.md).
 
-**Stub:** [../OPP-048-brain-home-feedback-issues-embed-api.md](../OPP-048-brain-home-feedback-issues-embed-api.md)
 
 ---
 
@@ -16,7 +15,7 @@
 
 Ship a **default `/feedback` skill** so users can submit **bugs or feature requests** in natural language, while the product stores **issues** (internal name) on disk in a place **coding agents can read** without Slack or email. Each submission is **materialized as a file** under `**BRAIN_HOME`**, with a **dedicated LLM pass** to **strip PII**, **summarize**, and add **repro guidance** from recent chat context. **HTTP endpoints** (list + fetch by id) protect access with **`Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY`** so local automation and the agent harness can pull the same data as `npm` scripts. **To users, copy stays “feedback”;** code, paths, and APIs use **issues** for clarity in triage and `docs/bugs/`.
 
-**Related:** [OPP-012](OPP-012-brain-home-data-layout.md) (`BRAIN_HOME`, `shared/brain-layout.json`); [archived OPP-030](archive/OPP-030-agent-driven-support-bug-to-pr.md) (full snag→PR automation deprioritized—this is a **narrow, local-first** step); [docs/BUGS.md](../../BUGS.md) (triage target).
+**Related:** [OPP-012](../OPP-012-brain-home-data-layout.md) (`BRAIN_HOME`, `shared/brain-layout.json`); [archived OPP-030](archive/OPP-030-agent-driven-support-bug-to-pr.md) (full snag→PR automation deprioritized—this is a **narrow, local-first** step); [docs/BUGS.md](../../BUGS.md) (triage target).
 
 **Status:** Proposed; core pieces shipped. **Global queue** in multi-tenant: canonical files under `$BRAIN_DATA_ROOT/.global/issues/`; per-user copy under each tenant’s `issues/`; **`wiki/feedback/issue-<id>.md`** in the reporter’s vault wiki; `GET` with `BRAIN_EMBED_MASTER_KEY` lists the global namespace.
 
@@ -64,7 +63,7 @@ Ship a **default `/feedback` skill** so users can submit **bugs or feature reque
 
 ## Security and non-goals
 
-- **Bearer is not a multi-user auth story** for the open internet: bind server to **loopback** by default; document **LAN** exposure tradeoffs (see [OPP-035](OPP-035-local-vault-password-and-session-auth.md) patterns).
+- **Bearer is not a multi-user auth story** for the open internet: bind server to **loopback** by default; document **LAN** exposure tradeoffs (see [OPP-035](../OPP-035-local-vault-password-and-session-auth.md) patterns).
 - **PII:** LLM redaction is best-effort; user-visible draft + short disclaimer remains important.
 - **Non-goal v1:** automated triage, GitHub/Linear sync, or user email notifications; those layer on later.
 - Revisit overlap with [archived OPP-010](archive/OPP-010-user-skills.md) (user skills) if `/feedback` becomes the first shipped default skill.

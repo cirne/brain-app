@@ -1,6 +1,6 @@
 # Archived: OPP-058 — SPA URL model (path + query)
 
-**Archived 2026-04-30.** **Status: Implemented** — `/c`, `/hub`, `/wiki`, `?panel=` + payload keys; authority `parseRoute` / `routeToUrl` in `router.ts`. **Stable URL:** [stub](../OPP-058-spa-url-main-pane-vs-overlay-query.md).
+**Archived 2026-04-30.** **Status: Implemented** — `/c`, `/hub`, `/wiki`, `?panel=` + payload keys; authority `parseRoute` / `routeToUrl` in `router.ts`. **Stable URL:** [stub](./OPP-058-spa-url-main-pane-vs-overlay-query.md).
 
 ---
 
@@ -8,7 +8,7 @@
 
 **Status:** Implemented (see [runtime-and-routes.md](../../architecture/runtime-and-routes.md); `?panel=` + payload keys in [`src/client/router.ts`](../../../src/client/router.ts))  
 **Tags:** `routing` · `spa` · `ux` · `deep-linking` · `shell`  
-**Related:** [runtime-and-routes.md](../../architecture/runtime-and-routes.md) (current behavior + direction sketch); [`src/client/router.ts`](../../../src/client/router.ts); [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (overlay surface consistency); [archive/OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md) (agent detail URL parity question); [cloud-hosted-v1-scope.md](../../architecture/cloud-hosted-v1-scope.md) (SPA parity matrix); [BUG-014 (archived)](../../bugs/archive/BUG-014-setup-flow-per-stage-urls-and-naming.md) (setup flows + OAuth return targets — must remain coherent after routing changes)
+**Related:** [runtime-and-routes.md](../../architecture/runtime-and-routes.md) (current behavior + direction sketch); [`src/client/router.ts`](../../../src/client/router.ts); [OPP-056](./OPP-056-email-draft-overlay-markdown-editor.md) (overlay surface consistency); [archive/OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md) (agent detail URL parity question); [cloud-hosted-v1-scope.md](../../architecture/cloud-hosted-v1-scope.md) (SPA parity matrix); [BUG-014 (archived)](../../bugs/archive/BUG-014-setup-flow-per-stage-urls-and-naming.md) (setup flows + OAuth return targets — must remain coherent after routing changes)
 
 ---
 
@@ -64,7 +64,7 @@ Exact parameter names and encoding (flat vs nested, wiki path encoding, backward
 - **Deep links:** A URL copied from the address bar can be **opened in a new tab** (same origin, same session) and lands on the **same main + overlay** combination for supported combinations — **or** the PR lists **known exceptions** (e.g. transient modal-only state).
 - **Hub vs chat:** Navigating between **chat** and **hub** uses **path distinction**, not only in-memory flags; **`hubActive` leaks** (components inferring hub from loose pathname checks without router) are eliminated or documented as debt with follow-up issue.
 - **History:** Back/forward **meaningfully** navigates **overlay open/close** where today users expect stack behavior; **`replace` navigation** for overlay dismissals remains documented ([`NavigateOptions.replace`](../../../src/client/router.ts)).
-- **Cross-feature consistency:** New overlay types ([OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md), future agent-detail surfaces raised in [archive/OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md)) **slot into the same query model** rather than adding new top-level path prefixes — unless an explicit exception is approved in review.
+- **Cross-feature consistency:** New overlay types ([OPP-056](./OPP-056-email-draft-overlay-markdown-editor.md), future agent-detail surfaces raised in [archive/OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md)) **slot into the same query model** rather than adding new top-level path prefixes — unless an explicit exception is approved in review.
 
 ---
 

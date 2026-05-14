@@ -87,9 +87,9 @@ These are the main knobs from `**AgentOptions`** (see pi-agent-core README for f
 
 **Token and cost visibility** are not defined by Pi alone: they come from **pi-ai** fields on assistant messages after each completion. The agent loop may perform **multiple** completions per user-visible reply (tool rounds); aggregate over the whole `**prompt()`** run.
 
-Implementation plan: **[OPP-072: LLM usage and token metering](../opportunities/OPP-072-llm-usage-token-metering.md)** — hooks (`turn_end` / `agent_end`), persistence under `brainHome()`, and background agents.
+Implementation plan: **[OPP-072: LLM usage and token metering](../opportunities/archive/OPP-072-llm-usage-token-metering.md)** — hooks (`turn_end` / `agent_end`), persistence under `brainHome()`, and background agents.
 
-**Observability (New Relic + local export):** **[OPP-071: LLM telemetry, trace-style correlation, tool result footprint, usage CLI](../opportunities/OPP-071-llm-telemetry-traces-and-usage-cli.md)** — correlated custom events, approximate tool-output size for bottleneck analysis, and a CLI over local JSON.
+**Observability (New Relic + local export):** **[OPP-071: LLM telemetry, trace-style correlation, tool result footprint, usage CLI](../opportunities/archive/OPP-071-llm-telemetry-traces-and-usage-cli.md)** — correlated custom events, approximate tool-output size for bottleneck analysis, and a CLI over local JSON.
 
 ---
 

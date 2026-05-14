@@ -1,6 +1,6 @@
 # Archived: OPP-008 — Tunnel + QR for Seamless Phone Access
 
-**Archived 2026-04-30.** **Status: Implemented (core POC).** Bundled `cloudflared`, Hub **Phone Access** (toggle, QR, GUID-rotation), magic-URL middleware + cookie handoff — **[tunnel-status.md](../tunnel-status.md)** is the live operational doc (constraints, next steps). Code: [`tunnelManager.ts`](../../../src/server/lib/platform/tunnelManager.ts). **Stable short URL:** [stub](../OPP-008-tunnel-qr-phone-access.md).
+**Archived 2026-04-30.** **Status: Implemented (core POC).** Bundled `cloudflared`, Hub **Phone Access** (toggle, QR, GUID-rotation), magic-URL middleware + cookie handoff — **[tunnel-status.md](../tunnel-status.md)** is the live operational doc (constraints, next steps). Code: [`tunnelManager.ts`](../../../src/server/lib/platform/tunnelManager.ts). **Stable short URL:** [stub](./OPP-008-tunnel-qr-phone-access.md).
 
 ---
 

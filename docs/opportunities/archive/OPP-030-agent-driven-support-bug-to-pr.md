@@ -8,9 +8,9 @@
 
 ## Summary
 
-Close the loop from **user pain** to **shipped fix** without turning Brain into a silent telemetry hose. When someone hits a snag, **tools and agents notice** (explicit failure signals, structured logs, user-visible errors—not vibe-based guessing), package a **diagnostic bundle and bug report** with **clear scope and explicit permission**, and send it upstream. On the **Brain dev** side, **agents and automation** help **process** incoming issues: triage, dedupe, minimal repro, and **draft pull requests** with fixes. **Maintainers** stay in the loop: they **review the bug and the patch** and **integrate** what ships. The **user is notified** when a fix is available (in-app, release notes, or optional email), complementing distribution paths like [OPP-029](OPP-029-auto-update.md) (auto-update).
+Close the loop from **user pain** to **shipped fix** without turning Brain into a silent telemetry hose. When someone hits a snag, **tools and agents notice** (explicit failure signals, structured logs, user-visible errors—not vibe-based guessing), package a **diagnostic bundle and bug report** with **clear scope and explicit permission**, and send it upstream. On the **Brain dev** side, **agents and automation** help **process** incoming issues: triage, dedupe, minimal repro, and **draft pull requests** with fixes. **Maintainers** stay in the loop: they **review the bug and the patch** and **integrate** what ships. The **user is notified** when a fix is available (in-app, release notes, or optional email), complementing distribution paths like [OPP-029](./OPP-029-auto-update.md) (auto-update).
 
-**Related:** [OPP-042](../OPP-042-brain-network-interbrain-trust-epic.md) (brain network epic), [OPP-001](../OPP-001-agent-to-agent.md) (broader agent coordination); in-product diagnostics patterns in [.agents/skills/desktop/SKILL.md](../../.agents/skills/desktop/SKILL.md) (logs, FDA, ports, `BRAIN_HOME`); manual bug write-ups under `[docs/bugs/](../bugs/)`.
+**Related:** [OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md) (brain network epic), [OPP-001](./OPP-001-agent-to-agent.md) (broader agent coordination); in-product diagnostics patterns in [.agents/skills/desktop/SKILL.md](../../.agents/skills/desktop/SKILL.md) (logs, FDA, ports, `BRAIN_HOME`); manual bug write-ups under `[docs/bugs/](../bugs/)`.
 
 ---
 
@@ -44,7 +44,7 @@ Payload should be **machine-friendly** (JSON schema or issue template) so dev-si
 
 ### 5. User notified of fix
 
-Correlate the original report ID with a **closed issue** or **release**; surface **in-app** (“Your report #123 is fixed in 0.4.3”) and/or release notes. Works well with [OPP-029](OPP-029-auto-update.md) so the fix actually reaches installed clients.
+Correlate the original report ID with a **closed issue** or **release**; surface **in-app** (“Your report #123 is fixed in 0.4.3”) and/or release notes. Works well with [OPP-029](./OPP-029-auto-update.md) so the fix actually reaches installed clients.
 
 ---
 

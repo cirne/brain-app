@@ -27,7 +27,7 @@ Optional polish: when not pinned, show a discrete **“New messages”** or **�
 
 ## Related
 
-- **[OPP-016](../opportunities/OPP-016-agent-chat-draft-queue-while-busy.md)** — other agent-chat resilience (drafting while busy); separate concern but same surface.
+- **[archived OPP-016](../opportunities/archive/OPP-016-agent-chat-draft-queue.md)** — other agent-chat resilience (drafting while busy); separate concern but same surface.
 
 ---
 

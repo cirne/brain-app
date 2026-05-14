@@ -1,6 +1,6 @@
 # Idea: Brain-query delegation (chat-native Braintunnel)
 
-**Status:** Active — **chat-native B2B shipped** — **[architecture/braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)** (`/api/chat/b2b`, Tunnels, cold query, review/approve). **Grants + policy:** Hub / Settings **Brain access** (**[OPP-099 stub](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** — [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Policy-by-reference (`policy_id` on grants)** remains the architecture direction ([§ follow-up](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up)); backlog epic **[archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** · **stub [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** is closed. **Persistence:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** — `var/brain-tenant.sqlite` + **`notifications`** (including tunnel kinds, Ripmail mirrors, **`brain_query_grant_received`**, etc.). **Historical mail transport:** [archived OPP-106](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md).
+**Status:** Active — **chat-native B2B shipped** — **[architecture/braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)** (`/api/chat/b2b`, Tunnels, cold query, review/approve). **Grants + policy:** Hub / Settings **Brain access** (**[archived OPP-099](../opportunities/archive/OPP-099-brain-to-brain-admin-hub-ui.md)** — [architecture § Hub closure](../architecture/brain-to-brain-access-policy.md#hub-brain-access-admin-shipped--opp-099-closure)). **Policy-by-reference (`policy_id` on grants)** remains the architecture direction ([§ follow-up](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up)); backlog epic **[archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** is closed. **Persistence:** **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** **shipped** — `var/brain-tenant.sqlite` + **`notifications`** (including tunnel kinds, Ripmail mirrors, **`brain_query_grant_received`**, etc.). **Historical mail transport:** [archived OPP-106](../opportunities/archive/OPP-106-email-first-cross-brain-collaboration.md).
 
 **Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) · **[braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)** · [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)
 
@@ -12,7 +12,7 @@
 
 **Shipped:**
 
-- **`brain_query_grants`** in the global DB — opt-in collaborators + per-connection **privacy policy** prose (until **`policy_id` SSOT** lands — historical epic **[archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** · **stub [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)**).
+- **`brain_query_grants`** in the global DB — opt-in collaborators + per-connection **privacy policy** prose (until **`policy_id` SSOT** lands — historical epic **[archived OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)**).
 - **Grant CRUD** at **`/api/brain-query/grants`** when **`BRAIN_B2B_ENABLED`**; **`BRAIN_B2B_ENABLED`** still gates collaborator surfaces.
 - **Chat-native Q&A:** **`/api/chat/b2b`** — cold query, tunnel send, owner **review queue**, **approve** / **decline** / **dismiss**, **`b2b_inbound_query`** and **`b2b_tunnel_outbound_updated`** notifications; see [braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md). **`brain_query_grant_received`** still fires when someone grants you access.
 - **Removed legacy stack:** the former **`ask_brain` / `runBrainQuery`** pipeline, preview APIs, and **`brain_query_log`** are gone ([architecture: brain-query-delegation.md](../architecture/brain-query-delegation.md)). Cross-tenant work is **server-mediated** (tenant context switch), not a client-to-client RPC.
@@ -99,18 +99,18 @@ If the product thesis shifts to **“just make B2B work well and securely,”** 
 **Does Donna see the query?**
 
 - A query log in Hub: who asked, what they asked, what was returned — visible to Donna after the fact
-- **Real-time / async surfacing** of inbound queries and **draft answers pending release** uses **tunnel notifications** and the **review queue** ([braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)); a **unified anticipatory brief** across mail + tunnels remains **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)**. **Durable rows** land in **`var/brain-tenant.sqlite`** (**[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped).
+- **Real-time / async surfacing** of inbound queries and **draft answers pending release** uses **tunnel notifications** and the **review queue** ([braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)); a **unified anticipatory brief** across mail + tunnels remains **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)**. **Durable rows** land in **`var/brain-tenant.sqlite`** (**[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped).
 
 **Human approval as an option:**
 
 - Some users may want to approve every outbound answer before it's sent — especially early
 - Others may trust the filter and prefer fully automatic
 - Hub (or equivalent) setting per connection: **auto-respond after filter** vs **require my approval before send**
-- **Product rationale:** With approval, the **response is already drafted** (research + filter already ran); Donna **reviews, optionally edits, and sends**—or **declines**—in the **tunnel review** UI. **`notifications`** in **`var/brain-tenant.sqlite`** (**[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**) plus **`tunnel_activity`** SSE keep the rail discoverable without treating Hub logs as the primary workflow.
+- **Product rationale:** With approval, the **response is already drafted** (research + filter already ran); Donna **reviews, optionally edits, and sends**—or **declines**—in the **tunnel review** UI. **`notifications`** in **`var/brain-tenant.sqlite`** (**[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**) plus **`tunnel_activity`** SSE keep the rail discoverable without treating Hub logs as the primary workflow.
 
 **Trust ladder:** Same conceptual progression as coding-agent tool policies (e.g. always review → remember allow for this connection → full auto-send); exact UX TBD—see [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)
 
-**Implementation note:** **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped the per-tenant DB and **notification** rows + APIs; **Braintunnel B2B** wires tunnel items into that substrate — [braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md).
+**Implementation note:** **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped the per-tenant DB and **notification** rows + APIs; **Braintunnel B2B** wires tunnel items into that substrate — [braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md).
 
 ---
 
@@ -140,7 +140,7 @@ Because both users are on the same hosted instance (same server), routing is tri
 4. **Query log** — owner / asker roles; draft vs final delineation in UI for owner.
 5. **`ask_brain`** tool on the initiating side; NL “ask @handle …” still depends on the main model choosing the tool.
 
-**Product polish (ongoing):** mobile layout, **notification/inbox/brief** ([IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md); **`notifications` + chat** — **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped), cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) — **archived** **[OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** · **stub [OPP-100](../opportunities/OPP-100-brain-query-policy-records-and-grant-fk.md)** (policy records + grant `policy_id`; not on active backlog).
+**Product polish (ongoing):** mobile layout, **notification/inbox/brief** ([IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md); **`notifications` + chat** — **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped), cross-instance routing — not tied to OPP-099. **Schema follow-up:** [denormalized `privacy_policy` on grants](../architecture/brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up) — **archived** **[OPP-100](../opportunities/archive/OPP-100-brain-query-policy-records-and-grant-fk.md)** (policy records + grant `policy_id`; not on active backlog).
 
 **Phase 1 — cross-instance:**
 
@@ -173,6 +173,6 @@ The broader P2P wiki collaboration vision was in **[IDEA-wiki-sharing-collaborat
 
 **Shipped path:** explicit grants, **Tunnels** in chat, owner **review / approve**, and privacy filtering on the owner tenant — same hosted-instance routing assumptions as early experiments, but **not** dependent on email transport.
 
-**Longer-term trust:** Filter-only **auto-send** alone is **not** sufficient for many users and orgs. **Review-before-send** ships in **chat tunnels** ([braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)). **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** describes a **unified brief / inbox** that can surface the same items alongside other domains; **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped the **persistence layer** (per-tenant DB + notification rows + chat in SQLite).
+**Longer-term trust:** Filter-only **auto-send** alone is **not** sufficient for many users and orgs. **Review-before-send** ships in **chat tunnels** ([braintunnel-b2b-chat.md](../architecture/braintunnel-b2b-chat.md)). **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** describes a **unified brief / inbox** that can surface the same items alongside other domains; **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** shipped the **persistence layer** (per-tenant DB + notification rows + chat in SQLite).
 
 Per-connection **auto** vs **review** remains a product choice; both are implemented in **Braintunnel B2B**.

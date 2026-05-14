@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Ripmail corpus backlog closed for tracking.
 
-**Stub:** [../OPP-083-imessage-and-unified-messaging-index.md](../OPP-083-imessage-and-unified-messaging-index.md)
 
 ---
 
@@ -46,7 +45,7 @@ To reuse the mail pipeline, a prototype **fabricated minimal RFC822 bytes** for 
 
 Ingest used **handle strings** from Apple (`+1…`, `me`, sometimes email). Search/`who`/`read` are built around **email-shaped** `from_address` fields. **Display names** are often missing in the index; **the same human** can appear as a phone in chat and an email in mail — **merge is not automatic**.
 
-**Implication:** A serious cross-channel story needs explicit **handles → person** (or equivalent) and UX for **merge/link**, not only string equality on `from_address`. See [Unified identity across channels](#unified-identity-across-channels-exploration) and [OPP-077](OPP-077-who-smart-address-book.md).
+**Implication:** A serious cross-channel story needs explicit **handles → person** (or equivalent) and UX for **merge/link**, not only string equality on `from_address`. See [Unified identity across channels](#unified-identity-across-channels-exploration) and [OPP-077](./OPP-077-who-smart-address-book.md).
 
 ### `chat.db` text is incomplete on modern macOS
 
@@ -110,7 +109,7 @@ Unchanged intent: keep **`mailboxes`** for IMAP; add **optional** `imessage` (or
 
 ## Unified identity across channels (exploration)
 
-**More important after the experiment:** cross-channel **“who is this?”** requires **handles** (phone, email, provider ids) and **optional person merge** — not a single `from_address` string. See [OPP-077](OPP-077-who-smart-address-book.md).
+**More important after the experiment:** cross-channel **“who is this?”** requires **handles** (phone, email, provider ids) and **optional person merge** — not a single `from_address` string. See [OPP-077](./OPP-077-who-smart-address-book.md).
 
 ## Non-goals (initial)
 
@@ -128,5 +127,5 @@ Unchanged intent: keep **`mailboxes`** for IMAP; add **optional** `imessage` (or
 
 - [OPP-016 archived](../../ripmail/docs/opportunities/archive/OPP-016-multi-inbox.md) — multi-mailbox / `mailbox_id`.
 - [OPP-044 archived](../../ripmail/docs/opportunities/archive/OPP-044-per-mailbox-sync-and-smtp-config.md) — IMAP sync/SMTP; orthogonal to chat connectors.
-- [OPP-077](OPP-077-who-smart-address-book.md) — contacts, merge, `who`.  
+- [OPP-077](./OPP-077-who-smart-address-book.md) — contacts, merge, `who`.  
 - [VISION.md](../../ripmail/docs/VISION.md) — agent-first, local-first product stance.

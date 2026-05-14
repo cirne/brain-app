@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Ripmail corpus backlog closed for tracking.
 
-**Stub:** [../OPP-082-mcp-deferred-cli-first.md](../OPP-082-mcp-deferred-cli-first.md)
 
 ---
 

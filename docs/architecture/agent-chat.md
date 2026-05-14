@@ -2,7 +2,7 @@
 
 ## Stack
 
-- **Runtime:** `@mariozechner/pi-agent-core` `Agent` with `convertToLlm` from `@mariozechner/pi-coding-agent`. **Package options, events, and metering context:** [pi-agent-stack.md](./pi-agent-stack.md) (usage / cost: [OPP-072](../opportunities/OPP-072-llm-usage-token-metering.md)).
+- **Runtime:** `@mariozechner/pi-agent-core` `Agent` with `convertToLlm` from `@mariozechner/pi-coding-agent`. **Package options, events, and metering context:** [pi-agent-stack.md](./pi-agent-stack.md) (usage / cost: [OPP-072](../opportunities/archive/OPP-072-llm-usage-token-metering.md)).
 - **Model:** `@mariozechner/pi-ai` `getModel(provider, modelId)` — `provider` and `modelId` come from **`BRAIN_LLM`** (and optional fast tier for some paths); see [configuration.md](./configuration.md).
 - **Tools:** Built in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts)` — see below.
 
@@ -36,7 +36,7 @@ The session list reads **`chat_sessions`** ordered by **`updated_at_ms`** (newes
 
 **Mail `notify`** items surface as **`notifications`** rows (mirrored from the mail index after refresh — see [archived OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)); **`GET/PATCH /api/notifications`** and agent tooling (`mark_notification`) cover list/read/dismiss.
 
-**Merging** the mail SQLite file into the same **`var/brain-tenant.sqlite`** as chat is **[OPP-108](../opportunities/OPP-108-unified-tenant-sqlite.md)**. In-process mail (**[archived OPP-103](../opportunities/archive/OPP-103-ripmail-ts-port.md)** · **stub [OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)**) ships on **`main`**. Until **OPP-108**, the mail index remains **`ripmail/ripmail.db`** (per-tenant layout).
+**Merging** the mail SQLite file into the same **`var/brain-tenant.sqlite`** as chat is **[OPP-108](../opportunities/OPP-108-unified-tenant-sqlite.md)**. In-process mail (**[archived OPP-103](../opportunities/archive/OPP-103-ripmail-ts-port.md)**) ships on **`main`**. Until **OPP-108**, the mail index remains **`ripmail/ripmail.db`** (per-tenant layout).
 
 ## SSE wire format (`POST /api/chat`)
 

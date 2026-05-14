@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** Removed from the active backlog (shipped or no longer pursued).
 
-**Stub:** [../OPP-070-full-calendar-read-write-agent-surface.md](../OPP-070-full-calendar-read-write-agent-surface.md)
 
 ---
 
@@ -10,12 +9,12 @@
 
 ### OPP-070: Full calendar read/write — agent surface, ripmail primitives, UX guardrails
 
-**Status:** Mostly shipped (2026-04) — **residual:** onboarding / primary-calendar UX ([OPP-054](../OPP-054-guided-onboarding-agent.md)), acceptance checklist audit, edge-case polish.  
+**Status:** Mostly shipped (2026-04) — **residual:** onboarding / primary-calendar UX ([OPP-054](./OPP-054-guided-onboarding-agent.md)), acceptance checklist audit, edge-case polish.  
 **Tags:** `calendar` · `agent` · `ripmail` · `google`  
 
-**Reality check:** `**calendar`** in [`calendarTools.ts`](../../../src/server/agent/tools/calendarTools.ts) exposes **`create_event`** (recurrence / RRULE), **`update_event`**, **`cancel_event`**, **`delete_event`** backed by **`ripmail calendar`** (`create-event`, `update-event`, `cancel-event`, `delete-event`). Reads use adaptive tiers + **`search`** ([archived OPP-069](./archive/OPP-069-calendar-token-efficiency.md)). Treat the **Problem** and **Acceptance** sections below as the **original spec**; many boxes are already satisfied in `main`.
+**Reality check:** `**calendar`** in [`calendarTools.ts`](../../../src/server/agent/tools/calendarTools.ts) exposes **`create_event`** (recurrence / RRULE), **`update_event`**, **`cancel_event`**, **`delete_event`** backed by **`ripmail calendar`** (`create-event`, `update-event`, `cancel-event`, `delete-event`). Reads use adaptive tiers + **`search`** ([archived OPP-069](./OPP-069-calendar-token-efficiency.md)). Treat the **Problem** and **Acceptance** sections below as the **original spec**; many boxes are already satisfied in `main`.
 
-**Related:** [archived OPP-063](./archive/OPP-063-google-calendar-recurring-and-update-events.md) (**superseded** by this doc); [archived OPP-069](./archive/OPP-069-calendar-token-efficiency.md) (read path — **shipped**; primary calendars remain [OPP-054](../OPP-054-guided-onboarding-agent.md)); [`calendar` tool](../../../src/server/agent/tools/calendarTools.ts); [`.agents/skills/calendar/SKILL.md`](../../../.agents/skills/calendar/SKILL.md); [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md) (OAuth verification if scopes expand).
+**Related:** [archived OPP-063](./OPP-063-google-calendar-recurring-and-update-events.md) (**superseded** by this doc); [archived OPP-069](./OPP-069-calendar-token-efficiency.md) (read path — **shipped**; primary calendars remain [OPP-054](./OPP-054-guided-onboarding-agent.md)); [`calendar` tool](../../../src/server/agent/tools/calendarTools.ts); [`.agents/skills/calendar/SKILL.md`](../../../.agents/skills/calendar/SKILL.md); [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md) (OAuth verification if scopes expand).
 
 ---
 
@@ -29,14 +28,14 @@ Give the assistant **real calendar lifecycle control** (not only **single-instan
 
 The stack was **read-heavy, write-narrow** until **`calendar`** gained full mutation **`op`** values:
 
-- **`calendar` `op=events`** (plus [adaptive tiers + search](./archive/OPP-069-calendar-token-efficiency.md)) gives a strong **read** path.
+- **`calendar` `op=events`** (plus [adaptive tiers + search](./OPP-069-calendar-token-efficiency.md)) gives a strong **read** path.
 - Previously **`op=create_event`** was **single-instance** only; **update** / **recurring** / **cancel** / **delete** were missing from the agent surface even when OAuth had **`calendar.events`**.
 
 ---
 
 ## Supersedes OPP-063 (explicit scope)
 
-The following were tracked as **[archived OPP-063](./archive/OPP-063-google-calendar-recurring-and-update-events.md)** and **must** be satisfied when OPP-070 ships:
+The following were tracked as **[archived OPP-063](./OPP-063-google-calendar-recurring-and-update-events.md)** and **must** be satisfied when OPP-070 ships:
 
 - **`create_event` + recurrence:** optional RRULE or small presets (daily / weekly / weekdays / monthly + end date or count); consistent **event ids** returned for follow-up **`update_event`** / **`cancel_event`**.
 - **`update_event`:** patch time, title, location, description, recurrence (organizer / permissions as API allows).

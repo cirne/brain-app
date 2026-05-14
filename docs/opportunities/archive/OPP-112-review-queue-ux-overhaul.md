@@ -1,6 +1,6 @@
 # Archived: OPP-112 — Review queue UX overhaul
 
-**Status: Archived (2026-05-13).** **Pass 1 (Issues 1–6 + inbox data model) shipped.** Issues **7–8** were future scope; partial cold-query hooks may exist in code—track follow-ups in new opportunities if needed. **Stub:** [../OPP-112-review-queue-ux-overhaul.md](../OPP-112-review-queue-ux-overhaul.md)
+**Status: Archived (2026-05-13).** **Pass 1 (Issues 1–6 + inbox data model) shipped.** Issues **7–8** were future scope; partial cold-query hooks may exist in code—track follow-ups in new opportunities if needed. **Stub:** [../OPP-112-review-queue-ux-overhaul.md](./OPP-112-review-queue-ux-overhaul.md)
 
 ---
 

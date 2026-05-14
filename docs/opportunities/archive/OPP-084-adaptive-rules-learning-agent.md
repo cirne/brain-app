@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Ripmail corpus backlog closed for tracking.
 
-**Stub:** [../OPP-084-adaptive-rules-learning-agent.md](../OPP-084-adaptive-rules-learning-agent.md)
 
 ---
 

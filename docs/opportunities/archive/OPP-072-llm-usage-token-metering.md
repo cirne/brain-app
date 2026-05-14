@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Token/cost visibility epic closed for tracking.
 
-**Stub:** [../OPP-072-llm-usage-token-metering.md](../OPP-072-llm-usage-token-metering.md)
 
 ---
 
@@ -38,7 +37,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 
 - Authoritative **billing** or invoice reconciliation (provider dashboards remain source of truth).
 - Storing usage in **ripmail**’s database.
-- **Real-time** cross-tenant admin analytics (can be a later hosted epic; see [OPP-041](OPP-041-hosted-cloud-epic-docker-digitalocean.md)).
+- **Real-time** cross-tenant admin analytics (can be a later hosted epic; see [OPP-041](./OPP-041-hosted-cloud-epic-docker-digitalocean.md)).
 
 ## Technical approach
 
@@ -75,7 +74,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 
 - **Chat:** per-message “usage” affordance (expand or footnote) and optional session header total.
 - **Brain Hub — background agents:** show **tokens / estimated cost** for the current run and (for Your Wiki) **per lap** or last completed invocation, so “building / linting the wiki” is comparable to chat usage.
-- **Brain Hub** ([OPP-021](OPP-021-user-settings-page.md)): a **Usage** or **Diagnostics** section for **combined** rolling totals (chat + background) and model identity.
+- **Brain Hub** ([OPP-021](../OPP-021-user-settings-page.md)): a **Usage** or **Diagnostics** section for **combined** rolling totals (chat + background) and model identity.
 - **Hosted:** soft limits or warnings based on stored rollups (separate policy OPP if needed).
 
 ## Acceptance criteria (MVP)
@@ -96,9 +95,9 @@ Give users **visibility into model consumption**: token counts (input, cached in
 - [`src/server/agent/wikiExpansionRunner.ts`](../../../src/server/agent/wikiExpansionRunner.ts) — wiki enrich/cleanup `agent.prompt` + `attachRunTracker`
 - [`src/server/agent/yourWikiSupervisor.ts`](../../../src/server/agent/yourWikiSupervisor.ts) — continuous enrich → cleanup loop
 - [`src/server/lib/backgroundAgentStore.ts`](../../../src/server/lib/backgroundAgentStore.ts) — `BackgroundRunDoc` persistence under `background/runs/`
-- [OPP-012](OPP-012-brain-home-data-layout.md) — canonical `BRAIN_HOME` layout
-- [OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md) — Your Wiki supervisor product/design
-- [OPP-041](OPP-041-hosted-cloud-epic-docker-digitalocean.md) — hosted / multi-tenant context
+- [OPP-012](../OPP-012-brain-home-data-layout.md) — canonical `BRAIN_HOME` layout
+- [OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md) — Your Wiki supervisor product/design
+- [OPP-041](./OPP-041-hosted-cloud-epic-docker-digitalocean.md) — hosted / multi-tenant context
 
 ---
 

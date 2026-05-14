@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Mobile shell redesign epic closed for tracking.
 
-**Stub:** [../OPP-092-mobile-navigation-ia-rethink.md](../OPP-092-mobile-navigation-ia-rethink.md)
 
 ---
 
@@ -11,7 +10,7 @@
 ### OPP-092: Mobile navigation IA rethink (top chrome + L2 header + WYSIWYG)
 
 **Status:** Proposed — IA + UX redesign of the mobile shell, with a smaller follow-on for desktop polish.
-**Related:** [BUG-041](../bugs/archive/BUG-041-doc-viewer-chrome-mobile-nav-too-many-controls.md) (archived symptom screenshots), [archived OPP-049](archive/OPP-049-global-ui-tailwind-refactor.md) (Tailwind base), [OPP-058](OPP-058-spa-url-main-pane-vs-overlay-query.md) (URL routing of overlays), [OPP-055](OPP-055-tap-to-talk-mobile-panel-ux.md) (mobile panel chrome conventions). **Specifically supersedes the resolution proposed in BUG-041** — the bug becomes a tracking pointer once this OPP lands.
+**Related:** [BUG-041](../bugs/archive/BUG-041-doc-viewer-chrome-mobile-nav-too-many-controls.md) (archived symptom screenshots), [archived OPP-049](archive/OPP-049-global-ui-tailwind-refactor.md) (Tailwind base), [OPP-058](./OPP-058-spa-url-main-pane-vs-overlay-query.md) (URL routing of overlays), [OPP-055](./OPP-055-tap-to-talk-mobile-panel-ux.md) (mobile panel chrome conventions). **Specifically supersedes the resolution proposed in BUG-041** — the bug becomes a tracking pointer once this OPP lands.
 
 ---
 
@@ -216,7 +215,7 @@ Each of these is independently shippable; the IA win is roughly steps 4–6 even
 
 ## Out of scope
 
-- **Full theming / DESIGN.md adoption** — see [OPP-089 stub](../OPP-089-google-design-md-exploratory.md) (**[archive](OPP-089-google-design-md-exploratory.md)**). This OPP ships with the existing Tailwind tokens.
+- **Full theming / DESIGN.md adoption** — see [OPP-089 stub](./OPP-089-google-design-md-exploratory.md) (**[archive](./OPP-089-google-design-md-exploratory.md)**). This OPP ships with the existing Tailwind tokens.
 - **iOS-style URL-bar shroud / standalone install** — separate work; not required for this redesign.
 - **Sharing UX** — `WikiShareDialog` stays as today; this OPP only changes how the entry point is presented (top bar icon vs sheet item).
 - **Calendar header redesign** — the existing week-nav inline header is fine on mobile; only the host bar around it changes.

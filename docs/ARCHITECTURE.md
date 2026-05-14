@@ -43,7 +43,7 @@ Why the product exists, how we talk about it, and collaboration ideas — not ro
 | Open: narrow JTBD + category-label analysis (May 2026) | [the-product-question.md](the-product-question.md)                        |
 | Open: is the wiki worth maintaining?        | [the-wiki-question.md](the-wiki-question.md)                                         |
 | Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
-| Wiki sharing / brain-to-brain collaborators | [ideas/archive/IDEA-wiki-sharing-collaborators.md](ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064 stub](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Chat-native B2B (Tunnels):** [architecture/braintunnel-b2b-chat.md](architecture/braintunnel-b2b-chat.md) · **Cross-brain access policy (draft):** [architecture/brain-to-brain-access-policy.md](architecture/brain-to-brain-access-policy.md) |
+| Wiki sharing / brain-to-brain collaborators | [ideas/archive/IDEA-wiki-sharing-collaborators.md](ideas/archive/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([archived OPP-064](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Chat-native B2B (Tunnels):** [architecture/braintunnel-b2b-chat.md](architecture/braintunnel-b2b-chat.md) · **Cross-brain access policy (draft):** [architecture/brain-to-brain-access-policy.md](architecture/brain-to-brain-access-policy.md) |
 | Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
 
 
@@ -94,7 +94,7 @@ Chat transport, tooling surface, Pi integration, metering hooks, and local model
 | Agent sessions, chat + SQLite persistence (`var/brain-tenant.sqlite`), SSE, tool catalog | [architecture/agent-chat.md](architecture/agent-chat.md)                                                                        |
 | **Braintunnel B2B chat** (tunnels, `/api/chat/b2b`, cross-tenant session writes) | [architecture/braintunnel-b2b-chat.md](architecture/braintunnel-b2b-chat.md) · grants: [architecture/brain-query-delegation.md](architecture/brain-query-delegation.md) |
 | Quick replies (chips / suggestions UI)                   | [architecture/chat-suggestions.md](architecture/chat-suggestions.md)                                                            |
-| Pi stack (`pi-agent-core` / `pi-ai`, options, metering)  | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md) |
+| Pi stack (`pi-agent-core` / `pi-ai`, options, metering)  | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-072](opportunities/archive/OPP-072-llm-usage-token-metering.md) |
 | Local MLX LLM (Apple Silicon, `mlx_lm.server`, Qwen 3.6) | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md)                                                                  |
 
 
@@ -111,11 +111,11 @@ On-disk layout, integrations, evaluations, and the **TypeScript** mail stack (**
 | **First-run onboarding** (persisted states, phased mail sync, `/api/onboarding`) | [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)                                            |
 | Mail (`@server/ripmail`), unified search, files API, optional iMessage              | [architecture/integrations.md](architecture/integrations.md)                                                                      |
 | Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`) | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
-| External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045 stub](opportunities/OPP-045-google-drive.md) ([archived](opportunities/archive/OPP-045-google-drive.md)) |
+| External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [archived OPP-045](opportunities/archive/OPP-045-google-drive.md) |
 | Eval home, Enron fixture mail, search index rebuild                           | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
 | Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)               | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
 | **Rust ripmail — archaeology** (annotated git tags; last tree before crate left `main`) | [architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md) · [archived OPP-105](opportunities/archive/OPP-105-ripmail-rust-pre-typescript-git-snapshot.md) |
-| **Mail in-process** (TS ripmail; Rust crate archaeology)                               | [archived OPP-103](opportunities/archive/OPP-103-ripmail-ts-port.md) · **stub** [OPP-103](opportunities/OPP-103-ripmail-ts-port.md) · [OPP-108](opportunities/OPP-108-unified-tenant-sqlite.md) (merge to one tenant DB)                     |
+| **Mail in-process** (TS ripmail; Rust crate archaeology)                               | [archived OPP-103](opportunities/archive/OPP-103-ripmail-ts-port.md) · [OPP-108](opportunities/OPP-108-unified-tenant-sqlite.md) (merge to one tenant DB)                     |
 
 
 ---
@@ -157,7 +157,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 - **Single user, single process** — no separate API server; sessions are in-memory with chat history persisted in **`var/brain-tenant.sqlite`** per tenant (see [chat-history-sqlite.md](architecture/chat-history-sqlite.md)); **`chats/`** retains onboarding JSON only.
 - **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
-  - **Bootstrap then maintenance** — after enough indexed mail, a **one-shot wiki bootstrap** may create bounded first-draft stubs ([OPP-095](opportunities/OPP-095-wiki-first-draft-bootstrap.md)); the **Your Wiki** supervisor then runs deepen-only laps ([architecture/background-task-orchestration.md](architecture/background-task-orchestration.md)).
+  - **Bootstrap then maintenance** — after enough indexed mail, a **one-shot wiki bootstrap** may create bounded first-draft stubs ([archived OPP-095](opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md)); the **Your Wiki** supervisor then runs deepen-only laps ([architecture/background-task-orchestration.md](architecture/background-task-orchestration.md)).
   - **Email and mail index** — **`src/server/ripmail/`** (TypeScript, in-process); on-disk **`ripmail/`** layout under each tenant home ([`brain-layout.json`](../shared/brain-layout.json)). Manual CLI work uses **`npm run ripmail -- <subcommand>`** ([architecture/integrations.md](architecture/integrations.md)).
   - **UI Shell** — Svelte 5 SPA. The top-nav **Brain Hub widget** replaces legacy status bars and sync buttons, providing a single entry point to **Brain Hub** (`/hub`) for administration and system health.
   - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc). **Local MLX (Qwen on Apple Silicon):** [local-mlx-llm.md](architecture/local-mlx-llm.md).
@@ -166,7 +166,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 ## Deployment
 
-**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + `[docker-compose.yml](../docker-compose.yml)` (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:deploy`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): [docker-compose.do.yml](../docker-compose.do.yml), registry image, **[https://staging.braintunnel.ai](https://staging.braintunnel.ai)** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
+**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [archived OPP-041](opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + `[docker-compose.yml](../docker-compose.yml)` (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:deploy`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): [docker-compose.do.yml](../docker-compose.do.yml), registry image, **[https://staging.braintunnel.ai](https://staging.braintunnel.ai)** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 

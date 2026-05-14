@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Ripmail corpus backlog closed for tracking.
 
-**Stub:** [../OPP-088-contacts-unified-who-canonical-identity.md](../OPP-088-contacts-unified-who-canonical-identity.md)
 
 ---
 
@@ -22,7 +21,7 @@
 
 ## Summary
 
-Add **first-class system contacts** (Google People API + macOS **ContactKit** via the same **native-helper / permission** pattern as calendar in [OPP-053 archived](../../ripmail/docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md)), and **redefine `ripmail who`** so it returns a **single canonical view per human** — **merged emails**, **phone numbers (E.164)**, **display aliases**, aggregated mail **interaction stats**, and stable **lookup keys** for tools that index by **phone or handle** (local Messages / future messaging index in [OPP-083](OPP-083-imessage-and-unified-messaging-index.md)).
+Add **first-class system contacts** (Google People API + macOS **ContactKit** via the same **native-helper / permission** pattern as calendar in [OPP-053 archived](../../ripmail/docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md)), and **redefine `ripmail who`** so it returns a **single canonical view per human** — **merged emails**, **phone numbers (E.164)**, **display aliases**, aggregated mail **interaction stats**, and stable **lookup keys** for tools that index by **phone or handle** (local Messages / future messaging index in [OPP-083](./OPP-083-imessage-and-unified-messaging-index.md)).
 
 **No LLM** participates in merge or deduplication: use an **offline identity graph** (union over high-confidence edges), deterministic **canonical naming** (Contacts beats mail header; nickname / fuzzy rules only **within** a cluster), and structured **JSON** for host agents.
 
@@ -40,7 +39,7 @@ Add **first-class system contacts** (Google People API + macOS **ContactKit** vi
 
 ## Opportunity
 
-### 1. Contacts as sources (align with [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md))
+### 1. Contacts as sources (align with [OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md))
 
 - **`googleContacts`** — Google **People API**, OAuth scopes added to existing Google auth ([OPP-042](../../ripmail/docs/opportunities/OPP-042-google-oauth-cli-auth.md)); incremental sync token per account; normalized rows in SQLite.
 - **`appleContacts` (macOS only)** — **ContactKit** (`CNContactStore`) through a **small native helper** next to `ripmail`, same trust/TCC story as EventKit in OPP-053; non-macOS: clear unsupported.
@@ -90,11 +89,11 @@ Use **union-find** (or equivalent) offline during **`refresh` / `who --rebuild`*
 
 ## Related
 
-- [OPP-077](OPP-077-who-smart-address-book.md) — **archived (done enough)** mail-centric `who` ship list; this opp **supersedes direction** for the next-generation identity layer where that work lands.
+- [OPP-077](./OPP-077-who-smart-address-book.md) — **archived (done enough)** mail-centric `who` ship list; this opp **supersedes direction** for the next-generation identity layer where that work lands.
 - [OPP-053 archived](../../ripmail/docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md) — calendar + same-binary native surface; **attendee email** correlation with `who` clusters.
-- [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources` model for connectors.
+- [OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md) — `sources` model for connectors.
 - [OPP-042](../../ripmail/docs/opportunities/OPP-042-google-oauth-cli-auth.md) — Google OAuth; scope expansion for People API.
-- [OPP-083](OPP-083-imessage-and-unified-messaging-index.md) — messaging index / handles; complementary to phone-first lookup from `who`.
+- [OPP-083](./OPP-083-imessage-and-unified-messaging-index.md) — messaging index / handles; complementary to phone-first lookup from `who`.
 - Brain-app: `find_person` tool and local Messages tooling — should **consume** canonical `who` JSON once available.
 
 ---

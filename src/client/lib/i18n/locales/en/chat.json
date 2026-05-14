@@ -245,7 +245,7 @@
         "ignoreActiveHeader": "Not answering their questions — pick Review each or Autosend to resume replies."
       },
       "customizeBrainAccess": "Customize under Brain access…",
-      "autoSendTitle": "Autosend replies to @{{handle}}?"
+      "autoSendTitle": "Autosend replies to {{handle}}?"
     }
   },
   "historyPage": {

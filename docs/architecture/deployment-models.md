@@ -40,7 +40,7 @@ The "Convenience-First" entry point. A managed service that allows users to try 
 
 ### Staging on DigitalOcean (April 2026)
 
-**`https://staging.braintunnel.ai`** — TLS at the edge; the Braintunnel container listens on **port 4000** inside the stack. Durable state lives in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. Operational detail: [digitalocean.md](../digitalocean.md); milestone closure and **new-host HTTPS checklist**: [OPP-041 (full epic)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md#reference-https--edge-checklist-new-hosts) ([stub](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)).
+**`https://staging.braintunnel.ai`** — TLS at the edge; the Braintunnel container listens on **port 4000** inside the stack. Durable state lives in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. Operational detail: [digitalocean.md](../digitalocean.md); milestone closure and **new-host HTTPS checklist**: [OPP-041 (full epic)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md#reference-https--edge-checklist-new-hosts).
 
 **Future scaling (Phase 2+):** S3-backed tenant lifecycle with container-local storage, distributed locks, and graceful backup/restore. See [multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md) and [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md) ([OPP-096](../opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)).
 

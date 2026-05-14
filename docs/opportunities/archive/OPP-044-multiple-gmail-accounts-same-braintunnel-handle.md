@@ -1,6 +1,6 @@
 # Archived: OPP-044 — Multiple mailboxes, one Braintunnel handle
 
-**Archived 2026-04-30.** **Status: Shipped (core).** `/api/oauth/google/link/`*, `linkedMailboxes.ts`, second `sources[]` in ripmail; tests in `gmailOAuth.test.ts`. Hub UX polish may continue. **Stable URL:** [stub](../OPP-044-multiple-gmail-accounts-same-braintunnel-handle.md).
+**Archived 2026-04-30.** **Status: Shipped (core).** `/api/oauth/google/link/`*, `linkedMailboxes.ts`, second `sources[]` in ripmail; tests in `gmailOAuth.test.ts`. Hub UX polish may continue. **Stable URL:** [stub](./OPP-044-multiple-gmail-accounts-same-braintunnel-handle.md).
 
 ---
 
@@ -319,7 +319,7 @@ Most multi-source CLI support is already shipped. Remaining work:
 
 ## Non-goals (initially)
 
-- **Fully automatic "same human" unification** in contacts across mailboxes (may intersect [OPP-037](../OPP-037-messages-index-and-unified-people.md) later).
+- **Fully automatic "same human" unification** in contacts across mailboxes (may intersect [OPP-037](./OPP-037-messages-index-and-unified-people.md) later).
 - **Non-Gmail connectors** beyond what ripmail + OAuth flows already support—sequence after Gmail N-mailbox is credible.
 - **Multiple primary identities** (sign in with any linked Gmail)—keep it simple: one primary, N linked.
 
@@ -327,9 +327,9 @@ Most multi-source CLI support is already shipped. Remaining work:
 
 ## Related
 
-- [OPP-019](../OPP-019-gmail-first-class-brain.md) — Gmail OAuth, shared on-disk with ripmail.
+- [OPP-019](./OPP-019-gmail-first-class-brain.md) — Gmail OAuth, shared on-disk with ripmail.
 - [ripmail OPP-016 (archived)](../../../ripmail/docs/opportunities/archive/OPP-016-multi-inbox.md) — multi-mailbox architecture.
-- [ripmail OPP-087 — unified sources](../OPP-087-unified-sources-mail-local-files-future-connectors.md) — corpus and connectors.
+- [ripmail OPP-087 — unified sources](./OPP-087-unified-sources-mail-local-files-future-connectors.md) — corpus and connectors.
 - [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth verification caps (may affect how many "test users" or consent surfaces you maintain).
 
 **Status:** Open — Phase 1 ready to implement

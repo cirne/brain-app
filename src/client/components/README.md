@@ -1,6 +1,6 @@
 # Svelte components (`src/client/components`)
 
-Tailwind-first UI for Braintunnel. Conventions align with [OPP-049](../../docs/opportunities/OPP-049-global-ui-tailwind-refactor.md) (merged baseline) and **[`docs/architecture/tailwind-migration.md`](../../docs/architecture/tailwind-migration.md)** (cascade pitfalls, responsive policy).
+Tailwind-first UI for Braintunnel. Conventions align with [archived OPP-049](../../docs/opportunities/archive/OPP-049-global-ui-tailwind-refactor.md) (merged baseline) and **[`docs/architecture/tailwind-migration.md`](../../docs/architecture/tailwind-migration.md)** (cascade pitfalls, responsive policy).
 
 ## Imports
 

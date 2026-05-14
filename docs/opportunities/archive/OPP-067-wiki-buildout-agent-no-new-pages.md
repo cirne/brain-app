@@ -1,8 +1,8 @@
 # OPP-067: Wiki buildout agent — deepen only, no new page creation
 
-**Status:** **Archived (2026-05-06).** The **deepen-only Your Wiki enrich** path (`wiki-edits.jsonl` tail + thin-page queue injection, prompts in `wikiExpansionRunner.ts`, optional **`write`** guard for non-existent paths in buildout) **remains implemented** in `main`. **Product / backlog tracking** for *how* the wiki gets its **first** pages and *when* the supervisor runs moves to **[OPP-095](../OPP-095-wiki-first-draft-bootstrap.md)** (first-draft bootstrap) and **[OPP-094](../OPP-094-holistic-onboarding-background-task-orchestration.md)** (holistic orchestration). This file is retained as **historical spec and acceptance-criteria** reference.
+**Status:** **Archived (2026-05-06).** The **deepen-only Your Wiki enrich** path (`wiki-edits.jsonl` tail + thin-page queue injection, prompts in `wikiExpansionRunner.ts`, optional **`write`** guard for non-existent paths in buildout) **remains implemented** in `main`. **Product / backlog tracking** for *how* the wiki gets its **first** pages and *when* the supervisor runs moves to **[OPP-095](./OPP-095-wiki-first-draft-bootstrap.md)** (first-draft bootstrap) and **[OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md)** (holistic orchestration). This file is retained as **historical spec and acceptance-criteria** reference.
 
-**Related (active):** [OPP-095](../OPP-095-wiki-first-draft-bootstrap.md), [OPP-094](../OPP-094-holistic-onboarding-background-task-orchestration.md), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md)  
+**Related (active):** [OPP-095](./OPP-095-wiki-first-draft-bootstrap.md), [OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md)  
 **Related (archived):** [OPP-066](./OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md)
 
 ---

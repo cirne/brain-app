@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Naming / hostname transition epic closed for tracking.
 
-**Stub:** [../OPP-090-production-naming-and-my-braintunnel-transition.md](../OPP-090-production-naming-and-my-braintunnel-transition.md)
 
 ---
 
@@ -164,7 +163,7 @@ If done, update [DEPLOYMENT.md](../../DEPLOYMENT.md), [SECURITY.md](../../SECURI
 - Creating a new staging environment. That is a separate follow-on once production naming is honest.
 - Migrating user data to a new droplet or volume.
 - Renaming every underlying DO/Tailscale resource in the first pass.
-- Changing the Google OAuth verification milestone itself; this complements [OPP-043](OPP-043-google-oauth-app-verification-milestones.md).
+- Changing the Google OAuth verification milestone itself; this complements [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md).
 
 ## Related
 
@@ -172,6 +171,6 @@ If done, update [DEPLOYMENT.md](../../DEPLOYMENT.md), [SECURITY.md](../../SECURI
 - [DEPLOYMENT.md](../../DEPLOYMENT.md)
 - [newrelic.md](../../newrelic.md)
 - [digitalocean.md](../digitalocean.md)
-- [OPP-041 — Hosted cloud epic](OPP-041-hosted-cloud-epic-docker-digitalocean.md)
-- [OPP-043 — Google OAuth app verification milestones](OPP-043-google-oauth-app-verification-milestones.md)
-- [OPP-052 — New Relic change tracking on Watchtower / container rollouts](OPP-052-newrelic-change-tracking-on-watchtower-rollout.md)
+- [OPP-041 — Hosted cloud epic](./OPP-041-hosted-cloud-epic-docker-digitalocean.md)
+- [OPP-043 — Google OAuth app verification milestones](../OPP-043-google-oauth-app-verification-milestones.md)
+- [OPP-052 — New Relic change tracking on Watchtower / container rollouts](./OPP-052-newrelic-change-tracking-on-watchtower-rollout.md)

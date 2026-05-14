@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-12).** Removed from the active backlog (shipped or no longer pursued).
 
-**Stub:** [../OPP-068-wiki-template-user-profiles.md](../OPP-068-wiki-template-user-profiles.md)
 
 ---
 
@@ -11,7 +10,7 @@
 ### OPP-068 — Wiki template: user-profile starter directories
 
 **Status:** future  
-**Depends on:** [OPP-054](../OPP-054-guided-onboarding-agent.md) (onboarding agent), [OPP-060](../OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter wiki templates)
+**Depends on:** [OPP-054](./OPP-054-guided-onboarding-agent.md) (onboarding agent), [OPP-060](./OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter wiki templates)
 
 ---
 
@@ -42,7 +41,7 @@ Define **user-profile presets**, each declaring **which** top-level directories 
    The string `projects/` might mean “class work” for a student and “delivery work” for a consultant. The **selected profile**, **`me.md`**, and mail/calendar context should bias the agent more than a long persona-specific template. Prefer **generalized, shorter** `template.md` files (hub + section hints) over rigid per-persona forms.
 
 5. **LLM + profile over heavy templates**  
-   As templates stay generalized, invest in **profile-aware system / tool guidance**: what to capture, how to name entity pages, and when to link — driven by the user’s chosen preset and behavior, not only by static markdown contracts. [OPP-060](../OPP-060-starter-wiki-templates-and-agent-authoring.md) remains the on-disk pattern; this OPP bends it toward **composition + prompting** so we do not lean on redundant prose.
+   As templates stay generalized, invest in **profile-aware system / tool guidance**: what to capture, how to name entity pages, and when to link — driven by the user’s chosen preset and behavior, not only by static markdown contracts. [OPP-060](./OPP-060-starter-wiki-templates-and-agent-authoring.md) remains the on-disk pattern; this OPP bends it toward **composition + prompting** so we do not lean on redundant prose.
 
 **Trade-off (accepted):** Shared folder names imply slightly different emphasis per persona. The wiki and agent adapt via context; duplicating folders (`projects-student/` vs `projects/`) is usually worse than one `projects/` plus profile-aware authoring.
 
@@ -75,7 +74,7 @@ Profiles are additive — the system still creates the user's wiki however they 
 
 ## LLM-assisted profile detection during onboarding
 
-As part of the [guided onboarding agent (OPP-054)](../OPP-054-guided-onboarding-agent.md), after the user connects email:
+As part of the [guided onboarding agent (OPP-054)](./OPP-054-guided-onboarding-agent.md), after the user connects email:
 
 1. **Derive a compact traffic summary** from the mail index: recency window, coarse volume or velocity if cheap, recurring counterparties (display names / domains), subject-line themes, calendar-adjacent mail if already available, etc. **Avoid full message bodies** in the model prompt unless there is an explicit product/privacy decision to include snippets; subjects + metadata are usually enough.
 2. Pass the **complete candidate profile list**: stable ids, short human descriptions, and the suggested top-level folder labels (or a compressed projection if the catalog grows and token limits bite).
@@ -90,7 +89,7 @@ This keeps onboarding personal without requiring the user to self-identify upfro
 
 - Makes the wiki feel **immediately relevant** rather than blank.
 - Reduces the "what do I put here?" friction in the first session.
-- Sets up good folder structure for the buildout agent ([archived OPP-067](./archive/OPP-067-wiki-buildout-agent-no-new-pages.md)) to populate — it will have semantically sensible containers to fill.
+- Sets up good folder structure for the buildout agent ([archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md)) to populate — it will have semantically sensible containers to fill.
 - Cheap to extend: a new preset is mostly an **inclusion list** over the unified pool (plus optional **thin** `template.md` overrides), not a fork of the whole vault scaffold.
 - **One registry to maintain:** pool definitions and shared baselines stay DRY; semantic nuance leans on **profile + user context** in agent instructions.
 

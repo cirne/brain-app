@@ -1,6 +1,6 @@
 # Archived: OPP-111 — Tunnel fast follows
 
-**Status: Archived (2026-05-12).** **Shipped:** Save-to-wiki for **tunnel replies** (initiator tenant); **Review** queue (single nav + badge), per-grant **auto-send** vs **review-before-send**, pending/sent semantics, neutral tunnel copy/icons, honest egress vs My Brain surfaces. **Stub:** [../OPP-111-tunnel-fast-follows.md](../OPP-111-tunnel-fast-follows.md)
+**Status: Archived (2026-05-12).** **Shipped:** Save-to-wiki for **tunnel replies** (initiator tenant); **Review** queue (single nav + badge), per-grant **auto-send** vs **review-before-send**, pending/sent semantics, neutral tunnel copy/icons, honest egress vs My Brain surfaces. **Stub:** [../OPP-111-tunnel-fast-follows.md](./OPP-111-tunnel-fast-follows.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 **Status:** Archived (2026-05-12) — narrative retained for reference.
 
-**Prerequisite:** [OPP-110](../OPP-110-chat-native-brain-to-brain.md) (stub; **full spec:** [OPP-110-chat-native-brain-to-brain.md](OPP-110-chat-native-brain-to-brain.md)) · **Policy context:** [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md)
+**Prerequisite:** [OPP-110](./OPP-110-chat-native-brain-to-brain.md) (stub; **full spec:** [OPP-110-chat-native-brain-to-brain.md](./OPP-110-chat-native-brain-to-brain.md)) · **Policy context:** [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md)
 
 This opportunity bundles **post-v1 tunnel polish** that does not need to ship in the same milestone as the core tunnel cutover, but should be designed as a coherent “second lap”: **(A)** compounding **tunnel replies** into **your** wiki on the initiator’s side, and **(B)** a **triage-first answering-side** experience — send gating, clear delivery semantics, and UI that does not pretend peer-boundary replies are the same as **My Brain** chat.
 
@@ -51,7 +51,7 @@ This does **not** change OPP-110’s fundamentals; it **composes** tunnel output
 ### Technical sketch (wiki capture, light)
 
 - Reuse existing wiki write pathways on the **initiator** tenant (same tools the My Brain agent already uses), triggered from UI or from a dedicated **local** agent turn — not from the cross-tenant tunnel RPC.
-- Tunnel session rows already store transcript on your side ([OPP-110](../OPP-110-chat-native-brain-to-brain.md)); capture actions reference `session_id` + message id(s).
+- Tunnel session rows already store transcript on your side ([OPP-110](./OPP-110-chat-native-brain-to-brain.md)); capture actions reference `session_id` + message id(s).
 
 ---
 
@@ -139,4 +139,4 @@ Without a deliberate model, the UI **lies**; people may leak, withhold, or distr
 
 ## Relationship to OPP-110
 
-**[OPP-110](../OPP-110-chat-native-brain-to-brain.md)** is **archived** (2026-05-12); it defines tunnel threads, message storage, and trust boundaries. Implement this opportunity as a **focused second lap**: wiki capture on the **initiator** side **and**, on the host side, **a triage-first review queue + send gating + honest egress semantics** (for **any** granted tunnel message shape, not only questions) — without widening cross-brain trust or implying vault access the remote agent does not have.
+**[OPP-110](./OPP-110-chat-native-brain-to-brain.md)** is **archived** (2026-05-12); it defines tunnel threads, message storage, and trust boundaries. Implement this opportunity as a **focused second lap**: wiki capture on the **initiator** side **and**, on the host side, **a triage-first review queue + send gating + honest egress semantics** (for **any** granted tunnel message shape, not only questions) — without widening cross-brain trust or implying vault access the remote agent does not have.

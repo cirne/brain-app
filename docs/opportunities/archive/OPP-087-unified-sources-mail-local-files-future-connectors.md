@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Direction shipped in **`src/server/ripmail/`**; further connectors are product follow-ons, not this backlog doc.
 
-**Stub:** [../OPP-087-unified-sources-mail-local-files-future-connectors.md](../OPP-087-unified-sources-mail-local-files-future-connectors.md)
 
 ---
 
@@ -256,17 +255,17 @@ For `localDir` sources, ripmail should **not copy or symlink files**. Instead:
 
 ## Future connectors
 
-Examples: **Notion**, **Apple Notes**, read-only cloud APIs. **Cloud file trees** (lead: **Google Drive**) were tracked in **[archived brain-app OPP-045](OPP-045-google-drive.md)** (**stub [OPP-045](../OPP-045-google-drive.md)**) with architecture in **[external-data-sources.md](../architecture/external-data-sources.md)** (same `sources[]` / index direction as `localDir` on disk). Each connector gets a `kind`, optional OAuth/setup subcommands, and rows keyed by `source_id` + remote stable id. **[OPP-083](OPP-083-imessage-and-unified-messaging-index.md) (iMessage / chat)** shares the "channel + identity" lesson: do not force chat into email-shaped rows; do align on **one DB + explicit source/channel metadata** (distinct from brain-app **OPP-045** on Drive).
+Examples: **Notion**, **Apple Notes**, read-only cloud APIs. **Cloud file trees** (lead: **Google Drive**) were tracked in **[archived brain-app OPP-045](./OPP-045-google-drive.md)** (**stub [OPP-045](./OPP-045-google-drive.md)**) with architecture in **[external-data-sources.md](../architecture/external-data-sources.md)** (same `sources[]` / index direction as `localDir` on disk). Each connector gets a `kind`, optional OAuth/setup subcommands, and rows keyed by `source_id` + remote stable id. **[OPP-083](./OPP-083-imessage-and-unified-messaging-index.md) (iMessage / chat)** shares the "channel + identity" lesson: do not force chat into email-shaped rows; do align on **one DB + explicit source/channel metadata** (distinct from brain-app **OPP-045** on Drive).
 
 ---
 
 ## Related
 
-- [archived brain-app OPP-045](archive/OPP-045-google-drive.md) (**stub [OPP-045](OPP-045-google-drive.md)**) — **Google Drive** as the first cloud file-tree source (complements `localDir`); architecture: [external-data-sources.md](../architecture/external-data-sources.md).
-- [brain-app OPP-040](OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md) — **One** (formerly **Pica**) as a possible hosted integration layer when many SaaS connectors are desired; evaluation only, not the default direction.
+- [archived brain-app OPP-045](archive/OPP-045-google-drive.md) (**stub [OPP-045](./OPP-045-google-drive.md)**) — **Google Drive** as the first cloud file-tree source (complements `localDir`); architecture: [external-data-sources.md](../architecture/external-data-sources.md).
+- [brain-app OPP-040](../OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md) — **One** (formerly **Pica**) as a possible hosted integration layer when many SaaS connectors are desired; evaluation only, not the default direction.
 - [OPP-016 archived](../../ripmail/docs/opportunities/archive/OPP-016-multi-inbox.md) — historical multi-inbox; this opp supersedes the *config model* for new work.
-- [OPP-083](OPP-083-imessage-and-unified-messaging-index.md) — paused messaging index; unified **source** concept should fit the same direction.
-- [OPP-086](OPP-086-applemail-localhost-mailbox.md) — Apple Mail as a mailbox **kind**; in a `sources` world it becomes one `kind` among others.
+- [OPP-083](./OPP-083-imessage-and-unified-messaging-index.md) — paused messaging index; unified **source** concept should fit the same direction.
+- [OPP-086](./OPP-086-applemail-localhost-mailbox.md) — Apple Mail as a mailbox **kind**; in a `sources` world it becomes one `kind` among others.
 
 ---
 

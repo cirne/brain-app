@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Backlog tracking closed. Plan and scopes: [external-data-sources.md](../../architecture/external-data-sources.md).
 
-**Stub:** [../OPP-045-google-drive.md](../OPP-045-google-drive.md)
 
 ---
 
@@ -45,8 +44,8 @@ After shipping: confirm the live consent UI lists Drive alongside Gmail and Cale
 
 ## Scope (aligned with architecture doc)
 
-1. **Ripmail index (`@server/ripmail`)** — `googleDrive` source kind under [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md); credentials under tenant `ripmail/<source-id>/`; **`refresh`** pulls metadata + bytes for tokenization into **contentless** FTS (ADR-030 on [Rust snapshot](../../architecture/ripmail-rust-snapshot.md)); search JSON includes `sourceId` / `sourceKind`.
-2. **brain-app** — connect flow and token storage consistent with Gmail work ([OPP-019](../OPP-019-gmail-first-class-brain.md)); **request Drive read scope(s) in the OAuth authorize URL** (today missing — see § OAuth above); verification/consent implications ([OPP-043](../OPP-043-google-oauth-app-verification-milestones.md)).
+1. **Ripmail index (`@server/ripmail`)** — `googleDrive` source kind under [OPP-087](./OPP-087-unified-sources-mail-local-files-future-connectors.md); credentials under tenant `ripmail/<source-id>/`; **`refresh`** pulls metadata + bytes for tokenization into **contentless** FTS (ADR-030 on [Rust snapshot](../../architecture/ripmail-rust-snapshot.md)); search JSON includes `sourceId` / `sourceKind`.
+2. **brain-app** — connect flow and token storage consistent with Gmail work ([OPP-019](./OPP-019-gmail-first-class-brain.md)); **request Drive read scope(s) in the OAuth authorize URL** (today missing — see § OAuth above); verification/consent implications ([OPP-043](../OPP-043-google-oauth-app-verification-milestones.md)).
 3. **Agent tools** — `**search_index`**, `**list_files`**, `**read_doc**`, `**manage_sources**`, `**refresh_sources**` parameterized by source—not standalone `google_drive_*` tools ([architecture doc § Unified agent tools](../../architecture/external-data-sources.md#unified-agent-tools-source-parameter-not-per-vendor)).
 
 **Optional accelerator:** [OPP-040](../OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md).
@@ -72,10 +71,10 @@ Prior work (~`59072ac`) validated direction (`kind=googleDrive`, unified sources
 - Change tokens vs full reconciliation + re-auth edge cases.
 - Caps: max bytes per file, depth, **My Drive** vs **Shared with me**.
 - `**read_doc`** cache TTL under `RIPMAIL_HOME/<source-id>/cache/`.
-- Hosted vs desktop OAuth parity ([OPP-041](../OPP-041-hosted-cloud-epic-docker-digitalocean.md) / hosted stubs).
+- Hosted vs desktop OAuth parity ([OPP-041](./OPP-041-hosted-cloud-epic-docker-digitalocean.md) / hosted stubs).
 
 ---
 
 ## Namespace note
 
-**ripmail** uses a **different** numbering convention from brain-app **OPP-045** (Google Drive). For **iMessage / unified messaging**, see **[OPP-083](OPP-083-imessage-and-unified-messaging-index.md)**. IDs are **not** shared across repos—only the number collides by convention.
+**ripmail** uses a **different** numbering convention from brain-app **OPP-045** (Google Drive). For **iMessage / unified messaging**, see **[OPP-083](./OPP-083-imessage-and-unified-messaging-index.md)**. IDs are **not** shared across repos—only the number collides by convention.

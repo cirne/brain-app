@@ -5,7 +5,7 @@
 **Status:** Fixed (2026-05-05)  
 **Tags:** `cli` · `archive` · `message-id` · `agent-surprise`  
 
-**Related:** Possible hardening parallels with positional id handling elsewhere ([BUG-029 archived](../../ripmail/docs/bugs/archive/BUG-029-read-bare-message-id-no-angle-brackets.md), [BUG-044 archived](../../ripmail/docs/bugs/archive/BUG-044-attachment-list-ignores-message-id-flag.md)); [OPP-087 unified sources § Message-IDs](../opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) (normalize before lookup).
+**Related:** Possible hardening parallels with positional id handling elsewhere ([BUG-029 archived](../../ripmail/docs/bugs/archive/BUG-029-read-bare-message-id-no-angle-brackets.md), [BUG-044 archived](../../ripmail/docs/bugs/archive/BUG-044-attachment-list-ignores-message-id-flag.md)); [archived OPP-087 unified sources § Message-IDs](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md) (normalize before lookup).
 
 ---
 

@@ -1,6 +1,6 @@
 # Idea: Brain-to-brain collaboration
 
-**Status:** **Archived (2026-05).** The remaining **peer-to-peer wiki collaboration** roadmap (read-write shares, richer identity, deferred milestones below) is **superseded** by **B2B / brain-to-brain query + grants** — **[IDEA: Brain-query delegation](../IDEA-brain-query-delegation.md)**, [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md). **Shipped slices (historical):** **[OPP-064](../../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** Phase 1 stub / **[archived spec](../../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**; **`wikis/`** layout — **[OPP-091 archive](../../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md)**. This file is kept for narrative, security model, and references.  
+**Status:** **Archived (2026-05).** The remaining **peer-to-peer wiki collaboration** roadmap (read-write shares, richer identity, deferred milestones below) is **superseded** by **B2B / brain-to-brain query + grants** — **[IDEA: Brain-query delegation](../IDEA-brain-query-delegation.md)**, [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md). **Shipped slices (historical):** **[archived OPP-064](../../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**; **`wikis/`** layout — **[OPP-091 archive](../../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md)**. This file is kept for narrative, security model, and references.  
 **Index:** [IDEAS.md](../../IDEAS.md)
 
 **Why it matters:** Moat, network-effect reasoning, competitive framing, trust posture, and the email analogy live in **[STRATEGY.md](../../STRATEGY.md)** (single source). This doc is the product and sequencing spec.
@@ -32,7 +32,7 @@ That single scenario forces the right early questions: **scope** (tree vs files)
 | **Audience** | **Individuals first** (one invited Braintunnel identity). Groups reuse the same policy object later. |
 | **Parity** | Familiar model: **share link / invite** + **access list** + **remove access** — not a public feed. |
 
-**[OPP-064](../../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** shipped Phase 1: `wiki_shares` in **`brain-global.sqlite`**, email invite + accept URL, **`/api/wiki/shared/...`** read enforcement, grantee **Shared with me**, revoke. Details: [wiki-sharing.md](../../architecture/wiki-sharing.md).
+**[OPP-064](../../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** shipped Phase 1: `wiki_shares` in **`brain-global.sqlite`**, email invite + accept URL, **`/api/wiki/shared/...`** read enforcement, grantee **Shared with me**, revoke. Details: [wiki-sharing.md](../../architecture/wiki-sharing.md).
 
 ---
 
@@ -175,7 +175,7 @@ Illustrative **capability labels** (layer 1 in [brain-to-brain-access-policy.md]
 
 | Milestone | Outcome | Key doc |
 | --------- | ------- | ------- |
-| **M0** | Directory-level read-only wiki share for a specific collaborator (email invite, no handle required). | [OPP-064](../../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) |
+| **M0** | Directory-level read-only wiki share for a specific collaborator (email invite, no handle required). | [OPP-064](../../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md) |
 | **M1-pre** | In-app notification center + rules (mail-informed urgency, inbound connection requests). | Future OPP |
 | **M1** | Two-brain connection via handle; explicit scopes; bilateral audit. | Future OPP |
 | **M2** | "Ask the other brain for a status report on topic X" — human approval required every time on the sender side. | Future OPP |
@@ -264,7 +264,7 @@ A natural question for write access and audit: **one Git repository per user** f
 ## References
 
 - [brain-to-brain-access-policy.md](../../architecture/brain-to-brain-access-policy.md) — Cross-brain policy layers (capabilities, hard predicates, soft ALLOW/DISALLOW fragments); complements wiki ACL + brain-query grants.
-- **[OPP-064](../../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — Phase 1: read-only directory invite, email-as-identity, server-mediated access — **[archived spec](../../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**.
+- **[archived OPP-064](../../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — Phase 1: read-only directory invite, email-as-identity, server-mediated access.
 - **[OPP-091](../../opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md)** — Unified **`wikis/`** filesystem for my vault + share peers; simplify tool roots.
 - [STRATEGY.md](../../STRATEGY.md) — Competitive landscape, segmented focus, brain-to-brain moats (network + trust), email analogy.
 - [VISION.md](../../VISION.md) — Product narrative for personalization compounding ("what it is").

@@ -81,4 +81,16 @@ describe('TunnelPendingMessage.svelte', () => {
       expect(emit).toHaveBeenCalledWith({ type: 'b2b:review-changed' })
     })
   })
+
+  it('hides Dismiss while draft is the cold-query drafting placeholder', () => {
+    const row: TunnelTimelinePendingReviewApi = {
+      ...baseRow(),
+      isColdQuery: true,
+      draftSnippet: B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT,
+    }
+    render(TunnelPendingMessage, { props: { row, onMutate: vi.fn() } })
+
+    expect(screen.queryByRole('button', { name: /^dismiss$/i })).toBeNull()
+    expect(screen.getByTestId('tunnel-pending-drafting')).toBeTruthy()
+  })
 })

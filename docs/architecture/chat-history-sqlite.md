@@ -1,6 +1,6 @@
 # Chat history: SQLite
 
-**Status:** **Implemented** — sessions and messages live in **`var/brain-tenant.sqlite`** per tenant (`files.tenantSqlite` in [`brain-layout.json`](../../shared/brain-layout.json), helper [`brainLayoutTenantSqlitePath`](../../src/server/lib/platform/brainLayout.ts)). The **mail index** (FTS, sync state, drafts, etc.) lives in the tenant **`ripmail/`** tree (see layout keys in `brain-layout.json`), opened in-process by **`src/server/ripmail/`**. **Merging** that mail database into the same SQLite file as chat + notifications is **[OPP-108](../opportunities/OPP-108-unified-tenant-sqlite.md)** ([archived **OPP-103**](../opportunities/archive/OPP-103-ripmail-ts-port.md) — in-process TypeScript mail runtime; **stub [OPP-103](../opportunities/OPP-103-ripmail-ts-port.md)**).
+**Status:** **Implemented** — sessions and messages live in **`var/brain-tenant.sqlite`** per tenant (`files.tenantSqlite` in [`brain-layout.json`](../../shared/brain-layout.json), helper [`brainLayoutTenantSqlitePath`](../../src/server/lib/platform/brainLayout.ts)). The **mail index** (FTS, sync state, drafts, etc.) lives in the tenant **`ripmail/`** tree (see layout keys in `brain-layout.json`), opened in-process by **`src/server/ripmail/`**. **Merging** that mail database into the same SQLite file as chat + notifications is **[OPP-108](../opportunities/OPP-108-unified-tenant-sqlite.md)** ([archived **OPP-103**](../opportunities/archive/OPP-103-ripmail-ts-port.md) — in-process TypeScript mail runtime).
 
 **Previous store:** JSON files under `$BRAIN_HOME/chats/` (removed — clean break per [AGENTS.md](../../AGENTS.md)).
 
@@ -12,7 +12,7 @@
 
 - **`chat_sessions`** — `session_id`, `title`, `preview`, `created_at_ms`, `updated_at_ms`
 - **`chat_messages`** — `session_id`, `seq`, `role`, `content_json` (JSON matching [`ChatMessage`](../../src/server/lib/chat/chatTypes.ts)), `created_at_ms`
-- **`notifications`** — app + mirrored mail-brief rows (`source_kind`, `payload_json`, `state`, optional `idempotency_key`) — shipped **[OPP-102 stub](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** · [archive](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)
+- **`notifications`** — app + mirrored mail-brief rows (`source_kind`, `payload_json`, `state`, optional `idempotency_key`) — shipped **[archived OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)**
 
 Schema version is **`TENANT_SCHEMA_VERSION`** in [`tenantSqlite.ts`](../../src/server/lib/tenant/tenantSqlite.ts); mismatch **deletes and recreates** the DB file (no migrations).
 

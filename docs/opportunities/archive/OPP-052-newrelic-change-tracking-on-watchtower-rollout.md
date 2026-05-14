@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Operations epic closed / no longer on active backlog.
 
-**Stub:** [../OPP-052-newrelic-change-tracking-on-watchtower-rollout.md](../OPP-052-newrelic-change-tracking-on-watchtower-rollout.md)
 
 ---
 

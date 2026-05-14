@@ -20,7 +20,7 @@ Braintunnel’s embedded HTTP server (dev `npm run dev`, bundled **Braintunnel.a
 
 This opportunity tracks **shipping-grade mitigations** before general release: **bind only to loopback** where appropriate, and **encrypt the local leg with TLS** using a **locally generated key + self-signed (or locally issued) certificate** trusted by the WebView—not a public CA or paid “signature service.”
 
-**Related:** [OPP-008](../OPP-008-tunnel-qr-phone-access.md) (any intentional exposure beyond localhost amplifies this risk), [docs/google-oauth.md](../../google-oauth.md) (redirect URIs must stay aligned with listen URL/port), [OPP-007 archive](OPP-007-native-mac-app.md) (Tauri + bundled Node).
+**Related:** [OPP-008](./OPP-008-tunnel-qr-phone-access.md) (any intentional exposure beyond localhost amplifies this risk), [docs/google-oauth.md](../../google-oauth.md) (redirect URIs must stay aligned with listen URL/port), [OPP-007 archive](./OPP-007-native-mac-app.md) (Tauri + bundled Node).
 
 ## Threat model (what we are managing)
 

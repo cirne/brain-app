@@ -2,7 +2,7 @@
 
 **Status:** Shipped MVP (2026-05-02). UI rough edges remain; core `wikis/me` + `wikis/@handle` projection, accept-by-id API, and share management in Settings are working. **Follow-on (same week):** safe revoke when overlapping file + directory shares share the same path (**`lstat` + `isSymbolicLink()` guard** in `removeWikiShareProjectionForShare` — avoids deleting the owner’s real file when a directory projection masks a former file-symlink path); agent **`write`** tool appends a **WARNING** when the path is covered by an **accepted** outgoing share (visibility hint for the LLM).  
 **Tags:** `wiki` · `sharing` · `filesystem` · `multi-tenant`  
-**Replaces (for follow-on work):** Intermediate projection described in archived [OPP-064 § Follow-on](OPP-064-wiki-directory-sharing-read-only-collaborators.md#follow-on-moved-to-opp-091). **Phase 1 product + policy** remain as in [OPP-064 stub](../OPP-064-wiki-directory-sharing-read-only-collaborators.md).  
+**Replaces (for follow-on work):** Intermediate projection described in archived [OPP-064 § Follow-on](OPP-064-wiki-directory-sharing-read-only-collaborators.md#follow-on-moved-to-opp-091). **Phase 1 product + policy** remain as in [OPP-064 stub](./OPP-064-wiki-directory-sharing-read-only-collaborators.md).  
 **Vision / sequencing:** [IDEA: Brain-to-brain collaboration](../../ideas/archive/IDEA-wiki-sharing-collaborators.md)  
 **Architecture (update as implemented):** [wiki-sharing.md](../../architecture/wiki-sharing.md) · **Projection ↔ DB ordering (ADR):** [wiki-share-acl-and-projection-sync](../../architecture/wiki-share-acl-and-projection-sync.md)
 
@@ -201,7 +201,7 @@ Expand **In scope** **tests** bullet to reference `**src/server/lib/shares/`*** 
 ## Related
 
 - [ADR: wiki-share-acl-and-projection-sync](../../architecture/wiki-share-acl-and-projection-sync.md) — **authoritative** DB ↔ FS ordering and **fail-safe invariant** (ambiguity → less access)
-- [OPP-064 stub](../OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](OPP-064-wiki-directory-sharing-read-only-collaborators.md)
+- [OPP-064 stub](./OPP-064-wiki-directory-sharing-read-only-collaborators.md) / [archived spec](./OPP-064-wiki-directory-sharing-read-only-collaborators.md)
 - [IDEA: Wiki sharing with collaborators](../../ideas/archive/IDEA-wiki-sharing-collaborators.md)
 - [wiki-sharing.md](../../architecture/wiki-sharing.md)
 - [tenant-filesystem-isolation.md](../../architecture/tenant-filesystem-isolation.md)

@@ -2,7 +2,6 @@
 
 **Status: Archived (2026-05-11).** Fixtures/scripts remain; epic closed for backlog.
 
-**Stub:** [../OPP-051-enron-corpus-e2e-and-cloud-testing.md](../OPP-051-enron-corpus-e2e-and-cloud-testing.md)
 
 ---
 

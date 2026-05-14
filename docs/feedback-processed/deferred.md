@@ -5,7 +5,7 @@ Items listed here are **intentionally not** promoted to `docs/bugs/` or `docs/op
 | Feedback id | Title (short) | Why deferred / revisit |
 | ----------- | ---------------- | ------------------------ |
 | 4 | Blur / hide sensitive email & message preview content | Privacy UX; scope across snippets + tool surfaces; not blocking core flows. Revisit if screen-share or shared-device users increase. |
-| 5 | SSE auto-refresh session across multiple clients | Significant product + infra; smaller alternatives (refresh, single-tab) first. Revisit with mobile + [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) use. |
+| 5 | SSE auto-refresh session across multiple clients | Significant product + infra; smaller alternatives (refresh, single-tab) first. Revisit with mobile + [archived OPP-008](../opportunities/archive/OPP-008-tunnel-qr-phone-access.md) use. |
 | 7 | Wiki Back / Forward (browser-style history) | [OPP-027](../opportunities/archive/OPP-027-wiki-nav-indicator-and-activity-surface.md) did not cover in-wiki history. Revisit after wiki nav stabilizes. |
 | 8 | Accept / decline / propose time for **external** calendar invites | Write Calendar scope + assistant UX + OAuth/verification path ([OPP-043](../opportunities/OPP-043-google-oauth-app-verification-milestones.md)). Revisit with calendar product milestone. |
 

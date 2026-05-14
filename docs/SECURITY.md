@@ -130,7 +130,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 
 ## Security risks (priority order)
 
-**Open issues only** — not a log of past decisions. Snapshot policy, backup posture, and hosting controls live in [DEPLOYMENT.md](DEPLOYMENT.md); wiki DR: [OPP-050](opportunities/OPP-050-hosted-wiki-backup.md).
+**Open issues only** — not a log of past decisions. Snapshot policy, backup posture, and hosting controls live in [DEPLOYMENT.md](DEPLOYMENT.md); wiki DR: [archived OPP-050](opportunities/archive/OPP-050-hosted-wiki-backup.md).
 
 ### P1 — Shell injection via `grep` with user-supplied query string
 
@@ -220,7 +220,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 **Mitigations to address:**
 
 - Add IP-based rate limiting on vault and OAuth endpoints (Hono middleware or Cloudflare WAF rules).
-- Add per-session LLM usage budget enforcement (see also [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md)).
+- Add per-session LLM usage budget enforcement (see also [archived OPP-072](opportunities/archive/OPP-072-llm-usage-token-metering.md)).
 
 ### P10 — (archived) Inbox archive used unquoted argv tokenization
 
@@ -281,5 +281,5 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) — cell architecture for future scale
 - [PRODUCTIZATION.md](./PRODUCTIZATION.md) — product-level blockers including OAuth verification
 - [OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth app verification (must-do before general availability)
-- [OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth verification (see [§ Background](opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022); **stub [OPP-022](opportunities/OPP-022-google-oauth-app-verification.md)**)
+- [OPP-043](opportunities/OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth verification (see [§ Background](opportunities/OPP-043-google-oauth-app-verification-milestones.md#background-verification-context-formerly-opp-022); **[archived OPP-022](opportunities/archive/OPP-022-google-oauth-app-verification.md)**)
 

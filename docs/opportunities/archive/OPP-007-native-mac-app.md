@@ -2,7 +2,7 @@
 
 **Status: Implemented (archived).** A basic macOS app bundle is in place: Tauri **Braintunnel.app** (product name; some older text below may say `Brain.app` — same bundle), DMG flow, and `npm run desktop:*` packaging (Node + server bundle + `ripmail` in `server-bundle/`). The text below is the original opportunity write-up, kept for historical reference and deeper roadmap notes (permissions, Tailscale, polish).
 
-**Follow-ups:** Remaining ship or UX polish may still be tracked in [BUG-003 (archived)](../../bugs/archive/BUG-003-native-mac-app-ship-blockers.md). Remote access patterns include [OPP-008](../OPP-008-tunnel-qr-phone-access.md) (tunnel + QR) vs Tailscale as described below.
+**Follow-ups:** Remaining ship or UX polish may still be tracked in [BUG-003 (archived)](../../bugs/archive/BUG-003-native-mac-app-ship-blockers.md). Remote access patterns include [OPP-008](./OPP-008-tunnel-qr-phone-access.md) (tunnel + QR) vs Tailscale as described below.
 
 ---
 
@@ -330,8 +330,8 @@ Phase 2: Windows if there's demand
 ## Relation to other docs
 
 - **[PRODUCTIZATION.md](../../PRODUCTIZATION.md)** — This is an alternative path that sidesteps many cloud/multi-user blockers
-- **[OPP-006: Email Bootstrap](../OPP-006-email-bootstrap-onboarding.md)** — Still applies; email is OAuth regardless of packaging
-- **[OPP-003: iMessage](../OPP-003-iMessage-integration.md)** — Native app makes this first-class instead of "Mac-only bonus"
+- **[OPP-006: Email Bootstrap](./OPP-006-email-bootstrap-onboarding.md)** — Still applies; email is OAuth regardless of packaging
+- **[OPP-003: iMessage](./OPP-003-iMessage-integration.md)** — Native app makes this first-class instead of "Mac-only bonus"
 
 ## Blocking bug (packaging ship readiness) — historical
 

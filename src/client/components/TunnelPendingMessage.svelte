@@ -224,8 +224,8 @@
     <p class="m-0 mt-2 shrink-0 text-danger text-[0.75rem]" role="alert">{actionError}</p>
   {/if}
 
-  <div class="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
-    {#if showHandshake}
+  {#if showHandshake}
+    <div class="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[0.75rem] font-semibold disabled:opacity-50"
@@ -247,7 +247,9 @@
           ? $t('chat.review.detail.policy.connectTunnel')
           : $t('chat.review.detail.policy.acceptAndDraft')}
       </button>
-    {:else}
+    </div>
+  {:else if !isDraftingPlaceholder}
+    <div class="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[0.75rem] font-semibold disabled:opacity-50"
@@ -268,8 +270,8 @@
           {$t('chat.review.detail.actions.send')}
         </button>
       {/if}
-    {/if}
-  </div>
+    </div>
+  {/if}
 
   {#if row.policy && row.grantId}
     <p class="m-0 mt-2 shrink-0 text-[0.65rem] text-muted">

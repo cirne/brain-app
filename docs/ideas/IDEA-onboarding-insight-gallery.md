@@ -2,7 +2,7 @@
 
 **Status:** Backlog — no OPP yet; product + agent UX; builds on existing onboarding and wiki bootstrap work  
 **Index:** [IDEAS.md](../IDEAS.md)  
-**Relates to:** [VISION.md](../VISION.md) (five-minute magic), [STRATEGY.md](../STRATEGY.md) (trust moat), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md), [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md), [OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md), [OPP-054](../opportunities/OPP-054-guided-onboarding-agent.md), [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md) (standing **brief** vs one-time **gallery**; shared signals / empty-chat context), **[OPP-102](../opportunities/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (**shipped** — `notifications` + chat SQLite; gallery remains discovery-first)
+**Relates to:** [VISION.md](../VISION.md) (five-minute magic), [STRATEGY.md](../STRATEGY.md) (trust moat), [onboarding-state-machine.md](../architecture/onboarding-state-machine.md), [OPP-094](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md), [OPP-095](../opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md), [OPP-054](../opportunities/archive/OPP-054-guided-onboarding-agent.md), [IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md) (standing **brief** vs one-time **gallery**; shared signals / empty-chat context), **[OPP-102](../opportunities/archive/OPP-102-tenant-app-sqlite-chat-and-notifications.md)** (**shipped** — `notifications` + chat SQLite; gallery remains discovery-first)
 
 ---
 
@@ -31,7 +31,7 @@ This is intentionally **hybrid**: neither pure heuristics (boring, brittle) nor 
 
 **Composes with existing work:**
 
-- **[OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)** can keep producing **background wiki skeleton** (`people/`, `projects/`, `travel/`, etc.).
+- **[OPP-095](../opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md)** can keep producing **background wiki skeleton** (`people/`, `projects/`, `travel/`, etc.).
 - The gallery is a **foreground** “see what your mail implies” layer — same corpus, different UX. Tiles can deep-link into wiki stubs the bootstrap just wrote.
 
 ---
@@ -71,7 +71,7 @@ Group tiles so the gallery reads as a **story** about what the inbox knows. Exac
 
 ## Phase 2 — longer corpus (e.g. after ~6 months indexed or full backfill milestone)
 
-These need **baseline history** to be meaningful; consider **gating** on `FULLY_SYNCED`-style milestones ([OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md)) or indexed depth.
+These need **baseline history** to be meaningful; consider **gating** on `FULLY_SYNCED`-style milestones ([OPP-094](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md)) or indexed depth.
 
 - “What you were working on **six months ago**” (time machine — strong marquee).
 - Dormant contacts you used to email often.
@@ -84,7 +84,7 @@ These need **baseline history** to be meaningful; consider **gating** on `FULLY_
 
 1. **No auto-display of sensitive specifics** on shared surfaces (e.g. Home). At most **aggregate teaser**: “12 subscriptions · 5 open loops · 1 trip this week.”
 2. **No unbounded “all purchases” tile.** Spending-shaped insights stay **category-scoped** so the model is not instructed to dump every merchant.
-3. **Sensitive verticals** (adult retail, health billing, legal, financial distress, political donations, etc.) are never **headline** categories; if aggregated at all, use **non-specific** grouping (“other personal”) and only under explicit user paths, consistent with conservative wiki bootstrap rules ([OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md) people heuristics).
+3. **Sensitive verticals** (adult retail, health billing, legal, financial distress, political donations, etc.) are never **headline** categories; if aggregated at all, use **non-specific** grouping (“other personal”) and only under explicit user paths, consistent with conservative wiki bootstrap rules ([OPP-095](../opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md) people heuristics).
 4. **Default output is ephemeral** (chat session). **Pin to wiki** only on explicit user action — keeps brain-to-brain and sharing stories clean ([STRATEGY.md](../STRATEGY.md)).
 5. **Eval gap:** Today’s mail evals skew toward **needle-in-haystack** retrieval (`eval/tasks/enron-v1.jsonl`). Add evals for **structured insight** tasks (subscription audit, trip stitching, open-loop detection) when implementation starts.
 
@@ -100,7 +100,7 @@ These need **baseline history** to be meaningful; consider **gating** on `FULLY_
 
 ## Relationship to the guided interview
 
-[OPP-054](../opportunities/OPP-054-guided-onboarding-agent.md) is **elicitation** (“tell me about you”).
+[OPP-054](../opportunities/archive/OPP-054-guided-onboarding-agent.md) is **elicitation** (“tell me about you”).
 
 The gallery is **demonstration** (“here is what becomes possible with your mail”).
 

@@ -4,8 +4,8 @@
 
 **Related (product / opportunity docs — not duplicated here):**
 
-- **Holistic onboarding orchestration** (email + interview + wiki coordination, unified Hub status) → [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md) · [stub](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md); engineering notes → [background-task-orchestration.md](./background-task-orchestration.md)
-- Interview UX / agent phases → **[archived OPP-054](../opportunities/archive/OPP-054-guided-onboarding-agent.md)** · [stub](../opportunities/OPP-054-guided-onboarding-agent.md) (product intent; some phases deferred)
+- **Holistic onboarding orchestration** (email + interview + wiki coordination, unified Hub status) → [OPP-094 (archived)](../opportunities/archive/OPP-094-holistic-onboarding-background-task-orchestration.md); engineering notes → [background-task-orchestration.md](./background-task-orchestration.md)
+- Interview UX / agent phases → **[archived OPP-054](../opportunities/archive/OPP-054-guided-onboarding-agent.md)** (product intent; some phases deferred)
 - Historical rationale for a **bounded first pass** (avoid huge default refresh) → [OPP-093 (archived)](../opportunities/archive/OPP-093-phased-onboarding-sync.md) (problem + risks; current ship uses a single **~1y** slice from indexing — see flow below)
 
 **Related (engineering docs):**
@@ -36,7 +36,7 @@ HTTP surface summary: [`runtime-and-routes.md`](runtime-and-routes.md) (`/api/on
 
 ## Persisted states (onboarding machine)
 
-Stored in **`onboarding.json`** at the root of the tenant **chats** directory (`chatDataDir()` in [`chatStorage.ts`](../../src/server/lib/chat/chatStorage.ts) / `brainLayoutChatsDir`). **Chat session transcripts** live in **`var/brain-tenant.sqlite`**, not under `chats/`. Adjunct onboarding metadata (e.g. wiki buildout first-run flag, **`wiki-bootstrap.json`** for [OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)) uses **`chats/onboarding/`** via `onboardingDataDir()` in `onboardingState.ts`. Type **`OnboardingMachineState`**:
+Stored in **`onboarding.json`** at the root of the tenant **chats** directory (`chatDataDir()` in [`chatStorage.ts`](../../src/server/lib/chat/chatStorage.ts) / `brainLayoutChatsDir`). **Chat session transcripts** live in **`var/brain-tenant.sqlite`**, not under `chats/`. Adjunct onboarding metadata (e.g. wiki buildout first-run flag, **`wiki-bootstrap.json`** for [archived OPP-095](../opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md)) uses **`chats/onboarding/`** via `onboardingDataDir()` in `onboardingState.ts`. Type **`OnboardingMachineState`**:
 
 | State | Meaning |
 | ----- | ------- |
@@ -97,7 +97,7 @@ Table form (canonical `canTransition` in `onboardingState.ts`):
    - **Small-inbox path:** indexed count is below **500** **but** the initial mail sync has fully drained — `configured && lastSyncedAt && !syncRunning && !backfillRunning && !refreshRunning && !pendingBackfill && !staleMailSyncLock && !indexingHint` (see `isOnboardingInitialMailSyncComplete`). Without this, brand‑new accounts with only a handful of messages would be stuck on the indexing hero forever (e.g. "37 / 500" with nothing more to fetch). Both client auto-advance and server PATCH gate accept this case.
 6. **No second enqueue on transition** — **`PATCH` `indexing` → `onboarding-agent`** does **not** start another historical pull; one ~1y job was already queued from indexing.  
 7. **Interview + finalize** — While state is **`onboarding-agent`**, the client kicks a single **initial bootstrap** stream on **`POST /api/chat`** (merged prompts + mail-index facts). **`POST /finalize`** / **`PATCH` → `done`** runs after `finish_conversation` (or Skip setup); there is **no** separate server “first chat pending” hop.  
-8. **Wiki first-draft bootstrap + Your Wiki supervisor** — When indexed ≥ **`WIKI_BUILDOUT_MIN_MESSAGES`** (**1000**) **and** mail is configured, **`kickWikiSupervisorIfIndexedGatePasses`** runs on **`GET /api/onboarding/mail`** and **`GET /api/background-status`** (often **during** indexing or interview — **before** finalize). **`notifyOnboardingInterviewDone`** also invokes it after finalize (**idempotent**). See **[OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)**:
+8. **Wiki first-draft bootstrap + Your Wiki supervisor** — When indexed ≥ **`WIKI_BUILDOUT_MIN_MESSAGES`** (**1000**) **and** mail is configured, **`kickWikiSupervisorIfIndexedGatePasses`** runs on **`GET /api/onboarding/mail`** and **`GET /api/background-status`** (often **during** indexing or interview — **before** finalize). **`notifyOnboardingInterviewDone`** also invokes it after finalize (**idempotent**). See **[archived OPP-095](../opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md)**:
    - **First:** a **one-shot bootstrap agent** may **`write`** bounded `people/` / `projects/` / `topics/` / `travel/` stubs (persisted completion in **`chats/onboarding/wiki-bootstrap.json`**).
    - **Then:** the continuous **Your Wiki** supervisor (`ensureYourWikiRunning`) runs enrich → cleanup laps (**deepen-only** steady state per archived OPP-067).
 

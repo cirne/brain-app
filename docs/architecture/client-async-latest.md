@@ -37,5 +37,5 @@ Hand-rolled `cancelled` flags in `$effect` cleanups are equivalent; the shared h
 
 ## Related docs
 
-- [runtime-and-routes.md](./runtime-and-routes.md) — SPA routes: **`/c` / `/c/:sessionId`** (chat), **`/hub`**, overlays via **`?panel=`** + payload keys ([OPP-058](../opportunities/OPP-058-spa-url-main-pane-vs-overlay-query.md)).
+- [runtime-and-routes.md](./runtime-and-routes.md) — SPA routes: **`/c` / `/c/:sessionId`** (chat), **`/hub`**, overlays via **`?panel=`** + payload keys ([OPP-058](../opportunities/archive/OPP-058-spa-url-main-pane-vs-overlay-query.md)).
 - [agent-chat.md](./agent-chat.md) — tools that drive shell navigation.
