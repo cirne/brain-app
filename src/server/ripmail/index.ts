@@ -118,7 +118,7 @@ export async function ripmailReadMailForDisplay(
 export async function ripmailReadIndexedFile(
   ripmailHome: string,
   id: string,
-  opts?: { fullBody?: boolean },
+  opts?: { fullBody?: boolean; sourceId?: string },
 ) {
   const db = await prepareRipmailDb(ripmailHome)
   return readIndexedFile(db, ripmailHome, id, opts)

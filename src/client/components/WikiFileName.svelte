@@ -8,10 +8,12 @@
 
   let {
     path,
+    /** When set (e.g. markdown link text), shown instead of deriving a label from `path`. */
+    preferredName,
     unsaved = false,
     /** Align with {@link ChatInlineIndicator} rows in agent tool transcripts (fixed band + centered icon/text). */
     stripAlign = false,
-  }: { path: string; unsaved?: boolean; stripAlign?: boolean } = $props()
+  }: { path: string; preferredName?: string | null; unsaved?: boolean; stripAlign?: boolean } = $props()
 
   const { folder, name } = $derived.by(() => {
     const clean = path.replace(/\.md$/, '')
@@ -26,7 +28,11 @@
   const isUserProfileMe = $derived(path === 'me.md')
   const isSpecial = $derived(name.startsWith('_') && !(isIndex && folder))
 
-  const displayName = $derived(wikiVaultPathDisplayName(path))
+  const displayName = $derived.by(() => {
+    const p = preferredName?.trim()
+    if (p) return p
+    return wikiVaultPathDisplayName(path)
+  })
 
   let IconComponent = $state<import('svelte').ComponentType<any> | null>(null)
 

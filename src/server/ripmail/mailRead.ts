@@ -225,23 +225,36 @@ export function readMailForDisplay(
 /**
  * Read an indexed file (Drive, localDir) by its ID/path.
  * When `opts.fullBody` is true for Google Drive, fetches authoritative content from the API (with TTL cache).
+ * When `opts.sourceId` is set, matches that ripmail source (same as search_index `source`).
  */
 export async function readIndexedFile(
   db: RipmailDb,
   ripmailHome: string,
   id: string,
-  opts?: { fullBody?: boolean },
+  opts?: { fullBody?: boolean; sourceId?: string },
 ): Promise<ReadIndexedFileResult | null> {
+  const wantSource = opts?.sourceId?.trim() || undefined
+
   // Drive: document_index entry with ext_id = id
-  const diRow = db
-    .prepare(
-      `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, s.kind AS source_kind
-       FROM document_index di
-       LEFT JOIN sources s ON s.id = di.source_id
-       WHERE di.ext_id = ? AND di.kind IN ('googleDrive', 'file')
-       LIMIT 1`,
-    )
-    .get(id) as Record<string, unknown> | undefined
+  const diRow = wantSource
+    ? (db
+        .prepare(
+          `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, s.kind AS source_kind
+           FROM document_index di
+           LEFT JOIN sources s ON s.id = di.source_id
+           WHERE di.ext_id = ? AND di.source_id = ? AND di.kind IN ('googleDrive', 'file')
+           LIMIT 1`,
+        )
+        .get(id, wantSource) as Record<string, unknown> | undefined)
+    : (db
+        .prepare(
+          `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, s.kind AS source_kind
+           FROM document_index di
+           LEFT JOIN sources s ON s.id = di.source_id
+           WHERE di.ext_id = ? AND di.kind IN ('googleDrive', 'file')
+           LIMIT 1`,
+        )
+        .get(id) as Record<string, unknown> | undefined)
 
   if (diRow) {
     const rowKind = String(diRow['kind'] ?? '')
@@ -259,6 +272,12 @@ export async function readIndexedFile(
         }
         const visualArtifacts = visualArtifactFromIndexedFileResult(result)
         return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result
+      }
+      const indexedOnly = String(diRow['body'] ?? '')
+      if (!indexedOnly.trim()) {
+        throw new Error(
+          'Google Drive full read failed (live export empty or unavailable, and the index has no body text). Try refresh_sources, confirm OAuth, or check file permissions.',
+        )
       }
     }
 

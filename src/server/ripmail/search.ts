@@ -145,15 +145,9 @@ function regexSearchMail(
   return matched
 }
 
+/** Mail-only structured filters; `after`/`before` apply to messages only, not Drive/localDir index rows. */
 function fileSearchAllowed(opts: SearchOptions): boolean {
-  return (
-    !opts.from &&
-    !opts.to &&
-    !opts.subject &&
-    !opts.afterDate &&
-    !opts.beforeDate &&
-    !opts.category
-  )
+  return !opts.from?.trim() && !opts.to?.trim() && !opts.subject?.trim() && !opts.category?.trim()
 }
 
 function regexSearchFiles(
@@ -296,9 +290,11 @@ export function search(db: RipmailDb, opts: SearchOptions): SearchResultSet {
   const offset = opts.offset ?? 0
   const sqlLimit = MAX_PATTERN_SCAN_ROWS
 
+  const fsa = fileSearchAllowed(opts)
+
   const mailRows = regexSearchMail(db, opts, re)
-  const fileRows = fileSearchAllowed(opts) ? regexSearchFiles(db, opts, re, sqlLimit) : []
-  const driveRows = fileSearchAllowed(opts) ? regexSearchGoogleDrive(db, opts, re, sqlLimit) : []
+  const fileRows = fsa ? regexSearchFiles(db, opts, re, sqlLimit) : []
+  const driveRows = fsa ? regexSearchGoogleDrive(db, opts, re, sqlLimit) : []
 
   const all = [...mailRows, ...fileRows, ...driveRows]
   all.sort((a, b) => a._rank - b._rank || b.date.localeCompare(a.date))

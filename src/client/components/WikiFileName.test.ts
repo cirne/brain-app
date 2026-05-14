@@ -27,6 +27,14 @@ describe('WikiFileName.svelte', () => {
     expect(screen.getByText('Some Topic')).toBeInTheDocument()
   })
 
+  it('prefers preferredName over path-derived display', () => {
+    render(WikiFileName, {
+      props: { path: 'notes/a-note-file.md', preferredName: 'Board Retreat Email' },
+    })
+    expect(screen.getByText('Board Retreat Email')).toBeInTheDocument()
+    expect(screen.queryByText('A Note File')).not.toBeInTheDocument()
+  })
+
   it('dims text when unsaved', () => {
     const { container } = render(WikiFileName, {
       props: { path: 'notes/draft.md', unsaved: true },

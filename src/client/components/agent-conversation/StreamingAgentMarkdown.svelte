@@ -33,8 +33,9 @@
       host.querySelectorAll<HTMLElement>('[data-brain-wiki-chip][data-wiki]'),
       (target) => {
         const path = target.dataset.wiki!
+        const preferredName = target.getAttribute('title')?.trim() || undefined
         target.replaceChildren()
-        return mount(WikiFileName, { target, props: { path } })
+        return mount(WikiFileName, { target, props: { path, preferredName } })
       },
     )
     return () => {

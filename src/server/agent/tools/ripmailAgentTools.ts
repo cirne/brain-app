@@ -173,11 +173,19 @@ async function ripmailReadIndexedFileToolExecute(params: {
   if (ripmailReadIdLooksLikeFilesystemPath(readId)) {
     readId = await assertAgentReadPathAllowed(readId)
   }
-  const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), readId, { fullBody: true })
+  const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), readId, {
+    fullBody: true,
+    sourceId: params.source?.trim() || undefined,
+  })
   const text = result ? `${result.title}\n\n${result.bodyText}${visualArtifactModelHint(result.visualArtifacts)}` : ''
-  const details = {
+  const details: Record<string, unknown> = {
     ...buildReadFileToolDetailsFromIndexedStdout(text, params.id.trim()),
     ...(result?.visualArtifacts?.length ? { visualArtifacts: result.visualArtifacts } : {}),
+  }
+  if (result) {
+    const t = result.title?.trim()
+    if (t) details.title = t
+    if (result.sourceKind?.trim()) details.sourceKind = result.sourceKind.trim()
   }
   return {
     content: [{ type: 'text' as const, text: text || `(file not found: ${readId})` }],

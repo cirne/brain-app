@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 055 -->
-**Next bug id:** **BUG-055**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 056 -->
+**Next bug id:** **BUG-056**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -84,7 +84,9 @@ Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-pas
 
 **DX / refactor tracking.** Filenames and props describe narrower behavior than implemented (e.g. **`ChatHistory.svelte`** is the full assistant **left rail**; **`Search.svelte`** is wiki+mail search; **`Wiki.svelte`** is a single-file editor). Renames touch many imports, tests, stubs, i18n, and hooks — execute in focused PRs. See [bugs/BUG-054-client-component-and-module-rename-hygiene.md](bugs/BUG-054-client-component-and-module-rename-hygiene.md).
 
+### [BUG-055](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md): Agent search: mail-only filters skip non-mail index (e.g. Drive)
 
+**Open (design).** Optional fields like **`from`** / **`since`** can cause **whole indexed sources** (e.g. Google Drive) to be **omitted** when those predicates don’t apply, instead of running **text search** with filters stripped or **timestamps mapped** (mail received vs file modified). See [bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md).
 
 
 ## Fixed (archived)

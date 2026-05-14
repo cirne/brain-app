@@ -3,7 +3,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { REMOTE_DOCUMENT_BODY_CACHE_TTL_MS } from '../remoteDocumentBodyCache.js'
@@ -40,11 +40,20 @@ export async function readGoogleDriveFileBodyCached(
     try {
       const st = statSync(path)
       if (st.mtimeMs > now - REMOTE_DOCUMENT_BODY_CACHE_TTL_MS) {
-        const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as { title?: string; mime?: string }
-        return {
-          text: readFileSync(path, 'utf8'),
-          mime: typeof meta.mime === 'string' ? meta.mime : 'application/octet-stream',
-          title: typeof meta.title === 'string' ? meta.title : fileId,
+        const cachedText = readFileSync(path, 'utf8')
+        if (cachedText.trim().length > 0) {
+          const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as { title?: string; mime?: string }
+          return {
+            text: cachedText,
+            mime: typeof meta.mime === 'string' ? meta.mime : 'application/octet-stream',
+            title: typeof meta.title === 'string' ? meta.title : fileId,
+          }
+        }
+        try {
+          unlinkSync(path)
+          unlinkSync(metaPath)
+        } catch {
+          /* refetch without stale empty cache */
         }
       }
     } catch {
@@ -69,6 +78,9 @@ export async function readGoogleDriveFileBodyCached(
   const workDir = await mkdtemp(join(workRoot, 'rb-'))
   try {
     const text = await extractDriveFileText(client.drive, f, workDir)
+    if (!text.trim()) {
+      return null
+    }
     writeFileSync(path, text, 'utf8')
     writeFileSync(
       metaPath,

@@ -18,7 +18,7 @@ describe('StreamingAgentMarkdown.svelte', () => {
   it('mounts WikiFileName into assistant wiki link placeholders', async () => {
     const { container } = render(StreamingAgentMarkdown, {
       props: {
-        content: 'Opened [source file](travel/2026-07-west-coast-canada/canada.md).',
+        content: 'Opened [Canada trip](travel/2026-07-west-coast-canada/canada.md).',
       },
     })
 
@@ -28,23 +28,39 @@ describe('StreamingAgentMarkdown.svelte', () => {
     expect(chip).toBeTruthy()
     expect(chip?.getAttribute('data-wiki')).toBe('travel/2026-07-west-coast-canada/canada.md')
     expect(chip?.querySelector('.wfn-title-row')).toBeTruthy()
-    expect(chip?.textContent).toContain('Canada')
+    expect(chip?.textContent).toContain('Canada trip')
     expect(container.querySelector('code')).toBeNull()
+  })
+
+  it('uses markdown link text (anchor title) for wiki chip label over path-derived name', async () => {
+    const { container } = render(StreamingAgentMarkdown, {
+      props: {
+        content: 'See [Explicit chip label](notes/a-note-file.md).',
+      },
+    })
+
+    await tick()
+
+    const chip = container.querySelector('[data-brain-wiki-chip][data-wiki]')
+    expect(chip).toBeTruthy()
+    expect(chip?.getAttribute('data-wiki')).toBe('notes/a-note-file.md')
+    expect(chip?.textContent).toContain('Explicit chip label')
   })
 
   it('replaces mounted WikiFileName chips when content changes', async () => {
     const { container, rerender } = render(StreamingAgentMarkdown, {
-      props: { content: 'Opened [old](travel/old-page.md).' },
+      props: { content: 'Opened [Old page](travel/old-page.md).' },
     })
 
     await tick()
     expect(container.querySelector('[data-wiki="travel/old-page.md"] .wfn-title-row')).toBeTruthy()
+    expect(container.textContent).toContain('Old page')
 
-    await rerender({ content: 'Opened [new](travel/new-page.md).' })
+    await rerender({ content: 'Opened [New page](travel/new-page.md).' })
     await tick()
 
     expect(container.querySelector('[data-wiki="travel/old-page.md"]')).toBeNull()
     expect(container.querySelector('[data-wiki="travel/new-page.md"] .wfn-title-row')).toBeTruthy()
-    expect(container.textContent).toContain('New Page')
+    expect(container.textContent).toContain('New page')
   })
 })

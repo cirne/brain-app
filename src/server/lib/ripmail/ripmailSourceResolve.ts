@@ -25,27 +25,52 @@ function isMailKind(kind: string): boolean {
  *   returns that source's id (Apple Mail placeholder vs inferred identity).
  */
 export function normalizeRipmailSourceSpecifier(spec: string, sources: RipmailSourceListRow[]): string {
+  const ids = normalizeRipmailSourceIdsForSearch(spec, sources)
+  if (ids.length === 1) return ids[0]!
+  if (ids.length > 1) return ids[0]!
+  return spec.trim()
+}
+
+/**
+ * All configured source ids that match `spec` for unified search (`search_index`).
+ * When a mailbox email matches both Gmail IMAP and a sibling `googleDrive` source, returns both ids
+ * so mail and Drive rows are included.
+ */
+export function normalizeRipmailSourceIdsForSearch(spec: string, sources: RipmailSourceListRow[]): string[] {
   const s = spec.trim()
-  if (!s) return s
+  if (!s) return []
+
+  for (const src of sources) {
+    if (src.id === s) return [s]
+  }
 
   const mail = sources.filter((x) => isMailKind(x.kind))
+  const drives = sources.filter((x) => x.kind === 'googleDrive')
+  const matched = new Set<string>()
+
   for (const m of mail) {
-    if (m.id === s) return s
     const em = m.email?.trim()
-    if (em && em.toLowerCase() === s.toLowerCase()) return m.id
+    if (em && em.toLowerCase() === s.toLowerCase()) matched.add(m.id)
     const aliases = m.imap?.aliases
     if (aliases?.length) {
       for (const a of aliases) {
-        if (a.trim().toLowerCase() === s.toLowerCase()) return m.id
+        if (a.trim().toLowerCase() === s.toLowerCase()) matched.add(m.id)
       }
     }
   }
 
-  if (mail.length === 1 && s.includes('@')) {
-    return mail[0].id
+  for (const d of drives) {
+    const em = d.email?.trim()
+    if (em && em.toLowerCase() === s.toLowerCase()) matched.add(d.id)
   }
 
-  return s
+  if (matched.size > 0) return [...matched]
+
+  if (mail.length === 1 && s.includes('@')) {
+    return [mail[0]!.id]
+  }
+
+  return [s]
 }
 
 /** Load sources from config.json and normalize `spec` to a configured source id. */
@@ -63,5 +88,24 @@ export async function resolveRipmailSourceForCli(spec: string | undefined): Prom
     return normalizeRipmailSourceSpecifier(s, sources)
   } catch {
     return s
+  }
+}
+
+/** Same as {@link normalizeRipmailSourceIdsForSearch} but loads config from the current brain ripmail home. */
+export async function resolveRipmailSourceIdsForSearch(spec: string | undefined): Promise<string[] | undefined> {
+  if (!spec?.trim()) return undefined
+  const s = spec.trim()
+  try {
+    const config = loadRipmailConfig(ripmailHomeForBrain())
+    const sources: RipmailSourceListRow[] = (config.sources ?? []).map((src) => ({
+      id: src.id,
+      kind: src.kind,
+      email: src.email,
+      imap: src.imap ? { aliases: [] } : null,
+    }))
+    const ids = normalizeRipmailSourceIdsForSearch(s, sources)
+    return ids.length ? ids : undefined
+  } catch {
+    return [s]
   }
 }

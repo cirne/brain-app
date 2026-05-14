@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -21,8 +21,10 @@ vi.mock('./googleDrive.js', () => ({
   })),
 }))
 
+const extractDriveFileText = vi.hoisted(() => vi.fn(async () => 'extracted'))
+
 vi.mock('./googleDriveFileContent.js', () => ({
-  extractDriveFileText: vi.fn(async () => 'extracted'),
+  extractDriveFileText,
 }))
 
 import { readGoogleDriveFileBodyCached } from './googleDriveReadBody.js'
@@ -48,6 +50,30 @@ describe('readGoogleDriveFileBodyCached', () => {
         fields: 'id, name, mimeType, modifiedTime, md5Checksum, size, headRevisionId, trashed',
         supportsAllDrives: true,
       })
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('returns null and does not persist cache when export text is empty', async () => {
+    filesGet.mockClear()
+    extractDriveFileText.mockResolvedValueOnce('   \n')
+    const home = mkdtempSync(join(tmpdir(), 'ripread-'))
+    try {
+      mkdirSync(home, { recursive: true })
+      writeFileSync(
+        join(home, 'config.json'),
+        JSON.stringify({
+          sources: [{ id: 'gd1', kind: 'googleDrive', email: 't@t.com', oauthSourceId: 'mb1' }],
+        }),
+        'utf8',
+      )
+      const out = await readGoogleDriveFileBodyCached(home, 'gd1', 'drive-empty-export')
+      expect(out).toBeNull()
+      expect(filesGet).toHaveBeenCalled()
+      const cacheDir = join(home, 'gd1', 'cache', 'read-body')
+      const txtFiles = existsSync(cacheDir) ? readdirSync(cacheDir).filter((f) => f.endsWith('.txt')) : []
+      expect(txtFiles).toHaveLength(0)
     } finally {
       rmSync(home, { recursive: true, force: true })
     }

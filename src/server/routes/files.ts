@@ -70,7 +70,7 @@ function normalizeIndexedRipmailJson(j: Record<string, unknown>, queryId: string
 // GET /api/files/indexed?id=&source= — structured JSON for IndexedFileViewer (ripmail read --json --full-body)
 files.get('/indexed', async c => {
   const rawId = c.req.query('id')
-  const _source = c.req.query('source')?.trim()
+  const sourceId = c.req.query('source')?.trim()
   if (!rawId?.trim()) {
     return c.json({ error: 'missing id' }, 400)
   }
@@ -84,7 +84,10 @@ files.get('/indexed', async c => {
     return c.json({ error: msg }, 403)
   }
   try {
-    const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), readArg, { fullBody: true })
+    const result = await ripmailReadIndexedFile(ripmailHomeForBrain(), readArg, {
+      fullBody: true,
+      sourceId: sourceId || undefined,
+    })
     if (!result) {
       return c.json({ error: 'not an indexed file read (expected googleDrive or localDir)' }, 422)
     }

@@ -94,6 +94,26 @@ describe('read_indexed_file path policy', () => {
       expect.any(Object),
     )
   })
+
+  it('tool details use indexed file title (not Drive id) when body has no markdown heading', async () => {
+    const driveId = '1bDV8IEIUlk25c6cwdGEK3yVqBHboPcjb8mjM1CaN_Ag'
+    ripmailReadIndexedFileMockFn.mockResolvedValueOnce({
+      id: driveId,
+      sourceKind: 'googleDrive',
+      title: 'Board Retreat Email',
+      bodyText: 'Plain extracted body with no ## heading.',
+    })
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'read_indexed_file')!
+
+    const out = await tool.execute('x', { id: driveId })
+
+    expect(out.details?.title).toBe('Board Retreat Email')
+    expect(out.details?.sourceKind).toBe('googleDrive')
+    expect(out.details?.readFilePreview).toBe(true)
+    expect(out.details?.id).toBe(driveId)
+  })
 })
 
 describe('read_mail_message', () => {

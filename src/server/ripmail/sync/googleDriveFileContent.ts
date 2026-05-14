@@ -23,7 +23,6 @@ export const GOOGLE_DRIVE_NATIVE_MIMES = new Set([
   'application/vnd.google-apps.spreadsheet',
   'application/vnd.google-apps.presentation',
   'application/vnd.google-apps.drawing',
-  'application/vnd.google-apps.form',
 ])
 
 export function exportMimeForGoogleNative(mime: string | null | undefined): string | null {
@@ -106,6 +105,12 @@ export async function extractDriveFileText(
   const id = f.id ?? 'unknown'
 
   if (mime === 'application/vnd.google-apps.folder') return ''
+
+  /** Drive `files.export` has no supported plain-text MIME for Google Forms; avoid empty extract. */
+  if (mime === 'application/vnd.google-apps.form') {
+    const t = (f.name ?? 'Untitled form').trim() || 'Untitled form'
+    return `[Google Form — Drive does not provide a plain-text export for this type. Open in Google Drive to view or edit: "${t}"]\n`
+  }
 
   if (GOOGLE_DRIVE_NATIVE_MIMES.has(mime)) {
     const ext =
