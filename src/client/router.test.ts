@@ -332,8 +332,9 @@ describe('parseRoute chat history', () => {
 })
 
 describe('parseRoute tunnels primary', () => {
-  it('parses /tunnels', () => {
-    expect(parseRoute('http://localhost/tunnels')).toEqual({ zone: 'tunnels' })
+  it('parses bare /tunnels as chat (not a navigable list URL)', () => {
+    expect(parseRoute('http://localhost/tunnels')).toEqual({})
+    expect(parseRoute('http://localhost/tunnels/')).toEqual({})
   })
 
   it('parses /tunnels/:handle', () => {
@@ -344,16 +345,10 @@ describe('parseRoute tunnels primary', () => {
   })
 })
 
-describe('parseRoute tunnels (legacy /review)', () => {
-  it('parses /review as tunnels zone', () => {
-    expect(parseRoute('http://localhost/review')).toEqual({ zone: 'tunnels' })
-  })
-
-  it('parses /review/:sessionId with reviewSessionId (inbound deep link)', () => {
-    expect(parseRoute('http://localhost/review/sess-abc')).toEqual({
-      zone: 'tunnels',
-      reviewSessionId: 'sess-abc',
-    })
+describe('parseRoute legacy /review paths', () => {
+  it('parses /review and /review/:sessionId as chat (legacy retired)', () => {
+    expect(parseRoute('http://localhost/review')).toEqual({})
+    expect(parseRoute('http://localhost/review/sess-abc')).toEqual({})
   })
 })
 
@@ -629,10 +624,9 @@ describe('routeToUrl', () => {
     )
   })
 
-  it('tunnels primary returns /tunnels; legacy inbound uses /review/sessionId', () => {
-    expect(routeToUrl({ zone: 'tunnels' })).toBe('/tunnels')
+  it('tunnels zone without handle serializes to /c; with handle to /tunnels/:handle', () => {
+    expect(routeToUrl({ zone: 'tunnels' })).toBe('/c')
     expect(routeToUrl({ zone: 'tunnels', tunnelHandle: 'peer-h' })).toBe('/tunnels/peer-h')
-    expect(routeToUrl({ zone: 'tunnels', reviewSessionId: 'sid-1' })).toBe('/review/sid-1')
   })
 
   it('hub returns /hub', () => {
@@ -729,9 +723,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'enron-demo' as const },
     { zone: 'inbox' },
     { zone: 'inbox', overlay: { type: 'email' as const, id: 'msg:x@y.com' } },
-    { zone: 'tunnels' },
     { zone: 'tunnels', tunnelHandle: 'abc-123' },
-    { zone: 'tunnels', reviewSessionId: 'deep-sid' },
     { zone: 'hub' },
     { zone: 'hub', overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'settings' },

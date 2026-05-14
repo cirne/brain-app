@@ -75,7 +75,7 @@ The nav currently has two primary sections — Chats and Wiki — with tunnels a
 - **Chats** are conversations between you and your own assistant.
 - **Tunnels** are B2B connections between your brain and other people's brains — a completely different communication model.
 
-There is no person-oriented view of your tunnel relationships. You cannot see inbound and outbound activity with a specific person in one place. You cannot manage policies or auto-respond settings with any discoverability. The Review surface (`/review`) is disconnected and feels like a separate app.
+There is no person-oriented view of your tunnel relationships. You cannot see inbound and outbound activity with a specific person in one place. You cannot manage policies or auto-respond settings with any discoverability. The older separate **Review** surface felt disconnected from tunnel-by-person navigation.
 
 ---
 
@@ -97,7 +97,7 @@ Sidebar
 
 **Chats** = you and your assistant. Unchanged from today.
 
-**Tunnels** = every person your brain has a B2B tunnel relationship with, inbound or outbound. One row per person. This replaces the Tunnels sub-section in ChatHistory, the Inbox tunnel entries, and `/review` entirely.
+**Tunnels** = every person your brain has a B2B tunnel relationship with, inbound or outbound. One row per person. This replaces the Tunnels sub-section in ChatHistory, the Inbox tunnel entries, and the retired client **`/review`** page route (pending data remains on **`GET /api/chat/b2b/review`**).
 
 **Wiki** = your wiki. Unchanged from today.
 
@@ -306,14 +306,14 @@ Sidebar
 │   ├── + New chat
 │   ├── [chat rows...]
 │   ├── Tunnels (sub-section)
-│   │   ├── Inbox (N) → /review
+│   │   ├── Inbox (N) → pending (API-backed; opens `/tunnels/:handle`)
 │   │   ├── + Open a Braintunnel
 │   │   └── [tunnel rows...]
 └── Wiki (section)
     └── [wiki page rows...]
 
 Dock zones:
-  /c (chat) | /inbox (email) | /wiki | /review (B2B) | /hub
+  /c (chat) | /inbox (email) | /wiki | /hub  _(legacy `/review` / bare `/tunnels` client routes removed)_
 ```
 
 ### After (proposed)
@@ -330,13 +330,13 @@ Sidebar
     └── [wiki page rows...]
 
 Dock zones:
-  /c (chat) | /tunnels (list) | /tunnels/:handle (detail) | /wiki | /hub
+  /c (chat) | /tunnels/:handle (tunnel detail) | /wiki | /hub  _(bare `/tunnels` and `/review` URLs normalize to `/c`; tunnel list lives inside the Tunnels overlay, not as its own path.)_
 ```
 
 Key changes:
 
 1. **Tunnels** becomes a first-class sidebar section alongside Chats and Wiki.
-2. **`/review` is retired** — pending inbound queries appear as "Pending" items in the tunnel detail pane, not a separate surface.
+2. **Client `/review` is retired** — pending inbound queries appear as "Pending" items in the tunnel detail pane (`/tunnels/:handle`), not a separate browser path. The **`GET /api/chat/b2b/review`** API remains for pending rows.
 3. **Tunnels sub-section inside ChatHistory is removed** — the Tunnels section in the sidebar replaces it.
 4. **`+ Open a Braintunnel`** becomes `+ Connect` at the top of the Tunnels section.
 5. Email (`/inbox`) remains its own separate surface and is not affected by this change.
@@ -369,9 +369,9 @@ The four-actor model is genuinely complex. The point of "make it feel like a cha
 
 2. **Person identity and matching.** The tunnel list is organized by person. What is the identity key — brain ID, email, some other handle? If you have multiple tunnels open with the same person (different topics), do they merge into one person row or stay separate?
 
-3. **Notification routing.** Today, inbound B2B drafts route to `/review`. After this change, they should route to the person's tunnel detail. The pending badge on the Tunnels sidebar section communicates urgency.
+3. **Notification routing.** Inbound B2B drafts route to **`/tunnels/:handle`** (peer handle from the notification payload). The pending badge on the Tunnels sidebar section communicates urgency.
 
-4. **What happens to `/inbox`?** This OPP does not affect the Inbox surface. It remains at `/inbox` for email. The dock icon / nav entry for inbox stays. The only nav change is adding a Tunnels section to the sidebar with `/tunnels` (list) and `/tunnels/:handle` (detail) routes.
+4. **What happens to `/inbox`?** This OPP does not affect the Inbox surface. It remains at `/inbox` for email. The dock icon / nav entry for inbox stays. Tunnels use **`/tunnels/:handle`** for the navigable detail URL; the rail still lists people and pending counts without a dedicated bare **`/tunnels`** list route (bookmarks to **`/tunnels`** or **`/review`** normalize to **`/c`**).
 
 5. **Empty state.** A user with no tunnel connections sees the Tunnels section with only the `+ Connect` row and a brief explainer. A connection with no activity yet (just established) shows the connection header with policy/auto-respond and an empty timeline with a prompt.
 
@@ -389,9 +389,8 @@ The four-actor model is genuinely complex. The point of "make it feel like a cha
 
 ### Router
 
-- New `RouteZone`: `'tunnels'` at `/tunnels`, with a detail sub-route at `/tunnels/:handle` (e.g. `/tunnels/alice`).
-- `/review` redirects to `/tunnels` with the most-recent pending tunnel selected (during transition).
-- Tunnels sub-section removed from ChatHistory sidebar.
+- `RouteZone`: **`'tunnels'`** with a detail route at **`/tunnels/:handle`** (e.g. `/tunnels/alice`). No client **`/review`** path; no first-class bare **`/tunnels`** URL (direct hits redirect to **`/c`**).
+- Tunnels sub-section removed from ChatHistory sidebar (replaced by first-class Tunnels section + handle-scoped navigation).
 
 ### Components
 

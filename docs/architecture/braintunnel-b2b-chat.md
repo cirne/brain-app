@@ -78,7 +78,7 @@ Mounted in [`registerApiRoutes.ts`](../../src/server/registerApiRoutes.ts). Meth
 | `POST /decline` | Owner declines; asker may get a standard decline message. |
 | `POST /dismiss` | Owner dismisses pending inbound without sending. |
 | `POST /regenerate` | Owner asks for a new draft (pending only). |
-| `GET /review` | List inbound review rows for UI (pending/sent/all). |
+| `GET /review` | List inbound review rows for UI (pending/sent/all). **Wire path:** `GET /api/chat/b2b/review` — not a browser page route. |
 | `GET /tunnels` | Asker: list grants + outbound session ids for sidebar. |
 | `POST /ensure-session` | Ensure outbound stub exists for a grant. |
 | `POST /withdraw-as-asker` | Revoke / tear down outbound (and cold pair if applicable). |

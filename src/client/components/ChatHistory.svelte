@@ -50,7 +50,7 @@
     onWikiHome,
     brainQueryEnabled = false,
     onSelectTunnel,
-    onOpenTunnels,
+    onOpenPendingTunnel,
     selectedTunnelHandle = null as string | null,
     onOpenColdTunnelEntry,
   }: {
@@ -64,8 +64,8 @@
     brainQueryEnabled?: boolean
     /** Navigate to unified Tunnels surface for a collaborator (`/tunnels/:handle`). */
     onSelectTunnel?: (_handle: string) => void
-    /** Open Tunnels surface without a peer (sidebar pending badge → `/tunnels`). */
-    onOpenTunnels?: () => void
+    /** Pending badge: parent fetches first pending row and navigates to `/tunnels/:handle`. */
+    onOpenPendingTunnel?: () => void
     /** Highlights the active tunnels rail row while on `/tunnels/:handle`. */
     selectedTunnelHandle?: string | null
     /** Desktop: inline composer in main chat; mobile: parent opens a bottom sheet. */
@@ -621,12 +621,12 @@
           >
             {$t('chat.history.tunnelsHeading')}
           </h2>
-          {#if brainQueryEnabled && tunnelInboundPendingTotal > 0 && onOpenTunnels}
+          {#if brainQueryEnabled && tunnelInboundPendingTotal > 0 && onOpenPendingTunnel}
             <button
               type="button"
               class="shrink-0 rounded-full bg-accent px-2 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white hover:opacity-90 max-md:text-[11px]"
               aria-label={$t('chat.history.pendingOpenAriaWithCount', { count: tunnelInboundPendingTotal })}
-              onclick={() => onOpenTunnels()}
+              onclick={() => onOpenPendingTunnel()}
             >
               {tunnelInboundPendingTotal > 99 ? '99+' : tunnelInboundPendingTotal}
             </button>

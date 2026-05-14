@@ -58,10 +58,15 @@ describe('mobileCompactNavCenterTitle', () => {
     ).toBe('Inbox')
   })
 
-  it('uses Tunnels when /tunnels is the primary surface', () => {
+  it('uses @handle when tunnel detail is the primary surface', () => {
     expect(
-      mobileCompactNavCenterTitle({ zone: 'tunnels' }, { type: 'chat' }, undefined, null),
-    ).toBe('Tunnels')
+      mobileCompactNavCenterTitle(
+        { zone: 'tunnels', tunnelHandle: 'alice-peer' },
+        { type: 'chat' },
+        undefined,
+        null,
+      ),
+    ).toBe('@alice-peer')
   })
 
   it('uses Settings when Settings is the primary surface', () => {

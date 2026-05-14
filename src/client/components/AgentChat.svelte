@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick, untrack, type Component, type Snippet } from 'svelte'
-  import { navigate, type SurfaceContext } from '@client/router.js'
+  import type { SurfaceContext } from '@client/router.js'
   import type {
     AgentConversationViewProps,
     ConversationRoleLabels,
@@ -1077,10 +1077,28 @@
           void (async () => {
             const h = row.kickoffHints
             const inboundFromNotif = h.b2bSessionId?.trim()
-            if (row.sourceKind === 'b2b_inbound_query' && inboundFromNotif) {
-              navigate({ zone: 'tunnels', reviewSessionId: inboundFromNotif })
-              await patchNotificationReadNow(row.id)
-              return
+            if (row.sourceKind === 'b2b_inbound_query') {
+              const peerH = h.peerHandle?.trim()
+              if (peerH && onNavigateToTunnelByHandle) {
+                onNavigateToTunnelByHandle(peerH)
+                await patchNotificationReadNow(row.id)
+                return
+              }
+              const grantForPeer = h.grantId?.trim()
+              if (grantForPeer && onNavigateToTunnelByHandle) {
+                const ph = await peerHandleForOutboundGrant(grantForPeer)
+                if (ph) {
+                  onNavigateToTunnelByHandle(ph)
+                  await patchNotificationReadNow(row.id)
+                  return
+                }
+              }
+              if (inboundFromNotif) {
+                if (onSelectChatSession) await onSelectChatSession(inboundFromNotif, row.summaryLine)
+                else await loadSession(inboundFromNotif)
+                await patchNotificationReadNow(row.id)
+                return
+              }
             }
             if (inboundFromNotif) {
               if (onSelectChatSession) await onSelectChatSession(inboundFromNotif, row.summaryLine)

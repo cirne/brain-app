@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import process from 'node:process'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import {
   ripmailSourcesList,
@@ -9,6 +10,7 @@ import {
   ripmailGoogleCalendarListCalendars,
   loadRipmailConfig,
   saveRipmailConfig,
+  listGoogleDriveFolders,
 } from '@server/ripmail/index.js'
 import type { SourceConfig } from '@server/ripmail/sync/config.js'
 
@@ -168,27 +170,46 @@ export async function getHubRipmailSourceDetail(id: string): Promise<HubRipmailS
 export type HubBrowseFolderRow = { id: string; name: string; hasChildren: boolean }
 
 export async function browseHubRipmailFolders(
-  _sourceId: string,
+  sourceId: string,
   parentId?: string,
 ): Promise<{ ok: true; folders: HubBrowseFolderRow[] } | { ok: false; error: string }> {
-  const dir = parentId?.trim() || '/'
-  try {
-    const entries = readdirSync(dir, { withFileTypes: true })
-    const folders: HubBrowseFolderRow[] = []
-    for (const e of entries) {
-      if (!e.isDirectory() || e.name.startsWith('.')) continue
-      const fullPath = join(dir, e.name)
-      let hasChildren = false
-      try {
-        const sub = readdirSync(fullPath, { withFileTypes: true })
-        hasChildren = sub.some((s) => s.isDirectory() && !s.name.startsWith('.'))
-      } catch { /* ignore */ }
-      folders.push({ id: fullPath, name: e.name, hasChildren })
-    }
+  const home = ripmailHomeForBrain()
+  const config = loadRipmailConfig(home)
+  const source = (config.sources ?? []).find((s) => s.id === sourceId)
+  if (!source) return { ok: false, error: 'Source not found' }
+
+  if (source.kind === 'googleDrive') {
+    const folders = await listGoogleDriveFolders(home, source, parentId)
     return { ok: true, folders }
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
+
+  if (source.kind === 'localDir') {
+    if (process.env.BRAIN_BUNDLED_NATIVE !== '1') {
+      return { ok: false, error: 'Local file system access is only available in the desktop app' }
+    }
+    const dir = parentId?.trim() || '/'
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true })
+      const folders: HubBrowseFolderRow[] = []
+      for (const e of entries) {
+        if (!e.isDirectory() || e.name.startsWith('.')) continue
+        const fullPath = join(dir, e.name)
+        let hasChildren = false
+        try {
+          const sub = readdirSync(fullPath, { withFileTypes: true })
+          hasChildren = sub.some((s) => s.isDirectory() && !s.name.startsWith('.'))
+        } catch {
+          /* ignore */
+        }
+        folders.push({ id: fullPath, name: e.name, hasChildren })
+      }
+      return { ok: true, folders }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
+  return { ok: false, error: `Browsing folders for source kind "${source.kind}" is not supported` }
 }
 
 export async function updateHubRipmailFileSource(

@@ -246,6 +246,12 @@ describe('hub routes', () => {
   })
 
   it('GET /sources/browse-folders returns folders list', async () => {
+    process.env.BRAIN_BUNDLED_NATIVE = '1'
+    const { loadRipmailConfig } = await import('@server/ripmail/index.js')
+    vi.mocked(loadRipmailConfig).mockReturnValueOnce({
+      sources: [{ id: 'src1', kind: 'localDir' }],
+    })
+
     const app = new Hono()
     app.route('/api/hub', hubRoute)
     // Browse a real temp dir that exists

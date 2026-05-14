@@ -37,7 +37,6 @@ import {
   replaceLastAwaitingPeerReviewWithDismissed,
   updateApprovalState,
   finalizeColdSessionWithGrant,
-  getInboundB2bSessionPeerMeta,
   listColdInboundSessionsForPeer,
   listInboundSessionsForGrant,
   listTimelineMessages,
@@ -902,24 +901,6 @@ b2bChat.get('/tunnels', async (c) => {
   const ctx = getTenantContext()
   const tunnels = await buildMergedTunnelRowsForTenant(ctx)
   return c.json({ tunnels })
-})
-
-/** Resolve `/review/:sessionId` deep links → `/tunnels/:handle`. */
-b2bChat.get('/peer-handle-for-review/:sessionId', async (c) => {
-  const sessionId = c.req.param('sessionId')?.trim() ?? ''
-  if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
-  const meta = getInboundB2bSessionPeerMeta(sessionId)
-  if (!meta) return c.json({ error: 'not_found' }, 404)
-  let tunnelHandle =
-    typeof meta.peerHandle === 'string' && meta.peerHandle.trim().length > 0
-      ? meta.peerHandle.trim()
-      : ''
-  if (!tunnelHandle && typeof meta.coldPeerUserId === 'string' && meta.coldPeerUserId.trim().length > 0) {
-    const vis = await displayNameForUser(meta.coldPeerUserId.trim())
-    tunnelHandle = vis.handle
-  }
-  if (!tunnelHandle) return c.json({ error: 'peer_unresolved' }, 404)
-  return c.json({ tunnelHandle })
 })
 
 /** Unified tunnel activity timeline for `/tunnels/:handle` detail pane. */

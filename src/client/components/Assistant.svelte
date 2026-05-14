@@ -38,6 +38,8 @@ import AppShell from '@components/app/AppShell.svelte'
     type Overlay,
     type NavigateOptions,
   } from '@client/router.js'
+  import { apiFetch } from '@client/lib/apiFetch.js'
+  import { parseB2BReviewListResponse } from '@client/lib/b2bReviewTypes.js'
   import {
     CHAT_HISTORY_PAGE_LIST_LIMIT,
     CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
@@ -299,16 +301,26 @@ import AppShell from '@components/app/AppShell.svelte'
     }
   })
 
-  function navigateTunnelRoute(handle?: string) {
-    const h = handle?.trim()
-    const next: Route = { zone: 'tunnels' as RouteZone }
-    if (h) next.tunnelHandle = h
-    navigateShell(next)
+  function navigateTunnelRoute(handle: string) {
+    const h = handle.trim()
+    if (!h) return
+    navigateShell({ zone: 'tunnels' as RouteZone, tunnelHandle: h })
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
-  function resolveLegacyReviewToTunnel(handle: string) {
-    navigateShell({ zone: 'tunnels', tunnelHandle: handle.trim(), reviewSessionId: undefined }, { replace: true })
+  async function openPendingTunnelFromRail(): Promise<void> {
+    try {
+      const res = await apiFetch('/api/chat/b2b/review?state=pending')
+      if (!res.ok) return
+      const body = (await res.json()) as unknown
+      const rows = parseB2BReviewListResponse(body)
+      const first = rows.find((r) => (r.peerHandle ?? '').trim().length > 0)
+      const h = first?.peerHandle?.trim()
+      if (!h) return
+      navigateTunnelRoute(h)
+    } catch {
+      /* ignore */
+    }
   }
 
   /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
@@ -331,15 +343,16 @@ import AppShell from '@components/app/AppShell.svelte'
       })
   }
 
-  /** Bare `/review` (no session id) now maps to the tunnels index URL. */
+  /** Canonicalize bookmarked bare `/tunnels` and retired `/review` URLs to `/c`. */
   $effect(() => {
     if (typeof window === 'undefined') return
-    if (shell.route.zone !== 'tunnels') return
+    void shell.route
     const path = window.location.pathname
-    const bare = path === '/review' || path === '/review/'
-    if (!bare) return
-    if (shell.route.reviewSessionId?.trim()) return
-    navigateShell({ zone: 'tunnels' }, { replace: true })
+    const bareTunnels = path === '/tunnels' || path === '/tunnels/'
+    const legacyReview = path === '/review' || path === '/review/' || path.startsWith('/review/')
+    if (!bareTunnels && !legacyReview) return
+    navigateShell({}, { replace: true })
+    alignShellWithBareChatRoute(shell)
   })
 
   function syncMobileWikiStackFromHubSettings(prevOverlay: Overlay | undefined) {
@@ -639,8 +652,9 @@ import AppShell from '@components/app/AppShell.svelte'
       return
     }
     if (shell.route.zone === 'tunnels') {
-      navigateShell({ zone: 'tunnels' as RouteZone }, { replace: true })
+      navigateShell({ ...chatSessionPart() }, { replace: true })
       shell.route = parseRoute()
+      alignShellWithBareChatRoute(shell)
       shell.agentContext = { type: 'chat' }
       return
     }
@@ -1590,7 +1604,7 @@ import AppShell from '@components/app/AppShell.svelte'
               brainQueryEnabled={brainQueryEnabled}
               selectedTunnelHandle={shell.route.zone === 'tunnels' ? (shell.route.tunnelHandle ?? null) : null}
               onSelectTunnel={brainQueryEnabled ? (h) => navigateTunnelRoute(h) : undefined}
-              onOpenTunnels={brainQueryEnabled ? () => navigateTunnelRoute() : undefined}
+              onOpenPendingTunnel={brainQueryEnabled ? () => void openPendingTunnelFromRail() : undefined}
               onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
             />
           </div>
@@ -1740,10 +1754,8 @@ import AppShell from '@components/app/AppShell.svelte'
               <div class="hub-scroll flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
                 <Tunnels
                   routeTunnelHandle={shell.route.tunnelHandle ?? null}
-                  legacyInboundSessionId={shell.route.reviewSessionId ?? null}
                   brainQueryEnabled={brainQueryEnabled}
                   onPickTunnelHandle={(h) => navigateTunnelRoute(h)}
-                  onReplaceLegacyReviewRoute={(h) => resolveLegacyReviewToTunnel(h)}
                   onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
                 />
               </div>

@@ -81,17 +81,12 @@ export type Route = {
   /**
    * Primary surface when not the default chat column.
    * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`,
-   * `'tunnels'` → `/tunnels` / `/tunnels/:handle`; legacy inbound deep links use `/review/:sessionId`.
+   * `'tunnels'` → `/tunnels/:handle` only (bare `/tunnels` parses as chat; URL is canonicalized to `/c`).
    * Absent means chat (`/c`).
    */
   zone?: RouteZone
   /** `/tunnels/:handle` collaborator handle (decoded path segment). */
   tunnelHandle?: string
-  /**
-   * Inbound B2B session id for legacy URLs (`/review/:sessionId`).
-   * When set with `zone: 'tunnels'`, the timeline resolves peer handle server-side then canonicalizes the bar.
-   */
-  reviewSessionId?: string
 }
 
 export type SurfaceContext =
@@ -506,19 +501,9 @@ function tunnelsRouteFromPath(href: string): Route | null {
   }
   const rest = url.pathname.slice('/tunnels'.length)
   const rawSeg = rest.startsWith('/') ? rest.slice(1).split('/')[0]?.trim() ?? '' : ''
-  if (!rawSeg) return { zone: 'tunnels' }
+  /** Bare `/tunnels` is not a navigable surface; treat as chat so shell can replace URL to `/c`. */
+  if (!rawSeg) return {}
   return { zone: 'tunnels', tunnelHandle: safeDecodePathSegment(rawSeg) }
-}
-
-function reviewInboundDeepLinkRouteFromPath(href: string): Route | null {
-  const url = new URL(href, 'http://localhost')
-  if (url.pathname !== '/review' && !url.pathname.startsWith('/review/')) {
-    return null
-  }
-  const rest = url.pathname.slice('/review'.length)
-  const rawSeg = rest.startsWith('/') ? rest.slice(1).split('/')[0]?.trim() ?? '' : ''
-  if (!rawSeg) return { zone: 'tunnels' }
-  return { zone: 'tunnels', reviewSessionId: safeDecodePathSegment(rawSeg) }
 }
 
 function settingsRouteFromSearch(href: string): Route | null {
@@ -638,11 +623,6 @@ export function parseRoute(href: string = location.href): Route {
     return tunnelsParsed
   }
 
-  const legacyReviewParsed = reviewInboundDeepLinkRouteFromPath(href)
-  if (legacyReviewParsed) {
-    return legacyReviewParsed
-  }
-
   if (seg1 === 'wiki' || seg1 === 'wikis') {
     const pathParts = url.pathname.split('/').filter(Boolean)
     const wikiRest = pathParts.slice(1)
@@ -738,12 +718,9 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
   }
 
   if (zone === 'tunnels') {
-    const inbound = route.reviewSessionId?.trim()
-    if (inbound) {
-      return `/review/${encodeURIComponent(inbound)}`
-    }
     const th = route.tunnelHandle?.trim()
-    return th ? `/tunnels/${encodeURIComponent(th)}` : '/tunnels'
+    if (!th) return '/c'
+    return `/tunnels/${encodeURIComponent(th)}`
   }
 
   if (zone === 'hub') {

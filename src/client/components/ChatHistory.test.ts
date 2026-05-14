@@ -145,7 +145,7 @@ describe('ChatHistory.svelte', () => {
     expect(props.onSelect).toHaveBeenCalledWith('abc', 'Pick me')
   })
 
-  it('shows Tunnels section with pending badge and calls onOpenTunnels', async () => {
+  it('shows Tunnels section with pending badge and calls onOpenPendingTunnel', async () => {
     mockedFetchSessions.mockResolvedValue([
       createChatSessionListItem({ sessionId: 'own', sessionType: 'own', title: 'Local chat' }),
     ])
@@ -162,9 +162,9 @@ describe('ChatHistory.svelte', () => {
       return new Response(JSON.stringify({ tunnels: [] }), { status: 200 })
     })
 
-    const onOpenTunnels = vi.fn()
+    const onOpenPendingTunnel = vi.fn()
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenTunnels },
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel },
     })
 
     const chats = await screen.findByRole('heading', { name: /^chats$/i })
@@ -175,11 +175,13 @@ describe('ChatHistory.svelte', () => {
     expect(within(tunnelsSection).getByText('Ken Lay')).toBeInTheDocument()
     expect(document.querySelector('[data-tunnel-indicator="pending-review"]')).toBeTruthy()
 
-    const pendingBtn = within(tunnelsSection).getByRole('button', { name: /open tunnels — 1 pending/i })
+    const pendingBtn = within(tunnelsSection).getByRole('button', {
+      name: /open first pending collaborator — 1 pending/i,
+    })
     expect(within(pendingBtn).getByText('1')).toBeInTheDocument()
 
     await fireEvent.click(pendingBtn)
-    expect(onOpenTunnels).toHaveBeenCalledTimes(1)
+    expect(onOpenPendingTunnel).toHaveBeenCalledTimes(1)
   })
 
   it('hides tunnels pending badge when merged API reports zero pending inbound work', async () => {
@@ -198,7 +200,7 @@ describe('ChatHistory.svelte', () => {
     })
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenTunnels: vi.fn() },
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel: vi.fn() },
     })
 
     await screen.findByRole('heading', { name: /^chats$/i })
@@ -207,7 +209,11 @@ describe('ChatHistory.svelte', () => {
     )
     expect(tunnelsSection).toBeTruthy()
     await waitFor(() => {
-      expect(within(tunnelsSection as HTMLElement).queryByRole('button', { name: /open tunnels/i })).not.toBeInTheDocument()
+      expect(
+        within(tunnelsSection as HTMLElement).queryByRole('button', {
+          name: /open first pending collaborator/i,
+        }),
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -479,14 +485,16 @@ describe('ChatHistory.svelte', () => {
     })
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenTunnels: vi.fn() },
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel: vi.fn() },
     })
 
     await screen.findByRole('heading', { name: /^tunnels$/i })
     const tunnelsSection = screen.getByRole('heading', { name: /^tunnels$/i }).closest(
       '.ch-group--tunnels',
     ) as HTMLElement
-    expect(within(tunnelsSection).queryByRole('button', { name: /open tunnels/i })).not.toBeInTheDocument()
+    expect(
+      within(tunnelsSection).queryByRole('button', { name: /open first pending collaborator/i }),
+    ).not.toBeInTheDocument()
 
     tunnelRowsPayload = [tunnelListRow('cold-peer', { pendingReviewCount: 1 })]
     const cb = hubTunnelSubs.cbs[hubTunnelSubs.cbs.length - 1]
@@ -494,7 +502,11 @@ describe('ChatHistory.svelte', () => {
     cb!({ scope: 'inbox', inboundSessionId: 'cold-in', grantId: null })
 
     await waitFor(() => {
-      expect(within(tunnelsSection).getByRole('button', { name: /open tunnels — 1 pending/i })).toBeInTheDocument()
+      expect(
+        within(tunnelsSection).getByRole('button', {
+          name: /open first pending collaborator — 1 pending/i,
+        }),
+      ).toBeInTheDocument()
     })
   })
 
@@ -512,13 +524,15 @@ describe('ChatHistory.svelte', () => {
     })
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenTunnels: vi.fn() },
+      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel: vi.fn() },
     })
     await screen.findByRole('heading', { name: /^tunnels$/i })
     const tunnelsSection = screen.getByRole('heading', { name: /^tunnels$/i }).closest(
       '.ch-group--tunnels',
     ) as HTMLElement
-    expect(within(tunnelsSection).queryByRole('button', { name: /open tunnels/i })).not.toBeInTheDocument()
+    expect(
+      within(tunnelsSection).queryByRole('button', { name: /open first pending collaborator/i }),
+    ).not.toBeInTheDocument()
 
     tunnelRowsPayload = [tunnelListRow('cold-peer', { pendingReviewCount: 1 })]
     const notifCb = hubNotifRefreshSubs.cbs[hubNotifRefreshSubs.cbs.length - 1]
@@ -526,7 +540,11 @@ describe('ChatHistory.svelte', () => {
     notifCb!()
 
     await waitFor(() => {
-      expect(within(tunnelsSection).getByRole('button', { name: /open tunnels — 1 pending/i })).toBeInTheDocument()
+      expect(
+        within(tunnelsSection).getByRole('button', {
+          name: /open first pending collaborator — 1 pending/i,
+        }),
+      ).toBeInTheDocument()
     })
   })
 })

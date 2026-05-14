@@ -68,7 +68,7 @@
     "emptyTunnels": "A Braintunnel routes your questions to another user's AI assistant.",
     "tunnelsLoadFailed": "Could not load tunnels.",
     "pendingRow": "Inbox",
-    "pendingOpenAriaWithCount": "Open Tunnels — {{count}} pending",
+    "pendingOpenAriaWithCount": "Open first pending collaborator — {{count}} pending",
     "inboundHeading": "Inbound",
     "emptyInbound": "No inbound chats yet.",
     "pendingBadge": "Pending",

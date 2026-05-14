@@ -12,23 +12,15 @@
 
   let {
     routeTunnelHandle = null as string | null,
-    legacyInboundSessionId = null as string | null,
     brainQueryEnabled = false,
     onPickTunnelHandle,
-    onReplaceLegacyReviewRoute,
     onOpenColdTunnelEntry,
   }: {
     routeTunnelHandle?: string | null
-    legacyInboundSessionId?: string | null
     brainQueryEnabled?: boolean
     onPickTunnelHandle: (_handle: string | undefined) => void
-    /** After resolving `/review/:sid` deep link → `/tunnels/:handle`; clears stale `reviewSessionId` in Route. */
-    onReplaceLegacyReviewRoute?: ((_handle: string) => void) | undefined
     onOpenColdTunnelEntry?: (() => void) | undefined
   } = $props()
-
-  /** Guard repeated legacy resolution for the same session id. */
-  let legacyResolvedSession = $state<string | null>(null)
 
   const activeHandle = $derived(routeTunnelHandle?.trim() ?? '')
 
@@ -109,34 +101,6 @@
       if (!bg) listLoading = false
     }
   }
-
-  /** Legacy `/review/:sid` → resolve collaborator handle → canonical tunnels route (clears inbound id). */
-  $effect(() => {
-    const sid = legacyInboundSessionId?.trim()
-    if (!sid) {
-      legacyResolvedSession = null
-      return
-    }
-    if (legacyResolvedSession === sid) return
-
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await apiFetch(`/api/chat/b2b/peer-handle-for-review/${encodeURIComponent(sid)}`)
-        if (!res.ok || cancelled) return
-        const j = (await res.json()) as { tunnelHandle?: unknown }
-        const h = typeof j.tunnelHandle === 'string' ? j.tunnelHandle.trim() : ''
-        if (!h || cancelled) return
-        legacyResolvedSession = sid
-        onReplaceLegacyReviewRoute?.(h)
-      } catch {
-        /* ignore */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  })
 
   $effect(() => {
     void activeHandle
