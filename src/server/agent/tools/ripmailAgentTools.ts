@@ -520,7 +520,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'read_indexed_file',
     label: 'Read file',
     description:
-      '**Ripmail indexed files only (not the wiki `read` tool).** Read body text for **Google Drive** or **localDir** items indexed into ripmail: pass **`messageId`** from **`search_index`** (same JSON field as mail — for Drive it is the remote file id, usually long alphanumeric). Also use for **allowed absolute filesystem paths** (tilde ok) when you need extracted text/PDF/etc. Contents come from ripmail’s local cache/export — **not** email MIME attachments; never call **`read_attachment`** for these.',
+      '**Ripmail indexed files only (not the wiki `read` tool).** Read body text for **Google Drive** or **localDir** items indexed into ripmail: pass **`messageId`** from **`search_index`** (same JSON field as mail — for Drive it is the remote file id, usually long alphanumeric). Also use for **allowed absolute filesystem paths** (tilde ok) when you need extracted text/PDF/etc. **Google Drive:** full reads use the live Drive export/download path with a short on-disk cache (TTL defined in code as `REMOTE_DOCUMENT_BODY_CACHE_TTL_MS`). **localDir:** reads from local files / extracted text. Never call **`read_attachment`** for these.',
     parameters: Type.Object({
       id: Type.String({
         description:
@@ -591,7 +591,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'manage_sources',
     label: 'Manage sources',
     description:
-      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars, Google Drive). **op=list** — authoritative **source ids** and kinds; call this before passing **`source`** to `search_index` / reads when unsure or after **Unknown source**. op=status: index health and sync times; op=add: register a local folder (kind localDir) or Google Drive (kind googleDrive with email + oauth_source_id). File corpus roots live in **fileSource.roots** (`id` = filesystem path or Drive folder id). Use **root_ids** when adding (maps to `ripmail sources add --root-id`). Google Drive sync requires at least one folder root (no whole-drive). op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
+      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars, Google Drive). **op=list** — authoritative **source ids** and kinds; call this before passing **`source`** to `search_index` / reads when unsure or after **Unknown source**. op=status: index health and sync times; op=add: register a local folder (kind localDir) or Google Drive (kind googleDrive with email + oauth_source_id). **Google Drive** indexes the visible corpus on **refresh** (bounded text in SQLite); optional **root_ids** / **folder_ids** are legacy folder picks and are ignored for sync scope. **fileSource** ignore/include globs and max size still apply. op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('list'),
@@ -604,7 +604,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       kind: Type.Optional(
         Type.Union([Type.Literal('localDir'), Type.Literal('googleDrive')], {
           description:
-            'add: localDir (folder paths as root_ids) or googleDrive (needs email + oauth_source_id + folder roots)',
+            'add: localDir (folder paths as root_ids) or googleDrive (email + oauth_source_id; folder roots optional / legacy)',
         }),
       ),
       id: Type.Optional(Type.String({ description: 'edit/remove/reindex: source id (reindex: prefer refresh_sources)' })),
@@ -617,7 +617,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       root_ids: Type.Optional(
         Type.Array(Type.String(), {
           description:
-            'add localDir or googleDrive: folder path(s) or Drive folder id(s) — Drive requires at least one for sync',
+            'add localDir or googleDrive: folder path(s) or optional Drive folder id(s) (ignored for whole-corpus Drive sync)',
         }),
       ),
       label: Type.Optional(Type.String({ description: 'add/edit: display label' })),

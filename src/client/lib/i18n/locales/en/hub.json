@@ -42,50 +42,21 @@
     }
   },
   "hubConnectorDriveSection": {
-    "heading": "Folders",
-    "emptyHint": "Choose which Drive folders Braintunnel indexes. Braintunnel requires at least one folder.",
+    "heading": "Google Drive",
+    "emptyHint": "Braintunnel indexes files you can see in Drive when you sync (search uses the local index). Optional folder picks below are legacy only; use Advanced for ignore patterns, size limits, and Shared with me.",
     "errors": {
       "saveFailed": "Save failed",
       "updateSharedWithMe": "Could not update Shared with me",
-      "listFolders": "Could not list folders",
-      "suggestionsFailed": "Suggestions failed"
+      "listFolders": "Could not list folders"
     },
     "actions": {
-      "analyzingDrive": "Analyzing your Drive…",
-      "suggestFoldersWithAi": "Suggest folders with AI",
       "browseFolders": "Browse folders",
-      "addFolder": "Add folder",
-      "analyzing": "Analyzing…",
-      "suggest": "Suggest"
+      "addFolder": "Add folder"
     },
     "folderCard": {
       "includeSubfoldersTitle": "Include subfolders",
       "subfolders": "Subfolders",
       "removeAria": "Remove {{name}}"
-    },
-    "suggestions": {
-      "fallbackSkipSummary": "Applying also adds skips for temporary files, Office lock files, unfinished downloads, backups, archives, and common audio and video.",
-      "title": "Suggested folders",
-      "dismissAria": "Dismiss suggestions",
-      "empty": "No folders found in your Drive to suggest.",
-      "itemAlreadyAddedAria": "{{name}}, already in your folders",
-      "deselectAria": "Deselect {{name}}",
-      "selectAria": "Select {{name}}",
-      "technicalPatternsOptional": "Technical patterns (optional)",
-      "technicalPatternsNote": {
-        "beforeStrong": "These are merged into ",
-        "strong": "Ignore patterns",
-        "afterStrong": " under Advanced when you apply."
-      },
-      "skipsAlreadyPresent": "Suggested file skips are already in your ignore list.",
-      "apply": {
-        "saving": "Applying…",
-        "foldersAndSkips_one": "Apply · {{count}} folder and file skips",
-        "foldersAndSkips_other": "Apply · {{count}} folders and file skips",
-        "foldersOnly_one": "Apply {{count}} folder",
-        "foldersOnly_other": "Apply {{count}} folders",
-        "fileSkips": "Apply file skips"
-      }
     },
     "browser": {
       "root": "My Drive",
@@ -324,7 +295,6 @@
       "couldNotListFolders": "Could not list folders",
       "saveFailed": "Save failed"
     },
-    "driveFoldersRequired": "No Drive folders selected - add at least one folder before syncing (entire-Drive sync is disabled).",
     "aria": {
       "pickFolder": "Pick folder"
     },

@@ -318,7 +318,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     await waitFor(() => {
       expect(screen.getByText(/100 documents/)).toBeInTheDocument()
     })
-    expect(screen.getByText(/Google Drive/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Google Drive/i).length).toBeGreaterThan(0)
   })
 
   it('Refresh index for Google Drive does not re-fetch the sources list (avoids panel flicker)', async () => {
@@ -398,7 +398,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     expect(sourcesListGets).toBe(1)
   })
 
-  it('disables Refresh index for Google Drive when fileSource has no roots', async () => {
+  it('allows Refresh index for Google Drive when fileSource has no roots', async () => {
     vi.stubGlobal(
       'fetch',
       makeFetch(async (url) => {
@@ -439,9 +439,8 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
 
     const refresh = await screen.findByRole('button', { name: /Refresh index/i })
     await waitFor(() => {
-      expect(refresh).toBeDisabled()
+      expect(refresh).not.toBeDisabled()
     })
-    expect(refresh.getAttribute('title') ?? '').toMatch(/folder/i)
   })
 
   it('after saving Google Calendar picker, keeps detail mounted while detail reload is in flight', async () => {

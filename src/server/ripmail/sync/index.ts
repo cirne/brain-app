@@ -19,9 +19,10 @@ import type { RipmailConfig, SourceConfig } from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
 import { syncGoogleCalendarSource } from './googleCalendar.js'
+import { getGoogleDriveSources, syncGoogleDriveSource } from './googleDriveSync.js'
 import type { RefreshOptions, RefreshResult, RefreshSourceResult } from '../types.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
-import { clearSyncSummaryRunning, setSyncSummaryRunning } from './persist.js'
+import { clearSyncSummaryRunning, setSyncSummaryRunning, updateSourceLastSynced } from './persist.js'
 import { ensureSourceRowsFromConfig } from '../sources.js'
 
 /** Global cap for independent source refreshes; per-source syncs keep their own inner limits. */
@@ -47,9 +48,8 @@ function buildRefreshTasks(params: {
   const { db, ripmailHome, config, opts } = params
   const imapSources = getImapSources(config).filter((source) => selectedBySourceId(source, opts?.sourceId))
   const calendarSources = getGoogleCalendarSources(config).filter((source) => selectedBySourceId(source, opts?.sourceId))
+  const driveSources = getGoogleDriveSources(config.sources).filter((source) => selectedBySourceId(source, opts?.sourceId))
 
-  // Future refreshable source kinds (localDir, googleDrive, Apple Calendar, ICS)
-  // should register task builders here once their TypeScript sync implementations land.
   return [
     ...imapSources.map((source): RefreshSourceTask => ({
       sourceId: source.id,
@@ -127,6 +127,44 @@ function buildRefreshTasks(params: {
           eventsUpserted: result.eventsUpserted,
           eventsDeleted: result.eventsDeleted,
           error: result.error,
+        }
+      },
+    })),
+    ...driveSources.map((source): RefreshSourceTask => ({
+      sourceId: source.id,
+      kind: 'googleDrive',
+      errorLogMessage: 'ripmail:refresh:drive-error',
+      run: async () => {
+        const tokenSid = googleOAuthTokenSourceId(source)
+        const oauthTokens = loadGoogleOAuthTokens(ripmailHome, tokenSid)
+        if (!oauthTokens) {
+          const error = 'No Google OAuth token file available for Drive sync'
+          brainLogger.warn({ sourceId: source.id, tokenSid }, 'ripmail:refresh:drive-no-oauth-file')
+          return { ok: false, messagesAdded: 0, messagesUpdated: 0, error }
+        }
+        const result = await syncGoogleDriveSource(db, ripmailHome, source, {
+          onProgress: opts?.onDriveProgress,
+          forceBootstrap: opts?.forceDriveBootstrap,
+        })
+        if (result.error) {
+          brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:drive-error')
+          if (errorMessageIndicatesInvalidGoogleGrant(result.error)) {
+            const cleared = removeGoogleOAuthTokenFile(ripmailHome, tokenSid)
+            brainLogger.warn(
+              { sourceId: source.id, tokenSid, removedOAuthFile: cleared },
+              'ripmail:refresh:drive-invalid-grant-cleared',
+            )
+          }
+          return { ok: false, messagesAdded: 0, messagesUpdated: 0, error: result.error }
+        }
+        updateSourceLastSynced(db, source.id)
+        db.prepare(
+          `UPDATE sources SET doc_count = (SELECT COUNT(*) FROM document_index WHERE source_id = ? AND kind = 'googleDrive') WHERE id = ?`,
+        ).run(source.id, source.id)
+        return {
+          ok: true,
+          messagesAdded: result.added,
+          messagesUpdated: result.updated,
         }
       },
     })),

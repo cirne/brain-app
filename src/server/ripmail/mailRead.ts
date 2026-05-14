@@ -14,6 +14,7 @@ import {
   visualArtifactsFromAttachments,
   visualArtifactFromIndexedFileResult,
 } from './visualArtifacts.js'
+import { readGoogleDriveFileBodyCached } from './sync/googleDriveReadBody.js'
 
 interface MessageRow {
   message_id: string
@@ -223,12 +224,14 @@ export function readMailForDisplay(
 
 /**
  * Read an indexed file (Drive, localDir) by its ID/path.
+ * When `opts.fullBody` is true for Google Drive, fetches authoritative content from the API (with TTL cache).
  */
-export function readIndexedFile(
+export async function readIndexedFile(
   db: RipmailDb,
+  ripmailHome: string,
   id: string,
   opts?: { fullBody?: boolean },
-): ReadIndexedFileResult | null {
+): Promise<ReadIndexedFileResult | null> {
   // Drive: document_index entry with ext_id = id
   const diRow = db
     .prepare(
@@ -241,11 +244,29 @@ export function readIndexedFile(
     .get(id) as Record<string, unknown> | undefined
 
   if (diRow) {
+    const rowKind = String(diRow['kind'] ?? '')
+    const sourceId = String(diRow['source_id'] ?? '')
+    const extId = String(diRow['ext_id'] ?? id)
+    if (rowKind === 'googleDrive' && opts?.fullBody && ripmailHome) {
+      const fetched = await readGoogleDriveFileBodyCached(ripmailHome, sourceId, extId)
+      if (fetched) {
+        const result: ReadIndexedFileResult = {
+          id: extId,
+          sourceKind: 'googleDrive',
+          title: fetched.title,
+          bodyText: fetched.text,
+          mime: fetched.mime,
+        }
+        const visualArtifacts = visualArtifactFromIndexedFileResult(result)
+        return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result
+      }
+    }
+
     const body = String(diRow['body'] ?? '')
     const maxChars = opts?.fullBody ? Infinity : 4000
     const result: ReadIndexedFileResult = {
-      id: String(diRow['ext_id'] ?? id),
-      sourceKind: String(diRow['source_kind'] ?? diRow['kind'] ?? ''),
+      id: extId,
+      sourceKind: String(diRow['source_kind'] ?? rowKind ?? ''),
       title: String(diRow['title'] ?? ''),
       bodyText: body.slice(0, maxChars),
     }

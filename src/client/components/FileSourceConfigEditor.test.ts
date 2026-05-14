@@ -7,7 +7,7 @@ describe('FileSourceConfigEditor.svelte', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders Drive warning when there are no roots', async () => {
+  it('does not block Google Drive on empty roots (optional folder picks only)', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() => Promise.resolve(new Response('not found', { status: 404 }))) as typeof fetch,
@@ -28,7 +28,8 @@ describe('FileSourceConfigEditor.svelte', () => {
       },
     })
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/No Drive folders selected/)
+    expect(screen.queryByText(/No Drive folders selected/)).not.toBeInTheDocument()
+    expect(screen.getByText(/None yet/)).toBeInTheDocument()
   })
 
   it('calls onSaved after successful save', async () => {

@@ -6,7 +6,6 @@
  */
 
 import { google } from 'googleapis'
-import pLimit from 'p-limit'
 import type { RipmailDb } from '../db.js'
 import { writeEml } from './maildir.js'
 import { parseEml } from './parse.js'
@@ -21,6 +20,9 @@ import {
 import type { GoogleOAuthTokens } from './config.js'
 import type { RipmailHistoricalSince } from '../types.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
+import { GMAIL_MESSAGES_GET_CONCURRENCY, runWithConcurrencyPool } from './syncConcurrency.js'
+
+export { GMAIL_MESSAGES_GET_CONCURRENCY, runWithConcurrencyPool } from './syncConcurrency.js'
 
 export interface GmailSyncResult {
   sourceId: string
@@ -32,25 +34,7 @@ export interface GmailSyncResult {
 /** Cap Gmail messages.list pagination per refresh (500 ids/page). */
 export const GMAIL_HISTORICAL_LIST_MAX_PAGES = 100
 
-/** Max concurrent `users.messages.get` calls during Gmail sync. */
-export const GMAIL_MESSAGES_GET_CONCURRENCY = 8
-
 const DAY_SEC = 86_400
-
-/**
- * Map items through `fn` with at most `concurrency` in-flight async operations.
- * Exported for unit tests (same semantics as the Gmail fetch pool).
- */
-export async function runWithConcurrencyPool<T, R>(
-  items: readonly T[],
-  concurrency: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const limit = pLimit(concurrency)
-  return Promise.all(items.map((item) => limit(() => fn(item))))
-}
-
-/** Lower bound for Gmail `after:` search (epoch seconds), inclusive window. */
 export function historicalSinceToAfterEpochSeconds(spec: string): number {
   const s = spec.trim().toLowerCase()
   let days: number

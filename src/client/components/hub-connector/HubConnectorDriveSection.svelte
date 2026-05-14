@@ -1,24 +1,14 @@
 <script lang="ts">
   import {
-    Check,
     ChevronDown,
     ChevronRight,
     Folder,
     FolderOpen,
-    RefreshCw,
-    Sparkles,
     X,
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { HubSourceDetailFileSource } from '@client/lib/hub/hubRipmailSource.js'
   import { t } from '@client/lib/i18n/index.js'
-
-  type DriveFolderSuggestion = {
-    id: string
-    name: string
-    reason: string
-    include: boolean
-  }
 
   type Props = {
     sourceId: string
@@ -28,10 +18,6 @@
   }
 
   let { sourceId, fileSource, includeSharedWithMe, onSaved }: Props = $props()
-
-  /** Plain-language skips when the model returns globs but no summary. */
-  const DRIVE_SKIP_FALLBACK_SUMMARY =
-    $t('hub.hubConnectorDriveSection.suggestions.fallbackSkipSummary')
 
   // ---------- draft state ----------
 
@@ -182,70 +168,6 @@
     void loadBrowser(next.length ? next[next.length - 1].id : undefined)
   }
 
-  // ---------- AI suggestions ----------
-
-  let suggestBusy = $state(false)
-  let suggestErr = $state<string | null>(null)
-  let suggestions = $state<DriveFolderSuggestion[]>([])
-  let suggestionGlobs = $state<string[]>([])
-  /** Human sentence from POST / sources/suggest-drive-folders */
-  let suggestionSummary = $state('')
-  let suggestSelected = $state<Set<string>>(new Set())
-  let suggestOpen = $state(false)
-
-  async function loadSuggestions() {
-    suggestBusy = true
-    suggestErr = null
-    browserOpen = false
-    try {
-      const res = await fetch('/api/hub/sources/suggest-drive-folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sourceId }),
-      })
-      const j = (await res.json()) as {
-        ok?: boolean
-        suggestions?: DriveFolderSuggestion[]
-        ignoreGlobs?: string[]
-        ignoreSummary?: string
-        error?: string
-      }
-      if (!res.ok || !j.ok) throw new Error(j.error || $t('hub.hubConnectorDriveSection.errors.suggestionsFailed'))
-      suggestions = Array.isArray(j.suggestions) ? j.suggestions : []
-      suggestionGlobs = Array.isArray(j.ignoreGlobs) ? j.ignoreGlobs : []
-      suggestionSummary = typeof j.ignoreSummary === 'string' ? j.ignoreSummary : ''
-      suggestSelected = new Set(suggestions.filter((s) => s.include).map((s) => s.id))
-      suggestOpen = true
-    } catch (e) {
-      suggestErr = e instanceof Error ? e.message : String(e)
-    } finally {
-      suggestBusy = false
-    }
-  }
-
-  function toggleSuggestion(id: string) {
-    const next = new Set(suggestSelected)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    suggestSelected = next
-  }
-
-  async function applySuggestions() {
-    const toAdd = suggestions
-      .filter((s) => suggestSelected.has(s.id) && !roots.some((r) => r.id === s.id))
-      .map((s) => ({ id: s.id, name: s.name, recursive: true }))
-    const next = [...roots, ...toAdd]
-    const mergedGlobs = [
-      ...ignoreGlobs,
-      ...suggestionGlobs.filter((g) => !ignoreGlobs.includes(g)),
-    ]
-    roots = next
-    ignoreGlobs = mergedGlobs
-    ignoreText = mergedGlobs.join('\n')
-    suggestOpen = false
-    await saveFileSource(next, mergedGlobs)
-  }
-
   // ---------- advanced settings ----------
 
   function onIgnoreTextInput(e: Event) {
@@ -274,33 +196,6 @@
     await saveSharedWithMe(sharedWithMe)
   }
 
-  const selectedCount = $derived([...suggestSelected].filter((id) => !roots.some((r) => r.id === id)).length)
-
-  const suggestionGlobsPending = $derived(suggestionGlobs.filter((g) => !ignoreGlobs.includes(g)))
-  const canApplySuggestions = $derived(selectedCount > 0 || suggestionGlobsPending.length > 0)
-  const applySuggestionsLabel = $derived.by(() => {
-    if (saveBusy) return $t('hub.hubConnectorDriveSection.suggestions.apply.saving')
-    if (selectedCount > 0 && suggestionGlobsPending.length > 0) {
-      return $t('hub.hubConnectorDriveSection.suggestions.apply.foldersAndSkips', {
-        count: selectedCount,
-      })
-    }
-    if (selectedCount > 0) {
-      return $t('hub.hubConnectorDriveSection.suggestions.apply.foldersOnly', { count: selectedCount })
-    }
-    if (suggestionGlobsPending.length > 0) {
-      return $t('hub.hubConnectorDriveSection.suggestions.apply.fileSkips')
-    }
-    return $t('common.actions.apply')
-  })
-
-  const driveSuggestHumanSkipsLine = $derived.by(() => {
-    const trimmed = suggestionSummary.trim()
-    if (trimmed) return trimmed
-    if (suggestionGlobsPending.length > 0) return DRIVE_SKIP_FALLBACK_SUMMARY
-    return ''
-  })
-
   const btnPrimary = 'bt-btn bt-btn-primary'
   const btnSecondary = 'bt-btn bt-btn-secondary'
 
@@ -326,25 +221,11 @@
   {/if}
 
   <!-- Empty state -->
-  {#if roots.length === 0 && !suggestOpen && !browserOpen}
+  {#if roots.length === 0 && !browserOpen}
     <p class="drive-empty-hint m-0 text-[0.8125rem] leading-[1.45] text-muted">
       {$t('hub.hubConnectorDriveSection.emptyHint')}
     </p>
     <div class="drive-empty-ctas flex flex-wrap gap-2">
-      <button
-        type="button"
-        class={cn(btnPrimary, driveCtaBtn)}
-        disabled={suggestBusy}
-        onclick={() => void loadSuggestions()}
-      >
-        {#if suggestBusy}
-          <RefreshCw size={15} aria-hidden="true" class="drive-spin" />
-          {$t('hub.hubConnectorDriveSection.actions.analyzingDrive')}
-        {:else}
-          <Sparkles size={15} aria-hidden="true" />
-          {$t('hub.hubConnectorDriveSection.actions.suggestFoldersWithAi')}
-        {/if}
-      </button>
       <button
         type="button"
         class={cn(btnSecondary, driveCtaBtn)}
@@ -354,9 +235,6 @@
         {$t('hub.hubConnectorDriveSection.actions.browseFolders')}
       </button>
     </div>
-    {#if suggestErr}
-      <p class={driveErr} role="alert">{suggestErr}</p>
-    {/if}
   {:else}
     <!-- Folder cards -->
     {#if roots.length > 0}
@@ -398,8 +276,8 @@
       </ul>
     {/if}
 
-    <!-- Add folder / Suggest row -->
-    {#if !browserOpen && !suggestOpen}
+    <!-- Add folder -->
+    {#if !browserOpen}
       <div class="drive-actions-row flex flex-wrap gap-2">
         <button
           type="button"
@@ -409,170 +287,9 @@
           <FolderOpen size={14} aria-hidden="true" />
           {$t('hub.hubConnectorDriveSection.actions.addFolder')}
         </button>
-        <button
-          type="button"
-          class={cn(btnSecondary, driveActionBtn)}
-          disabled={suggestBusy}
-          onclick={() => void loadSuggestions()}
-        >
-          {#if suggestBusy}
-            <RefreshCw size={14} aria-hidden="true" class="drive-spin" />
-            {$t('hub.hubConnectorDriveSection.actions.analyzing')}
-          {:else}
-            <Sparkles size={14} aria-hidden="true" />
-            {$t('hub.hubConnectorDriveSection.actions.suggest')}
-          {/if}
-        </button>
       </div>
-      {#if suggestErr}
-        <p class={driveErr} role="alert">{suggestErr}</p>
-      {/if}
     {/if}
   {/if}
-
-  <!-- AI suggestion panel -->
-  {#if suggestOpen}
-    <div
-      class="drive-suggest-panel flex flex-col gap-2 border border-[color-mix(in_srgb,var(--accent,#6366f1)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent,#6366f1)_5%,var(--bg))] px-3 py-[0.65rem]"
-    >
-      <div class="drive-suggest-header flex items-center gap-[0.4rem] text-accent">
-        <Sparkles size={14} aria-hidden="true" />
-        <span class="drive-suggest-title flex-1 text-[0.8125rem] font-semibold">
-          {$t('hub.hubConnectorDriveSection.suggestions.title')}
-        </span>
-        <button
-          type="button"
-          class={cn(hubIconBtn, 'drive-suggest-close')}
-          aria-label={$t('hub.hubConnectorDriveSection.suggestions.dismissAria')}
-          onclick={() => (suggestOpen = false)}
-        >
-          <X size={14} />
-        </button>
-      </div>
-      {#if suggestions.length === 0}
-        <p class="drive-suggest-empty m-0 text-[0.8125rem] text-muted">
-          {$t('hub.hubConnectorDriveSection.suggestions.empty')}
-        </p>
-      {:else}
-        <ul
-          class="drive-suggest-list m-0 flex list-none flex-col gap-[0.35rem] p-0"
-          role="list"
-        >
-          {#each suggestions as s (s.id)}
-            {@const checked = suggestSelected.has(s.id)}
-            {@const alreadyAdded = roots.some((r) => r.id === s.id)}
-            <li
-              class={cn(
-                'drive-suggest-row border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] py-[0.35rem] last:border-b-0',
-                !alreadyAdded && !checked && 'drive-suggest-row--skip opacity-60',
-                alreadyAdded && 'drive-suggest-row--inactive opacity-95',
-              )}
-            >
-              <label
-                class={cn(
-                  'drive-suggest-label flex cursor-pointer items-start gap-[0.55rem]',
-                  alreadyAdded && 'drive-suggest-label--inactive cursor-default',
-                )}
-              >
-                <input
-                  type="checkbox"
-                  class="drive-suggest-sr-input absolute h-px w-px overflow-hidden whitespace-nowrap border-0 [clip:rect(0_0_0_0)]"
-                  {checked}
-                  disabled={alreadyAdded}
-                  aria-label={alreadyAdded
-                    ? $t('hub.hubConnectorDriveSection.suggestions.itemAlreadyAddedAria', { name: s.name })
-                    : checked
-                      ? $t('hub.hubConnectorDriveSection.suggestions.deselectAria', { name: s.name })
-                      : $t('hub.hubConnectorDriveSection.suggestions.selectAria', { name: s.name })}
-                  onchange={() => toggleSuggestion(s.id)}
-                />
-                <span
-                  class="drive-suggest-check mt-[0.1rem] flex h-5 w-5 shrink-0 items-center justify-center"
-                  aria-hidden="true"
-                >
-                  {#if alreadyAdded}
-                    <span
-                      class="drive-suggest-marker drive-suggest-marker--added box-border inline-flex h-5 w-5 items-center justify-center text-xs border border-[color-mix(in_srgb,var(--border)_92%,transparent)] bg-[color-mix(in_srgb,var(--text)_10%,transparent)] text-muted"
-                    >
-                      <Check size={12} aria-hidden="true" strokeWidth={2.5} />
-                    </span>
-                  {:else if checked}
-                    <span
-                      class="drive-suggest-marker drive-suggest-marker--on box-border inline-flex h-5 w-5 items-center justify-center bg-accent text-accent-foreground text-xs"
-                    >✓</span>
-                  {:else}
-                    <span
-                      class="drive-suggest-marker drive-suggest-marker--off box-border inline-flex h-5 w-5 items-center justify-center border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)]"
-                    ></span>
-                  {/if}
-                </span>
-                <span class="drive-suggest-info flex min-w-0 flex-col gap-[0.1rem]">
-                  <span class="drive-suggest-folder-name text-[0.9rem] font-semibold">{s.name}</span>
-                  {#if s.reason}
-                    <span class="drive-suggest-reason text-[0.8rem] leading-[1.35] text-muted">{s.reason}</span>
-                  {/if}
-                </span>
-              </label>
-            </li>
-          {/each}
-        </ul>
-        {#if suggestionGlobs.length > 0}
-          {#if suggestionGlobsPending.length > 0}
-            {#if driveSuggestHumanSkipsLine}
-              <p class="drive-suggest-hint m-0 text-[0.8rem] leading-[1.42] text-muted">
-                {driveSuggestHumanSkipsLine}
-              </p>
-            {/if}
-            <details
-              class="drive-suggest-details border border-[color-mix(in_srgb,var(--border)_82%,transparent)] bg-[color-mix(in_srgb,var(--bg)_85%,var(--text))] px-2 py-[0.35rem] text-[0.78rem] text-muted"
-            >
-              <summary
-                class="drive-suggest-details-summary cursor-pointer select-none px-[0.1rem] font-medium text-foreground"
-              >
-                {$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsOptional')}
-              </summary>
-              <p
-                class="drive-suggest-details-note mt-[0.35rem] text-[0.76rem] leading-[1.38] text-muted"
-              >
-                {$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsNote.beforeStrong')}
-                <strong>{$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsNote.strong')}</strong>
-                {$t('hub.hubConnectorDriveSection.suggestions.technicalPatternsNote.afterStrong')}
-              </p>
-              <pre
-                class="drive-suggest-patterns mt-[0.45rem] max-h-36 overflow-auto whitespace-pre-wrap break-all border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-[0.45rem] py-[0.35rem] font-mono text-[0.7rem] leading-[1.35]"
-              >{suggestionGlobs.join('\n')}</pre>
-            </details>
-          {:else}
-            <p class="drive-suggest-hint-muted m-0 text-[0.8rem] italic leading-[1.42] text-muted">
-              {$t('hub.hubConnectorDriveSection.suggestions.skipsAlreadyPresent')}
-            </p>
-          {/if}
-        {/if}
-        <div class="drive-suggest-footer flex flex-wrap gap-2">
-          <button
-            type="button"
-            class={cn(btnPrimary, driveActionBtn)}
-            disabled={saveBusy || !canApplySuggestions}
-            onclick={() => void applySuggestions()}
-          >
-            {#if saveBusy}
-              <RefreshCw size={14} aria-hidden="true" class="drive-spin" />
-            {/if}
-            {applySuggestionsLabel}
-          </button>
-          <button
-            type="button"
-            class={cn(btnSecondary, driveActionBtn)}
-            onclick={() => (suggestOpen = false)}
-          >
-            {$t('common.actions.dismiss')}
-          </button>
-        </div>
-      {/if}
-    </div>
-  {/if}
-
-  <!-- Inline folder browser -->
   {#if browserOpen}
     <div
       class="drive-browser flex flex-col gap-[0.4rem] border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_80%,var(--bg))] px-3 py-[0.6rem]"
@@ -672,10 +389,9 @@
   {/if}
 
   <!-- Advanced settings -->
-  {#if roots.length > 0 || advancedOpen}
-    <div
-      class="drive-advanced mt-1 flex flex-col border-t border-[color-mix(in_srgb,var(--border)_60%,transparent)] pt-2"
-    >
+  <div
+    class="drive-advanced mt-1 flex flex-col border-t border-[color-mix(in_srgb,var(--border)_60%,transparent)] pt-2"
+  >
       <button
         type="button"
         class="drive-advanced-toggle inline-flex cursor-pointer items-center gap-[0.3rem] self-start border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-muted hover:text-foreground"
@@ -763,7 +479,6 @@
         </div>
       {/if}
     </div>
-  {/if}
 </section>
 
 <style>

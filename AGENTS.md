@@ -63,6 +63,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
 - [docs/npm-known-malware.md](docs/npm-known-malware.md) — curated npm malware denylist; `npm run check:npm-malware` (part of `npm run ci`)
+- **One CLI (`one`)** — unified access to many third-party APIs (Gmail, Slack, GitHub, Stripe, HubSpot, etc.). When work calls for interacting with an external platform **outside** Braintunnel’s built-in mail/agent/tooling, read and follow **`~/.codex/skills/one/SKILL.md`** and use the `one` CLI accordingly (`one init` / `one add` for setup on each machine).
 
 ## Stack
 

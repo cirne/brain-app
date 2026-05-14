@@ -473,7 +473,7 @@ export async function upsertRipmailGoogleCalendarSource(
   await writeFile(path, out, 'utf8')
 }
 
-/** Adds or updates a `googleDrive` source (empty folder roots until the user picks folders in Hub). */
+/** Adds or updates a `googleDrive` source (OAuth sibling of Gmail; whole-corpus sync on refresh). */
 export async function upsertRipmailGoogleDriveSource(
   ripmailHome: string,
   mailboxId: string,

@@ -160,21 +160,11 @@
     }
   }
 
-  const driveNeedsFolders = $derived(sourceKind === 'googleDrive' && draft.roots.length === 0)
-
   const btnPrimary = 'bt-btn bt-btn-primary'
   const btnSecondary = 'bt-btn bt-btn-secondary'
 </script>
 
 <div class="fs-editor mt-2 flex flex-col gap-3">
-  {#if driveNeedsFolders}
-    <p
-      class="fs-editor-warn m-0 bg-[color-mix(in_srgb,orange_18%,transparent)] px-[0.65rem] py-2 text-sm"
-      role="alert"
-    >
-      {$t('hub.fileSourceConfigEditor.driveFoldersRequired')}
-    </p>
-  {/if}
   {#if saveErr}
     <p class="fs-editor-err m-0 text-sm text-[var(--color-danger,#c23)]" role="alert">{saveErr}</p>
   {/if}

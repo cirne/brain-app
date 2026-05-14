@@ -435,11 +435,8 @@
     return () => window.clearInterval(t)
   })
 
-  const driveSyncBlocked = $derived(
-    source?.kind === 'googleDrive' &&
-      sourceDetail != null &&
-      (sourceDetail.fileSource == null || sourceDetail.fileSource.roots.length === 0),
-  )
+  /** Drive sync is never blocked on folder roots (whole-corpus indexing). Kept for prop API compatibility. */
+  const driveSyncBlocked = false
 
   /**
    * Hub source header is only visible once the source row has loaded. We claim/release the

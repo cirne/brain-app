@@ -1,14 +1,15 @@
 /**
- * Google Drive folder listing for Hub folder picker.
+ * Google Drive API client + folder listing for Hub.
  */
 
 import process from 'node:process'
 import { google } from 'googleapis'
+import type { drive_v3 } from 'googleapis'
 import type { GoogleOAuthTokens, SourceConfig } from './config.js'
 import { loadGoogleOAuthTokens } from './config.js'
 import type { HubBrowseFolderRow } from '../../lib/hub/hubRipmailSources.js'
 
-function buildOAuthClient(tokens: GoogleOAuthTokens) {
+export function buildGoogleDriveOAuthClient(tokens: GoogleOAuthTokens) {
   const clientId = tokens.clientId ?? process.env.GOOGLE_OAUTH_CLIENT_ID
   const clientSecret = tokens.clientSecret ?? process.env.GOOGLE_OAUTH_CLIENT_SECRET
   if (!clientId || !clientSecret) return null
@@ -20,8 +21,19 @@ function buildOAuthClient(tokens: GoogleOAuthTokens) {
   return oauth2
 }
 
-function oauthSourceId(source: SourceConfig): string {
+export function googleDriveOAuthMailboxId(source: SourceConfig): string {
   return source.oauthSourceId?.trim() || source.id
+}
+
+/** Drive API v3 client, or null if OAuth / client id missing. */
+export function createGoogleDriveClient(
+  ripmailHome: string,
+  source: SourceConfig,
+): { drive: drive_v3.Drive; auth: ReturnType<typeof buildGoogleDriveOAuthClient> } | null {
+  const tokens = loadGoogleOAuthTokens(ripmailHome, googleDriveOAuthMailboxId(source))
+  const auth = tokens ? buildGoogleDriveOAuthClient(tokens) : null
+  if (!auth) return null
+  return { drive: google.drive({ version: 'v3', auth }), auth }
 }
 
 /**
@@ -33,8 +45,8 @@ export async function listGoogleDriveFolders(
   source: SourceConfig,
   parentId?: string,
 ): Promise<HubBrowseFolderRow[]> {
-  const tokens = loadGoogleOAuthTokens(ripmailHome, oauthSourceId(source))
-  const auth = tokens ? buildOAuthClient(tokens) : null
+  const tokens = loadGoogleOAuthTokens(ripmailHome, googleDriveOAuthMailboxId(source))
+  const auth = tokens ? buildGoogleDriveOAuthClient(tokens) : null
   if (!auth) return []
 
   const drive = google.drive({ version: 'v3', auth })

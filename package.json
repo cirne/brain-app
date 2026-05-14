@@ -23,6 +23,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",
     "check:npm-malware": "tsx scripts/check-npm-lock-malware.ts",
+    "drive:e2e": "npx tsx --tsconfig tsconfig.server.json scripts/dev-drive-sync-e2e.ts",
     "design:lint": "npx -y @google/design.md lint DESIGN.md",
     "lint:fix": "eslint src/ --fix",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",

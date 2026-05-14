@@ -66,7 +66,7 @@ describe('ripmail visual artifacts', () => {
     expect(msg?.visualArtifacts?.[0]?.ref).toBeUndefined()
   })
 
-  it('adds local indexed image artifacts while leaving text-only reads unchanged', () => {
+  it('adds local indexed image artifacts while leaving text-only reads unchanged', async () => {
     const imagePath = join(home, 'chart.png')
     writeFileSync(imagePath, Buffer.from([1, 2, 3]))
     db.prepare(`INSERT INTO sources (id, kind, label) VALUES ('src', 'localDir', 'Local')`).run()
@@ -79,8 +79,8 @@ describe('ripmail visual artifacts', () => {
        VALUES ('src', 'notes.txt', ?, 0, 3, 'text/plain', 'notes.txt', 'hello')`,
     ).run(join(home, 'notes.txt'))
 
-    const image = readIndexedFile(db, imagePath, { fullBody: true })
-    const text = readIndexedFile(db, join(home, 'notes.txt'), { fullBody: true })
+    const image = await readIndexedFile(db, home, imagePath, { fullBody: true })
+    const text = await readIndexedFile(db, home, join(home, 'notes.txt'), { fullBody: true })
 
     expect(image?.visualArtifacts?.[0]).toMatchObject({
       kind: 'image',

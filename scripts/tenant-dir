@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Print absolute path to tenant home for a workspace handle (see tenant-dir.mjs).
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec node "$SCRIPT_DIR/tenant-dir.mjs" "$@"

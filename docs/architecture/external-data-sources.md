@@ -99,7 +99,7 @@ JSON hits carry **`sourceId`** / **`sourceKind`** so callers need no provider-sp
    Use FTS5 **without** storing full original text in SQLite—**token index + excerpt/snippet fields** for display—consistent with file-backed indexing ([archived OPP-087](../opportunities/archive/OPP-087-unified-sources-mail-local-files-future-connectors.md)).
 
 3. **Authoritative read**  
-   When the agent selects a hit, **fetch current body from the provider** (HTTP export, blocks API, etc.). Optionally satisfy from a **short TTL cache** (~10 minutes by default) keyed by remote id + revision/hash to balance freshness and rate limits.
+   When the agent selects a hit, **fetch current body from the provider** (HTTP export, blocks API, etc.). Optionally satisfy from a **TTL disk cache** (single shared duration: `REMOTE_DOCUMENT_BODY_CACHE_TTL_MS` in `src/server/ripmail/remoteDocumentBodyCache.ts`) keyed by remote id + revision/hash to balance freshness and rate limits.
 
 4. **Sync responsibilities**  
    Handle **updates and deletes**, not only append: change detection (hash / `modifiedTime` / provider revision), **reindex bounded text** when content changes, remove tombstoned remote ids locally. Prefer **cursor- or token-based incremental APIs**; fallback: enumeration + hash compare during **refresh** only.
@@ -107,7 +107,7 @@ JSON hits carry **`sourceId`** / **`sourceKind`** so callers need no provider-sp
 5. **Row metadata (conceptual)**  
    `remote_id`, `remote_updated_at`, `content_hash` (or provider equivalent), excerpt; cursor in `ripmail/<source-id>/sync-state.json` (paths per [`brain-layout.json`](../../shared/brain-layout.json)).
 
-**Implementation note:** persistent files under `ripmail/<source-id>/cache/` may still exist as an **optimization** (e.g. avoid re-downloading large exports within TTL, or survive process restarts). The **product contract** remains: **FTS from bounded local slice; full body from fetch-on-read with TTL semantics**, not “SQLite is the document server.”
+**Implementation note:** persistent files under `ripmail/<source-id>/cache/` may still exist as an **optimization** (e.g. avoid re-downloading large exports within TTL, or survive process restarts). The **product contract** remains: **FTS from bounded local slice; full body from fetch-on-read with TTL semantics**, not “SQLite is the document server.” **Read-cache TTL** for remote documents is the single constant `REMOTE_DOCUMENT_BODY_CACHE_TTL_MS` in `src/server/ripmail/remoteDocumentBodyCache.ts`.
 
 ---
 

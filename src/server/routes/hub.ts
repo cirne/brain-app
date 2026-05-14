@@ -10,7 +10,6 @@ import {
   updateIncludeSharedWithMe,
   type HubFileSourceConfig,
 } from '@server/lib/hub/hubRipmailSources.js'
-import { suggestDriveFolders } from '@server/lib/hub/hubDriveSuggest.js'
 import { getHubSourceMailStatus } from '@server/lib/hub/hubRipmailSourceStatus.js'
 import {
   isValidHubBackfillSince,
@@ -240,24 +239,6 @@ hub.post('/sources/update-include-shared-with-me', async (c) => {
     return c.json({ ok: false as const, error: r.error }, 400)
   }
   return c.json({ ok: true as const })
-})
-
-hub.post('/sources/suggest-drive-folders', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { id?: unknown }
-  const id = typeof body.id === 'string' ? body.id.trim() : ''
-  if (!id) {
-    return c.json({ ok: false as const, error: 'id required' }, 400)
-  }
-  const r = await suggestDriveFolders(id)
-  if (!r.ok) {
-    return c.json({ ok: false as const, error: r.error }, 400)
-  }
-  return c.json({
-    ok: true as const,
-    suggestions: r.suggestions,
-    ignoreGlobs: r.ignoreGlobs,
-    ignoreSummary: r.ignoreSummary,
-  })
 })
 
 export default hub

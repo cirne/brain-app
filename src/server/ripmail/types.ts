@@ -338,6 +338,13 @@ export interface RefreshOptions {
   foreground?: boolean
   /** Gmail historical window for messages.list (paginated). Incremental history.list when unset. */
   historicalSince?: RipmailHistoricalSince
+  /** Dev/CLI: Google Drive sync milestones (e.g. `scripts/dev-drive-sync-e2e.ts`). Hub leaves unset. */
+  onDriveProgress?: (message: string) => void
+  /**
+   * Dev/CLI: delete local `document_index` / `cloud_file_meta` / `google_drive_sync_state` for this
+   * Drive source, then run `files.list` bootstrap. Hub leaves unset.
+   */
+  forceDriveBootstrap?: boolean
 }
 
 export interface RefreshSourceResult {

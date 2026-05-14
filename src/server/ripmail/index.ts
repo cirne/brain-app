@@ -121,7 +121,7 @@ export async function ripmailReadIndexedFile(
   opts?: { fullBody?: boolean },
 ) {
   const db = await prepareRipmailDb(ripmailHome)
-  return readIndexedFile(db, id, opts)
+  return readIndexedFile(db, ripmailHome, id, opts)
 }
 
 /** List attachments for a message. */
