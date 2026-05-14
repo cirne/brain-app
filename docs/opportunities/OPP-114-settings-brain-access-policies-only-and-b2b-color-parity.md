@@ -31,6 +31,12 @@ Built-in policies already have stable visual identities in the access settings c
 
 Avoid one-off accent colors in the picker that don’t match the policy list cards.
 
+### 3. Cross-browser policy picker (`<select>`)
+
+The tunnel connection **policy dropdown** is a plain HTML `<select>` in [`TunnelDetail.svelte`](../../src/client/components/TunnelDetail.svelte) (`policyDropdown` snippet): Tailwind sets border, background, and radius, but **Safari still paints much of the control with native WebKit/AppKit chrome** (e.g. the stacked arrow), while **Chromium** uses its own closed-state rendering—so the control looks more “on-brand” in Chrome than in Safari without extra work.
+
+**Deferred here:** When this OPP’s picker work ships (custom menu or `appearance: none` + spacing + custom chevron, aligned with `SegmentedControl`-level polish), treat **Safari/Chrome parity** as part of that change rather than a one-off hotfix.
+
 ## Code pointers (current)
 
 - Settings shell: [`src/client/components/brain-access/BrainAccessPage.svelte`](../../src/client/components/brain-access/BrainAccessPage.svelte)
@@ -46,6 +52,7 @@ Avoid one-off accent colors in the picker that don’t match the policy list car
 - Users are not asked to **add/remove collaborators** or manage **brains you can ask** from Settings; those flows live under **Tunnels** (and any Hub summary remains a **shortcut**, not a second editor).
 - Settings still allows **creating and editing** policy definitions users rely on across connections.
 - Policy selection UI in Tunnel / B2B paths **visually matches** the Settings policy identity (same bar/soft-bg/ring tones per built-in id and consistent custom rotation).
+- The tunnel policy **dropdown** looks consistent across Safari and Chromium (no reliance on native `<select>` affordance alone).
 
 ## Related
 
