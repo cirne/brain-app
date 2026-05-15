@@ -6,6 +6,6 @@ describe('POLICY_ALWAYS_OMIT', () => {
     expect(POLICY_ALWAYS_OMIT.length).toBeGreaterThan(120)
     expect(POLICY_ALWAYS_OMIT).toContain('BASELINE')
     expect(POLICY_ALWAYS_OMIT).toContain('CREDENTIALS AND ACCOUNT ACCESS')
-    expect(POLICY_ALWAYS_OMIT).toMatch(/MFA|one-time/i)
+    expect(POLICY_ALWAYS_OMIT).toMatch(/routing|ABA/i)
   })
 })

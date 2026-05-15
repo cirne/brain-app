@@ -6,6 +6,7 @@ import Handlebars from 'handlebars'
 import { resolveLlmApiKey } from '@server/lib/llm/resolveModel.js'
 import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
+import { POLICY_ALWAYS_OMIT } from '@shared/brainQueryAnswerBaseline.js'
 import { createAgentTools, type CreateAgentToolsOptions } from './tools.js'
 import { B2B_QUERY_ONLY } from './agentToolSets.js'
 import {
@@ -57,6 +58,7 @@ export function buildB2BFilterPrompt(params: { privacyPolicy: string; draftAnswe
   return renderPromptTemplate('b2b/filter.hbs', {
     privacyPolicy: params.privacyPolicy,
     draftAnswer: params.draftAnswer,
+    policyAlwaysOmit: new Handlebars.SafeString(POLICY_ALWAYS_OMIT),
   })
 }
 

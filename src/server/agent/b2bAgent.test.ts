@@ -25,6 +25,7 @@ import {
   loadJsonlEvalFile,
 } from '@server/evals/harness/loadJsonlEvalTasks.js'
 import type { B2BFilterEvalJsonlRow, EvalExpect } from '@server/evals/harness/types.js'
+import { POLICY_ALWAYS_OMIT } from '@shared/brainQueryAnswerBaseline.js'
 
 function evalExpectHasLlmJudge(e: EvalExpect): boolean {
   if ('all' in e) return e.all.some(evalExpectHasLlmJudge)
@@ -82,6 +83,9 @@ describe('b2bAgent', () => {
     })
     expect(prompt).toContain('No message ids.')
     expect(prompt).toContain('JavaMail.evans@thyme')
+    expect(prompt).toContain('Workspace baseline')
+    expect(prompt).toContain('NEVER PASS THROUGH')
+    expect(prompt).toContain(POLICY_ALWAYS_OMIT.slice(0, 40))
     expect(prompt).toContain('Filtering rules')
     expect(prompt).toContain('Strip assistant fluff')
   })

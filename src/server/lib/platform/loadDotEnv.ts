@@ -13,7 +13,8 @@ export function loadDotEnv(): void {
       if (eqIdx > 0) {
         const key = trimmed.slice(0, eqIdx).trim()
         const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
-        if (val) process.env[key] = val
+        // Do not overwrite keys already set in the environment (shell / CI / eval prefix).
+        if (val && process.env[key] === undefined) process.env[key] = val
       }
     }
   } catch {
