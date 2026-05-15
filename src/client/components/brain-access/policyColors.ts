@@ -1,4 +1,4 @@
-import type { BrainQueryBuiltinPolicyId } from '@client/lib/brainQueryPolicyTemplates.js'
+import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
 
 /** Tailwind utility bundles for policy cards (light + dark aware). */
 export type PolicyCardTone = {

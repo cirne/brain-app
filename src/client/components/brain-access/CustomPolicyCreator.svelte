@@ -1,16 +1,17 @@
 <script lang="ts">
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import { t } from '@client/lib/i18n/index.js'
-  import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
+  import type { BrainQueryPolicyTemplate } from '@client/lib/brainQueryPolicyTemplates.js'
 
   type Props = {
     open: boolean
+    grantPolicyTemplates: BrainQueryPolicyTemplate[]
     onDismiss: () => void
     /** Called after policy is saved on the server. */
     onCreated: () => void
   }
 
-  let { open, onDismiss, onCreated }: Props = $props()
+  let { open, grantPolicyTemplates, onDismiss, onCreated }: Props = $props()
 
   let name = $state('')
   let body = $state('')
@@ -30,7 +31,7 @@
   $effect(() => {
     if (!open) return
     if (templateKey === 'none') return
-    const template = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === templateKey)
+    const template = grantPolicyTemplates.find((x) => x.id === templateKey)
     if (template) body = template.text
   })
 
@@ -43,7 +44,7 @@
       const res = await fetch('/api/brain-query/policies', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ label: n, body: text }),
+        body: JSON.stringify({ title: n, body: text }),
       })
       if (!res.ok) return
       onCreated()
@@ -89,8 +90,8 @@
         disabled={busy}
       >
         <option value="none">{$t('access.customPolicyCreator.templateOptions.blank')}</option>
-        {#each BRAIN_QUERY_POLICY_TEMPLATES as tpl (tpl.id)}
-          <option value={tpl.id}>{tpl.label}</option>
+        {#each grantPolicyTemplates as tpl (tpl.id)}
+          <option value={tpl.id}>{$t(tpl.labelKey)}</option>
         {/each}
       </select>
     </label>

@@ -4,10 +4,7 @@
   import { t } from '@client/lib/i18n/index.js'
   import type { ChatMessage } from '@client/lib/agentUtils.js'
   import type { B2BGrantPolicyApi, B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
-  import {
-    BRAIN_QUERY_POLICY_TEMPLATES,
-    type BrainQueryBuiltinPolicyId,
-  } from '@client/lib/brainQueryPolicyTemplates.js'
+  import { BRAIN_QUERY_GRANT_POLICY_TEMPLATE_META, type BrainQueryBuiltinPolicyId } from '@client/lib/brainQueryPolicyTemplates.js'
   import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
@@ -364,7 +361,7 @@
       </p>
       <fieldset class="m-0 mt-2 space-y-2 border-0 p-0">
         <legend class="sr-only">{$t('chat.tunnels.connection.policySelectLabel')}</legend>
-        {#each BRAIN_QUERY_POLICY_TEMPLATES as tpl (tpl.id)}
+        {#each BRAIN_QUERY_GRANT_POLICY_TEMPLATE_META as tpl (tpl.id)}
           <label
             class="flex cursor-pointer gap-2 rounded-md border px-2 py-2 {!busy
               ? selectedTemplateId === tpl.id
@@ -382,8 +379,8 @@
               onchange={() => (selectedTemplateId = tpl.id)}
             />
             <span class="min-w-0 flex-1">
-              <span class="block text-[0.8125rem] font-semibold text-foreground">{tpl.label}</span>
-              <span class="mt-0.5 block text-[0.6875rem] leading-snug text-muted">{tpl.hint}</span>
+              <span class="block text-[0.8125rem] font-semibold text-foreground">{$t(tpl.labelKey)}</span>
+              <span class="mt-0.5 block text-[0.6875rem] leading-snug text-muted">{$t(tpl.hintKey)}</span>
             </span>
           </label>
         {/each}

@@ -74,6 +74,15 @@ function translate(
   return typeof value === 'string' && value.length > 0 ? value : fallback
 }
 
+/** Synchronous translate for non-Svelte modules (policy grouping, tests). Requires {@link initI18n} in app/tests. */
+export function translateClient(
+  key: string,
+  defaultValueOrOptions?: string | TranslateOptions,
+  maybeOptions?: TranslateOptions,
+): string {
+  return translate(key, defaultValueOrOptions, maybeOptions)
+}
+
 const translateStore = writable<TranslateFn>(translate)
 
 function refreshTranslateStore() {

@@ -11,12 +11,24 @@
     mergeServerAndLegacyCustomPolicies,
     type BrainAccessCustomPolicy,
   } from '@client/lib/brainAccessCustomPolicies.js'
-  import { isBrainQueryBuiltinTemplateId } from '@client/lib/brainQueryPolicyTemplates.js'
+  import {
+    buildBrainQueryGrantPolicyTemplates,
+    isBrainQueryBuiltinTemplateId,
+  } from '@client/lib/brainQueryPolicyTemplates.js'
+  import { fetchBrainQueryBuiltinPolicyBodies } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
+  import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+  import {
+    buildPolicyCardModels,
+    classifyGrantPolicy,
+    grantsMatchingPolicyId,
+    type BrainAccessGrantRow,
+  } from '@client/lib/brainAccessPolicyGrouping.js'
   import { policyCardTone } from './policyColors.js'
   import UserDetailRow from './UserDetailRow.svelte'
   import AddUserDropdown from './AddUserDropdown.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import BrainQueryPolicyBaselineNote from './BrainQueryPolicyBaselineNote.svelte'
+  import { baselineListPreClass } from './brainQueryPolicyBaselineClasses.js'
   import BrainAccessBreadcrumbs from './BrainAccessBreadcrumbs.svelte'
   import ConfirmDialog from '@client/components/ConfirmDialog.svelte'
   import PaneL2Header from '@components/PaneL2Header.svelte'
@@ -32,6 +44,11 @@
   /** Read props via proxy — do not destructure callbacks for async/use after await (Svelte 5 freezes destructured snapshots). */
   let props: Props = $props()
 
+  $effect(() => {
+    if (props.policyId !== 'server-default') return
+    queueMicrotask(() => props.onBackToBrainAccessList())
+  })
+
   let loadError = $state<string | null>(null)
   let busy = $state(false)
   let grantedByMe = $state<BrainAccessGrantRow[]>([])
@@ -45,6 +62,7 @@
   let changeGrantId = $state<string | null>(null)
   let addBusy = $state(false)
   let pendingDeletePreset = $state<{ label: string } | null>(null)
+  let builtinPolicyBodies = $state<Record<BrainQueryBuiltinPolicyId, string> | null>(null)
 
   let searchToken = 0
 
@@ -117,6 +135,7 @@
     const customsRemote = await fetchBrainAccessCustomPoliciesFromServer()
     customPolicies = mergeServerAndLegacyCustomPolicies(customsRemote)
     try {
+      builtinPolicyBodies = await fetchBrainQueryBuiltinPolicyBodies()
       const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
         loadError = (await gRes.text()) || $t('access.policyDetailPage.errors.failedToLoadGrants')
@@ -128,7 +147,12 @@
         return
       }
       grantedByMe = parsed.grantedByMe
-      const inPolicy = grantsMatchingPolicyId(grantedByMe, customPolicies, props.policyId)
+      const inPolicy = grantsMatchingPolicyId(
+        grantedByMe,
+        customPolicies,
+        props.policyId,
+        builtinPolicyBodies,
+      )
       await hydrateProfiles(inPolicy)
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
@@ -138,6 +162,7 @@
   }
 
   onMount(() => {
+    if (props.policyId === 'server-default') return
     void reload().then(() => {
       queueMicrotask(() => {
         const hash = typeof location !== 'undefined' ? location.hash.replace(/^#/, '') : ''
@@ -146,10 +171,22 @@
     })
   })
 
-  const cardModels = $derived(buildPolicyCardModels(grantedByMe, customPolicies))
+  const cardModels = $derived(
+    builtinPolicyBodies
+      ? buildPolicyCardModels(grantedByMe, customPolicies, builtinPolicyBodies)
+      : [],
+  )
   const card = $derived(cardModels.find((c) => c.policyId === props.policyId))
 
-  const grantsInPolicy = $derived(grantsMatchingPolicyId(grantedByMe, customPolicies, props.policyId))
+  const grantsInPolicy = $derived(
+    builtinPolicyBodies
+      ? grantsMatchingPolicyId(grantedByMe, customPolicies, props.policyId, builtinPolicyBodies)
+      : [],
+  )
+
+  const grantPolicyTemplates = $derived(
+    builtinPolicyBodies ? buildBrainQueryGrantPolicyTemplates(builtinPolicyBodies) : [],
+  )
 
   const tone = $derived(
     card
@@ -172,6 +209,7 @@
   const isBuiltinPreset = $derived(card?.kind === 'builtin')
   /** Built-in templates are server-defined; custom and ad-hoc rows can edit title + body. */
   const policyTextEditable = $derived(!isBuiltinPreset)
+
   async function addUser(entry: WorkspaceHandleEntry): Promise<void> {
     if (!card) return
     addBusy = true
@@ -276,9 +314,16 @@
     return res.ok
   }
 
-  async function saveAllPolicyText(text: string): Promise<void> {
+  async function saveAllPolicyText(title: string, text: string): Promise<void> {
+    const titleTrim = title.trim()
     const trimmed = text.trim()
     if (trimmed.length === 0) return
+
+    const requiresTitle = card?.kind === 'custom' || card?.kind === 'adhoc'
+    if (requiresTitle && !titleTrim) {
+      loadError = $t('access.policyDetailPage.errors.missingPolicyTitle')
+      return
+    }
 
     const list = grantsInPolicy
 
@@ -288,51 +333,11 @@
       try {
         let navigatedPolicyId: string | undefined
 
-        if (card?.kind === 'builtin') {
-          const template = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === props.policyId)
-          const matchesBuiltin =
-            template != null && normalizePolicyText(trimmed) === normalizePolicyText(template.text)
-          if (matchesBuiltin) {
-            for (const g of list) {
-              if (!(await patchGrantToPolicyTarget(g.id, props.policyId))) {
-                loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
-                return
-              }
-            }
-            clearBuiltinPolicyDraft(props.policyId)
-            navigatedPolicyId = props.policyId
-          } else {
-            const pr = await fetch('/api/brain-query/policies', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({
-                label: (heading || 'Policy').slice(0, 120),
-                body: trimmed,
-              }),
-            })
-            if (!pr.ok) {
-              loadError = $t('access.policyDetailPage.errors.saveFailed', { status: pr.status })
-              return
-            }
-            const created = (await pr.json()) as { id?: string }
-            if (!created.id) {
-              loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
-              return
-            }
-            for (const g of list) {
-              if (!(await patchGrantToPolicyTarget(g.id, created.id))) {
-                loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
-                return
-              }
-            }
-            clearBuiltinPolicyDraft(props.policyId)
-            navigatedPolicyId = created.id
-          }
-        } else if (card?.kind === 'custom' && props.policyId.startsWith('bqc_')) {
+        if (card?.kind === 'custom' && props.policyId.startsWith('bqc_')) {
           const res = await fetch(`/api/brain-query/policies/${encodeURIComponent(props.policyId)}`, {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ body: trimmed }),
+            body: JSON.stringify({ title: titleTrim, body: trimmed }),
           })
           if (!res.ok) {
             loadError = $t('access.policyDetailPage.errors.saveFailed', { status: res.status })
@@ -344,7 +349,7 @@
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-              label: (heading || 'Policy').slice(0, 120),
+              title: titleTrim.slice(0, 120),
               body: trimmed,
             }),
           })
@@ -383,7 +388,7 @@
     loadError = null
     try {
       if (card?.kind === 'custom' && props.policyId.startsWith('custom:')) {
-        if (!updateBrainAccessCustomPolicy(props.policyId, trimmed)) {
+        if (!updateBrainAccessCustomPolicy(props.policyId, trimmed, titleTrim)) {
           loadError = $t('access.policyDetailPage.errors.couldNotUpdateSavedPolicy')
           return
         }
@@ -391,18 +396,11 @@
         const res = await fetch(`/api/brain-query/policies/${encodeURIComponent(props.policyId)}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ body: trimmed }),
+          body: JSON.stringify({ title: titleTrim, body: trimmed }),
         })
         if (!res.ok) {
           loadError = $t('access.policyDetailPage.errors.saveFailed', { status: res.status })
           return
-        }
-      } else if (card?.kind === 'builtin') {
-        const tpl = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === props.policyId)
-        if (tpl && normalizePolicyText(trimmed) === normalizePolicyText(tpl.text)) {
-          clearBuiltinPolicyDraft(props.policyId)
-        } else {
-          saveBuiltinPolicyDraft(props.policyId, trimmed)
         }
       } else {
         loadError = $t('access.policyDetailPage.errors.cannotSaveWithoutCollaborators')
@@ -418,6 +416,18 @@
     }
   }
 
+  function beginEditPolicy(): void {
+    draftPolicyText = canonical
+    if (card?.kind === 'custom') {
+      draftPolicyTitle = customPolicies.find((p) => p.id === props.policyId)?.name ?? heading
+    } else if (card?.kind === 'adhoc') {
+      draftPolicyTitle = ''
+    } else {
+      draftPolicyTitle = ''
+    }
+    editingPolicyText = true
+  }
+
   async function applyMovePolicy(grantId: string, targetPolicyId: string): Promise<void> {
     busy = true
     loadError = null
@@ -428,7 +438,9 @@
       }
       await reload()
       const updated = grantedByMe.find((g) => g.id === grantId)
-      const nextBucket = updated ? classifyGrantPolicy(updated, customPolicies).policyId : targetPolicyId
+      const nextBucket = updated && builtinPolicyBodies
+        ? classifyGrantPolicy(updated, customPolicies, builtinPolicyBodies).policyId
+        : targetPolicyId
       changeGrantId = null
       if (nextBucket !== props.policyId) {
         props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
@@ -450,6 +462,12 @@
 
   const heading = $derived(card?.label ?? $t('access.policyDetailPage.fallbackPolicyLabel'))
   const hint = $derived(card?.hint)
+
+  const savePolicyDisabled = $derived(
+    busy ||
+      draftPolicyText.trim().length === 0 ||
+      ((card?.kind === 'custom' || card?.kind === 'adhoc') && draftPolicyTitle.trim().length === 0),
+  )
 
   const isCustomPolicyId = $derived(
     props.policyId.startsWith('bqc_') || props.policyId.startsWith('custom:'),
@@ -534,17 +552,16 @@
         </h2>
         {#if !editingPolicyText}
           <div class="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
-              disabled={busy}
-              onclick={() => {
-                draftPolicyText = canonical
-                editingPolicyText = true
-              }}
-            >
-              {$t('access.policyDetailPage.actions.edit')}
-            </button>
+            {#if policyTextEditable}
+              <button
+                type="button"
+                class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-1 text-[0.75rem] font-semibold hover:bg-surface-2 disabled:opacity-50"
+                disabled={busy}
+                onclick={() => beginEditPolicy()}
+              >
+                {$t('access.policyDetailPage.actions.edit')}
+              </button>
+            {/if}
             {#if isCustomPolicyId}
               <button
                 type="button"
@@ -575,20 +592,21 @@
             <button
               type="button"
               class="rounded-md border border-transparent bg-accent px-2 py-1 text-[0.75rem] font-semibold text-white hover:brightness-105 disabled:opacity-50"
-              disabled={busy || draftPolicyText.trim().length === 0}
-              onclick={() => void saveAllPolicyText(draftPolicyText.trim())}
+              disabled={savePolicyDisabled}
+              onclick={() => void saveAllPolicyText(draftPolicyTitle, draftPolicyText)}
             >
               {busy ? $t('common.status.saving') : $t('access.policyDetailPage.actions.savePolicy')}
             </button>
           </div>
         {/if}
       </div>
+      {#if isBuiltinPreset && !editingPolicyText}
+        <p class="m-0 text-[0.8125rem] leading-relaxed text-muted">
+          {$t('access.policyDetailPage.builtinReadOnlyNote')}
+        </p>
+      {/if}
       {#if !editingPolicyText}
-        <div
-          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-foreground"
-        >
-          {canonical || $t('access.policyDetailPage.emptyPolicyText')}
-        </div>
+        <pre class="m-0 {baselineListPreClass}">{canonical || $t('access.policyDetailPage.emptyPolicyText')}</pre>
       {:else}
         <div
           class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface p-3 text-[0.8125rem] leading-relaxed text-foreground"
@@ -596,6 +614,20 @@
           <p class="m-0 text-[0.8125rem] text-muted">
             {$t('access.policyDetailPage.editGuidance')}
           </p>
+          {#if policyTextEditable}
+            <label class="mt-2 flex flex-col gap-1">
+              <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
+                {$t('access.policyDetailPage.policyTitleLabel')}
+              </span>
+              <input
+                type="text"
+                class="w-full rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface px-2 py-1.5 text-[0.8125rem] text-foreground"
+                bind:value={draftPolicyTitle}
+                disabled={busy}
+                placeholder={$t('access.policyDetailPage.policyTitlePlaceholder')}
+              />
+            </label>
+          {/if}
           <label class="mt-2 flex flex-col gap-1">
             <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-muted">
               {$t('access.policyDetailPage.privacyGuidanceLabel')}
@@ -659,6 +691,7 @@
 <ChangePolicyDialog
   open={changeGrantId !== null}
   grantId={changeGrantId}
+  grantPolicyTemplates={grantPolicyTemplates}
   customPolicies={customPolicies}
   excludePolicyId={props.policyId}
   onDismiss={() => {

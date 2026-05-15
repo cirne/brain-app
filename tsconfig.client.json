@@ -16,5 +16,6 @@
     },
     "resolveJsonModule": true
   },
-  "include": ["src/client/**/*", "src/shared/**/*.ts"]
+  "include": ["src/client/**/*", "src/shared/**/*.ts"],
+  "exclude": ["src/client/**/*.test.ts"]
 }

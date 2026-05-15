@@ -8,12 +8,12 @@
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { BRAIN_QUERY_POLICY_TEMPLATES } from '../../client/lib/brainQueryPolicyTemplates.js'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
 import type { B2BV1Task } from './harness/types.js'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 
-const trusted = BRAIN_QUERY_POLICY_TEMPLATES.find(t => t.id === 'trusted')!.text
+const trusted = getBuiltinPolicyBodiesFromDisk().trusted
 
 const antiRitual = {
   kind: 'finalTextExcludesAll' as const,

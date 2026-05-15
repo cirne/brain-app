@@ -15,5 +15,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/server/**/*.ts", "src/shared/**/*.ts"]
+  "include": ["src/server/**/*.ts", "src/shared/**/*.ts"],
+  "exclude": ["src/server/test/i18nSetup.ts"]
 }

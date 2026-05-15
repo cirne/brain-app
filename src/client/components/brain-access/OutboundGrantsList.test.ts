@@ -1,13 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@client/test/render.js'
+import { translateClient } from '@client/lib/i18n/index.js'
 import OutboundGrantsList from './OutboundGrantsList.svelte'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
 import { templateById } from '@client/lib/brainQueryPolicyTemplates.js'
 
 describe('OutboundGrantsList.svelte', () => {
+  const builtinPolicyBodies = getBuiltinPolicyBodiesFromDisk()
+  const tpl = templateById(builtinPolicyBodies, 'trusted')!
+
   it('shows policy pill per outbound grant without collapse', () => {
-    const tpl = templateById('trusted')!
     render(OutboundGrantsList, {
       props: {
+        builtinPolicyBodies,
         grantedToMe: [
           {
             id: 'g1',
@@ -27,14 +32,15 @@ describe('OutboundGrantsList.svelte', () => {
     expect(screen.queryByRole('button', { name: /^brains you can message$/i })).not.toBeInTheDocument()
     expect(screen.queryByText(/tap to expand/i)).not.toBeInTheDocument()
     expect(screen.getByText(`@${'them-brain'}`)).toBeInTheDocument()
-    expect(screen.getByText(new RegExp(tpl.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))).toBeInTheDocument()
+    const resolvedLabel = translateClient(tpl.labelKey)
+    expect(screen.getByText(new RegExp(resolvedLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))).toBeInTheDocument()
   })
 
   it('remove control calls onRemoveInbound with grant id', async () => {
-    const tpl = templateById('trusted')!
     const onRemoveInbound = vi.fn()
     render(OutboundGrantsList, {
       props: {
+        builtinPolicyBodies,
         grantedToMe: [
           {
             id: 'grant-in-1',
@@ -58,6 +64,7 @@ describe('OutboundGrantsList.svelte', () => {
   it('shows empty copy when nothing granted to me', () => {
     render(OutboundGrantsList, {
       props: {
+        builtinPolicyBodies,
         grantedToMe: [],
         customPolicies: [],
       },

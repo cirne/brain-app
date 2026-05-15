@@ -14,10 +14,14 @@
     type BrainAccessGrantRow,
     type PolicyCardModel,
   } from '@client/lib/brainAccessPolicyGrouping.js'
-  import { isBrainQueryBuiltinTemplateId } from '@client/lib/brainQueryPolicyTemplates.js'
+  import {
+    buildBrainQueryGrantPolicyTemplates,
+    isBrainQueryBuiltinTemplateId,
+  } from '@client/lib/brainQueryPolicyTemplates.js'
+  import { fetchBrainQueryBuiltinPolicyBodies } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
+  import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
   import PolicyCard from './PolicyCard.svelte'
-  import OutboundGrantsList from './OutboundGrantsList.svelte'
   import ChangePolicyDialog from './ChangePolicyDialog.svelte'
   import CustomPolicyCreator from './CustomPolicyCreator.svelte'
   import SettingsSubpageHeader from '@components/settings/SettingsSubpageHeader.svelte'
@@ -33,19 +37,18 @@
   let loadError = $state<string | null>(null)
   let busy = $state(false)
   let grantedByMe = $state<BrainAccessGrantRow[]>([])
-  let grantedToMe = $state<BrainAccessGrantRow[]>([])
   let customPolicies = $state<BrainAccessCustomPolicy[]>([])
   let removeBusyId = $state<string | null>(null)
   let changeGrantId = $state<string | null>(null)
   let createCustomOpen = $state(false)
   let addBusy = $state(false)
+  let builtinPolicyBodies = $state<Record<BrainQueryBuiltinPolicyId, string> | null>(null)
 
-  function parseGrants(json: unknown): { grantedByMe: BrainAccessGrantRow[]; grantedToMe: BrainAccessGrantRow[] } | null {
+  function parseGrants(json: unknown): { grantedByMe: BrainAccessGrantRow[] } | null {
     if (!json || typeof json !== 'object') return null
     const o = json as Record<string, unknown>
     const a = o.grantedByMe
-    const b = o.grantedToMe
-    if (!Array.isArray(a) || !Array.isArray(b)) return null
+    if (!Array.isArray(a)) return null
     const map = (x: unknown): BrainAccessGrantRow | null => {
       if (!x || typeof x !== 'object') return null
       const r = x as Record<string, unknown>
@@ -86,7 +89,6 @@
     }
     return {
       grantedByMe: a.map(map).filter((x): x is BrainAccessGrantRow => x !== null),
-      grantedToMe: b.map(map).filter((x): x is BrainAccessGrantRow => x !== null),
     }
   }
 
@@ -96,6 +98,7 @@
     const remote = await fetchBrainAccessCustomPoliciesFromServer()
     customPolicies = mergeServerAndLegacyCustomPolicies(remote)
     try {
+      builtinPolicyBodies = await fetchBrainQueryBuiltinPolicyBodies()
       const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
         loadError = (await gRes.text()) || $t('access.brainAccessPage.errors.failedToLoadGrants')
@@ -107,7 +110,6 @@
         return
       }
       grantedByMe = parsed.grantedByMe
-      grantedToMe = parsed.grantedToMe
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
     } finally {
@@ -119,7 +121,15 @@
     void reload()
   })
 
-  const policyCards = $derived(buildPolicyCardModels(grantedByMe, customPolicies))
+  const policyCards = $derived(
+    builtinPolicyBodies
+      ? buildPolicyCardModels(grantedByMe, customPolicies, builtinPolicyBodies)
+      : [],
+  )
+
+  const grantPolicyTemplates = $derived(
+    builtinPolicyBodies ? buildBrainQueryGrantPolicyTemplates(builtinPolicyBodies) : [],
+  )
 
   async function addUser(model: PolicyCardModel, entry: WorkspaceHandleEntry): Promise<void> {
     loadError = null
@@ -135,7 +145,7 @@
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            label: (model.label || 'Policy').slice(0, 120),
+            title: (model.label || 'Policy').slice(0, 120),
             body: model.canonicalText.trim(),
           }),
         })
@@ -214,8 +224,8 @@
     const gid = changeGrantId
     if (!gid) return undefined
     const row = grantedByMe.find((g) => g.id === gid)
-    if (!row) return undefined
-    return classifyGrantPolicy(row, customPolicies).policyId
+    if (!row || !builtinPolicyBodies) return undefined
+    return classifyGrantPolicy(row, customPolicies, builtinPolicyBodies).policyId
   })
 </script>
 
@@ -240,7 +250,7 @@
         <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
           {$t('access.brainAccessPage.policiesHeading')}
         </h2>
-        {#if busy && grantedByMe.length === 0 && grantedToMe.length === 0}
+        {#if busy && grantedByMe.length === 0}
           <p class="m-0 text-[0.875rem] text-muted">{$t('common.status.loading')}</p>
         {:else}
           {#each policyCards as model (model.policyId)}
@@ -268,13 +278,6 @@
           {$t('access.brainAccessPage.createCustomPolicy')}
         </button>
       </section>
-
-      <OutboundGrantsList
-        grantedToMe={grantedToMe}
-        customPolicies={customPolicies}
-        onRemoveInbound={(id) => void removeGrant(id)}
-        removeBusyId={removeBusyId}
-      />
     </div>
   </div>
 </div>
@@ -282,6 +285,7 @@
 <ChangePolicyDialog
   open={changeGrantId !== null}
   grantId={changeGrantId}
+  grantPolicyTemplates={grantPolicyTemplates}
   customPolicies={customPolicies}
   excludePolicyId={changeExcludePolicyId}
   onDismiss={() => {
@@ -292,6 +296,7 @@
 
 <CustomPolicyCreator
   open={createCustomOpen}
+  grantPolicyTemplates={grantPolicyTemplates}
   onDismiss={() => {
     createCustomOpen = false
   }}

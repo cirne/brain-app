@@ -1,5 +1,6 @@
 <script lang="ts">
   import { POLICY_ALWAYS_OMIT } from '@shared/brainQueryAnswerBaseline.js'
+  import { baselineListPreClass } from './brainQueryPolicyBaselineClasses.js'
   import { t } from '@client/lib/i18n/index.js'
 </script>
 
@@ -18,8 +19,6 @@
         {$t('access.brainQueryPolicyBaselineNote.showBaselineList')}
       </span>
     </summary>
-    <pre
-      class="mt-2 mb-0 max-h-[min(40vh,16rem)] overflow-auto whitespace-pre-wrap break-words rounded border border-[color-mix(in_srgb,var(--border)_35%,transparent)] bg-surface p-2 font-mono text-[0.625rem] leading-relaxed text-muted"
-    >{POLICY_ALWAYS_OMIT}</pre>
+    <pre class="mt-2 mb-0 {baselineListPreClass}">{POLICY_ALWAYS_OMIT}</pre>
   </details>
 </div>

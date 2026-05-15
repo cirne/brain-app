@@ -18,7 +18,7 @@ import {
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import { resolveGrantPrivacyInstructions, toB2BGrantPolicySnapshot } from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
-import { isBrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import { isBrainQueryGrantPresetId } from '@shared/brainQueryBuiltinPolicyIds.js'
 import {
   appendTurn,
   deleteSessionFile,
@@ -698,7 +698,7 @@ function syntheticGrantForCold(params: { ownerId: string; askerId: string }): Br
     id: 'cold_query_synthetic',
     owner_id: params.ownerId,
     asker_id: params.askerId,
-    preset_policy_key: 'server-default',
+    preset_policy_key: 'general',
     custom_policy_id: null,
     reply_mode: 'review',
     created_at_ms: 0,
@@ -1162,7 +1162,7 @@ b2bChat.post('/establish-grant', async (c) => {
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
   const presetRaw = typeof body.presetPolicyKey === 'string' ? body.presetPolicyKey.trim() : ''
   const customRaw = typeof body.customPolicyId === 'string' ? body.customPolicyId.trim() : ''
-  const presetPolicyKey = isBrainQueryBuiltinPolicyId(presetRaw) ? presetRaw : undefined
+  const presetPolicyKey = isBrainQueryGrantPresetId(presetRaw) ? presetRaw : undefined
   const customPolicyId = customRaw.length > 0 ? customRaw : undefined
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
@@ -1304,7 +1304,7 @@ b2bChat.post('/approve', async (c) => {
     const grant = createBrainQueryGrant({
       ownerId: ctx.tenantUserId,
       askerId: session.coldPeerUserId!.trim(),
-      presetPolicyKey: 'server-default',
+      presetPolicyKey: 'general',
       replyMode: establishPolicy,
     })
     finalizeColdSessionWithGrant(sessionId, grant.id)

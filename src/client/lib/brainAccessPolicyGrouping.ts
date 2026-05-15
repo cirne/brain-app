@@ -1,8 +1,7 @@
+import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import { translateClient } from '@client/lib/i18n/index.js'
 import type { BrainAccessCustomPolicy } from './brainAccessCustomPolicies.js'
-import {
-  BRAIN_QUERY_POLICY_TEMPLATES,
-  type BrainQueryBuiltinPolicyId,
-} from './brainQueryPolicyTemplates.js'
+import { buildBrainQueryGrantPolicyTemplates } from './brainQueryPolicyTemplates.js'
 
 /** Grant row from `GET /api/brain-query/grants` (owner view). */
 export type BrainAccessGrantRow = {
@@ -48,21 +47,36 @@ export type GrantPolicyMeta = {
   canonicalText: string
 }
 
+function grantTemplatesFromBodies(bodies: Record<BrainQueryBuiltinPolicyId, string>) {
+  return buildBrainQueryGrantPolicyTemplates(bodies)
+}
+
 /** Resolve Hub bucket from server grant fields (preset key, custom policy id, or legacy resolved text). */
 export function classifyGrantPolicy(
   grant: GrantPolicyClassifySource,
   customPolicies: BrainAccessCustomPolicy[],
+  builtinBodies: Record<BrainQueryBuiltinPolicyId, string>,
 ): GrantPolicyMeta {
+  const grantTemplates = grantTemplatesFromBodies(builtinBodies)
+  const serverDefaultText = builtinBodies['server-default']
   const pk = grant.presetPolicyKey?.trim()
   if (pk) {
-    const t = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === pk)
+    if (pk === 'server-default') {
+      return {
+        policyId: 'server-default',
+        kind: 'adhoc',
+        label: 'Legacy baseline preset',
+        canonicalText: serverDefaultText,
+      }
+    }
+    const t = grantTemplates.find((x) => x.id === pk)
     if (t) {
       return {
         policyId: t.id,
         kind: 'builtin',
         builtinId: t.id,
-        label: t.label,
-        hint: t.hint,
+        label: translateClient(t.labelKey),
+        hint: translateClient(t.hintKey),
         canonicalText: t.text,
       }
     }
@@ -93,14 +107,22 @@ export function classifyGrantPolicy(
   }
 
   const n = normalizePolicyText(grant.privacyPolicy)
-  for (const t of BRAIN_QUERY_POLICY_TEMPLATES) {
+  if (n === normalizePolicyText(serverDefaultText)) {
+    return {
+      policyId: 'server-default',
+      kind: 'adhoc',
+      label: 'Legacy baseline preset',
+      canonicalText: serverDefaultText,
+    }
+  }
+  for (const t of grantTemplates) {
     if (normalizePolicyText(t.text) === n) {
       return {
         policyId: t.id,
         kind: 'builtin',
         builtinId: t.id,
-        label: t.label,
-        hint: t.hint,
+        label: translateClient(t.labelKey),
+        hint: translateClient(t.hintKey),
         canonicalText: t.text,
       }
     }
@@ -137,15 +159,17 @@ export type PolicyCardModel = {
 }
 
 /**
- * Ordered cards: three built-ins, then saved custom policies (by name), then remaining ad-hoc buckets from grants.
+ * Ordered cards: three built-in grant presets, then saved custom policies (by name), then ad-hoc buckets from grants.
  */
 export function buildPolicyCardModels(
   grantedByMe: BrainAccessGrantRow[],
   customPolicies: BrainAccessCustomPolicy[],
+  builtinBodies: Record<BrainQueryBuiltinPolicyId, string>,
 ): PolicyCardModel[] {
+  const grantTemplates = grantTemplatesFromBodies(builtinBodies)
   const classified = grantedByMe.map((g) => ({
     grant: g,
-    meta: classifyGrantPolicy(g, customPolicies),
+    meta: classifyGrantPolicy(g, customPolicies, builtinBodies),
   }))
 
   const byId = new Map<string, BrainAccessGrantRow[]>()
@@ -157,18 +181,20 @@ export function buildPolicyCardModels(
 
   const cards: PolicyCardModel[] = []
 
-  for (const t of BRAIN_QUERY_POLICY_TEMPLATES) {
+  for (const t of grantTemplates) {
     cards.push({
       policyId: t.id,
       kind: 'builtin',
       builtinId: t.id,
-      label: t.label,
-      hint: t.hint,
+      label: translateClient(t.labelKey),
+      hint: translateClient(t.hintKey),
       canonicalText: t.text,
       grants: [...(byId.get(t.id) ?? [])],
     })
     byId.delete(t.id)
   }
+  /** Handshake baseline grants are not shown as their own policy card. */
+  byId.delete('server-default')
 
   const customsSorted = [...customPolicies].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
@@ -203,6 +229,9 @@ export function grantsMatchingPolicyId(
   grantedByMe: BrainAccessGrantRow[],
   customPolicies: BrainAccessCustomPolicy[],
   policyId: string,
+  builtinBodies: Record<BrainQueryBuiltinPolicyId, string>,
 ): BrainAccessGrantRow[] {
-  return grantedByMe.filter((g) => classifyGrantPolicy(g, customPolicies).policyId === policyId)
+  return grantedByMe.filter(
+    (g) => classifyGrantPolicy(g, customPolicies, builtinBodies).policyId === policyId,
+  )
 }

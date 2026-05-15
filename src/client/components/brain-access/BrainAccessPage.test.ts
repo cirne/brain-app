@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
 import BrainAccessPage from './BrainAccessPage.svelte'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
+import { resetBrainQueryBuiltinPolicyBodiesCacheForTests } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
 
 vi.mock('@client/lib/vaultClient.js', () => ({
   fetchVaultStatus: vi.fn(() =>
@@ -17,12 +19,18 @@ function reqUrl(input: RequestInfo | URL): string {
   return input.url
 }
 
+const diskBuiltinBodies = getBuiltinPolicyBodiesFromDisk()
+
 describe('BrainAccessPage.svelte', () => {
   beforeEach(() => {
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
         const u = reqUrl(input)
+        if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+          return Promise.resolve(new Response(JSON.stringify({ bodies: diskBuiltinBodies }), { status: 200 }))
+        }
         if (u.includes('/api/brain-query/policies')) {
           return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
         }
@@ -38,6 +46,7 @@ describe('BrainAccessPage.svelte', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
   })
 
   it('renders heading and policy buckets', async () => {

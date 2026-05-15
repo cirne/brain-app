@@ -1,5 +1,5 @@
 /**
- * Writes `eval/tasks/b2b-filter.jsonl` using {@link BRAIN_QUERY_POLICY_TEMPLATES} for grant text sync.
+ * Writes `eval/tasks/b2b-filter.jsonl` using built-in policy bodies from disk (`brain-query/privacy/*.hbs`).
  *
  * Run: npx tsx --tsconfig tsconfig.server.json src/server/evals/generateB2bFilterJsonl.ts
  */

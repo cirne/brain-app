@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@client/test/render.js'
 import TunnelDetail from './TunnelDetail.svelte'
 import { apiFetch } from '@client/lib/apiFetch.js'
-import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
+import { resetBrainQueryBuiltinPolicyBodiesCacheForTests } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
 import { consumeTunnelOutboundSendStream } from '@client/lib/consumeTunnelOutboundSendStream.js'
 
 vi.mock('@client/lib/apiFetch.js', () => ({
@@ -23,8 +24,9 @@ vi.mock('@client/lib/hubEvents/hubEventsClient.js', () => ({
   }),
 }))
 
-const trustedText = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === 'trusted')!.text
-const generalText = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === 'general')!.text
+const diskBodies = getBuiltinPolicyBodiesFromDisk()
+const trustedText = diskBodies.trusted
+const generalText = diskBodies.general
 
 function timelineJson(over: Record<string, unknown> = {}) {
   return {
@@ -45,10 +47,14 @@ describe('TunnelDetail.svelte', () => {
     vi.mocked(apiFetch).mockReset()
     vi.mocked(consumeTunnelOutboundSendStream).mockReset()
     tunnelActivityHandler = null
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
         const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+          return Promise.resolve(new Response(JSON.stringify({ bodies: diskBodies }), { status: 200 }))
+        }
         if (u.includes('/api/brain-query/policies')) {
           return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
         }
@@ -59,6 +65,7 @@ describe('TunnelDetail.svelte', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
   })
 
   it('renders auto-sent hint when timeline message carries auto_sent hint', async () => {
@@ -329,6 +336,9 @@ describe('TunnelDetail.svelte', () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
       )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(timelineJson()), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      )
 
     vi.mocked(consumeTunnelOutboundSendStream).mockResolvedValueOnce({
       sessionId: 'out-123',
@@ -345,6 +355,9 @@ describe('TunnelDetail.svelte', () => {
     })
 
     await screen.findByPlaceholderText(/message their assistant/i)
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/message their assistant/i)).not.toBeDisabled()
+    })
     const input = screen.getByPlaceholderText(/message their assistant/i)
     await fireEvent.input(input, { target: { value: 'Hello peer' } })
     await fireEvent.click(screen.getByRole('button', { name: /send message/i }))

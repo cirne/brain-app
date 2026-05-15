@@ -57,6 +57,7 @@ export default defineConfig({
           environment: 'node',
           setupFiles: [
             join(root, 'src/server/test/brainTestEnv.ts'),
+            join(root, 'src/server/test/i18nSetup.ts'),
             join(root, 'src/server/test/promptsSetup.ts'),
           ],
         },

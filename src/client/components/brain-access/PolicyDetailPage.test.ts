@@ -2,8 +2,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { tick } from 'svelte'
 import { render, screen, waitFor, fireEvent, within } from '@client/test/render.js'
 import PolicyDetailPage from './PolicyDetailPage.svelte'
-import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
-import { loadBuiltinPolicyDraft } from '@client/lib/brainAccessBuiltinPolicyDrafts.js'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
+import { resetBrainQueryBuiltinPolicyBodiesCacheForTests } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
 
 vi.mock('@client/lib/vaultClient.js', () => ({
   fetchVaultStatus: vi.fn(() =>
@@ -26,8 +26,14 @@ function reqUrl(input: RequestInfo | URL): string {
   return input.url
 }
 
+const diskBuiltinBodies = getBuiltinPolicyBodiesFromDisk()
+
+function builtinPolicyBodiesOk() {
+  return Promise.resolve(new Response(JSON.stringify({ bodies: diskBuiltinBodies }), { status: 200 }))
+}
+
 describe('PolicyDetailPage.svelte', () => {
-  const trustedBody = BRAIN_QUERY_POLICY_TEMPLATES[0]!.text
+  const trustedBody = getBuiltinPolicyBodiesFromDisk().trusted
   const trustedGrant = {
     id: 'g1',
     ownerId: 'o1',
@@ -43,10 +49,15 @@ describe('PolicyDetailPage.svelte', () => {
 
   beforeEach(() => {
     localStorage.clear()
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
+    const diskBodies = getBuiltinPolicyBodiesFromDisk()
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const u = reqUrl(input)
+        if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+          return Promise.resolve(new Response(JSON.stringify({ bodies: diskBodies }), { status: 200 }))
+        }
         if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
           return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
         }
@@ -60,32 +71,10 @@ describe('PolicyDetailPage.svelte', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
   })
 
-  it('shows inline editor with Save/Cancel after Edit — no modal', async () => {
-    const onSettingsNavigate = vi.fn()
-    const onBackToBrainAccessList = vi.fn()
-
-    render(PolicyDetailPage, {
-      props: {
-        policyId: 'trusted',
-        onSettingsNavigate,
-        onBackToBrainAccessList,
-      },
-    })
-
-    await waitFor(() => expect(screen.getByRole('button', { name: /^refresh$/i })).not.toBeDisabled())
-    await fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-    await waitFor(() => expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: /^save policy$/i })).toBeInTheDocument()
-
-    expect(document.querySelector('[id="brain-policy-editor-title"]')).toBeNull()
-    expect(screen.getByRole('textbox')).toBeInTheDocument()
-    expect(screen.getByRole('textbox')).toHaveValue(trustedBody)
-  })
-
-  it('Cancel restores view mode without saving', async () => {
-    const fetchSpy = vi.mocked(fetch)
+  it('standard preset: shows fixed policy text and read-only note; no Edit control', async () => {
     render(PolicyDetailPage, {
       props: {
         policyId: 'trusted',
@@ -93,51 +82,48 @@ describe('PolicyDetailPage.svelte', () => {
         onBackToBrainAccessList: vi.fn(),
       },
     })
+
     await waitFor(() => expect(screen.getByRole('button', { name: /^refresh$/i })).not.toBeDisabled())
-    await fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-    const box = screen.getByRole('textbox')
-    await fireEvent.input(box, { target: { value: 'edited body' } })
-    await tick()
-    await fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
-
-    await waitFor(() => expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument())
-    expect(fetchSpy).not.toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/brain-query\/grants\/g1/),
-      expect.objectContaining({ method: 'PATCH' }),
-    )
-
-    await fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-    expect(screen.getByRole('textbox')).toHaveValue(trustedBody)
+    expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/standard preset/i)).toBeInTheDocument()
+    expect(screen.getByText(/Preset deny list/i)).toBeInTheDocument()
   })
 
-  it('Save creates server policy and PATCHes grants when text leaves builtin bucket', async () => {
-    const onSettingsNavigate = vi.fn()
+  it('custom bqc policy: Edit shows title + body; save PATCHes title and text', async () => {
+    const customId = 'bqc_detail_edit_test'
+    const customText = 'custom-body-for-edit-test'
     const fetchSpy = vi.mocked(fetch)
-    const nextText = 'unique-short-inline-policy-marker-abc'
-    const newPolicyId = 'bqc_policy_saved_test'
-    const grantAfterSave = {
-      ...trustedGrant,
-      privacyPolicy: nextText,
-      presetPolicyKey: null,
-      customPolicyId: newPolicyId,
-    }
-    let getCount = 0
     fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const u = reqUrl(input)
+      if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+        return builtinPolicyBodiesOk()
+      }
       if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
-        return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
-      }
-      if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
-        getCount += 1
-        const body = getCount >= 2 ? [grantAfterSave] : [trustedGrant]
-        return Promise.resolve(new Response(JSON.stringify({ grantedByMe: body }), { status: 200 }))
-      }
-      if (u.includes('/api/brain-query/policies') && init?.method === 'POST') {
         return Promise.resolve(
-          new Response(JSON.stringify({ id: newPolicyId, label: 'Policy', body: nextText }), { status: 200 }),
+          new Response(
+            JSON.stringify({
+              policies: [
+                {
+                  id: customId,
+                  ownerId: 'o1',
+                  title: 'Original title',
+                  body: customText,
+                  createdAtMs: 1,
+                  updatedAtMs: 1,
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
         )
       }
-      if (u.includes('/api/brain-query/grants/g1') && init?.method === 'PATCH') {
+      if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
+        return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [] }), { status: 200 }))
+      }
+      if (
+        u.includes(`/api/brain-query/policies/${encodeURIComponent(customId)}`) &&
+        init?.method === 'PATCH'
+      ) {
         return Promise.resolve(new Response('{}', { status: 200 }))
       }
       return Promise.resolve(new Response('not found', { status: 404 }))
@@ -145,65 +131,48 @@ describe('PolicyDetailPage.svelte', () => {
 
     render(PolicyDetailPage, {
       props: {
-        policyId: 'trusted',
-        onSettingsNavigate,
+        policyId: customId,
+        onSettingsNavigate: vi.fn(),
         onBackToBrainAccessList: vi.fn(),
       },
     })
-    await tick()
 
     await waitFor(() => expect(screen.getByRole('button', { name: /^refresh$/i })).not.toBeDisabled())
     await fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-    const ta = screen.getByRole('textbox') as HTMLTextAreaElement
-    await fireEvent.input(ta, { target: { value: nextText } })
-    await tick()
-    expect(ta.value).toBe(nextText)
 
+    const titleInput = screen.getByPlaceholderText(/executive team/i)
+    expect(titleInput).toHaveValue('Original title')
+    const box = document.querySelector('#policy-text-draft') as HTMLTextAreaElement
+    expect(box).toHaveValue(customText)
+
+    await fireEvent.input(titleInput, { target: { value: 'Renamed policy' } })
+    await fireEvent.input(box, { target: { value: 'updated body content' } })
+    await tick()
     await fireEvent.click(screen.getByRole('button', { name: /^save policy$/i }))
 
     await waitFor(() =>
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/brain-query/policies',
-        expect.objectContaining({
-          method: 'POST',
-        }),
-      ),
-    )
-
-    await waitFor(() =>
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/brain-query/grants/g1',
+        `/api/brain-query/policies/${encodeURIComponent(customId)}`,
         expect.objectContaining({
           method: 'PATCH',
-          body: JSON.stringify({ customPolicyId: newPolicyId }),
+          body: JSON.stringify({ title: 'Renamed policy', body: 'updated body content' }),
         }),
       ),
     )
-
-    await waitFor(() =>
-      expect(onSettingsNavigate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'brain-access-policy',
-          policyId: newPolicyId,
-        }),
-        { replace: true },
-      ),
-    )
-
-    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   describe('zero grants', () => {
-    const BUILTIN_DRAFT_KEY = 'brain.brainAccess.builtinPolicyDrafts.v1'
     const CUSTOM_KEY = 'brain.brainAccess.customPolicies.v1'
 
     beforeEach(() => {
-      localStorage.removeItem(BUILTIN_DRAFT_KEY)
       localStorage.removeItem(CUSTOM_KEY)
+      resetBrainQueryBuiltinPolicyBodiesCacheForTests()
       vi.mocked(fetch).mockImplementation(
         ((input: RequestInfo | URL, init?: RequestInit) => {
           const u = reqUrl(input)
+          if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+            return builtinPolicyBodiesOk()
+          }
           if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
             return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
           }
@@ -215,10 +184,7 @@ describe('PolicyDetailPage.svelte', () => {
       )
     })
 
-    it('trusted: Edit enabled; save persists builtin draft (no PATCH)', async () => {
-      const fetchSpy = vi.mocked(fetch)
-      const nextText = 'zero-grant-builtin-draft-marker-xyz'
-
+    it('trusted preset: still read-only with zero grants', async () => {
       render(PolicyDetailPage, {
         props: {
           policyId: 'trusted',
@@ -227,26 +193,13 @@ describe('PolicyDetailPage.svelte', () => {
         },
       })
 
-      await waitFor(() => expect(screen.getByRole('button', { name: /^edit$/i })).not.toBeDisabled())
-      await fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-      const ta = screen.getByRole('textbox') as HTMLTextAreaElement
-      await fireEvent.input(ta, { target: { value: nextText } })
-      await tick()
-      await fireEvent.click(screen.getByRole('button', { name: /^save policy$/i }))
-
-      await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
-
-      expect(fetchSpy).not.toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/brain-query\/grants\/[^/]+$/),
-        expect.objectContaining({ method: 'PATCH' }),
-      )
-      expect(loadBuiltinPolicyDraft('trusted')).toBe(nextText)
+      await waitFor(() => expect(screen.getByRole('button', { name: /^refresh$/i })).not.toBeDisabled())
+      expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
     })
 
-    it('custom: save updates localStorage (no PATCH)', async () => {
+    it('custom local: save updates title + text in localStorage', async () => {
       const fetchSpy = vi.mocked(fetch)
       const customId = 'custom:zero-grants-pol'
-      const nextText = 'updated-custom-body-abc-123'
       localStorage.setItem(
         CUSTOM_KEY,
         JSON.stringify([{ id: customId, name: 'Test policy', text: 'original', colorIndex: 0 }]),
@@ -262,19 +215,22 @@ describe('PolicyDetailPage.svelte', () => {
 
       await waitFor(() => expect(screen.getByRole('button', { name: /^edit$/i })).not.toBeDisabled())
       await fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-      const ta = screen.getByRole('textbox') as HTMLTextAreaElement
-      await fireEvent.input(ta, { target: { value: nextText } })
+      const titleEl = screen.getByPlaceholderText(/executive team/i)
+      await fireEvent.input(titleEl, { target: { value: 'Renamed local' } })
+      const ta = document.querySelector('#policy-text-draft') as HTMLTextAreaElement
+      await fireEvent.input(ta, { target: { value: 'updated-custom-body-abc-123' } })
       await tick()
       await fireEvent.click(screen.getByRole('button', { name: /^save policy$/i }))
 
-      await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+      await waitFor(() => expect(screen.queryByPlaceholderText(/executive team/i)).not.toBeInTheDocument())
 
       expect(fetchSpy).not.toHaveBeenCalledWith(
         expect.stringMatching(/\/api\/brain-query\/grants\/[^/]+$/),
         expect.objectContaining({ method: 'PATCH' }),
       )
-      const stored = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]') as { text: string }[]
-      expect(stored[0]?.text).toBe(nextText)
+      const stored = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]') as { text: string; name: string }[]
+      expect(stored[0]?.text).toBe('updated-custom-body-abc-123')
+      expect(stored[0]?.name).toBe('Renamed local')
     })
 
     it('custom: Delete policy confirms via dialog, clears localStorage, navigates back', async () => {
@@ -340,11 +296,23 @@ describe('PolicyDetailPage.svelte', () => {
     const fetchSpy = vi.mocked(fetch)
     fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const u = reqUrl(input)
+      if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+        return builtinPolicyBodiesOk()
+      }
       if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              policies: [{ id: customId, ownerId: 'o1', label: 'With grant', body: customText, createdAtMs: 1, updatedAtMs: 1 }],
+              policies: [
+                {
+                  id: customId,
+                  ownerId: 'o1',
+                  title: 'With grant',
+                  body: customText,
+                  createdAtMs: 1,
+                  updatedAtMs: 1,
+                },
+              ],
             }),
             { status: 200 },
           ),

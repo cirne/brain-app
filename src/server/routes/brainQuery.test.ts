@@ -112,6 +112,20 @@ describe('/api/brain-query', () => {
     expect(list.grantedByMe.some((g) => g.id === row.id)).toBe(true)
   })
 
+  it('GET /builtin-policy-bodies returns bodies from on-disk prompts', async () => {
+    const ownerId = 'usr_bq_builtin_bodies_00000001'
+    const ownerSid = await sessionFor(ownerId, 'builtin-bodies-owner')
+    await registerSessionTenant(ownerSid, ownerId)
+    const app = mountBrainQuery()
+    const res = await app.request('http://localhost/api/brain-query/builtin-policy-bodies', {
+      headers: { cookie: `brain_session=${ownerSid}` },
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { bodies?: Record<string, string> }
+    expect(j.bodies?.trusted?.length).toBeGreaterThan(40)
+    expect(j.bodies?.['server-default']?.length).toBeGreaterThan(40)
+  })
+
   it('DELETE /grants/:id revokes', async () => {
     const ownerId = 'usr_70707070707070707070'
     const askerId = 'usr_80808080808080808080'

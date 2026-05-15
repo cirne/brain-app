@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline'
 import { createReadStream } from 'node:fs'
-import { BRAIN_QUERY_POLICY_TEMPLATES } from '../../../client/lib/brainQueryPolicyTemplates.js'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
+import { buildBrainQueryGrantPolicyTemplates } from '../../../client/lib/brainQueryPolicyTemplates.js'
 import type {
   B2BFilterEvalJsonlRow,
   B2BFilterEvalTask,
@@ -20,9 +21,11 @@ export const B2B_FILTER_EVAL_POLICY_ORDER: readonly BrainQueryB2bFilterPresetId[
 ] as const
 
 export function expandB2BFilterEvalJsonlRows(rows: B2BFilterEvalJsonlRow[]): B2BFilterEvalTask[] {
+  const bodies = getBuiltinPolicyBodiesFromDisk()
+  const grantTemplates = buildBrainQueryGrantPolicyTemplates(bodies)
   const policyText = new Map<BrainQueryB2bFilterPresetId, string>()
   for (const policyId of B2B_FILTER_EVAL_POLICY_ORDER) {
-    const t = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === policyId)
+    const t = grantTemplates.find((x) => x.id === policyId)
     if (t) policyText.set(policyId, t.text)
   }
   const out: B2BFilterEvalTask[] = []

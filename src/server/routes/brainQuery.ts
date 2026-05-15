@@ -29,9 +29,10 @@ import {
   updateBrainQueryGrantPrivacyInstructions,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
 import { resolveGrantPrivacyInstructions } from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
 import { deleteOwnerInboundForRevokedBrainQueryGrant } from '@server/lib/chat/brainTunnelInboundCleanup.js'
-import { isBrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import { isBrainQueryGrantPresetId } from '@shared/brainQueryBuiltinPolicyIds.js'
 
 const GRANT_POLICY_PREVIEW_MAX = 200
 
@@ -172,6 +173,11 @@ async function resolveAskerUserId(params: {
 
 const brainQuery = new Hono()
 
+/** Built-in preset bodies from `src/server/prompts/brain-query/privacy/*.hbs` (authoritative copy). */
+brainQuery.get('/builtin-policy-bodies', (c) => {
+  return c.json({ bodies: getBuiltinPolicyBodiesFromDisk() })
+})
+
 brainQuery.get('/policies', async (c) => {
   const ctx = getTenantContext()
   const rows = listBrainQueryCustomPoliciesForOwner(ctx.tenantUserId)
@@ -280,7 +286,7 @@ brainQuery.post('/grants', async (c) => {
   const askerHandleRaw = typeof body.askerHandle === 'string' ? body.askerHandle.trim() : ''
   const askerUserIdRaw = typeof body.askerUserId === 'string' ? body.askerUserId.trim() : ''
   const presetRaw = typeof body.presetPolicyKey === 'string' ? body.presetPolicyKey.trim() : ''
-  const presetPolicyKey = isBrainQueryBuiltinPolicyId(presetRaw) ? presetRaw : undefined
+  const presetPolicyKey = isBrainQueryGrantPresetId(presetRaw) ? presetRaw : undefined
   const customRaw = typeof body.customPolicyId === 'string' ? body.customPolicyId.trim() : ''
   const customPolicyId = customRaw.length > 0 ? customRaw : undefined
   const modes = [askerEmailRaw, askerHandleRaw, askerUserIdRaw].filter((s) => s.length > 0)
@@ -369,7 +375,7 @@ brainQuery.patch('/grants/:id', async (c) => {
     return c.json({ error: 'invalid_json' }, 400)
   }
   const presetRaw = typeof body.presetPolicyKey === 'string' ? body.presetPolicyKey.trim() : ''
-  const presetPolicyKey = isBrainQueryBuiltinPolicyId(presetRaw) ? presetRaw : undefined
+  const presetPolicyKey = isBrainQueryGrantPresetId(presetRaw) ? presetRaw : undefined
   const customRaw = typeof body.customPolicyId === 'string' ? body.customPolicyId.trim() : ''
   const customPolicyId = customRaw.length > 0 ? customRaw : undefined
   if (presetPolicyKey === undefined && customPolicyId === undefined) {

@@ -2,8 +2,8 @@ import { randomBytes } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import { getBrainGlobalDb } from '@server/lib/global/brainGlobalDb.js'
 import { getBrainQueryCustomPolicyById } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
-import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
-import { isBrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import type { BrainQueryGrantPresetId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import { isBrainQueryGrantPresetId } from '@shared/brainQueryBuiltinPolicyIds.js'
 
 /** Owner-side tunnel setting: auto-reply, review each reply, or ignore inbound from this asker. */
 export type BrainQueryGrantReplyMode = 'auto' | 'review' | 'ignore'
@@ -81,11 +81,11 @@ function newId(): string {
 
 function resolvePrivacyColumns(params: {
   ownerId: string
-  presetPolicyKey?: BrainQueryBuiltinPolicyId
+  presetPolicyKey?: BrainQueryGrantPresetId
   customPolicyId?: string
   db: Database.Database
 }): { preset_policy_key: string | null; custom_policy_id: string | null } {
-  const hasPreset = params.presetPolicyKey != null && isBrainQueryBuiltinPolicyId(params.presetPolicyKey)
+  const hasPreset = params.presetPolicyKey != null && isBrainQueryGrantPresetId(params.presetPolicyKey)
   const cid = params.customPolicyId?.trim() ?? ''
   const hasCustom = cid.length > 0
   if (hasPreset === hasCustom) {
@@ -104,7 +104,7 @@ function resolvePrivacyColumns(params: {
 export function createBrainQueryGrant(params: {
   ownerId: string
   askerId: string
-  presetPolicyKey?: BrainQueryBuiltinPolicyId
+  presetPolicyKey?: BrainQueryGrantPresetId
   customPolicyId?: string
   replyMode?: BrainQueryGrantReplyMode
   db?: Database.Database
@@ -192,7 +192,7 @@ export function listBrainQueryGrantsForAsker(askerId: string, db?: Database.Data
 export function updateBrainQueryGrantPrivacyInstructions(params: {
   grantId: string
   ownerId: string
-  presetPolicyKey?: BrainQueryBuiltinPolicyId
+  presetPolicyKey?: BrainQueryGrantPresetId
   customPolicyId?: string
   db?: Database.Database
 }): BrainQueryGrantRow | null {

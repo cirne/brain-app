@@ -17,10 +17,11 @@
     type BrainAccessCustomPolicy,
   } from '@client/lib/brainAccessCustomPolicies.js'
   import {
-    BRAIN_QUERY_POLICY_TEMPLATES,
+    buildBrainQueryGrantPolicyTemplates,
     templateById,
-    type BrainQueryBuiltinPolicyId,
   } from '@client/lib/brainQueryPolicyTemplates.js'
+  import { fetchBrainQueryBuiltinPolicyBodies } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
+  import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
   import TunnelMessage from '@components/TunnelMessage.svelte'
   import TunnelPendingMessage from '@components/TunnelPendingMessage.svelte'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
@@ -58,6 +59,7 @@
   let inboundPresetPolicyKey = $state<string | null>(null)
   let inboundCustomPolicyId = $state<string | null>(null)
   let tunnelCustomPolicies = $state<BrainAccessCustomPolicy[]>([])
+  let tunnelBuiltinBodies = $state<Record<BrainQueryBuiltinPolicyId, string> | null>(null)
   /** Built-in preset id when text matches template; '' when custom / other policy. */
   let accessSelect = $state<'' | BrainQueryBuiltinPolicyId>('')
   let accessBusy = $state(false)
@@ -79,7 +81,12 @@
 
   let logEl = $state<HTMLDivElement | undefined>()
 
+  const tunnelGrantTemplates = $derived(
+    tunnelBuiltinBodies ? buildBrainQueryGrantPolicyTemplates(tunnelBuiltinBodies) : [],
+  )
+
   const accessClassified = $derived.by(() => {
+    if (!tunnelBuiltinBodies) return null
     const raw = inboundPrivacyPolicy.trim()
     if (!raw && !inboundPresetPolicyKey && !inboundCustomPolicyId) return null
     const grantLike: GrantPolicyClassifySource = {
@@ -87,7 +94,7 @@
       presetPolicyKey: inboundPresetPolicyKey,
       customPolicyId: inboundCustomPolicyId,
     }
-    return classifyGrantPolicy(grantLike, tunnelCustomPolicies)
+    return classifyGrantPolicy(grantLike, tunnelCustomPolicies, tunnelBuiltinBodies)
   })
 
   const accessHintText = $derived.by(() => {
@@ -157,6 +164,7 @@
     try {
       const h = tunnelHandle.trim()
       if (!h) return
+      tunnelBuiltinBodies = await fetchBrainQueryBuiltinPolicyBodies()
       const res = await apiFetch(`/api/chat/b2b/tunnel-timeline/${encodeURIComponent(h)}`)
       if (!res.ok) {
         loadError = $t('chat.tunnels.detailLoadFailed')
@@ -201,8 +209,9 @@
           customPolicyId: inboundCustomPolicyId,
         }
         const cls =
-          inboundPrivacyPolicy.trim() || inboundPresetPolicyKey || inboundCustomPolicyId
-            ? classifyGrantPolicy(grantLike, tunnelCustomPolicies)
+          tunnelBuiltinBodies &&
+          (inboundPrivacyPolicy.trim() || inboundPresetPolicyKey || inboundCustomPolicyId)
+            ? classifyGrantPolicy(grantLike, tunnelCustomPolicies, tunnelBuiltinBodies)
             : null
         accessSelect = cls?.kind === 'builtin' && cls.builtinId ? cls.builtinId : ''
       }
@@ -250,7 +259,8 @@
   }
 
   async function patchInboundPrivacyPreset(presetId: BrainQueryBuiltinPolicyId): Promise<void> {
-    const tmpl = templateById(presetId)
+    const bodies = tunnelBuiltinBodies
+    const tmpl = bodies ? templateById(bodies, presetId) : undefined
     const gid = inboundGrantId?.trim() ?? ''
     if (!tmpl || !gid) return
     accessBusy = true
@@ -268,7 +278,8 @@
 
   async function onAccessPresetChange(next: BrainQueryBuiltinPolicyId): Promise<void> {
     if (connectionDisabled) return
-    const tmpl = templateById(next)
+    const bodies = tunnelBuiltinBodies
+    const tmpl = bodies ? templateById(bodies, next) : undefined
     if (tmpl && normalizePolicyText(inboundPrivacyPolicy) === normalizePolicyText(tmpl.text)) {
       return
     }
@@ -466,8 +477,8 @@
     {#if accessSelect === ''}
       <option value="" disabled>{$t('chat.tunnels.connection.otherPolicyOption')}</option>
     {/if}
-    {#each BRAIN_QUERY_POLICY_TEMPLATES as tmpl (tmpl.id)}
-      <option value={tmpl.id}>{tmpl.label}</option>
+    {#each tunnelGrantTemplates as tmpl (tmpl.id)}
+      <option value={tmpl.id}>{$t(tmpl.labelKey)}</option>
     {/each}
   </select>
 {/snippet}

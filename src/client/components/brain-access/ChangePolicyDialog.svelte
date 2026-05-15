@@ -1,7 +1,7 @@
 <script lang="ts">
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import { t } from '@client/lib/i18n/index.js'
-  import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
+  import type { BrainQueryPolicyTemplate } from '@client/lib/brainQueryPolicyTemplates.js'
   import type { BrainAccessCustomPolicy } from '@client/lib/brainAccessCustomPolicies.js'
 
   type Target = { policyId: string; label: string; text: string }
@@ -9,22 +9,24 @@
   type Props = {
     open: boolean
     grantId: string | null
+    grantPolicyTemplates: BrainQueryPolicyTemplate[]
     customPolicies: BrainAccessCustomPolicy[]
     excludePolicyId?: string
     onDismiss: () => void
     onApply: (_grantId: string, _targetPolicyId: string) => void | Promise<void>
   }
 
-  let { open, grantId, customPolicies, excludePolicyId, onDismiss, onApply }: Props = $props()
+  let { open, grantId, grantPolicyTemplates, customPolicies, excludePolicyId, onDismiss, onApply }: Props =
+    $props()
 
   let selectedPolicyId = $state('')
   let busy = $state(false)
 
   const targets = $derived.by((): Target[] => {
-    const builtin: Target[] = BRAIN_QUERY_POLICY_TEMPLATES.map((t) => ({
-      policyId: t.id,
-      label: t.label,
-      text: t.text,
+    const builtin: Target[] = grantPolicyTemplates.map((tpl) => ({
+      policyId: tpl.id,
+      label: $t(tpl.labelKey),
+      text: tpl.text,
     }))
     const custom: Target[] = customPolicies.map((c) => ({
       policyId: c.id,

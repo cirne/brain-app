@@ -2,7 +2,7 @@
  * JSONL eval task expectations (Enron, wiki agents — see eval/tasks/*.jsonl).
  */
 
-import type { BrainQueryBuiltinPolicyId } from '../../../client/lib/brainQueryPolicyTemplates.js'
+import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
 
 /** Built-in presets exercised by `b2b-filter.jsonl` (`server-default` is intentionally omitted). */
 export type BrainQueryB2bFilterPresetId = Extract<

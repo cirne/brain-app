@@ -1,15 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@client/test/render.js'
 import Tunnels from './Tunnels.svelte'
 import { apiFetch } from '@client/lib/apiFetch.js'
+import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
+import { resetBrainQueryBuiltinPolicyBodiesCacheForTests } from '@client/lib/brainQueryBuiltinPolicyBodiesApi.js'
 
 vi.mock('@client/lib/apiFetch.js', () => ({
   apiFetch: vi.fn(),
 }))
 
+const diskBuiltinBodies = getBuiltinPolicyBodiesFromDisk()
+
 describe('Tunnels.svelte', () => {
   beforeEach(() => {
     vi.mocked(apiFetch).mockReset()
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (u.includes('/api/brain-query/builtin-policy-bodies')) {
+          return Promise.resolve(new Response(JSON.stringify({ bodies: diskBuiltinBodies }), { status: 200 }))
+        }
+        if (u.includes('/api/brain-query/policies')) {
+          return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as typeof fetch,
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    resetBrainQueryBuiltinPolicyBodiesCacheForTests()
   })
 
   const baseProps = {

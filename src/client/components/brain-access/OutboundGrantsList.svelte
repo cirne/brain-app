@@ -2,6 +2,7 @@
   import { X } from 'lucide-svelte'
   import { t } from '@client/lib/i18n/index.js'
   import type { BrainAccessCustomPolicy } from '@client/lib/brainAccessCustomPolicies.js'
+  import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
   import {
     classifyGrantPolicy,
     type BrainAccessGrantRow,
@@ -10,11 +11,18 @@
   type Props = {
     grantedToMe: BrainAccessGrantRow[]
     customPolicies: BrainAccessCustomPolicy[]
+    builtinPolicyBodies: Record<BrainQueryBuiltinPolicyId, string>
     onRemoveInbound?: (_grantId: string) => void
     removeBusyId?: string | null
   }
 
-  let { grantedToMe, customPolicies, onRemoveInbound, removeBusyId = null }: Props = $props()
+  let {
+    grantedToMe,
+    customPolicies,
+    builtinPolicyBodies,
+    onRemoveInbound,
+    removeBusyId = null,
+  }: Props = $props()
 </script>
 
 <section class="flex flex-col gap-2" aria-labelledby="brain-access-outbound-heading">
@@ -32,7 +40,7 @@
   {:else}
     <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
       {#each grantedToMe as row (row.id)}
-        {@const meta = classifyGrantPolicy(row, customPolicies)}
+        {@const meta = classifyGrantPolicy(row, customPolicies, builtinPolicyBodies)}
         <li
           class="inline-flex max-w-full items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-2 py-1.5 pl-3 pr-1 text-[0.8125rem] text-foreground"
         >

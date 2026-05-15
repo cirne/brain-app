@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown } from 'lucide-svelte'
+  import { ChevronDown, UserPlus } from 'lucide-svelte'
   import { t } from '@client/lib/i18n/index.js'
   import {
     fetchWorkspaceHandleSuggestions,
@@ -123,6 +123,7 @@
     disabled={disabled || busy}
     onclick={toggle}
   >
+    <UserPlus size={14} class="shrink-0 opacity-90" aria-hidden="true" />
     {$t('access.addUserDropdown.actions.add')}
     <ChevronDown size={14} class="opacity-70" aria-hidden="true" />
   </button>

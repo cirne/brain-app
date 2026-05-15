@@ -21,6 +21,9 @@
     "fallbackPolicyLabel": "Policy",
     "policyNotFound": "This policy isn’t here anymore.",
     "policyTextHeading": "Policy text",
+    "builtinReadOnlyNote": "This text is part of a standard preset and can’t be edited. Add a custom policy when you need different instructions, then assign it to each collaborator.",
+    "policyTitleLabel": "Title",
+    "policyTitlePlaceholder": "e.g. Executive team",
     "ariaDeletePolicyRemoveCollaboratorsFirst": "Delete policy (remove all collaborators first)",
     "ariaDeletePolicy": "Delete policy",
     "emptyPolicyText": "—",
@@ -39,6 +42,7 @@
       "failedToLoadGrants": "Couldn’t load collaborators.",
       "invalidGrantsResponse": "Couldn’t load this page. Try again.",
       "missingPolicyText": "Add policy text before saving.",
+      "missingPolicyTitle": "Add a title before saving.",
       "couldNotAddHandle": "Couldn’t add @{{handle}}. Check the handle and try again.",
       "removeFailed": "Couldn’t remove access.",
       "saveFailed": "Couldn’t save the policy.",
@@ -65,7 +69,7 @@
     },
     "fields": {
       "policyName": {
-        "label": "Policy name",
+        "label": "Title",
         "placeholder": "e.g. Executive team"
       },
       "startFromTemplate": "Start from template",
@@ -107,6 +111,24 @@
     "empty": "No other policies yet.",
     "actions": {
       "applying": "Applying…"
+    }
+  },
+  "policyPresets": {
+    "trusted": {
+      "label": "Trusted confidante",
+      "hint": "Stops passwords, sensitive money or health details, privileged legal material, and private confidences about others that are not part of their coordination need—plus raw technical leftovers. Project nicknames and light routing can still pass when they are not sensitive. This is not a 'shorter reply' control."
+    },
+    "general": {
+      "label": "General collaborator",
+      "hint": "Everything in Trusted, and it also trims courtesy hellos routed through unrelated people, speculative or rumor-framed colleague detail when it is optional, and internal nicknames when time, place, and decisions read clearly without the label."
+    },
+    "minimal-disclosure": {
+      "label": "Minimal disclosure",
+      "hint": "Strongest preset: treats internal nicknames as sensitive unless dropping them would make the reply misleading about what happens or when; removes optional narrative, hedging, and assistant-style offers unless they clearly invited more—prefers the smallest honest surface."
+    },
+    "serverDefault": {
+      "label": "Standard baseline",
+      "hint": "Shared minimum when no named preset applies: no credentials, sensitive health or legal material, unrelated third-party gossip, or risky financial detail—paraphrase when quoting would leak."
     }
   },
   "brainQueryPolicyBaselineNote": {
