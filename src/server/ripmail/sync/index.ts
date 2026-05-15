@@ -24,6 +24,7 @@ import type { RefreshOptions, RefreshResult, RefreshSourceResult } from '../type
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { clearSyncSummaryRunning, setSyncSummaryRunning, updateSourceLastSynced } from './persist.js'
 import { ensureSourceRowsFromConfig } from '../sources.js'
+import { isEnronEvalFixtureRipmailSourceId } from '@server/lib/auth/enronDemo.js'
 
 /** Global cap for independent source refreshes; per-source syncs keep their own inner limits. */
 export const RIPMAIL_REFRESH_SOURCE_CONCURRENCY = 10
@@ -56,6 +57,9 @@ function buildRefreshTasks(params: {
       kind: source.kind ?? 'imap',
       errorLogMessage: 'ripmail:refresh:source-error',
       run: async () => {
+        if (isEnronEvalFixtureRipmailSourceId(source.id)) {
+          return { ok: true, messagesAdded: 0, messagesUpdated: 0 }
+        }
         const isGmailOAuth = source.imapAuth === 'googleOAuth'
         if (isGmailOAuth) {
           const oauthTokens = loadGoogleOAuthTokens(ripmailHome, source.id)

@@ -86,6 +86,16 @@ export function isEnronDemoRegisteredTenantId(tenantUserId: string): boolean {
 }
 
 /**
+ * Ripmail `mailboxId` values in `eval/fixtures/*-manifest.json` (`*_eval_enron_fixture`).
+ * Mail is seeded from the corpus tarball only — there is no live IMAP host to refresh against.
+ */
+export const ENRON_EVAL_FIXTURE_RIPMAIL_SOURCE_ID_SUFFIX = '_eval_enron_fixture'
+
+export function isEnronEvalFixtureRipmailSourceId(sourceId: string): boolean {
+  return sourceId.endsWith(ENRON_EVAL_FIXTURE_RIPMAIL_SOURCE_ID_SUFFIX)
+}
+
+/**
  * “Today” instant for Enron demo tenants: assistant prompt clock and ripmail rolling filters (`180d`, …)
  * resolve relative to this anchor so corpus dates stay reachable.
  */

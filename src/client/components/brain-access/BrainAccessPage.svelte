@@ -201,62 +201,44 @@
       {/if}
 
       <section aria-labelledby="brain-access-policies-heading" class="flex flex-col gap-4">
-    <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
-      {$t('access.brainAccessPage.policiesHeading')}
-    </h2>
-    {#if busy && grantedByMe.length === 0 && grantedToMe.length === 0}
-      <p class="m-0 text-[0.875rem] text-muted">{$t('common.status.loading')}</p>
-    {:else}
-      {#each policyCards as model (model.policyId)}
-        <PolicyCard
-          {model}
-          {onSettingsNavigate}
-          onAddUser={(text, entry) => void addUser(text, entry)}
-          onRemoveGrant={(id) => void removeGrant(id)}
-          onOpenChangePolicy={(id) => {
-            changeGrantId = id
+        <h2 id="brain-access-policies-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">
+          {$t('access.brainAccessPage.policiesHeading')}
+        </h2>
+        {#if busy && grantedByMe.length === 0 && grantedToMe.length === 0}
+          <p class="m-0 text-[0.875rem] text-muted">{$t('common.status.loading')}</p>
+        {:else}
+          {#each policyCards as model (model.policyId)}
+            <PolicyCard
+              {model}
+              {onSettingsNavigate}
+              onAddUser={(text, entry) => void addUser(text, entry)}
+              onRemoveGrant={(id) => void removeGrant(id)}
+              onOpenChangePolicy={(id) => {
+                changeGrantId = id
+              }}
+              removeBusyId={removeBusyId}
+              addBusy={addBusy}
+            />
+          {/each}
+        {/if}
+
+        <button
+          type="button"
+          class="rounded-lg border border-dashed border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface-2 px-4 py-3 text-[0.875rem] font-semibold text-foreground hover:bg-surface-3"
+          onclick={() => {
+            createCustomOpen = true
           }}
-          removeBusyId={removeBusyId}
-          addBusy={addBusy}
-        />
-      {/each}
-    {/if}
-
-    <button
-      type="button"
-      class="rounded-lg border border-dashed border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface-2 px-4 py-3 text-[0.875rem] font-semibold text-foreground hover:bg-surface-3"
-      onclick={() => {
-        createCustomOpen = true
-      }}
-    >
-      {$t('access.brainAccessPage.createCustomPolicy')}
-    </button>
-  </section>
-
-  <OutboundGrantsList
-    grantedToMe={grantedToMe}
-    customPolicies={customPolicies}
-    onRemoveInbound={(id) => void removeGrant(id)}
-    removeBusyId={removeBusyId}
-  />
-
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
-          disabled={busy}
-          onclick={() => void reload()}
         >
-          {$t('common.actions.refresh')}
+          {$t('access.brainAccessPage.createCustomPolicy')}
         </button>
-        <button
-          type="button"
-          class="rounded-md border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-semibold text-foreground hover:bg-surface-2"
-          onclick={() => onBackToSettingsMain()}
-        >
-          {$t('access.brainAccessPage.backToSettings')}
-        </button>
-      </div>
+      </section>
+
+      <OutboundGrantsList
+        grantedToMe={grantedToMe}
+        customPolicies={customPolicies}
+        onRemoveInbound={(id) => void removeGrant(id)}
+        removeBusyId={removeBusyId}
+      />
     </div>
   </div>
 </div>

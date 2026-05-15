@@ -8,6 +8,7 @@ import {
   ENRON_DEMO_SEED_STATUS_PATH,
   ENRON_DEMO_USERS_PATH,
   enronDemoSecretConfigured,
+  isEnronEvalFixtureRipmailSourceId,
   isEnronDemoMintPath,
   isEnronDemoPublicApiPath,
   isEnronDemoReseedPath,
@@ -58,6 +59,14 @@ describe('enronDemo', () => {
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_SEED_STATUS_PATH, 'POST')).toBe(false)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_RESEED_PATH, 'GET')).toBe(true)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_RESEED_PATH, 'POST')).toBe(false)
+  })
+
+  it('isEnronEvalFixtureRipmailSourceId matches eval manifest mailboxId suffix', () => {
+    expect(isEnronEvalFixtureRipmailSourceId('skilling_eval_enron_fixture')).toBe(true)
+    expect(isEnronEvalFixtureRipmailSourceId('kean_eval_enron_fixture')).toBe(true)
+    expect(isEnronEvalFixtureRipmailSourceId('lay_eval_enron_fixture')).toBe(true)
+    expect(isEnronEvalFixtureRipmailSourceId('real_mailbox')).toBe(false)
+    expect(isEnronEvalFixtureRipmailSourceId('')).toBe(false)
   })
 
   it('enronDemoSecretConfigured requires non-empty trimmed secret', () => {

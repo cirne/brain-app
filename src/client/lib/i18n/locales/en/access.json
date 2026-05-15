@@ -1,16 +1,15 @@
 {
   "brainAccessPage": {
     "title": "Tunnels",
-    "lead": "Map collaborators to a policy; your assistant follows it when someone connected to you asks questions or when you reply to them.",
+    "lead": "A Braintunnel is a private line to someone else’s assistant. Here you choose how much yours shares with each person when they reach you—and when you write back.",
     "policiesHeading": "Policies & collaborators",
-    "createCustomPolicy": "+ Create custom policy",
-    "backToSettings": "← Back to Settings",
+    "createCustomPolicy": "Create custom policy",
     "errors": {
-      "failedToLoadGrants": "Failed to load brain query grants.",
-      "invalidGrantsResponse": "Invalid grants response.",
-      "couldNotAddHandle": "Couldn't add @{{handle}}.",
-      "removeFailed": "Remove failed ({{status}})",
-      "updateFailed": "Update failed ({{status}})"
+      "failedToLoadGrants": "Couldn’t load your connections.",
+      "invalidGrantsResponse": "Couldn’t load this page. Try again.",
+      "couldNotAddHandle": "Couldn’t add @{{handle}}. Check the handle and try again.",
+      "removeFailed": "Couldn’t remove access.",
+      "updateFailed": "Couldn’t update the policy."
     }
   },
   "policyCard": {
@@ -20,12 +19,12 @@
   },
   "policyDetailPage": {
     "fallbackPolicyLabel": "Policy",
-    "policyNotFound": "This policy wasn't found.",
+    "policyNotFound": "This policy isn’t here anymore.",
     "policyTextHeading": "Policy text",
     "ariaDeletePolicyRemoveCollaboratorsFirst": "Delete policy (remove all collaborators first)",
     "ariaDeletePolicy": "Delete policy",
     "emptyPolicyText": "—",
-    "editGuidance": "This text is guidance for your assistant when people under this policy connect and collaborate with you.",
+    "editGuidance": "Your assistant follows this text for everyone under this policy.",
     "privacyGuidanceLabel": "Privacy guidance",
     "collaboratorsHeading": "Collaborators ({{count}})",
     "actions": {
@@ -34,29 +33,29 @@
       "savePolicy": "Save policy"
     },
     "tooltips": {
-      "removeCollaboratorsFirst": "Remove all collaborators first"
+      "removeCollaboratorsFirst": "Remove collaborators before you can delete this policy."
     },
     "errors": {
-      "failedToLoadGrants": "Failed to load grants.",
-      "invalidGrantsResponse": "Invalid grants response.",
-      "missingPolicyText": "Missing policy text.",
-      "couldNotAddHandle": "Couldn't add @{{handle}}.",
-      "removeFailed": "Remove failed ({{status}})",
-      "saveFailed": "Save failed ({{status}})",
-      "couldNotUpdateSavedPolicy": "Could not update saved policy.",
-      "cannotSaveWithoutCollaborators": "Cannot save this policy without collaborators.",
-      "updateFailed": "Update failed ({{status}})"
+      "failedToLoadGrants": "Couldn’t load collaborators.",
+      "invalidGrantsResponse": "Couldn’t load this page. Try again.",
+      "missingPolicyText": "Add policy text before saving.",
+      "couldNotAddHandle": "Couldn’t add @{{handle}}. Check the handle and try again.",
+      "removeFailed": "Couldn’t remove access.",
+      "saveFailed": "Couldn’t save the policy.",
+      "couldNotUpdateSavedPolicy": "Couldn’t update this saved policy.",
+      "cannotSaveWithoutCollaborators": "Add at least one collaborator before saving.",
+      "updateFailed": "Couldn’t update the policy."
     },
     "deletePolicyDialog": {
-      "title": "Delete policy?",
+      "title": "Delete this policy?",
       "confirmLabel": "Delete",
-      "body": "This will permanently remove \"{{label}}\" from your saved policies."
+      "body": "This removes “{{label}}” from your saved policies."
     }
   },
   "outboundGrantsList": {
-    "heading": "Brains you can ask",
-    "description": "These workspaces let you message them through a tunnel. Removing someone from your collaborators also removes the reverse link when both sides were connected.",
-    "empty": "No access yet.",
+    "heading": "Brains you can message",
+    "description": "People who accepted your connection to their assistant. Message them from Tunnels when you chat.",
+    "empty": "No one here yet. After someone accepts your connection, they’ll show up.",
     "removeAria": "Remove access to @{{handle}}"
   },
   "customPolicyCreator": {
@@ -86,7 +85,7 @@
   },
   "userDetailRow": {
     "noEmail": "No email on file",
-    "autoSendLabel": "Auto-send tunnel replies (skip review)",
+    "autoSendLabel": "Send tunnel replies without review",
     "actions": {
       "changePolicy": "Change policy…",
       "removeAccessAria": "Remove access for @{{handle}}",
@@ -103,17 +102,17 @@
     }
   },
   "changePolicyDialog": {
-    "title": "Move to another policy",
-    "description": "Pick which privacy preset this collaborator should use.",
-    "empty": "No other policies available.",
+    "title": "Change policy",
+    "description": "Which preset should apply to this person?",
+    "empty": "No other policies yet.",
     "actions": {
       "applying": "Applying…"
     }
   },
   "brainQueryPolicyBaselineNote": {
-    "ariaLabel": "Categories Braintunnel always applies for collaborator mail",
-    "description": "Braintunnel always applies the categories below when drafting replies for collaborators, in addition to your policy. You do not need to repeat them in your own text.",
-    "showBaselineList": "Show baseline list"
+    "ariaLabel": "Categories always excluded from collaborator replies",
+    "description": "Braintunnel always keeps these topics out of collaborator replies, in addition to the policy you pick. You don’t need to repeat them in your own wording.",
+    "showBaselineList": "Show list"
   },
   "brainAccessBreadcrumbs": {
     "ariaLabel": "Tunnels",
@@ -126,11 +125,11 @@
     "actions": {
       "add": "Add"
     },
-    "searchPlaceholder": "Search @handle or name…",
+    "searchPlaceholder": "Search by @handle or name…",
     "searching": "Searching…",
     "empty": {
-      "typeToSearch": "Type to search workspace handles.",
-      "noMatches": "No matches."
+      "typeToSearch": "Type a @handle or name to search.",
+      "noMatches": "No matches—try another spelling or email."
     },
     "noEmail": "No email on file"
   }

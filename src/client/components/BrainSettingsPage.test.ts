@@ -155,10 +155,10 @@ describe('BrainSettingsPage.svelte', () => {
     })
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /tunnels[\s\S]*collaborators/i }),
+        screen.getByRole('button', { name: /tunnels[\s\S]*reach your assistant/i }),
       ).toBeInTheDocument()
     })
-    await fireEvent.click(screen.getByRole('button', { name: /tunnels[\s\S]*collaborators/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /tunnels[\s\S]*reach your assistant/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access' })
   })
 
@@ -170,7 +170,7 @@ describe('BrainSettingsPage.svelte', () => {
       expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     })
     expect(
-      screen.queryByRole('button', { name: /tunnels[\s\S]*collaborators/i }),
+      screen.queryByRole('button', { name: /tunnels[\s\S]*reach your assistant/i }),
     ).not.toBeInTheDocument()
   })
 

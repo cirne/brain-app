@@ -267,7 +267,7 @@ describe('PolicyDetailPage.svelte', () => {
       await fireEvent.click(screen.getByRole('button', { name: /^delete policy$/i }))
 
       const dialog = await screen.findByRole('dialog')
-      expect(within(dialog).getByRole('heading', { name: /delete policy\?/i })).toBeInTheDocument()
+      expect(within(dialog).getByRole('heading', { name: /delete this policy\?/i })).toBeInTheDocument()
       expect(within(dialog).getByText(/My saved policy/)).toBeInTheDocument()
 
       await fireEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }))

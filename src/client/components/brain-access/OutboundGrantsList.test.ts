@@ -23,8 +23,8 @@ describe('OutboundGrantsList.svelte', () => {
         onRemoveInbound: vi.fn(),
       },
     })
-    expect(screen.getByRole('heading', { name: /^brains you can ask$/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^brains you can ask$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^brains you can message$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^brains you can message$/i })).not.toBeInTheDocument()
     expect(screen.queryByText(/tap to expand/i)).not.toBeInTheDocument()
     expect(screen.getByText(`@${'them-brain'}`)).toBeInTheDocument()
     expect(screen.getByText(new RegExp(tpl.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))).toBeInTheDocument()
@@ -62,6 +62,6 @@ describe('OutboundGrantsList.svelte', () => {
         customPolicies: [],
       },
     })
-    expect(screen.getByText(/no access yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no one here yet/i)).toBeInTheDocument()
   })
 })

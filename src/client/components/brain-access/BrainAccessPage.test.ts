@@ -51,14 +51,13 @@ describe('BrainAccessPage.svelte', () => {
     })
   })
 
-  it('Back to Settings calls onBackToSettingsMain', async () => {
+  it('Settings breadcrumb calls onBackToSettingsMain', async () => {
     const onBackToSettingsMain = vi.fn()
     render(BrainAccessPage, {
       props: { onSettingsNavigate: vi.fn(), onBackToSettingsMain },
     })
-    await waitFor(() => expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument())
-    const back = screen.getByRole('button', { name: /back to settings/i })
-    await fireEvent.click(back)
+    await waitFor(() => expect(screen.getByRole('button', { name: /^settings$/i })).toBeInTheDocument())
+    await fireEvent.click(screen.getByRole('button', { name: /^settings$/i }))
     expect(onBackToSettingsMain).toHaveBeenCalled()
   })
 })
