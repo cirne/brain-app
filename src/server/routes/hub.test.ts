@@ -88,6 +88,14 @@ afterEach(async () => {
   vi.mocked(spawnRipmailBackfillSource).mockClear()
 })
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 describe('hub routes', () => {
   it('GET /sources parses ripmail JSON', async () => {
     const app = new Hono()
@@ -227,6 +235,31 @@ describe('hub routes', () => {
     })
     expect(res.status).toBe(400)
     expect(vi.mocked(spawnRipmailBackfillSource)).not.toHaveBeenCalled()
+  })
+
+  it('BUG-057: POST /sources/backfill must expose a trackable outcome (not only bare 200 ok before spawn settles)', async () => {
+    const d = deferred<Awaited<ReturnType<typeof spawnRipmailBackfillSource>>>()
+    vi.mocked(spawnRipmailBackfillSource).mockImplementationOnce(() => d.promise)
+
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const resEarly = await app.request('http://localhost/api/hub/sources/backfill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a_gmail_com' }),
+    })
+    expect(vi.mocked(spawnRipmailBackfillSource)).toHaveBeenCalledOnce()
+    const bodyEarly = (await resEarly.json()) as Record<string, unknown>
+
+    d.resolve({ ok: false, error: 'boom' })
+    await d.promise
+
+    const trackableImmediately =
+      resEarly.status === 202 ||
+      bodyEarly.ok === false ||
+      (bodyEarly.ok === true && typeof bodyEarly.jobId === 'string')
+
+    expect(trackableImmediately).toBe(true)
   })
 
   it('GET /sources/mail-status returns parsed mailbox row', async () => {

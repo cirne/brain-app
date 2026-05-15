@@ -190,54 +190,42 @@
     },
     "footer": "Think of the wiki as the map of what matters to you: the distilled picture Braintunnel uses alongside live search so help stays personal, consistent, and yours."
   },
-  "hubActivityOverview": {
-    "heading": "What's running",
-    "relativeTime": {
-      "justNow": "just now",
-      "minutesAgo_one": "{{count}}m ago",
-      "minutesAgo_other": "{{count}}m ago",
-      "hoursAgo_one": "{{count}}h ago",
-      "hoursAgo_other": "{{count}}h ago",
-      "yesterday": "yesterday",
-      "daysAgo_one": "{{count}}d ago",
-      "daysAgo_other": "{{count}}d ago"
+  "mailRelativeTime": {
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}}m ago",
+    "minutesAgo_other": "{{count}}m ago",
+    "hoursAgo_one": "{{count}}h ago",
+    "hoursAgo_other": "{{count}}h ago",
+    "yesterday": "yesterday",
+    "daysAgo_one": "{{count}}d ago",
+    "daysAgo_other": "{{count}}d ago"
+  },
+  "ripmailSource": {
+    "empty": "—",
+    "dateRangeSeparator": " — ",
+    "sourceKind": {
+      "imap": "Email",
+      "applemail": "Apple Mail",
+      "localDir": "Local folder",
+      "googleCalendar": "Google Calendar",
+      "appleCalendar": "Apple Calendar",
+      "icsSubscription": "Subscribed calendar",
+      "icsFile": "Calendar file",
+      "googleDrive": "Google Drive"
     },
-    "mail": {
-      "updatingTitle": "Mail index is updating",
-      "title": "Mail index",
-      "statusUnavailable": "Status unavailable",
-      "messagesIndexed": "messages indexed",
-      "coveragePresent": "Present",
-      "coverageSince": "Since {{date}}",
-      "coverageRange": "{{start}} – {{end}}",
-      "coverageNewestAround": "Newest mail around {{date}}",
-      "moreHistorySyncing": "Older messages may still arrive in the background.",
-      "syncing": " · Syncing{{lockAge}}…",
-      "lastSynced": " · Last synced {{value}}",
-      "noSyncTimeYet": " · No sync time yet",
-      "syncNow": "Sync mail now"
-    },
-    "wiki": {
-      "updatingTitle": "Wiki background updates running",
-      "title": "Your wiki",
-      "controlsAriaLabel": "Wiki background updates",
-      "pauseTitle": "Pause background wiki updates",
-      "resumeTitle": "Resume background wiki updates",
-      "updateNowTitle": "Run a background wiki refresh now",
-      "updateNow": "Update wiki now"
-    },
-    "sources": {
-      "title": "Connected sources",
-      "couldNotLoadSummary": "Could not load summary.",
-      "noneYet": "None yet - add mail or calendars so search and your wiki have material to work with.",
-      "manageInSettings": "Manage in Settings"
+    "backfillWindow": {
+      "30d": "30 days",
+      "90d": "90 days",
+      "180d": "180 days",
+      "1y": "1 year",
+      "2y": "2 years"
     }
   },
   "hubBrainAccessSummary": {
-    "ariaLabel": "Brain sharing summary",
-    "title": "Brain to Brain",
-    "description": "Choose who may collaborate via email under each policy — grants and presets live in Settings.",
-    "manageTitle": "Manage Brain access",
+    "ariaLabel": "Tunnels summary",
+    "title": "Tunnels",
+    "description": "Choose who can reach your assistant through a tunnel and which policy applies. Details stay in Settings.",
+    "manageTitle": "Manage Tunnels",
     "manageSubtitle": "Policies, collaborators, and revokes"
   },
   "hubBackgroundAgentsDetail": {

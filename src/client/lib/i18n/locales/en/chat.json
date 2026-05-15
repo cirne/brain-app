@@ -178,7 +178,7 @@
         "autoSendConfirm": {
           "title": "Autosend replies to {{handle}}?",
           "body1": "Your assistant will automatically respond on your behalf without your review. You can still read the full thread afterward.",
-          "body2": "You can change this anytime here or under Brain access.",
+          "body2": "You can change this anytime here or under Tunnels.",
           "confirm": "Autosend"
         },
         "handshakeTitle": "First message from @{{handle}}",
@@ -229,14 +229,14 @@
       "sheetTriggerShort": "Access & replies",
       "policySelectLabel": "Workspace access policy",
       "policySelectAria": "What this person may learn from your workspace",
-      "otherPolicyOption": "Other — Brain access",
+      "otherPolicyOption": "Other — custom in Tunnels",
       "accessHeading": "What they may learn from your workspace",
       "accessShort": {
         "trusted": "Trusted",
         "general": "Collaborator",
         "minimal-disclosure": "Minimal"
       },
-      "accessHintOther": "This connection uses custom policy text. Edit it under Brain access.",
+      "accessHintOther": "This connection uses custom policy text. Edit it under Tunnels.",
       "repliesHeading": "Replies to their questions",
       "replyHint": {
         "review": "Nothing is sent until you approve each draft in this thread.",
@@ -244,7 +244,7 @@
         "ignore": "Their questions will not receive answers through this tunnel.",
         "ignoreActiveHeader": "Not answering their questions — pick Review each or Autosend to resume replies."
       },
-      "customizeBrainAccess": "Customize under Brain access…",
+      "customizeBrainAccess": "Customize under Tunnels…",
       "autoSendTitle": "Autosend replies to {{handle}}?"
     }
   },

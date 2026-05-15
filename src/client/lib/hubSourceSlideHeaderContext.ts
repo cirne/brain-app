@@ -9,6 +9,8 @@ export interface HubSourceSlideHeaderState {
   refreshSpinning: boolean
   /** Optional `title` attribute when refresh is disabled (e.g. Drive with no folders). */
   refreshTitle?: string
+  /** SlideOver refresh icon tooltip + aria when actionable (e.g. mail: “check for new mail”). */
+  refreshAriaLabel?: string
 }
 
 export const HUB_SOURCE_SLIDE_HEADER = Symbol('HUB_SOURCE_SLIDE_HEADER')

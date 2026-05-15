@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
+import { render, screen, waitFor } from '@client/test/render.js'
 import { fetchVaultStatus } from '@client/lib/vaultClient.js'
 import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
 import BrainHubPage from './BrainHubPage.svelte'
@@ -167,13 +167,13 @@ describe('BrainHubPage.svelte (Activity)', () => {
     })
   })
 
-  it('hides Brain to Brain hub section when brainQueryEnabled is false', async () => {
+  it('hides Tunnels hub section when brainQueryEnabled is false', async () => {
     render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: false } })
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1, name: /activity/i })).toBeInTheDocument()
     })
-    expect(screen.queryByText(/^Brain to Brain$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Tunnels$/)).not.toBeInTheDocument()
   })
 
   it('polls /api/background-status while Hub stays mounted', async () => {
@@ -200,189 +200,5 @@ describe('BrainHubPage.svelte (Activity)', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
-
-  it('shows connected sources summary in overview when sources exist', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: RequestInfo) => {
-        const u = String(url)
-        if (u.includes('/api/wiki/edit-history') || u.includes('/api/wiki/recent')) {
-          return Promise.resolve(new Response(JSON.stringify({ files: [] }), { status: 200 }))
-        }
-        if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
-          return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
-        }
-        if (u.includes('/api/background-status')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify(
-                mockBackgroundStatus({
-                  mail: {
-                    indexedTotal: 2,
-                    ftsReady: 2,
-                    messageAvailableForProgress: 2,
-                    configured: true,
-                    dateRange: { from: null, to: null },
-                    phase1Complete: true,
-                    phase2Complete: true,
-                    syncRunning: false,
-                    backfillRunning: false,
-                    backfillPhase: null,
-                    refreshRunning: false,
-                    lastSyncedAt: null,
-                    syncLockAgeMs: null,
-                    pendingBackfill: false,
-                    staleMailSyncLock: false,
-                  },
-                }),
-              ),
-              { status: 200, headers: { 'Content-Type': 'application/json' } },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources/detail')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ ok: false, error: 'not used' }), { status: 200 }),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                sources: [
-                  {
-                    id: 'a',
-                    kind: 'imap',
-                    displayName: 'you@example.com',
-                    path: null,
-                  },
-                ],
-              }),
-              { status: 200 },
-            ),
-          )
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: /what.*running/i })).toBeInTheDocument()
-      expect(screen.getByText(/Connected sources/i)).toBeInTheDocument()
-      expect(screen.getByText(/1 mailbox/i)).toBeInTheDocument()
-    })
-    expect(screen.queryByRole('button', { name: /Add another Gmail account/i })).not.toBeInTheDocument()
-  })
-
-  it('Manage in Settings invokes onOpenSettings when wired', async () => {
-    const onOpenSettings = vi.fn()
-    render(BrainHubPage, {
-      props: { onHubNavigate: vi.fn(), onOpenSettings, brainQueryEnabled: true },
-    })
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: /what.*running/i })).toBeInTheDocument()
-    })
-
-    await fireEvent.click(screen.getByRole('button', { name: /manage in settings/i }))
-    expect(onOpenSettings).toHaveBeenCalledTimes(1)
-  })
-
-  it('disables Sync mail now while background mail sync is running', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: RequestInfo) => {
-        const u = String(url)
-        if (u.includes('/api/wiki/edit-history') || u.includes('/api/wiki/recent')) {
-          return Promise.resolve(new Response(JSON.stringify({ files: [] }), { status: 200 }))
-        }
-        if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
-          return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
-        }
-        if (u.includes('/api/background-status')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify(
-                mockBackgroundStatus({
-                  mail: {
-                    indexedTotal: 10,
-                    ftsReady: 10,
-                    messageAvailableForProgress: 10,
-                    configured: true,
-                    dateRange: { from: null, to: null },
-                    phase1Complete: true,
-                    phase2Complete: true,
-                    syncRunning: true,
-                    backfillRunning: false,
-                    backfillPhase: null,
-                    refreshRunning: false,
-                    lastSyncedAt: '2026-01-01T00:00:00.000Z',
-                    syncLockAgeMs: null,
-                    pendingBackfill: false,
-                    staleMailSyncLock: false,
-                  },
-                }),
-              ),
-              { status: 200, headers: { 'Content-Type': 'application/json' } },
-            ),
-          )
-        }
-        if (u.includes('/api/hub/sources/detail')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ ok: false, error: 'not used' }), { status: 200 }),
-          )
-        }
-        if (u.includes('/api/hub/sources')) {
-          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }))
-      }) as unknown as typeof fetch,
-    )
-
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
-
-    await waitFor(() => {
-      const btn = screen.getByRole('button', { name: /sync mail now/i })
-      expect(btn).toBeDisabled()
-      expect(btn).toHaveAttribute('aria-busy', 'true')
-    })
-  })
-
-  it('shows Pause when wiki loop is active and POSTs /api/your-wiki/pause on click', async () => {
-    hubStoreTest.setWikiDoc({
-      id: 'your-wiki',
-      kind: 'your-wiki',
-      status: 'running',
-      label: 'Your Wiki',
-      detail: '',
-      pageCount: 3,
-      logLines: [],
-      startedAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
-      phase: 'enriching',
-    })
-
-    const baseFetch = defaultFetchHandler()
-    const fetchMock = vi.fn((url: RequestInfo, init?: RequestInit) => {
-      const u = String(url)
-      if (u === '/api/your-wiki/pause') {
-        return Promise.resolve(new Response(null, { status: 200 }))
-      }
-      return baseFetch(url, init)
-    }) as unknown as typeof fetch
-    vi.stubGlobal('fetch', fetchMock)
-
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^pause$/i })).toBeInTheDocument()
-    })
-    await fireEvent.click(screen.getByRole('button', { name: /^pause$/i }))
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/your-wiki/pause', { method: 'POST' })
-    })
   })
 })

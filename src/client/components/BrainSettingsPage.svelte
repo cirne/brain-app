@@ -11,10 +11,7 @@
     BookOpen,
   } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
-  import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
-  import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
-  import { subscribe } from '@client/lib/app/appEvents.js'
   import {
     fetchVaultStatus,
     postVaultDeleteAllData,
@@ -28,20 +25,9 @@
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
-  import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
+  import SettingsConnectionsList from '@components/settings/SettingsConnectionsList.svelte'
   import SettingsSectionH2 from '@components/settings/SettingsSectionH2.svelte'
-  import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
-  import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
-  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
-  import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
-  import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
-  import { HUB_BACKGROUND_STATUS_POLL_MS } from '@client/lib/hub/hubBackgroundPoll.js'
-  import { sortHubRipmailSources } from '@client/lib/hub/hubSourceOrdering.js'
-  import { indexFeedSummaryFromHubSources } from '@client/lib/hub/indexFeedSummary.js'
-  import { buildInitialYourWikiDocFromWikiSlice } from '@client/lib/hub/yourWikiDocFromBackground.js'
-  import { wikiOverviewSubtitle, wikiOverviewTitle } from '@client/lib/hub/wikiOverviewCopy.js'
-  import type { HubRipmailSourceRow } from '@client/lib/hub/hubRipmailSource.js'
   import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
@@ -53,21 +39,12 @@
 
   let {
     onSettingsNavigate,
-    selectedHubSourceId: _selectedHubSourceId,
+    selectedHubSourceId,
     brainQueryEnabled = false,
     multiTenant = false,
   }: Props = $props()
 
-  let docCount = $state<number | null>(null)
-  let wikiDoc = $state<BackgroundAgentDoc | null>(null)
-  let mailStatus = $state<OnboardingMailStatus | null>(null)
-  let hubSources = $state<HubRipmailSourceRow[]>([])
-  let hubSourcesError = $state<string | null>(null)
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
-  let wikiActionBusy = $state(false)
-  let backgroundStatusLoading = $state(true)
-  let syncKickBusy = $state(false)
-  let wikiBackgroundUpdateBusy = $state(false)
 
   let addAccountBanner = $state<{ kind: 'ok' | 'err'; message: string } | null>(null)
   let accountBusy = $state(false)
@@ -77,112 +54,6 @@
   function onChatToolDisplayPrefChange(mode: ChatToolDisplayMode) {
     chatToolDisplayMode = mode
     writeChatToolDisplayPreference(mode)
-  }
-
-  const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
-  const wikiIsActive = $derived(
-    wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
-  )
-  const wikiIsPaused = $derived(wikiPhase === 'paused')
-  const wikiIsIdle = $derived(
-    wikiPhase === 'idle' ||
-      (!wikiIsActive && wikiPhase !== 'paused' && wikiPhase !== 'error'),
-  )
-
-  const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
-
-  const wikiHubTitle = $derived(wikiOverviewTitle(wikiDoc))
-  const wikiHubSub = $derived(wikiOverviewSubtitle(wikiDoc, wikiPageCount))
-
-  const orderedHubSources = $derived(sortHubRipmailSources(hubSources))
-
-  function applyBackgroundStatusPayload(bg: BackgroundStatusResponse): void {
-    mailStatus = onboardingMailStatusFromBackground(bg.mail)
-    if (wikiDoc == null && bg.wiki) {
-      wikiDoc = buildInitialYourWikiDocFromWikiSlice(bg.wiki, bg.updatedAt)
-    }
-  }
-
-  async function refreshBackgroundStatusPoll(): Promise<void> {
-    try {
-      const bgRes = await fetch('/api/background-status', { credentials: 'include' })
-      if (!bgRes.ok) return
-      const bg = (await bgRes.json()) as BackgroundStatusResponse
-      applyBackgroundStatusPayload(bg)
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const indexFeedSummary = $derived(indexFeedSummaryFromHubSources(orderedHubSources))
-
-  async function fetchData() {
-    backgroundStatusLoading = true
-    try {
-      const [wikiRes, bgRes, sourcesRes] = await Promise.all([
-        fetch('/api/wiki', { credentials: 'include' }),
-        fetch('/api/background-status', { credentials: 'include' }),
-        fetch('/api/hub/sources', { credentials: 'include' }),
-      ])
-
-      if (wikiRes.ok) {
-        docCount = parseWikiListApiBody(await wikiRes.json()).files.length
-      }
-      if (bgRes.ok) {
-        applyBackgroundStatusPayload((await bgRes.json()) as BackgroundStatusResponse)
-      }
-      if (sourcesRes.ok) {
-        const j = (await sourcesRes.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
-        hubSources = Array.isArray(j.sources) ? j.sources : []
-        hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      backgroundStatusLoading = false
-    }
-  }
-
-  async function syncMailNow() {
-    if (syncKickBusy || mailStatus?.syncRunning) return
-    syncKickBusy = true
-    try {
-      await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
-      await fetchData()
-    } finally {
-      syncKickBusy = false
-    }
-  }
-
-  async function runWikiBackgroundUpdateNow() {
-    if (wikiBackgroundUpdateBusy) return
-    wikiBackgroundUpdateBusy = true
-    try {
-      await postYourWikiRunLap()
-      await fetchData()
-    } finally {
-      wikiBackgroundUpdateBusy = false
-    }
-  }
-
-  async function wikiPause() {
-    if (wikiActionBusy) return
-    wikiActionBusy = true
-    try {
-      await postYourWikiPause()
-    } finally {
-      wikiActionBusy = false
-    }
-  }
-
-  async function wikiResume() {
-    if (wikiActionBusy) return
-    wikiActionBusy = true
-    try {
-      await postYourWikiResume()
-    } finally {
-      wikiActionBusy = false
-    }
   }
 
   function consumeAddAccountQuery() {
@@ -227,24 +98,8 @@
         hostedWorkspaceHandle = undefined
       })
     consumeAddAccountQuery()
-    void fetchData()
-    const pollTimer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
-      void refreshBackgroundStatusPoll()
-    }, HUB_BACKGROUND_STATUS_POLL_MS)
-    const unsubEvents = subscribe((e) => {
-      if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated' || e.type === 'sync:completed') {
-        void fetchData()
-      }
-    })
-    const unsubWikiStore = yourWikiDocFromEvents.subscribe((doc) => {
-      if (doc) wikiDoc = doc
-    })
     const stopHubEvents = startHubEventsConnection()
     return () => {
-      clearInterval(pollTimer)
-      unsubEvents()
-      unsubWikiStore()
       stopHubEvents()
     }
   })
@@ -328,48 +183,25 @@
     </div>
   {/if}
 
-  <HubActivityOverview
-    mailStatus={mailStatus}
-    mailLoading={backgroundStatusLoading}
-    wikiTitle={wikiHubTitle}
-    wikiSubtitle={wikiHubSub}
-    wikiPhase={wikiPhase}
-    wikiIsActive={wikiIsActive}
-    wikiIsPaused={wikiIsPaused}
-    wikiIsIdle={wikiIsIdle}
-    showWikiControls={Boolean(wikiDoc && wikiPhase != null)}
-    onSyncNow={syncMailNow}
-    onWikiUpdateNow={runWikiBackgroundUpdateNow}
-    onPause={wikiPause}
-    onResume={wikiResume}
-    syncBusy={syncKickBusy || Boolean(mailStatus?.syncRunning)}
-    wikiUpdateBusy={wikiBackgroundUpdateBusy}
-    wikiActionBusy={wikiActionBusy}
-    indexFeedSummary={indexFeedSummary}
-    sourcesEmpty={orderedHubSources.length === 0}
-    sourcesError={hubSourcesError}
-    onOpenSettings={() => onSettingsNavigate({ type: 'settings-connections' })}
-  />
-
   <div class="settings-grid grid grid-cols-1 gap-14">
+    <section
+      class="settings-section flex flex-col gap-6"
+      aria-labelledby="settings-connections-heading"
+    >
+      <SettingsSectionH2
+        label={$t('settings.brainSettingsPage.sections.connections')}
+        id="settings-connections-heading"
+      >
+        {#snippet icon()}
+          <Link2 size={18} aria-hidden="true" />
+        {/snippet}
+      </SettingsSectionH2>
+      <SettingsConnectionsList {onSettingsNavigate} {selectedHubSourceId} />
+    </section>
+
     <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-drill-heading">
       <SettingsSectionH2 label={$t('settings.brainSettingsPage.sections.workspace')} id="settings-drill-heading" />
       <div class="links-list flex flex-col">
-        <button
-          type="button"
-          class={drillRowBase}
-          onclick={() => onSettingsNavigate({ type: 'settings-connections' })}
-        >
-          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-            <Link2 size={16} aria-hidden="true" />
-            <HubSourceRowBody
-              title={$t('settings.brainSettingsPage.workspace.connections.title')}
-              subtitle={$t('settings.brainSettingsPage.workspace.connections.subtitle')}
-            />
-          </div>
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-
         <button
           type="button"
           class={drillRowBase}
@@ -449,7 +281,7 @@
               <span>{$t('settings.brainSettingsPage.account.deleteAllData')}</span>
             </div>
             <div class="link-status flex flex-col items-end gap-px">
-              <span class="status-sub text-xs text-muted">
+              <span class="status-sub hidden text-xs text-muted md:inline">
                 {$t('settings.brainSettingsPage.account.deleteAllDataHint')}
               </span>
             </div>

@@ -1,7 +1,10 @@
 import { existsSync } from 'node:fs'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { prepareRipmailDb } from '@server/ripmail/db.js'
 import { ripmailStatusParsed, ripmailDbPath } from '@server/ripmail/index.js'
 import { parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
+import { loadRipmailConfig, getImapSources } from '@server/ripmail/sync/config.js'
+import { getSyncState, gmailOAuthHistoricalBackfillPending } from '@server/ripmail/sync/persist.js'
 
 export type HubSourceMailStatusOk = {
   ok: true
@@ -189,6 +192,28 @@ export async function getHubSourceMailStatus(sourceId: string): Promise<HubSourc
     if (!result) {
       return { ok: false, sourceId: id, error: 'Could not build mail status' }
     }
+    if (!result.mailbox) {
+      return result
+    }
+
+    let needsBackfill = parsed.deepHistoricalPending && (parsed.indexedTotal ?? 0) > 0
+    let lastUid = result.mailbox.lastUid
+
+    try {
+      const db = await prepareRipmailDb(home)
+      const cfg = loadRipmailConfig(home)
+      const src = getImapSources(cfg).find((s) => s.id === id)
+      if (src?.imapAuth === 'googleOAuth') {
+        needsBackfill = gmailOAuthHistoricalBackfillPending(db, id) && (parsed.indexedTotal ?? 0) > 0
+      } else if (src) {
+        const st = getSyncState(db, id, 'INBOX')
+        lastUid = st?.lastUid ?? null
+      }
+    } catch {
+      /* keep parsed-only needsBackfill + default lastUid when DB is unavailable (tests / drift) */
+    }
+
+    result.mailbox = { ...result.mailbox, needsBackfill, lastUid }
     return result
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

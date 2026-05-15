@@ -467,6 +467,7 @@
       refreshTitle: blocked
         ? $t('hub.hubConnectorSourcePanel.refresh.driveBlockedTitle')
         : undefined,
+      refreshAriaLabel: mail ? $t('inbox.hubConnectorMailSections.sync.checkNewMail') : undefined,
     }
     if (!hubSourceHeaderCtrl?.isOwner) {
       hubSourceHeaderCtrl = hubSourceHeaderCell.claim(next)

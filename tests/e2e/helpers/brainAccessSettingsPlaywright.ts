@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
-/** Main list (`/settings/brain-access`): “Policies & collaborators” (see `access.json`). */
+/** Tunnels page (`/settings/brain-access`): “Policies & collaborators” (see `access.json`). */
 export async function expectBrainAccessListHeadingVisible(
   page: Page,
   opts?: { timeout?: number },

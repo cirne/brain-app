@@ -174,4 +174,22 @@ describe('getHubSourceMailStatus', () => {
     expect(r.ok && r.mailbox?.earliestDate?.startsWith('2018-09-03')).toBe(true)
     expect(r.ok && r.mailbox?.latestDate?.startsWith('2026-05-13')).toBe(true)
   })
+
+  it('BUG-057: mailbox.needsBackfill reflects deepHistoricalPending when mail is indexed (DB/API honesty)', async () => {
+    mockRipmailStatusParsed.mockResolvedValueOnce({
+      ...parsedStatusFixture,
+      syncRunning: false,
+      refreshRunning: false,
+      backfillRunning: false,
+      deepHistoricalPending: true,
+      pendingRefresh: false,
+    })
+
+    const r = await getHubSourceMailStatus('lewiscirne_gmail_com')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      /** Today: synthesized mailboxes stub omits needsBackfill → parsed as false. */
+      expect(r.mailbox?.needsBackfill).toBe(true)
+    }
+  })
 })

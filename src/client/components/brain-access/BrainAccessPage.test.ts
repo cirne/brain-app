@@ -43,7 +43,7 @@ describe('BrainAccessPage.svelte', () => {
     render(BrainAccessPage, {
       props: { onSettingsNavigate, onBackToSettingsMain },
     })
-    expect(screen.getByRole('heading', { name: /brain to brain access/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^tunnels$/i })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByText(/trusted confidante/i)).toBeInTheDocument()
       expect(screen.getByText(/general collaborator/i)).toBeInTheDocument()

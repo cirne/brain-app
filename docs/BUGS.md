@@ -48,10 +48,6 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 
 **Open (design).** Optional fields like **`from`** / **`since`** can cause **whole indexed sources** (e.g. Google Drive) to be **omitted** when those predicates don’t apply, instead of running **text search** with filters stripped or **timestamps mapped** (mail received vs file modified). See [bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md).
 
-### [BUG-057](bugs/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md): Ripmail: backfill/refresh reliability, logging, and UI must match reality
-
-**Open.** Refresh/backfill failures can be invisible in the UI; Hub status omits fields so **`needsBackfill` / `lastUid`** mislead; Gmail short-window bootstrap vs historical pull is easy to confuse. Need structured ops logs (NR), honest API + connector copy, and trackable backfill outcomes. See [bugs/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md](bugs/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md).
-
 ---
 
 ## Fixed (archived)
@@ -249,6 +245,9 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 
 **Archived (2026-05-15).** Structured **`search_index`** zero-hit + high-recall hints, **`find_person`** description improved, **`enron-026`** regression for grounded high-recall answers (no mandatory **`find_person`**). User feedback **#18**. See [bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md](bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md).
 
+### [BUG-057](bugs/archive/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md): Ripmail: backfill/refresh reliability, logging, and UI truth (server/API slice)
+
+**Archived (2026-05-15).** Hub **`needsBackfill` / `lastUid`** from SQLite; **`POST /sources/backfill`** returns **`jobId`**; Gmail bootstrap ~**1y** list; **`lane` / phase** Gmail + **`ripmail:refresh:completed`** logging; systemic Gmail **`messages.get`** failure → **`result.error`**; **`statusParsed`** ignores absurd future **`MAX(date)`**. UI copy / unified timestamps / concurrent-lane UX remain follow-up. See [bugs/archive/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md](bugs/archive/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md).
 ### BUG-002 (archived): Chat — background stream hijacked the right panel
 
 **Was:** Global detail state + unscoped SSE callbacks so a background run could open wiki/email/calendar for the wrong chat.

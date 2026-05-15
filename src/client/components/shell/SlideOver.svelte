@@ -487,21 +487,28 @@
         </button>
       {/if}
       {#if overlay.type === 'hub-source' && hubSourceHdr.current}
+        {@const hubSrcHdr = hubSourceHdr.current}
+        {@const hubRefreshLabel =
+          hubSrcHdr.refreshDisabled && hubSrcHdr.refreshTitle
+            ? hubSrcHdr.refreshTitle
+            : (hubSrcHdr.refreshAriaLabel ??
+              hubSrcHdr.refreshTitle ??
+              $t('nav.hub.refreshIndex'))}
         <button
           type="button"
           class={cn('cal-header-icon-btn', headerIconBtnBase)}
-          disabled={hubSourceHdr.current.refreshDisabled}
-          title={hubSourceHdr.current.refreshTitle ?? $t('nav.hub.refreshIndex')}
-          aria-label={$t('nav.hub.refreshIndex')}
-          aria-busy={hubSourceHdr.current.refreshSpinning ? 'true' : undefined}
+          disabled={hubSrcHdr.refreshDisabled}
+          title={hubRefreshLabel}
+          aria-label={hubRefreshLabel}
+          aria-busy={hubSrcHdr.refreshSpinning ? 'true' : undefined}
           onclick={() => hubSourceHdr.current?.onRefresh()}
         >
-          <span class={hubSourceHdr.current.refreshSpinning ? 'cal-refresh-spin' : ''}>
+          <span class={hubSrcHdr.refreshSpinning ? 'cal-refresh-spin' : ''}>
             <RefreshCw
               size={18}
               strokeWidth={2}
               aria-hidden="true"
-              class={hubSourceHdr.current.refreshSpinning ? 'hub-refresh-working' : ''}
+              class={hubSrcHdr.refreshSpinning ? 'hub-refresh-working' : ''}
             />
           </span>
         </button>

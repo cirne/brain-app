@@ -22,7 +22,7 @@ export function enronCollaborationE2eUnavailableMessage(reason: EnronB2BE2eUnava
 }
 
 /**
- * Multi-tenant Enron demos that need **brain-query grants**, Settings → Brain access, or **`ask_collaborator`**
+ * Multi-tenant Enron demos that need **brain-query grants**, Settings → Tunnels, or **`ask_collaborator`**
  * should `await applyEnronCollaborationE2eGate(test.skip, …)` once per `describe` **`beforeEach`**.
  */
 export async function applyEnronCollaborationE2eGate(

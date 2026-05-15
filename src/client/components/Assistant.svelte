@@ -1883,7 +1883,6 @@ import AppShell from '@components/app/AppShell.svelte'
                 <BrainHubPage
                   brainQueryEnabled={brainQueryEnabled}
                   onHubNavigate={navigateFromHub}
-                  onOpenSettings={openSettings}
                   onOpenBrainAccess={openBrainAccessSettings}
                 />
               </div>

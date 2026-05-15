@@ -194,7 +194,7 @@
                 </div>
                 <div class="wiki-recent-row-meta inline-flex shrink-0 items-center justify-end gap-2">
                   <span class="status-sub wiki-recent-time whitespace-nowrap text-xs text-muted"
-                  >{formatRelativeDate(f.date)}</span>
+                  >{formatRelativeDate(f.date, $t)}</span>
                   <ChevronRight size={16} aria-hidden="true" />
                 </div>
               </button>

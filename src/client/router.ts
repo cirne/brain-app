@@ -22,7 +22,7 @@ export type Overlay =
   | { type: 'hub-source'; id?: string }
   /** Brain Hub admin/settings/status main surface when hub is primary. */
   | { type: 'hub' }
-  /** Brain-to-brain access management list (`/settings/brain-access`). */
+  /** Tunnel policies & collaborators (`/settings/brain-access`). */
   | { type: 'brain-access' }
   /** Single policy detail (`/settings/brain-access/policy/:policyId`). */
   | { type: 'brain-access-policy'; policyId: string }

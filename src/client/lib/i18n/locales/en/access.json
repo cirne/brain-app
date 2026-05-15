@@ -1,6 +1,6 @@
 {
   "brainAccessPage": {
-    "title": "Brain to Brain access",
+    "title": "Tunnels",
     "lead": "Map collaborators to a policy; your assistant follows it when someone connected to you asks questions or when you reply to them.",
     "policiesHeading": "Policies & collaborators",
     "createCustomPolicy": "+ Create custom policy",
@@ -55,7 +55,7 @@
   },
   "outboundGrantsList": {
     "heading": "Brains you can ask",
-    "description": "These are workspaces that granted you cross-brain access. Removing someone from your collaborators also removes the reverse link when both sides were connected.",
+    "description": "These workspaces let you message them through a tunnel. Removing someone from your collaborators also removes the reverse link when both sides were connected.",
     "empty": "No access yet.",
     "removeAria": "Remove access to @{{handle}}"
   },
@@ -116,7 +116,7 @@
     "showBaselineList": "Show baseline list"
   },
   "brainAccessBreadcrumbs": {
-    "ariaLabel": "Brain access",
+    "ariaLabel": "Tunnels",
     "fallbackPolicyLabel": "Policy"
   },
   "addUserDropdown": {

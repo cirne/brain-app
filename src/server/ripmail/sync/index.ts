@@ -224,6 +224,7 @@ export async function refresh(ripmailHome: string, opts?: RefreshOptions): Promi
       {
         ripmailHome,
         sourceId: opts?.sourceId,
+        lane,
         sourceCount: sources.length,
         concurrency: RIPMAIL_REFRESH_SOURCE_CONCURRENCY,
         sources: sources.map((source) => ({

@@ -7,29 +7,26 @@
       "added": "Added {{mailbox}}. Braintunnel is syncing this mailbox now."
     },
     "sections": {
-      "workspace": "Workspace",
-      "account": "Account",
+    "workspace": "Workspace",
+    "connections": "Connections",
+    "account": "Account",
       "chat": "Chat"
     },
     "workspace": {
-      "connections": {
-        "title": "Connections",
-        "subtitle": "Mailboxes, calendars, and folders wired into Braintunnel"
-      },
       "wikiActivity": {
         "title": "Wiki activity",
         "subtitle": "Background jobs, recent edits, and wiki log"
       },
       "brainAccess": {
-        "title": "Brain to Brain access",
+        "title": "Tunnels",
         "subtitle": "Policies, collaborators, and inbound activity"
       }
     },
     "account": {
       "profile": "Your profile",
       "signOut": "Sign out",
-      "deleteAllData": "Delete all my data",
-      "deleteAllDataHint": "Removes wiki, index, chats"
+      "deleteAllData": "Delete my Account",
+      "deleteAllDataHint": "Deletes Wiki and Chat History."
     },
     "chat": {
       "description": "How assistant tool use appears in your message history.",
@@ -74,8 +71,8 @@
       "hiddenFromSearchLabel": "Hidden from search"
     },
     "addAnotherGmail": {
-      "title": "Add another Gmail account",
-      "subtitle": "Search and send from a second mailbox in the same workspace"
+      "title": "Add another Google account",
+      "subtitle": "Gmail, Google Calendar, and Google Drive"
     }
   },
   "settingsWikiPage": {

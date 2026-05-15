@@ -5,6 +5,7 @@
     formatDay,
     formatLastSync,
     HUB_MAIL_BACKFILL_WINDOW_OPTIONS,
+    mailboxCoversHubBackfillWindow,
     type HubMailStatusOk,
   } from '@client/lib/hub/hubRipmailSource.js'
   import { t } from '@client/lib/i18n/index.js'
@@ -64,6 +65,17 @@
   const indexLineSep = 'hub-source-index-line-sep opacity-45 select-none font-normal'
   const codeClass =
     'hub-source-code text-[0.8em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation_Mono","Courier_New",monospace]'
+
+  const downloadOlderBusy = $derived(sourceSyncAction !== null || !!mailStatus?.index.backfillRunning)
+  const downloadOlderBlockedByCoverage = $derived.by(() => {
+    const mb = mailStatus?.mailbox
+    const needsBackfill = mb?.needsBackfill ?? false
+    return (
+      !needsBackfill &&
+      mailboxCoversHubBackfillWindow(mb?.earliestDate ?? null, mb?.messageCount ?? 0, backfillWindow)
+    )
+  })
+  const downloadOlderDisabled = $derived(downloadOlderBusy || downloadOlderBlockedByCoverage)
 </script>
 
 <section
@@ -82,23 +94,26 @@
       </p>
     {/if}
     {#if mailStatus.index.refreshRunning || mailStatus.index.backfillRunning}
-      <p class={cn(noteClass, noteActive)} role="status">
-        {#if mailStatus.index.refreshRunning && mailStatus.index.backfillRunning}
-          {$t('inbox.hubConnectorMailSections.status.refreshAndBackfillRunning')}
-        {:else if mailStatus.index.backfillRunning}
-          {$t('inbox.hubConnectorMailSections.status.backfillRunning')}
-          {#if mailStatus.index.backfillListedTarget != null && mailStatus.index.backfillListedTarget > 0 && mailStatus.mailbox}
-            <span class="mt-1 block font-normal text-muted">
+      <div class="flex flex-col gap-1" role="status">
+        {#if mailStatus.index.refreshRunning}
+          <p class={cn(noteClass, noteActive)}>
+            {$t('inbox.hubConnectorMailSections.status.refreshRunning')}
+          </p>
+        {/if}
+        {#if mailStatus.index.backfillRunning}
+          <p class={cn(noteClass, noteActive)}>
+            {$t('inbox.hubConnectorMailSections.status.backfillRunning')}
+          </p>
+          {#if mailStatus.mailbox != null && mailStatus.index.backfillListedTarget != null && mailStatus.index.backfillListedTarget > 0}
+            <p class={cn(noteClass, 'font-normal text-muted')}>
               {$t('inbox.hubConnectorMailSections.status.backfillProgress', {
                 indexed: mailStatus.mailbox.messageCount.toLocaleString(),
                 target: mailStatus.index.backfillListedTarget.toLocaleString(),
               })}
-            </span>
+            </p>
           {/if}
-        {:else}
-          {$t('inbox.hubConnectorMailSections.status.refreshRunning')}
         {/if}
-      </p>
+      </div>
     {/if}
     {#if mailStatus.mailbox?.needsBackfill}
       <p class={warnClass}>
@@ -111,9 +126,9 @@
       <p class={indexLineClass} role="status">
         <span>{$t('inbox.hubConnectorMailSections.summary.messages', { count: mb.messageCount.toLocaleString() })}</span>
         <span class={indexLineSep} aria-hidden="true">·</span>
-        <span>{formatDay(mb.earliestDate)} — {formatDay(mb.latestDate)}</span>
+        <span>{formatDay(mb.earliestDate, $t)}{$t('hub.ripmailSource.dateRangeSeparator')}{formatDay(mb.latestDate, $t)}</span>
         <span class={indexLineSep} aria-hidden="true">·</span>
-        <span>{$t('inbox.hubConnectorMailSections.summary.lastSync', { value: formatLastSync(idx) })}</span>
+        <span>{$t('inbox.hubConnectorMailSections.summary.lastSync', { value: formatLastSync(idx, $t) })}</span>
       </p>
     {:else}
       <p class={noteClass}>
@@ -183,25 +198,31 @@
     {$t('inbox.hubConnectorMailSections.sync.description')}
   </p>
   <div
-    class="hub-source-sync-controls flex flex-wrap items-center gap-x-4 gap-y-2"
+    class="hub-source-sync-controls flex flex-wrap items-center gap-x-3 gap-y-2"
   >
     <label
-      class="hub-backfill-label text-[0.8125rem] font-semibold text-muted"
+      class="hub-backfill-label shrink-0 text-[0.8125rem] font-semibold text-muted"
       for="hub-panel-backfill-since"
     >
       {$t('inbox.hubConnectorMailSections.sync.backfillWindow')}
     </label>
     <select
       id="hub-panel-backfill-since"
-      class="hub-backfill-select min-w-36 cursor-pointer border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-[0.35rem] text-sm text-foreground"
+      class="hub-backfill-select min-w-36 shrink-0 cursor-pointer border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-[0.35rem] text-sm text-foreground"
       bind:value={backfillWindow}
     >
       {#each HUB_MAIL_BACKFILL_WINDOW_OPTIONS as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
+        <option value={opt.value}>{$t(opt.labelKey)}</option>
       {/each}
     </select>
-  </div>
-  <div class="hub-source-sync-buttons flex flex-wrap gap-2">
+    {#if !downloadOlderDisabled}
+      <button type="button" class={cn(btnSecondary, hubSourceSyncBtn)} onclick={onBackfill}>
+        <History size={16} aria-hidden="true" />
+        {sourceSyncAction === 'backfill'
+          ? $t('inbox.hubConnectorMailSections.sync.starting')
+          : $t('inbox.hubConnectorMailSections.sync.retryBackfill')}
+      </button>
+    {/if}
     {#if showInlineRefresh}
       <button
         type="button"
@@ -212,19 +233,13 @@
         <RefreshCw size={16} aria-hidden="true" />
         {sourceSyncAction === 'refresh'
           ? $t('inbox.hubConnectorMailSections.sync.starting')
-          : $t('common.actions.refresh')}
+          : $t('inbox.hubConnectorMailSections.sync.checkNewMail')}
       </button>
     {/if}
-    <button
-      type="button"
-      class={cn(btnSecondary, hubSourceSyncBtn)}
-      disabled={sourceSyncAction !== null}
-      onclick={onBackfill}
-    >
-      <History size={16} aria-hidden="true" />
-      {sourceSyncAction === 'backfill'
-        ? $t('inbox.hubConnectorMailSections.sync.starting')
-        : $t('inbox.hubConnectorMailSections.sync.retryBackfill')}
-    </button>
   </div>
+  {#if downloadOlderBlockedByCoverage && !downloadOlderBusy}
+    <p class="hub-source-sync-coverage-note m-0 max-w-[40rem] text-[0.8125rem] leading-[1.45] text-muted">
+      {$t('inbox.hubConnectorMailSections.sync.downloadOlderDisabledCoverage')}
+    </p>
+  {/if}
 </div>

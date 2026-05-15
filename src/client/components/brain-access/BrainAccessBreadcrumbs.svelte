@@ -6,7 +6,7 @@
     variant: 'list' | 'policy'
     /** Display name for the policy (policy variant). */
     policyLabel?: string
-    /** Navigate to the Brain access list (policy variant). */
+    /** Navigate to the tunnels list (policy variant). */
     onGoToList?: () => void
     /** When set, prepend “Settings” as the root crumb (unified settings hierarchy). */
     onGoToSettings?: () => void

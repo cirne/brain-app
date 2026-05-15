@@ -113,7 +113,7 @@ export function createAskCollaboratorTool() {
         const g = getActiveBrainQueryGrant({ ownerId: entry.userId, askerId: tenantId })
         if (!g) {
           throw new Error(
-            `@${entry.handle} has not granted this workspace Ask Brain access (or it was revoked).`,
+            `@${entry.handle} has not granted this workspace a tunnel (or it was revoked).`,
           )
         }
         return g

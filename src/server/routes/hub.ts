@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 import {
   browseHubRipmailFolders,
@@ -217,12 +218,16 @@ hub.post('/sources/backfill', async (c) => {
   if (!isValidHubBackfillSince(since)) {
     return c.json({ ok: false as const, error: 'invalid backfill window' }, 400)
   }
+  const jobId = randomUUID()
   void spawnRipmailBackfillSource(id, since).then((r) => {
     if (!r.ok) {
-      console.error('[hub/sources/backfill] ripmail backfill failed:', r.error ?? 'backfill failed')
+      console.error(
+        `[hub/sources/backfill] jobId=${jobId} ripmail backfill failed:`,
+        r.error ?? 'backfill failed',
+      )
     }
   })
-  return c.json({ ok: true as const })
+  return c.json({ ok: true as const, jobId })
 })
 
 hub.post('/sources/update-include-shared-with-me', async (c) => {

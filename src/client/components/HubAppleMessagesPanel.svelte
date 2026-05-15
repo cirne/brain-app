@@ -42,11 +42,11 @@
   function activityLine(lastUsedAt: string | null, createdAt: string): string {
     if (lastUsedAt) {
       return $t('inbox.hubAppleMessagesPanel.activity.lastSync', {
-        value: formatRelativeDate(lastUsedAt),
+        value: formatRelativeDate(lastUsedAt, $t),
       })
     }
     return $t('inbox.hubAppleMessagesPanel.activity.linkedAwaitingFirstSync', {
-      value: formatRelativeDate(createdAt),
+      value: formatRelativeDate(createdAt, $t),
     })
   }
 

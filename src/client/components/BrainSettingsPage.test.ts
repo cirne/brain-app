@@ -132,6 +132,7 @@ describe('BrainSettingsPage.svelte', () => {
     expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByText('@testuser')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Connections' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'Workspace' })).toBeInTheDocument()
     })
   })
@@ -147,26 +148,30 @@ describe('BrainSettingsPage.svelte', () => {
     expect(window.location.search).toBe('')
   })
 
-  it('Brain to Brain access row opens brain-access overlay', async () => {
+  it('Tunnels row opens brain-access overlay', async () => {
     const onSettingsNavigate = vi.fn()
     render(BrainSettingsPage, {
       props: { onSettingsNavigate, brainQueryEnabled: true },
     })
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /brain to brain access/i })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /tunnels[\s\S]*collaborators/i }),
+      ).toBeInTheDocument()
     })
-    await fireEvent.click(screen.getByRole('button', { name: /brain to brain access/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /tunnels[\s\S]*collaborators/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access' })
   })
 
-  it('hides Brain to Brain access when brainQueryEnabled is false', async () => {
+  it('hides Tunnels row when brainQueryEnabled is false', async () => {
     render(BrainSettingsPage, {
       props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: false },
     })
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /brain to brain access/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /tunnels[\s\S]*collaborators/i }),
+    ).not.toBeInTheDocument()
   })
 
   it('renders chat tool display preference and persists when toggled', async () => {

@@ -29,6 +29,8 @@ export interface GmailSyncResult {
   messagesAdded: number
   messagesUpdated: number
   error?: string
+  /** Count of message fetches that failed (per-message catch); used for partial-failure surfacing. */
+  fetchFailures?: number
 }
 
 /** Cap Gmail messages.list pagination per refresh (500 ids/page). */
@@ -113,14 +115,13 @@ async function listHistoricalMessageIds(
   return ids
 }
 
-async function listRecentMessageIds(gmail: ReturnType<typeof google.gmail>): Promise<string[]> {
-  const sevenDaysAgo = Math.floor((Date.now() - 7 * DAY_SEC * 1000) / 1000)
-  const resp = await gmail.users.messages.list({
-    userId: 'me',
-    q: `after:${sevenDaysAgo}`,
-    maxResults: 500,
-  })
-  return (resp.data.messages ?? []).map((m) => m.id ?? '').filter(Boolean)
+/** Gmail bootstrap when `historyId` is missing: list IDs over a wide window (same span as `1y` backfill), paginated. */
+async function listBootstrapMessageIdsWithoutHistory(
+  gmail: ReturnType<typeof google.gmail>,
+  abort: AbortSignal | undefined,
+): Promise<string[]> {
+  const afterEpoch = historicalSinceToAfterEpochSeconds('1y')
+  return listHistoricalMessageIds(gmail, afterEpoch, abort)
 }
 
 export async function syncGmailSource(
@@ -147,13 +148,14 @@ export async function syncGmailSource(
 
     let messageIds: string[]
     const hist = opts?.historicalSince
+    const lane: 'refresh' | 'backfill' = hist && isHistoricalSince(hist) ? 'backfill' : 'refresh'
 
     if (hist && isHistoricalSince(hist)) {
       const afterEpoch = historicalSinceToAfterEpochSeconds(hist)
       messageIds = await listHistoricalMessageIds(gmail, afterEpoch, opts?.abort)
       setBackfillListedTarget(db, messageIds.length)
       brainLogger.info(
-        { sourceId, historicalSince: hist, listedIds: messageIds.length },
+        { sourceId, lane, historicalSince: hist, listedIds: messageIds.length },
         'ripmail:gmail:historical-list',
       )
     } else if (historyId) {
@@ -166,12 +168,17 @@ export async function syncGmailSource(
         const added = historyResp.data.history?.flatMap((h) => h.messagesAdded ?? []) ?? []
         messageIds = added.map((m) => m.message?.id ?? '').filter(Boolean)
       } catch {
-        messageIds = await listRecentMessageIds(gmail)
+        messageIds = await listBootstrapMessageIdsWithoutHistory(gmail, opts?.abort)
       }
     } else {
-      messageIds = await listRecentMessageIds(gmail)
+      messageIds = await listBootstrapMessageIdsWithoutHistory(gmail, opts?.abort)
+      brainLogger.info(
+        { sourceId, lane, phase: 'list', listedIds: messageIds.length },
+        'ripmail:gmail:list-phase',
+      )
     }
 
+    let fetchFailures = 0
     let highestHistoryId = historyId ?? '0'
     await runWithConcurrencyPool(messageIds, GMAIL_MESSAGES_GET_CONCURRENCY, async (msgId) => {
       if (opts?.abort?.aborted) return
@@ -209,14 +216,22 @@ export async function syncGmailSource(
           highestHistoryId = msgResp.data.historyId
         }
       } catch (e) {
-        brainLogger.warn({ sourceId, msgId, err: String(e) }, 'ripmail:gmail:message-fetch-error')
+        fetchFailures++
+        brainLogger.warn({ sourceId, lane, msgId, err: String(e) }, 'ripmail:gmail:message-fetch-error')
       }
     })
 
-    const finalHistory = await gmail.users.getProfile({ userId: 'me' })
-    const newHistoryId = finalHistory.data.historyId ?? highestHistoryId
-    updateSyncState(db, sourceId, 'INBOX', 0, 0, String(newHistoryId))
-    updateSourceLastSynced(db, sourceId)
+    result.fetchFailures = fetchFailures
+    if (messageIds.length > 0 && fetchFailures === messageIds.length) {
+      result.error = 'All Gmail message fetches failed for this sync run'
+    }
+
+    if (!result.error) {
+      const finalHistory = await gmail.users.getProfile({ userId: 'me' })
+      const newHistoryId = finalHistory.data.historyId ?? highestHistoryId
+      updateSyncState(db, sourceId, 'INBOX', 0, 0, String(newHistoryId))
+      updateSourceLastSynced(db, sourceId)
+    }
 
     if ((hist === '1y' || hist === '2y') && !result.error) {
       markFirstBackfillCompleted(db, sourceId)

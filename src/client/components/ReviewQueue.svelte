@@ -329,7 +329,7 @@
                     </div>
                     <p class="m-0 mt-0.5 line-clamp-2 text-[0.75rem] text-muted">{r.askerSnippet || r.draftSnippet}</p>
                     <p class="m-0 mt-1 text-[0.65rem] text-muted">
-                      {r.updatedAtMs > 0 ? formatRelativeDate(new Date(r.updatedAtMs).toISOString()) : ''}
+                      {r.updatedAtMs > 0 ? formatRelativeDate(new Date(r.updatedAtMs).toISOString(), $t) : ''}
                     </p>
                   </div>
                 </div>

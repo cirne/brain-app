@@ -60,7 +60,7 @@
 
   function lastActivityLabel(ms: number): string {
     if (!ms) return ''
-    return formatRelativeDate(new Date(ms).toISOString())
+    return formatRelativeDate(new Date(ms).toISOString(), $t)
   }
 </script>
 

@@ -6,7 +6,7 @@ describe('HubBrainAccessSummary.svelte', () => {
   it('calls onManageAccess when primary row clicked', async () => {
     const onManageAccess = vi.fn()
     render(HubBrainAccessSummary, { props: { onManageAccess } })
-    await fireEvent.click(screen.getByRole('button', { name: /manage brain access/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /manage tunnels/i }))
     expect(onManageAccess).toHaveBeenCalledTimes(1)
   })
 

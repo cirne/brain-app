@@ -121,7 +121,7 @@
     "summary": {
       "events": "{{count}} events",
       "documents": "{{count}} documents",
-      "lastSynced": "Last synced {{value}}"
+      "lastSynced": "Last update {{value}}"
     },
     "refresh": {
       "driveBlockedTitle": "Add at least one Drive folder in the list above before syncing",
@@ -134,17 +134,16 @@
     "loadingStatus": "Loading status…",
     "warnings": {
       "staleLock": "A previous sync stopped unexpectedly. Quit Braintunnel completely and reopen to clear the stale lock.",
-      "needsBackfill": "This account is configured but has no indexed mail yet. Run backfill (or refresh) to pull history."
+      "needsBackfill": "Some older mail may still be missing from search. Pick how far back to go, then run Download older mail (or wait if it’s already running)."
     },
     "status": {
-      "refreshAndBackfillRunning": "Refresh and backfill are running…",
-      "backfillRunning": "Backfill is running…",
-      "backfillProgress": "Indexed {{indexed}} of about {{target}} messages in this backfill…",
-      "refreshRunning": "Refresh is running…"
+      "backfillRunning": "Downloading older mail…",
+      "backfillProgress": "Indexed {{indexed}} of about {{target}} messages in this download…",
+      "refreshRunning": "Checking for new mail…"
     },
     "summary": {
       "messages": "{{count}} messages",
-      "lastSync": "Last sync {{value}}",
+      "lastSync": "Last mail update {{value}}",
       "noMailboxRowPrefix": "No mailbox row in ",
       "noMailboxRowSuffix": " for this source id yet. After the first successful sync, counts and dates will appear here."
     },
@@ -157,10 +156,12 @@
       "sendByDefaultDescription": "When you ask Braintunnel to send a message and don't name an account, it uses this one."
     },
     "sync": {
-      "description": "Refresh pulls new mail for this account. Backfill re-downloads history for the window below (long-running).",
-      "backfillWindow": "Backfill window",
+      "description": "Check for new mail grabs recent messages. Download older mail uses the time span below and can take a while.",
+      "backfillWindow": "History range",
+      "checkNewMail": "Check for new mail",
       "starting": "Starting…",
-      "retryBackfill": "Retry sync (backfill)"
+      "retryBackfill": "Download older mail",
+      "downloadOlderDisabledCoverage": "Braintunnel already indexes mail at least this far back. Choose a longer range to fetch more history."
     }
   },
   "inboxPanel": {

@@ -112,4 +112,12 @@ describe('statusParsed', () => {
     expect(p.dateRange.from).toContain('2020-06-01')
     expect(p.dateRange.to).toContain('2025-01-02')
   })
+
+  it('BUG-057: bogus far-future message dates must not pass through verbatim as indexed range bounds', () => {
+    const db = openRipmailDb(home)
+    insertMessage(db, '2199-12-31T00:00:00Z')
+    const p = statusParsed(db, home)
+    const to = String(p.dateRange.to ?? '')
+    expect(/\b2199\b/.test(to)).toBe(false)
+  })
 })

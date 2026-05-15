@@ -4,7 +4,7 @@
   import FileSourceConfigEditor from '@components/FileSourceConfigEditor.svelte'
   import HubConnectorCalendarSection from '@components/hub-connector/HubConnectorCalendarSection.svelte'
   import {
-    formatRelativeDate,
+    formatRelativeMailSyncedAt,
     type HubSourceDetailOk,
   } from '@client/lib/hub/hubRipmailSource.js'
   import { t } from '@client/lib/i18n/index.js'
@@ -58,7 +58,7 @@
         <span>{$t('inbox.hubConnectorIndexSections.summary.documents', { count: st.documentIndexRows.toLocaleString() })}</span>
       {/if}
       <span class={indexLineSep} aria-hidden="true">·</span>
-      <span>{$t('inbox.hubConnectorIndexSections.summary.lastSynced', { value: formatRelativeDate(st.lastSyncedAt) })}</span>
+        <span>{$t('inbox.hubConnectorIndexSections.summary.lastSynced', { value: formatRelativeMailSyncedAt(st.lastSyncedAt, $t) })}</span>
     </p>
   {/if}
 

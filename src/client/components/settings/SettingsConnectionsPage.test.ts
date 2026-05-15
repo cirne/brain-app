@@ -54,7 +54,7 @@ describe('SettingsConnectionsPage.svelte', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders Add another Gmail account row', async () => {
+  it('renders Add another Google account row', async () => {
     render(SettingsConnectionsPage, {
       props: {
         onSettingsNavigate: vi.fn(),
@@ -62,7 +62,7 @@ describe('SettingsConnectionsPage.svelte', () => {
       },
     })
     await waitFor(() => {
-      expect(screen.getByText(/Add another Gmail account/i)).toBeInTheDocument()
+      expect(screen.getByText(/Add another Google account/i)).toBeInTheDocument()
     })
   })
 

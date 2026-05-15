@@ -35,12 +35,31 @@ function sqliteStartedAtToAgeMs(syncLockStartedAt: unknown): number | null {
 }
 
 function messageDateBoundsFromIndex(db: RipmailDb): { from: string | null; to: string | null } {
-  const row = db
-    .prepare(`SELECT MIN(date) AS mn, MAX(date) AS mx FROM messages`)
-    .get() as { mn: unknown; mx: unknown } | undefined
+  const ABSURD_FUTURE_MS = Date.UTC(2100, 0, 1)
+  const rows = db
+    .prepare(`SELECT date FROM messages WHERE date IS NOT NULL AND trim(CAST(date AS TEXT)) != ''`)
+    .all() as { date: string }[]
+
+  const parseRow = (d: string): number | null => {
+    const s = String(d).trim()
+    const iso = s.includes('T') ? s : `${s.replace(' ', 'T')}Z`
+    const t = Date.parse(iso)
+    return Number.isFinite(t) ? t : null
+  }
+
+  const reasonable = rows.map((r) => r.date).filter((d) => {
+    const t = parseRow(d)
+    return t !== null && t <= ABSURD_FUTURE_MS
+  })
+
+  if (reasonable.length === 0) {
+    return { from: null, to: null }
+  }
+
+  reasonable.sort((a, b) => parseRow(a)! - parseRow(b)!)
   return {
-    from: row?.mn != null && String(row.mn).trim() !== '' ? String(row.mn) : null,
-    to: row?.mx != null && String(row.mx).trim() !== '' ? String(row.mx) : null,
+    from: reasonable[0],
+    to: reasonable[reasonable.length - 1],
   }
 }
 

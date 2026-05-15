@@ -3,25 +3,18 @@
   import { RefreshCw, ChevronRight, BookOpen } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
-  import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
-  import { wikiOverviewSubtitle, wikiOverviewTitle } from '@client/lib/hub/wikiOverviewCopy.js'
-  import { sortHubRipmailSources } from '@client/lib/hub/hubSourceOrdering.js'
-  import { indexFeedSummaryFromHubSources } from '@client/lib/hub/indexFeedSummary.js'
   import { buildInitialYourWikiDocFromWikiSlice } from '@client/lib/hub/yourWikiDocFromBackground.js'
   import { HUB_BACKGROUND_STATUS_POLL_MS } from '@client/lib/hub/hubBackgroundPoll.js'
   import { fetchWikiRecentEditsList } from '@client/lib/wiki/wikiRecentEditsFetch.js'
-  import { formatRelativeDate, type HubRipmailSourceRow } from '@client/lib/hub/hubRipmailSource.js'
+  import { formatRelativeDate } from '@client/lib/hub/hubRipmailSource.js'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
-  import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
-  import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
-  import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
   import HubSharingSection from '@components/hub/HubSharingSection.svelte'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
   import { t } from '@client/lib/i18n/index.js'
@@ -30,8 +23,6 @@
     /** Cross-workspace brain query hub summary; true only when server enables `BRAIN_B2B_ENABLED`. */
     brainQueryEnabled?: boolean
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
-    /** Opens Settings primary column (`/settings`); when set, Manage uses SPA navigation. */
-    onOpenSettings?: () => void
     /** Opens Brain-to-brain policy UI (`/settings/brain-access`). */
     onOpenBrainAccess?: () => void
   }
@@ -39,42 +30,24 @@
   let {
     brainQueryEnabled = false,
     onHubNavigate,
-    onOpenSettings,
     onOpenBrainAccess,
   }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
-  let mailStatus = $state<OnboardingMailStatus | null>(null)
-  let hubSources = $state<HubRipmailSourceRow[]>([])
-  let hubSourcesError = $state<string | null>(null)
   let wikiRecentEdits = $state<{ path: string; date: string }[]>([])
   let wikiRecentReady = $state(false)
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
-  let wikiActionBusy = $state(false)
-  let backgroundStatusLoading = $state(true)
-  let syncKickBusy = $state(false)
-  let wikiBackgroundUpdateBusy = $state(false)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
     wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
   )
   const wikiIsPaused = $derived(wikiPhase === 'paused')
-  const wikiIsIdle = $derived(
-    wikiPhase === 'idle' ||
-      (!wikiIsActive && wikiPhase !== 'paused' && wikiPhase !== 'error'),
-  )
 
   const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
 
-  const wikiHubTitle = $derived(wikiOverviewTitle(wikiDoc))
-  const wikiHubSub = $derived(wikiOverviewSubtitle(wikiDoc, wikiPageCount))
-
-  const orderedHubSources = $derived(sortHubRipmailSources(hubSources))
-
   function applyBackgroundStatusPayload(bg: BackgroundStatusResponse): void {
-    mailStatus = onboardingMailStatusFromBackground(bg.mail)
     if (wikiDoc == null && bg.wiki) {
       wikiDoc = buildInitialYourWikiDocFromWikiSlice(bg.wiki, bg.updatedAt)
     }
@@ -91,15 +64,11 @@
     }
   }
 
-  const indexFeedSummary = $derived(indexFeedSummaryFromHubSources(orderedHubSources))
-
   async function fetchData() {
-    backgroundStatusLoading = true
     try {
-      const [wikiRes, bgRes, sourcesRes] = await Promise.all([
+      const [wikiRes, bgRes] = await Promise.all([
         fetch('/api/wiki', { credentials: 'include' }),
         fetch('/api/background-status', { credentials: 'include' }),
-        fetch('/api/hub/sources', { credentials: 'include' }),
       ])
 
       if (wikiRes.ok) {
@@ -108,39 +77,11 @@
       if (bgRes.ok) {
         applyBackgroundStatusPayload((await bgRes.json()) as BackgroundStatusResponse)
       }
-      if (sourcesRes.ok) {
-        const j = (await sourcesRes.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
-        hubSources = Array.isArray(j.sources) ? j.sources : []
-        hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
-      }
       wikiRecentEdits = await fetchWikiRecentEditsList(5)
     } catch {
       /* ignore */
     } finally {
       wikiRecentReady = true
-      backgroundStatusLoading = false
-    }
-  }
-
-  async function syncMailNow() {
-    if (syncKickBusy || mailStatus?.syncRunning) return
-    syncKickBusy = true
-    try {
-      await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
-      await fetchData()
-    } finally {
-      syncKickBusy = false
-    }
-  }
-
-  async function runWikiBackgroundUpdateNow() {
-    if (wikiBackgroundUpdateBusy) return
-    wikiBackgroundUpdateBusy = true
-    try {
-      await postYourWikiRunLap()
-      await fetchData()
-    } finally {
-      wikiBackgroundUpdateBusy = false
     }
   }
 
@@ -167,7 +108,7 @@
       void refreshBackgroundStatusPoll()
     }, HUB_BACKGROUND_STATUS_POLL_MS)
     const unsubEvents = subscribe((e) => {
-      if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated' || e.type === 'sync:completed') {
+      if (e.type === 'wiki:mutated' || e.type === 'sync:completed') {
         void fetchData()
       }
     })
@@ -182,26 +123,6 @@
       stopHubEvents()
     }
   })
-
-  async function wikiPause() {
-    if (wikiActionBusy) return
-    wikiActionBusy = true
-    try {
-      await postYourWikiPause()
-    } finally {
-      wikiActionBusy = false
-    }
-  }
-
-  async function wikiResume() {
-    if (wikiActionBusy) return
-    wikiActionBusy = true
-    try {
-      await postYourWikiResume()
-    } finally {
-      wikiActionBusy = false
-    }
-  }
 
   const sectionHeaderBase =
     'section-header flex items-center gap-3 border-b border-border pb-3 text-foreground'
@@ -232,29 +153,6 @@
   </header>
 
   <div class="hub-grid flex flex-col gap-10">
-    <HubActivityOverview
-      mailStatus={mailStatus}
-      mailLoading={backgroundStatusLoading}
-      wikiTitle={wikiHubTitle}
-      wikiSubtitle={wikiHubSub}
-      wikiPhase={wikiPhase}
-      wikiIsActive={wikiIsActive}
-      wikiIsPaused={wikiIsPaused}
-      wikiIsIdle={wikiIsIdle}
-      showWikiControls={Boolean(wikiDoc && wikiPhase != null)}
-      onSyncNow={syncMailNow}
-      onWikiUpdateNow={runWikiBackgroundUpdateNow}
-      onPause={wikiPause}
-      onResume={wikiResume}
-      syncBusy={syncKickBusy || Boolean(mailStatus?.syncRunning)}
-      wikiUpdateBusy={wikiBackgroundUpdateBusy}
-      wikiActionBusy={wikiActionBusy}
-      indexFeedSummary={indexFeedSummary}
-      sourcesEmpty={orderedHubSources.length === 0}
-      sourcesError={hubSourcesError}
-      onOpenSettings={onOpenSettings}
-    />
-
     <section
       class="hub-section your-wiki-section flex flex-col gap-5"
       aria-label={$t('hub.brainHubPage.wikiActivity.ariaLabel')}
@@ -347,7 +245,7 @@
                 <div class="wiki-recent-row-meta inline-flex shrink-0 items-center justify-end gap-2">
                   <span
                     class="status-sub wiki-recent-time whitespace-nowrap text-xs text-muted"
-                  >{formatRelativeDate(f.date)}</span>
+                  >{formatRelativeDate(f.date, $t)}</span>
                   <ChevronRight size={16} aria-hidden="true" />
                 </div>
               </button>
