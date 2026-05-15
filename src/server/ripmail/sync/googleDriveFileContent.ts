@@ -28,7 +28,9 @@ export const GOOGLE_DRIVE_NATIVE_MIMES = new Set([
 export function exportMimeForGoogleNative(mime: string | null | undefined): string | null {
   if (!mime) return null
   if (mime === 'application/vnd.google-apps.document') return 'text/plain'
-  if (mime === 'application/vnd.google-apps.spreadsheet') return 'text/csv'
+  // XLSX includes all worksheets; text/csv export is first sheet only.
+  if (mime === 'application/vnd.google-apps.spreadsheet')
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if (mime === 'application/vnd.google-apps.presentation') return 'text/plain'
   if (mime === 'application/vnd.google-apps.drawing') return 'image/png'
   return null
@@ -125,7 +127,7 @@ export async function extractDriveFileText(
   if (GOOGLE_DRIVE_NATIVE_MIMES.has(mime)) {
     const ext =
       mime === 'application/vnd.google-apps.spreadsheet'
-        ? '.csv'
+        ? '.xlsx'
         : mime === 'application/vnd.google-apps.drawing'
           ? '.png'
           : '.txt'
@@ -135,7 +137,7 @@ export async function extractDriveFileText(
     try {
       const inferredMime =
         mime === 'application/vnd.google-apps.spreadsheet'
-          ? 'text/csv'
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
           : mime === 'application/vnd.google-apps.drawing'
             ? 'image/png'
             : 'text/plain'

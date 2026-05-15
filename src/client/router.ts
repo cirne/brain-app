@@ -132,7 +132,14 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     return `The user is viewing a raw file on disk: ${ctx.path} (title: "${ctx.title}"). Use read_indexed_file with this path if you need the extracted text.`
   }
   if (ctx.type === 'indexed-file') {
-    return `The user is viewing indexed file id "${ctx.id}" (${ctx.sourceKind}${ctx.title.trim() ? `: "${ctx.title}"` : ''}). Use read_indexed_file with this id if you need the content.`
+    const srcLine = ctx.source?.trim()
+      ? `\nRipmail \`source\` for tools (read_indexed_file / search_index): \`${ctx.source.trim()}\`.`
+      : ''
+    const titleLine = ctx.title.trim() ? `\nTitle: "${ctx.title.trim()}".` : ''
+    const kindLine = ctx.sourceKind.trim() ? `\nConnector: ${ctx.sourceKind.trim()}.` : ''
+    return (
+      `The user has an indexed document open in the app viewer (Google Drive or local index). Prefer answering from the extracted text inlined in this system prompt below when present; avoid starting with a blind search_index unless you still need mail or other sources.${titleLine}${kindLine}\nIndexed file id: \`${ctx.id}\`.${srcLine}`
+    )
   }
   if (ctx.type === 'calendar') {
     let s = `The user is viewing their calendar for ${ctx.date}`

@@ -49,6 +49,11 @@ import {
   formatMailIndexFactsForBootstrap,
   getOrCreateInitialBootstrapSession,
 } from '../agent/initialBootstrapAgent.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import {
+  INDEXED_OPEN_FILES_BODY_MAX,
+  mergeIndexedOpenFilesIntoChatContext,
+} from './chatIndexedOpenContext.js'
 
 const chat = new Hono()
 
@@ -79,7 +84,7 @@ chat.get('/sessions/:sessionId', async (c) => {
 })
 
 // POST /api/chat
-// Body: { message, sessionId?, context?, initialBootstrapKickoff?, hearReplies? }
+// Body: { message, sessionId?, context?, indexedOpenFiles?, initialBootstrapKickoff?, hearReplies? }
 // Response: SSE stream of agent events
 chat.post('/', async (c) => {
   let body: Record<string, unknown>
@@ -210,9 +215,10 @@ chat.post('/', async (c) => {
   }
 
   // Build context string for the session system prompt.
-  // Two formats:
-  //   string  — surface context (email body, wiki path, etc.) from AgentChat
-  //   { files: string[] } — legacy file-grounded chat (wiki panel); paths must stay under wiki root
+  // Three inputs:
+  //   string `context` — surface summary from AgentChat (wiki path, indexed id, email pointer, …)
+  //   object `context` with `files: string[]` — legacy wiki grounding; paths must stay under wiki root
+  //   `indexedOpenFiles: { id, source? }[]` — viewer-grounded indexed docs; server inlines extracted text (wiki parity)
   let fileContext: string | undefined
   let validatedContextFiles: string[] | undefined
   if (typeof rawContext === 'string') {
@@ -254,10 +260,54 @@ chat.post('/', async (c) => {
     if (parts.length) fileContext = parts.join('\n\n')
   }
 
+  const rawIndexedOpen = body.indexedOpenFiles
+  let indexedOpenFiles: { id: string; source?: string }[] | undefined
+  if (rawIndexedOpen !== undefined && rawIndexedOpen !== null) {
+    if (!Array.isArray(rawIndexedOpen)) {
+      return c.json({ error: 'indexedOpenFiles must be an array' }, 400)
+    }
+    if (rawIndexedOpen.length > INDEXED_OPEN_FILES_BODY_MAX) {
+      return c.json({ error: `indexedOpenFiles max ${INDEXED_OPEN_FILES_BODY_MAX} entries` }, 400)
+    }
+    const parsed: { id: string; source?: string }[] = []
+    for (const item of rawIndexedOpen) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return c.json({ error: 'indexedOpenFiles entries must be objects' }, 400)
+      }
+      const id = typeof (item as { id?: unknown }).id === 'string' ? (item as { id: string }).id.trim() : ''
+      if (!id) {
+        return c.json({ error: 'indexedOpenFiles entries require non-empty id' }, 400)
+      }
+      const srcRaw = (item as { source?: unknown }).source
+      const source =
+        typeof srcRaw === 'string' && srcRaw.trim() ? srcRaw.trim() : undefined
+      parsed.push({ id, ...(source ? { source } : {}) })
+    }
+    indexedOpenFiles = parsed.length ? parsed : undefined
+  }
+
   const selectionForSkill = typeof rawContext === 'string' ? rawContext : ''
   const openFileForSkill = validatedContextFiles?.length ? validatedContextFiles[0] : undefined
 
   const slash = parseLeadingSlashCommand(promptMessage)
+
+  if (
+    indexedOpenFiles?.length &&
+    !slash &&
+    !useBootstrapAgent &&
+    !initialBootstrapKickoff
+  ) {
+    try {
+      const merged = await mergeIndexedOpenFilesIntoChatContext(
+        fileContext,
+        indexedOpenFiles,
+        ripmailHomeForBrain(),
+      )
+      if (merged) fileContext = merged
+    } catch {
+      /* keep pointer-only context */
+    }
+  }
   if (slash && useBootstrapAgent) {
     return streamStaticAssistantSse(c, {
       announceSessionId: sessionId,

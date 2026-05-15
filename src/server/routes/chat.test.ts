@@ -67,6 +67,21 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       expect(res.status).toBe(400)
     })
 
+    it('returns 400 when indexedOpenFiles is not an array', async () => {
+      const { default: chatRoute } = await import('./chat.js')
+      const app = new Hono()
+      app.route('/api/chat', chatRoute)
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'hi', timezone: 'UTC', indexedOpenFiles: 'bad' }),
+      })
+      expect(res.status).toBe(400)
+      const err = (await res.json()) as { error?: string }
+      expect(err.error).toContain('indexedOpenFiles')
+    })
+
     it('returns 400 for initialBootstrapKickoff when onboarding is not onboarding-agent', async () => {
       const { default: chatRoute } = await import('./chat.js')
       const app = new Hono()

@@ -142,7 +142,33 @@ export async function attachmentRead(
   return extracted
 }
 
-/** Same MIME/extension extraction logic used when caching attachment bodies (exported for tests). */
+/** Strip characters that would break `## Sheet:` section parsing (newlines / CR). */
+export function sanitizeSpreadsheetSectionTitle(name: string): string {
+  return name.replace(/\r?\n/g, ' ').trim()
+}
+
+/**
+ * Turn xlsx sheet names + CSV bodies into the ripmail / UI convention (see `csvSpreadsheet.ts`).
+ * Single-sheet workbooks omit `## Sheet:`; multi-sheet use `## Sheet: <title>` per block.
+ */
+export function joinExcelSheetsAsRipmailText(sheetNames: string[], sheetCsvBodies: string[]): string {
+  if (sheetNames.length !== sheetCsvBodies.length) {
+    throw new Error('joinExcelSheetsAsRipmailText: names and bodies length mismatch')
+  }
+  if (sheetNames.length === 0) return ''
+  if (sheetNames.length === 1) {
+    return sheetCsvBodies[0]!.trimEnd()
+  }
+  return sheetNames
+    .map((name, i) => {
+      const title = sanitizeSpreadsheetSectionTitle(name) || `Sheet ${i + 1}`
+      const body = sheetCsvBodies[i]!.trimEnd()
+      return `## Sheet: ${title}\n\n${body}`
+    })
+    .join('\n\n')
+}
+
+/** Read a local attachment file and extract agent-viewable/plain text (also used for Drive-exported blobs). */
 export async function extractAttachmentText(absPath: string, mimeType: string): Promise<string> {
   const mime = mimeType.toLowerCase()
 
@@ -185,11 +211,12 @@ export async function extractAttachmentText(absPath: string, mimeType: string): 
       const XLSX = await import('xlsx')
       const buf = readFileSync(absPath)
       const wb = XLSX.read(buf, { type: 'buffer' })
-      const sheets = wb.SheetNames.map((name) => {
+      const names = wb.SheetNames
+      const bodies = names.map((name) => {
         const ws = wb.Sheets[name]!
-        return `## ${name}\n${XLSX.utils.sheet_to_csv(ws)}`
+        return XLSX.utils.sheet_to_csv(ws)
       })
-      return sheets.join('\n\n')
+      return joinExcelSheetsAsRipmailText(names, bodies)
     } catch (e) {
       return `(Excel extraction failed: ${String(e)})`
     }

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { drive_v3 } from 'googleapis'
-import { driveFileListedSizeBytes, extractDriveFileText } from './googleDriveFileContent.js'
+import {
+  driveFileListedSizeBytes,
+  exportMimeForGoogleNative,
+  extractDriveFileText,
+} from './googleDriveFileContent.js'
 
 vi.mock('../attachments.js', () => ({
   extractAttachmentText: vi.fn(async () => 'indexed'),
@@ -14,6 +18,14 @@ describe('driveFileListedSizeBytes', () => {
   it('parses numeric size', () => {
     expect(driveFileListedSizeBytes({ id: 'a', size: '0' })).toBe(0)
     expect(driveFileListedSizeBytes({ id: 'a', size: '1024' })).toBe(1024)
+  })
+})
+
+describe('exportMimeForGoogleNative', () => {
+  it('exports Google spreadsheets as XLSX so all worksheets are available', () => {
+    expect(exportMimeForGoogleNative('application/vnd.google-apps.spreadsheet')).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
   })
 })
 
@@ -65,6 +77,25 @@ describe('extractDriveFileText', () => {
       expect.objectContaining({
         headers: expect.objectContaining({ Range: 'bytes=0-1023' }),
       }),
+    )
+  })
+
+  it('requests XLSX from drive.files.export for native Google spreadsheets', async () => {
+    const exportFn = vi.fn(async () => ({ data: new ArrayBuffer(0) }))
+    const drive = { files: { export: exportFn } } as unknown as drive_v3.Drive
+    const f: drive_v3.Schema$File = {
+      id: 'sh1',
+      name: 'Workbook',
+      mimeType: 'application/vnd.google-apps.spreadsheet',
+    }
+    await extractDriveFileText(drive, f, '/tmp/work')
+    expect(exportFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileId: 'sh1',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        supportsAllDrives: true,
+      }),
+      expect.objectContaining({ responseType: 'arraybuffer' }),
     )
   })
 })

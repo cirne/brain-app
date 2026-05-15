@@ -5,8 +5,11 @@ import { join } from 'node:path'
 import {
   attachmentRead,
   extractAttachmentText,
+  joinExcelSheetsAsRipmailText,
   normalizeAttachmentLookupKey,
+  sanitizeSpreadsheetSectionTitle,
 } from './attachments.js'
+import { parseSpreadsheetFromText } from '../../client/lib/csvSpreadsheet.js'
 import { openMemoryRipmailDb, type RipmailDb } from './db.js'
 import { attachmentFixturePath } from './fixtures/attachments/index.js'
 import { htmlToAgentMarkdown } from '../lib/htmlToAgentMarkdown.js'
@@ -99,6 +102,42 @@ describe('attachmentRead', () => {
   })
 })
 
+describe('sanitizeSpreadsheetSectionTitle', () => {
+  it('folds embedded newlines to spaces', () => {
+    expect(sanitizeSpreadsheetSectionTitle('A\nB')).toBe('A B')
+    expect(sanitizeSpreadsheetSectionTitle('\r\nQ')).toBe('Q')
+  })
+})
+
+describe('joinExcelSheetsAsRipmailText', () => {
+  it('returns raw CSV only for a single worksheet', () => {
+    expect(joinExcelSheetsAsRipmailText(['S1'], ['a,b\n1,2\n'])).toBe('a,b\n1,2')
+  })
+
+  it('emits ## Sheet: blocks compatible with parseSpreadsheetFromText', () => {
+    const out = joinExcelSheetsAsRipmailText(
+      ['Summary', 'Detail'],
+      ['h,v\na,1\n', 'x,y\n'],
+    )
+    expect(out).toContain('## Sheet: Summary')
+    expect(out).toContain('## Sheet: Detail')
+    const parsed = parseSpreadsheetFromText(out, ',')
+    expect(parsed.mode).toBe('multi')
+    if (parsed.mode !== 'multi') throw new Error('expected multi-sheet parse')
+    expect(parsed.sheets.map((s) => s.name)).toEqual(['Summary', 'Detail'])
+    expect(parsed.sheets[0].grid).toMatchObject({ headers: ['h', 'v'], rows: [['a', '1']] })
+  })
+
+  it('uses a fallback title when a sheet name sanitizes empty', () => {
+    const out = joinExcelSheetsAsRipmailText(['\n', 'Second'], ['1', '2'])
+    expect(out).toMatch(/^## Sheet: Sheet 1\b/m)
+    const parsed = parseSpreadsheetFromText(out, ',')
+    expect(parsed.mode).toBe('multi')
+    if (parsed.mode !== 'multi') throw new Error('expected multi-sheet parse')
+    expect(parsed.sheets.map((s) => s.name)).toEqual(['Sheet 1', 'Second'])
+  })
+})
+
 describe('extractAttachmentText', () => {
   it('extracts Markdown-shaped content from HTML fixture', async () => {
     const p = attachmentFixturePath('htmlNewsletter')
@@ -108,21 +147,32 @@ describe('extractAttachmentText', () => {
     expect(md).toContain('https://example.com/docs')
   })
 
-  it('reads POI xlsx into sheet sections', async () => {
+  it('reads POI xlsx as comma-delimited text for spreadsheet parsing', async () => {
     const p = attachmentFixturePath('poiSampleXlsx')
     const md = await extractAttachmentText(
       p,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    expect(md).toMatch(/^## /m)
+    expect(md.length).toBeGreaterThan(10)
     expect(md).toContain(',')
+    const parsed = parseSpreadsheetFromText(md, ',')
+    if (parsed.mode === 'multi') {
+      expect(md).toMatch(/^## Sheet:/m)
+      expect(parsed.sheets.length).toBeGreaterThan(1)
+    } else {
+      expect(md).not.toMatch(/^## Sheet:/m)
+    }
+    expect(parsed.mode === 'single' ? parsed.grid : parsed.sheets[0].grid).not.toHaveProperty(
+      'error',
+    )
   })
 
-  it('reads POI legacy xls', async () => {
+  it('reads POI legacy xls without ## Sheet markers when one worksheet', async () => {
     const p = attachmentFixturePath('poiSampleXls')
     const md = await extractAttachmentText(p, 'application/vnd.ms-excel')
-    expect(md).toMatch(/^## /m)
     expect(md.length).toBeGreaterThan(10)
+    expect(md).not.toMatch(/^## Sheet:/m)
+    expect(parseSpreadsheetFromText(md, ',').mode).toBe('single')
   })
 
   it('reads POI docx via mammoth HTML and turndown', async () => {

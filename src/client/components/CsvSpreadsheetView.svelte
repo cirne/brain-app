@@ -39,22 +39,9 @@
 </script>
 
 <div class="sheet-wrap flex min-h-0 flex-1 flex-col gap-0">
-  <div class="sheet-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-    {#if 'error' in activeGrid}
-      <p class="parse-err m-0 mb-2 text-sm text-[var(--error,#c44)]" role="alert">{activeGrid.error}</p>
-      <pre
-        class="fallback m-0 whitespace-pre-wrap [word-break:break-word] text-[0.85rem] leading-normal [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
-      >{text}</pre>
-    {:else if activeGrid.headers.length === 0}
-      <p class="muted text-[0.9rem] text-muted">{$t('inbox.csvSpreadsheetView.emptyFile')}</p>
-    {:else}
-      <CsvSpreadsheetTable headers={activeGrid.headers} rows={activeGrid.rows} />
-    {/if}
-  </div>
-
   {#if parsed.mode === 'multi' && parsed.sheets.length > 1}
     <div
-      class="sheet-tabs-scroll mt-2 max-w-full shrink-0 overflow-x-auto overflow-y-hidden border-t border-[var(--border,#ccc)] bg-[var(--bg-2,#e8e8ea)] [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]"
+      class="sheet-tabs-scroll max-w-full shrink-0 overflow-x-auto overflow-y-hidden border-b border-[var(--border,#ccc)] bg-[var(--bg-2,#e8e8ea)] [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]"
     >
       <div
         class="sheet-tabs inline-flex min-h-[26px] w-max max-w-none flex-row flex-nowrap items-stretch gap-0"
@@ -78,4 +65,17 @@
       </div>
     </div>
   {/if}
+
+  <div class="sheet-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    {#if 'error' in activeGrid}
+      <p class="parse-err m-0 mb-2 text-sm text-[var(--error,#c44)]" role="alert">{activeGrid.error}</p>
+      <pre
+        class="fallback m-0 whitespace-pre-wrap [word-break:break-word] text-[0.85rem] leading-normal [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
+      >{text}</pre>
+    {:else if activeGrid.headers.length === 0}
+      <p class="muted text-[0.9rem] text-muted">{$t('inbox.csvSpreadsheetView.emptyFile')}</p>
+    {:else}
+      <CsvSpreadsheetTable headers={activeGrid.headers} rows={activeGrid.rows} />
+    {/if}
+  </div>
 </div>

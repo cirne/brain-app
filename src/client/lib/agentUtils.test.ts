@@ -329,6 +329,42 @@ describe('buildChatBody', () => {
     expect(body.context as string).toContain('alice@x.com')
   })
 
+  it('includes indexedOpenFiles on first message when viewing indexed-file surface', () => {
+    const ctx: SurfaceContext = {
+      type: 'indexed-file',
+      id: 'drive-file-id',
+      title: 'Snapshot',
+      sourceKind: 'googleDrive',
+      source: 'mailbox-drive',
+    }
+    const body = buildChatBody({
+      message: 'summarize',
+      sessionId: null,
+      context: ctx,
+      mentionedFiles: [],
+      isFirstMessage: true,
+    })
+    expect(body.indexedOpenFiles).toEqual([{ id: 'drive-file-id', source: 'mailbox-drive' }])
+  })
+
+  it('omits indexedOpenFiles on initialBootstrapKickoff', () => {
+    const ctx: SurfaceContext = {
+      type: 'indexed-file',
+      id: 'x',
+      title: 'T',
+      sourceKind: 'googleDrive',
+    }
+    const body = buildChatBody({
+      message: 'ignored',
+      sessionId: null,
+      context: ctx,
+      mentionedFiles: [],
+      isFirstMessage: true,
+      initialBootstrapKickoff: true,
+    })
+    expect('indexedOpenFiles' in body).toBe(false)
+  })
+
   it('omits context on non-first messages', () => {
     const ctx: SurfaceContext = { type: 'email', threadId: 'msg:1', subject: 'Budget', from: 'alice@x.com' }
     const body = buildChatBody({ message: 'follow up', sessionId: 'sess-1', context: ctx, mentionedFiles: [], isFirstMessage: false })

@@ -239,6 +239,20 @@ export function buildChatBody(opts: {
     if (ctxStr) parts.push(ctxStr)
     if (opts.mentionedFiles.length) parts.push(`Referenced files: ${opts.mentionedFiles.join(', ')}`)
     if (parts.length) body.context = parts.join('\n')
+
+    if (
+      opts.context.type === 'indexed-file' &&
+      opts.context.id.trim().length > 0 &&
+      !opts.initialBootstrapKickoff &&
+      !opts.interviewKickoff
+    ) {
+      body.indexedOpenFiles = [
+        {
+          id: opts.context.id.trim(),
+          ...(opts.context.source?.trim() ? { source: opts.context.source.trim() } : {}),
+        },
+      ]
+    }
   }
 
   return body
