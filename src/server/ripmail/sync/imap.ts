@@ -13,8 +13,10 @@ import {
   updateSyncState,
   getSyncState,
   updateSourceLastSynced,
+  deleteSyncStateForSource,
 } from './persist.js'
 import type { SourceConfig, GoogleOAuthTokens } from './config.js'
+import type { RipmailHistoricalSince } from '../types.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 const FETCH_BATCH_SIZE = 50
@@ -49,12 +51,20 @@ export async function syncImapSource(
   source: SourceConfig,
   password: string | undefined,
   oauthTokens: GoogleOAuthTokens | null,
-  opts?: { excludeLabels?: string[]; abort?: AbortSignal },
+  opts?: { excludeLabels?: string[]; abort?: AbortSignal; historicalSince?: RipmailHistoricalSince },
 ): Promise<ImapSyncResult> {
   const sourceId = source.id
   const imapConfig = source.imap
   if (!imapConfig) {
     return { sourceId, messagesAdded: 0, messagesUpdated: 0, folders: [], error: 'No IMAP config' }
+  }
+
+  if (opts?.historicalSince) {
+    deleteSyncStateForSource(db, sourceId)
+    brainLogger.info(
+      { sourceId, historicalSince: opts.historicalSince },
+      'ripmail:imap:backfill-cleared-sync-state',
+    )
   }
 
   const auth = await buildImapAuth(source, password, oauthTokens)

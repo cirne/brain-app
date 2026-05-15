@@ -93,6 +93,7 @@ function buildRefreshTasks(params: {
         const password = loadImapPassword(ripmailHome, source.id)
         const result = await syncImapSource(db, ripmailHome, source, password, null, {
           excludeLabels: config.sync?.excludeLabels ?? ['Trash', 'Spam'],
+          historicalSince: opts?.historicalSince,
         })
         if (result.error) {
           brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:imap-error')

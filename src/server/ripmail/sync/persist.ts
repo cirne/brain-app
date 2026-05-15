@@ -148,6 +148,11 @@ export function updateSyncState(
   `).run(sourceId, folder, uidvalidity, lastUid, gmailHistoryId ?? null)
 }
 
+/** Drop all folder cursors for a source — next IMAP sync uses UID `1:*` (Hub backfill / full re-pull). */
+export function deleteSyncStateForSource(db: RipmailDb, sourceId: string): void {
+  db.prepare(`DELETE FROM sync_state WHERE source_id = ?`).run(sourceId)
+}
+
 /** Get sync state for a folder. */
 export function getSyncState(
   db: RipmailDb,

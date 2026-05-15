@@ -387,13 +387,16 @@ export interface ArchiveResult {
 // Refresh (sync)
 // ---------------------------------------------------------------------------
 
-/** Hub onboarding/backfill vocabulary — Gmail TS sync only; IMAP ignores this today. */
+/** Allowed Hub / onboarding `since` values for historical mail (Gmail API `messages.list` + IMAP full re-pull). */
 export type RipmailHistoricalSince = '30d' | '90d' | '180d' | '1y' | '2y'
 
 export interface RefreshOptions {
   sourceId?: string
   foreground?: boolean
-  /** Gmail historical window for messages.list (paginated). Incremental history.list when unset. */
+  /**
+   * Historical mail: Gmail uses `messages.list` for the window. Password IMAP clears UID cursors and
+   * refetches each folder from UID 1 (honors server mailbox contents; heavy for very large boxes).
+   */
   historicalSince?: RipmailHistoricalSince
   /** Dev/CLI: Google Drive sync milestones (e.g. `scripts/dev-drive-sync-e2e.ts`). Hub leaves unset. */
   onDriveProgress?: (message: string) => void
