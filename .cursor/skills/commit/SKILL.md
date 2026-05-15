@@ -1,11 +1,11 @@
 ---
 name: commit
-description: Guides pre-commit verification, scoped lint/tests per package (Node app, ripmail, desktop/Tauri), i18n/copy checks for UI changes, test coverage expectations, then commit with an integration-safe push or merge path (single checkout or Git worktree). Use when the user invokes /commit, asks to commit, push, prepare a commit, or finish a change with git.
+description: Guides pre-commit verification, scoped lint/tests per package (Node app, ripmail, desktop/Tauri), i18n/copy checks for UI changes, test coverage expectations, then commit and always sync/publish with git fetch + push (branch-aware). Use when the user invokes /commit, asks to commit, push, prepare a commit, or finish a change with git.
 ---
 
 # Commit workflow (brain-app)
 
-Single-maintainer, early development: **direct push to `main` is OK** once the steps below pass—**when `main` is the branch you are finishing**. In a **worktree** you are usually on a **feature branch**; integrate with upstream (`main`) before or as you publish, instead of assuming every session ends with `push origin main`.
+Single-maintainer, early development: **`/commit` ends with `git fetch` + `git push`** for the current branch once checks pass and the commit succeeds—unless there is no `origin`, push fails, or fast-forward is impossible (see §4). In a **worktree** you are often on a **feature branch**; push that branch after rebasing onto `origin/main` as needed; merging to `main` may still be a separate step (PR or local merge in another checkout).
 
 ## Node.js — `nvm use` first
 
@@ -85,33 +85,46 @@ Run only what applies to the packages identified above. **Run `nvm use` at this 
 
 - `npm run ci` — lint, typecheck, Node tests, then `cargo fmt` + `cargo clippy` + `cargo test` for the Rust workspace (see `package.json`).
 
-## 4. Commit when green, then integrate (push and/or merge)
+## 4. Commit when green, then always sync and push
 
 1. Confirm the relevant commands above exited **0**.
-2. Commit with a **clear message** (Conventional Commits encouraged: `feat:`, `fix:`, `refactor:`, etc.).
-3. **See which branch you are on**: `git branch --show-current` (and optionally `git worktree list` if you manage multiple checkouts).
+2. Commit with a **clear message** (Conventional Commits encouraged: `feat:`, `fix:`, `refactor:`, etc.). Know the branch: `git branch --show-current` (optional: `git worktree list`).
+3. **Immediately after a successful commit**, **publish the branch**: sync with `origin`, then **push** so the remote includes the commit you just made. This is the default end state for `/commit` unless a step below is impossible or fails (report the error; **never** `push --force` to `main` unless the user explicitly asks).
 
-**If you are on `main`**
-
-- Prefer **fast-forward safety** before pushing: `git fetch origin` and reconcile (`git pull --ff-only` or rebase **only if** that matches how this repo normally tracks `origin/main`).
-- Then `git push` (to `origin main`).
-
-**If you are not on `main`** (common in a **worktree**)
-
-- **Update from upstream** before pushing your branch (reduces surprises and integrates like a sane “done with this worktree” step):
+**Always run (after commit succeeds)**
 
 ```sh
 git fetch origin
+```
+
+Then branch-specific push path:
+
+**If you are on `main`**
+
+- Reconcile with the remote so you do not overwrite unexpected commits: `git pull --ff-only` (after `fetch`; resolves “behind origin” before push).
+- Push: `git push origin main` (or `git push` if upstream is set).
+
+**If you are not on `main`** (common in a **worktree**)
+
+- **Update from upstream** before pushing your feature branch (reduces surprises):
+
+```sh
 git rebase origin/main   # resolve any conflicts here; alternative: git merge origin/main
 ```
 
   Use the integration branch name your team tracks if it is not `main` (e.g. `develop`).
 
-- **Publish the branch** (not `main`): `git push -u origin HEAD` (first time) or `git push` (if upstream is already set).
+- **Publish the branch**: `git push -u origin HEAD` (first time) or `git push` (if upstream is already set).
 
-- **Land the work** according to repo habit:
+- **Land the work** on `main` according to repo habit (after the branch is pushed):
   - **PR / review**: open or update a PR from that branch and merge via hosting (typical when others might review).
-  - **Local-first / maintainer solo**: merge from the checkout that has **`main`** checked out (`git checkout main && git merge <feature>` or `git merge --ff-only` after updating `main`), then `git push origin main`. You can merge from whichever machine has **`main`** (often the **primary** worktree path, not the feature worktree)—Git does not require merging from the feature worktree directory itself.
+  - **Local-first / maintainer solo**: merge from the checkout that has **`main`** checked out (`git checkout main && git merge <feature>` or `git merge --ff-only` after updating `main`), then **`git fetch origin && git pull --ff-only && git push origin main`** (same “commit then sync/push” habit). You can merge from whichever machine has **`main`** (often the **primary** worktree path, not the feature worktree)—Git does not require merging from the feature worktree directory itself.
+
+**When not to push**
+
+- **`origin` is missing or URL is unset** — report `git remote -v`; stop after commit.
+- **Authentication or network failure** — report the error; do not retry endlessly.
+- **Non-fast-forward on `main` after pull** — stop and describe the divergence; do not force-push without explicit user instruction.
 
 Do not commit secrets or large generated artifacts; match existing `.gitignore` conventions.
 
@@ -128,8 +141,6 @@ git worktree remove /path/to/worktree   # or: git worktree remove --force ... if
 
   Do **not** `rm -rf` a worktree directory without `git worktree remove` (or you leave stale metadata). Only remove when the user wants that cleanup.
 
-- If the user has not set `origin` or does not want to push yet, stop after **commit + rebase/merge with `origin/main`** and report status; do not assume **push** is always the next step.
-
 ## Quick checklist
 
 ```
@@ -138,5 +149,5 @@ git worktree remove /path/to/worktree   # or: git worktree remove --force ... if
 - [ ] Tests added/updated per package (incl. regression tests for bug fixes)
 - [ ] UI changes: i18n keys in `src/client/lib/i18n/locales/en/*.json`, copy matches `docs/COPY_STYLE_GUIDE.md`
 - [ ] Scoped lint/tests (or full ci) all green
-- [ ] Commit message; branch-aware integration (fetch + rebase/merge onto upstream if not main; push branch or main per workflow)
+- [ ] Commit message; **`git fetch origin`**, reconcile if needed (`pull --ff-only` on `main`, or `rebase origin/main` on a feature branch), then **`git push`** (see §4)
 ```
