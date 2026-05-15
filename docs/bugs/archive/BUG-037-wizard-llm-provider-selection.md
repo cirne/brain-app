@@ -2,9 +2,11 @@
 
 **Former ripmail id:** BUG-053 (unified backlog 2026-05-01).
 
-**Status:** Open. **Created:** 2026-04-11. **Tags:** wizard, setup, llm, ux, agent-first
+**Status:** **Archived (2026-05-15).** Ripmail wizard not used for Brain onboarding; LLM provider setup is in-app.
 
-**Related:** [OPP-046 archived](../opportunities/archive/OPP-046-llm-provider-flexibility.md) (multi-provider `llm` in `config.json` + env is implemented; onboarding was explicitly deferred).
+**Was:** Open. **Created:** 2026-04-11. **Tags:** wizard, setup, llm, ux, agent-first
+
+**Related:** [OPP-046 archived](../../opportunities/archive/OPP-046-llm-provider-flexibility.md) (multi-provider `llm` in `config.json` + env is implemented; onboarding was explicitly deferred).
 
 ---
 
@@ -19,7 +21,7 @@
 ## Scope (suggested)
 
 1. `**ripmail wizard`** — extend **shared settings** (and first-run where applicable) with an LLM subsection: provider (`openai` / `anthropic` / `ollama`), conditional prompts for keys, optional `baseUrl` for Ollama, optional `fastModel` / `defaultModel` or “use defaults” for OpenAI/Anthropic.
-2. `**ripmail setup`** — non-interactive flags aligned with [OPP-046 archived § Setup / Wizard Integration](../opportunities/archive/OPP-046-llm-provider-flexibility.md) (e.g. `--llm-provider`, `--anthropic-key`, `--ollama-base-url`, optional model overrides).
+2. `**ripmail setup`** — non-interactive flags aligned with [OPP-046 archived § Setup / Wizard Integration](../../opportunities/archive/OPP-046-llm-provider-flexibility.md) (e.g. `--llm-provider`, `--anthropic-key`, `--ollama-base-url`, optional model overrides).
 3. **Write path** — merge into `config.json` `llm` and `~/.ripmail/.env` using existing `resolve_llm` / validation helpers where possible (same validation as `validate_openai_key` for Anthropic if we add `validate_anthropic_key`).
 
 ---
@@ -28,4 +30,4 @@
 
 - New install can select Anthropic or Ollama in the wizard and run `ripmail ask` without manual `config.json` edits.
 - Existing behavior for OpenAI-only users remains the default when `llm` is unset or provider is OpenAI.
-- Docs: update [AGENTS.md](../../ripmail/AGENTS.md) wizard/setup bullets when shipped.
+- Docs: update [AGENTS.md](../../../ripmail/AGENTS.md) wizard/setup bullets when shipped.

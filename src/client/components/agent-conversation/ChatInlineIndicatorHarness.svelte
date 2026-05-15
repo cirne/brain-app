@@ -7,15 +7,17 @@
     variant = 'default' as 'default' | 'error',
     withIcon = true,
     iconBang = false,
+    inlineMetrics = 'default' as 'default' | 'inherit',
   }: {
     labelOnly?: boolean
     variant?: 'default' | 'error'
     withIcon?: boolean
     iconBang?: boolean
+    inlineMetrics?: 'default' | 'inherit'
   } = $props()
 </script>
 
-<ChatInlineIndicator {labelOnly} {variant}>
+<ChatInlineIndicator {labelOnly} {variant} {inlineMetrics}>
   {#snippet icon()}
     {#if iconBang}
       !

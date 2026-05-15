@@ -2,7 +2,9 @@
 
 **Former ripmail id:** BUG-056 (unified backlog 2026-05-01).
 
-**Status:** Open. **Created:** 2026-04-14. **Tags:** wizard, imap, ux, credentials
+**Status:** **Archived (2026-05-15).** Ripmail wizard not used for Brain onboarding; IMAP credentials are handled in-app.
+
+**Was:** Open. **Created:** 2026-04-14. **Tags:** wizard, imap, ux, credentials
 
 ---
 

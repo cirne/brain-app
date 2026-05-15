@@ -9,6 +9,8 @@
 
 import type { RipmailDb } from './db.js'
 import { buildMessageFilterClause } from './filterClause.js'
+import { buildStructuredZeroHitGuidance } from './searchZeroHitGuidance.js'
+import { buildBroadRecallGuidance } from './searchBroadHitGuidance.js'
 import type { SearchOptions, SearchResult, SearchResultSet } from './types.js'
 
 const MAX_PATTERN_SCAN_ROWS = 500_000
@@ -162,7 +164,7 @@ function regexSearchFiles(
       ? `AND di.source_id IN (${opts.sourceIds!.map(() => '?').join(', ')})`
       : ''
   const sql = `
-    SELECT f.abs_path, f.source_id, di.title, di.date_iso, f.body_text, f.rel_path
+    SELECT f.abs_path, f.source_id, di.title, di.date_iso, f.body_text, f.rel_path, f.mime
     FROM files f
     JOIN document_index di ON di.source_id = f.source_id AND di.ext_id = f.rel_path AND di.kind = 'file'
     WHERE 1=1 ${srcClause}
@@ -180,6 +182,7 @@ function regexSearchFiles(
     const hay = `${title}\n${relPath}\n${absPath}\n${body}`
     const m = re.exec(hay)
     if (!m) continue
+    const mime = typeof r['mime'] === 'string' && r['mime'].trim() ? String(r['mime']).trim() : undefined
     matched.push({
       messageId: absPath,
       threadId: '',
@@ -191,6 +194,7 @@ function regexSearchFiles(
       snippet: snippetForMatch(hay, m.index, m[0].length),
       bodyPreview: bodyPreview(body),
       indexedRelPath: relPath,
+      ...(mime ? { mime } : {}),
       rank: 0,
       _rank: combinedRank(date, 0, rankReferenceMs(opts)),
     })
@@ -210,7 +214,7 @@ function regexSearchGoogleDrive(
       ? `AND di.source_id IN (${opts.sourceIds!.map(() => '?').join(', ')})`
       : ''
   const sql = `
-    SELECT di.ext_id, di.source_id, di.title, di.date_iso, di.body
+    SELECT di.ext_id, di.source_id, di.title, di.date_iso, di.body, di.mime
     FROM document_index di
     WHERE di.kind = 'googleDrive' ${srcClause}
     ORDER BY di.date_iso DESC
@@ -226,6 +230,7 @@ function regexSearchGoogleDrive(
     const hay = `${title}\n${extId}\n${body}`
     const m = re.exec(hay)
     if (!m) continue
+    const mime = typeof r['mime'] === 'string' && r['mime'].trim() ? String(r['mime']).trim() : undefined
     matched.push({
       messageId: extId,
       threadId: '',
@@ -236,6 +241,7 @@ function regexSearchGoogleDrive(
       date,
       snippet: snippetForMatch(hay, m.index, m[0].length),
       bodyPreview: bodyPreview(body),
+      ...(mime ? { mime } : {}),
       rank: 0,
       _rank: combinedRank(date, 0, rankReferenceMs(opts)),
     })
@@ -253,12 +259,23 @@ export function search(db: RipmailDb, opts: SearchOptions): SearchResultSet {
 
   if (!pattern) {
     const { rows, total } = filterOnlySearch(db, opts)
-    return {
+    const zeroRecall = total === 0
+    const base: SearchResultSet = {
       results: rows.map(({ _rank: _, ...r }) => ({ ...r })),
       timings: { totalMs: Date.now() - t0 },
       totalMatched: total,
-      hints: rows.length === 0 ? ['No results for these filters.'] : [],
+      hints: zeroRecall
+        ? ['No results for these filters.']
+        : rows.length === 0
+          ? ['No messages on this page (offset beyond results).']
+          : [],
     }
+    if (zeroRecall) Object.assign(base, buildStructuredZeroHitGuidance(opts, ''))
+    else {
+      const broad = buildBroadRecallGuidance(opts, '', total, rows.length)
+      if (broad) Object.assign(base, broad)
+    }
+    return base
   }
 
   // Validate: no legacy inline operators
@@ -270,6 +287,8 @@ export function search(db: RipmailDb, opts: SearchOptions): SearchResultSet {
       hints: [
         'The pattern contains inline operators (from:, to:, subject:, category:). Use the dedicated search parameters instead.',
       ],
+      ...buildStructuredZeroHitGuidance(opts, pattern),
+      suggestedRelaxations: [],
     }
   }
 
@@ -282,6 +301,8 @@ export function search(db: RipmailDb, opts: SearchOptions): SearchResultSet {
       timings: { totalMs: Date.now() - t0 },
       totalMatched: 0,
       hints: [`Invalid search pattern: ${String(e)}`],
+      ...buildStructuredZeroHitGuidance(opts, pattern),
+      suggestedRelaxations: [],
     }
   }
 
@@ -300,11 +321,22 @@ export function search(db: RipmailDb, opts: SearchOptions): SearchResultSet {
   all.sort((a, b) => a._rank - b._rank || b.date.localeCompare(a.date))
   const total = all.length
   const sliced = all.slice(offset, offset + limit)
+  const zeroRecall = total === 0
 
-  return {
+  const base: SearchResultSet = {
     results: sliced.map(({ _rank: _, ...r }) => ({ ...r })),
     timings: { patternMs: Date.now() - tp0, totalMs: Date.now() - t0 },
     totalMatched: total,
-    hints: sliced.length === 0 ? [`No matches for pattern "${pattern}".`] : [],
+    hints: zeroRecall
+      ? [`No matches for pattern "${pattern}".`]
+      : sliced.length === 0
+        ? ['No matches on this results page (offset beyond results).']
+        : [],
   }
+  if (zeroRecall) Object.assign(base, buildStructuredZeroHitGuidance(opts, pattern))
+  else {
+    const broad = buildBroadRecallGuidance(opts, pattern, total, sliced.length)
+    if (broad) Object.assign(base, broad)
+  }
+  return base
 }

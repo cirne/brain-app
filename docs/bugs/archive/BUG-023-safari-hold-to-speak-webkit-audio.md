@@ -1,6 +1,8 @@
 # BUG-023: Hold-to-speak / WebKit — silent or broken capture (Safari desktop and iOS)
 
-**Status:** Open (investigation paused; workarounds in code; no NDJSON debug instrumentation in tree).
+**Status:** **Archived (2026-05-15).** Fixed or cannot reproduce on current Safari / WebKit and client workarounds.
+
+**Was:** Open (investigation paused; workarounds in code; no NDJSON debug instrumentation in tree).
 
 ## Symptom
 

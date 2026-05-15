@@ -1,9 +1,11 @@
 # BUG-028: Agent email draft wrong recipient (`To`) and signature identity
 
-**Status:** Open  
+**Status:** **Archived (2026-05-15).** Draft recipient / signature fidelity addressed.
+
+**Was:** Open  
 **Tags:** `mail` · `draft` · `agent` · `privacy`  
 
-**Related:** [archived OPP-056](../opportunities/archive/OPP-056-email-draft-overlay-markdown-editor.md) (draft UI and single source of truth in overlay — orthogonal to LLM factual errors); [OPP-020](../opportunities/OPP-020-brain-owned-sending-address.md) (from-address product); [ripmail OPP-029](../../ripmail/docs/opportunities/OPP-029-compose-voice-context-from-sent-mail.md) (recipient-aware compose prompts — qualitative complement).
+**Related:** [archived OPP-056](../../opportunities/archive/OPP-056-email-draft-overlay-markdown-editor.md) (draft UI and single source of truth in overlay — orthogonal to LLM factual errors); [OPP-020](../../opportunities/OPP-020-brain-owned-sending-address.md) (from-address product); [ripmail OPP-029](../../../ripmail/docs/opportunities/OPP-029-compose-voice-context-from-sent-mail.md) (recipient-aware compose prompts — qualitative complement).
 
 ---
 

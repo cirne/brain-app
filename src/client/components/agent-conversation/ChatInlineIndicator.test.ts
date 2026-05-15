@@ -30,4 +30,15 @@ describe('ChatInlineIndicator.svelte', () => {
 
     expect(document.querySelector('[data-chat-inline-indicator]')).toHaveClass('text-danger')
   })
+
+  it('inlineMetrics inherit drops the transcript band and uses inherited typography tokens', () => {
+    render(ChatInlineIndicatorHarness, { props: { inlineMetrics: 'inherit' } })
+
+    const root = document.querySelector('[data-chat-inline-indicator]')
+    expect(root).toBeTruthy()
+    expect(root).toHaveClass('min-h-0')
+    expect(root).toHaveClass('text-inherit')
+    expect(root).toHaveClass('leading-inherit')
+    expect(root).not.toHaveClass('min-h-6')
+  })
 })

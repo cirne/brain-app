@@ -297,7 +297,7 @@ describe('ToolCallBlock.svelte', () => {
       expect(screen.getByText('Myproject')).toBeInTheDocument()
     })
 
-    it('compact read uses two inline indicators and strip-aligned wiki title', () => {
+    it('compact read uses two inline indicators and renders the wiki filename', () => {
       const toolCall = makeToolCall({
         name: 'read',
         args: { path: 'me.md' },
@@ -307,7 +307,7 @@ describe('ToolCallBlock.svelte', () => {
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
       expect(container.querySelectorAll('[data-chat-inline-indicator]').length).toBe(2)
-      expect(container.querySelector('.wfn-title-row--strip')).toBeTruthy()
+      expect(container.querySelector('.wfn-title-row')).toBeTruthy()
     })
 
     it('renders move_file with from and to paths', () => {

@@ -4,6 +4,8 @@
 
 Integration evals for assistant, wiki, and enrichment agents use the **same multi-tenant layout as `npm run dev`**: mail and ripmail live under **`BRAIN_DATA_ROOT`**. By default (`npm run eval:run`) that is **`./data`**, and the Enron **Kean** corpus is indexed at **`./data/usr_enrondemo00000000001/`** (same tenant as the Kean demo persona). Wiki JSONL cases still use isolated vault parents under **`.data-eval/wiki-eval-cases/<task-id>/`** (gitignored). JSON eval reports are written under **`data-eval/eval-runs/`** (gitignored).
 
+**Zero-hit search metadata:** When `search_index` / ripmail search returns **`totalMatched === 0`**, the JSON includes structured **`effectiveSearch`**, **`constraintsPresent`**, and **`suggestedRelaxations`** (stable IDs). **High-recall / broad pools:** when **`totalMatched`** exceeds **`limit`** or is ≥ **50**, JSON adds **`recallSummary`** (counts + stable **`reasons`**) and **`suggestedNarrowings`**. Coverage: **`src/server/ripmail/ripmail.test.ts`** (no dedicated JSONL eval for these paths yet).
+
 ## Seed the Enron corpora
 
 **Three demo tenants** (Kean, Lay, Skilling) plus the indexes LLM evals need:

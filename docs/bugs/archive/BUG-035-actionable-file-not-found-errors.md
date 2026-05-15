@@ -2,9 +2,11 @@
 
 **Former ripmail id:** BUG-033 (unified backlog 2026-05-01).
 
-**Status:** Open. **Created:** 2026-03-31. **Tags:** errors, cli, ux, agent-first
+**Status:** **Archived (2026-05-15).** In-process TypeScript mail stack; actionable error shaping addressed — raw CLI `ripmail` leaks no longer tracked here.
 
-**Design lens:** [Agent-first](../VISION.md) — when local cache or maildir files are missing, errors should explain the failure in mail-domain terms and suggest the next step (e.g. **`refresh`**). Raw OS errors force agents to guess whether they should sync, retry, normalize an ID, or stop.
+**Was:** Open. **Created:** 2026-03-31. **Tags:** errors, cli, ux, agent-first
+
+**Design lens:** [Agent-first](../../VISION.md) — when local cache or maildir files are missing, errors should explain the failure in mail-domain terms and suggest the next step (e.g. **`refresh`**). Raw OS errors force agents to guess whether they should sync, retry, normalize an ID, or stop.
 
 ---
 
@@ -34,7 +36,7 @@ ripmail send re-podcast_l87KX8V2
 Error: "Cannot build reply threading: could not read source message at /Users/cirne/.ripmail/data/cur/... .eml (No such file or directory (os error 2))"
 ```
 
-The second example also overlaps with [BUG-031 archived (Rust-era mail tree)](../architecture/ripmail-rust-snapshot.md), but this bug is broader: even when the low-level cause is legitimate, the surfaced error format is not agent-friendly.
+The second example also overlaps with [BUG-031 archived (Rust-era mail tree)](../../architecture/ripmail-rust-snapshot.md), but this bug is broader: even when the low-level cause is legitimate, the surfaced error format is not agent-friendly.
 
 ---
 
@@ -42,8 +44,8 @@ The second example also overlaps with [BUG-031 archived (Rust-era mail tree)](..
 
 Several command paths still leak raw `std::io::Error` or path-oriented failures directly to the user instead of mapping them into ripmail-specific error categories. Earlier fixes addressed parts of this problem for specific flows, but the handling is still inconsistent across commands:
 
-- [BUG-027 archived (Rust-era)](../architecture/ripmail-rust-snapshot.md) improved missing-draft messaging.
-- [BUG-029 archived (Rust-era)](../architecture/ripmail-rust-snapshot.md) improved ID normalization so some "not found" cases resolve automatically.
+- [BUG-027 archived (Rust-era)](../../architecture/ripmail-rust-snapshot.md) improved missing-draft messaging.
+- [BUG-029 archived (Rust-era)](../../architecture/ripmail-rust-snapshot.md) improved ID normalization so some "not found" cases resolve automatically.
 - Current read/send paths can still emit low-level missing-file output without a recovery hint.
 
 The result is an uneven error contract: some missing-resource failures are actionable, others still require inference from OS messages.
@@ -70,7 +72,7 @@ A strong published skill can teach agents likely recovery patterns, such as "if 
 
 ## References
 
-- Related send-path bug: [BUG-031 archived (Rust-era)](../architecture/ripmail-rust-snapshot.md)
-- Prior draft-specific messaging fix: [BUG-027 archived (Rust-era)](../architecture/ripmail-rust-snapshot.md)
-- Prior read/thread ID normalization fix: [BUG-029 archived (Rust-era)](../architecture/ripmail-rust-snapshot.md)
-- Historical agent-friction doc: [BUG-001 archived (Rust-era)](../architecture/ripmail-rust-snapshot.md)
+- Related send-path bug: [BUG-031 archived (Rust-era)](../../architecture/ripmail-rust-snapshot.md)
+- Prior draft-specific messaging fix: [BUG-027 archived (Rust-era)](../../architecture/ripmail-rust-snapshot.md)
+- Prior read/thread ID normalization fix: [BUG-029 archived (Rust-era)](../../architecture/ripmail-rust-snapshot.md)
+- Historical agent-friction doc: [BUG-001 archived (Rust-era)](../../architecture/ripmail-rust-snapshot.md)

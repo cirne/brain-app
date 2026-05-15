@@ -50,6 +50,20 @@ function parseJsonArray(s: string): string[] {
   }
 }
 
+function modifiedAtFromDocumentIndex(dateIso: unknown): string | undefined {
+  if (typeof dateIso !== 'string') return undefined
+  const s = dateIso.trim()
+  return s.length > 0 ? s : undefined
+}
+
+function modifiedAtFromFileMtime(mtime: unknown): string | undefined {
+  if (typeof mtime !== 'number' || !Number.isFinite(mtime)) return undefined
+  const ms = mtime > 1e12 ? mtime : mtime * 1000
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return undefined
+  return d.toISOString()
+}
+
 function listAttachments(db: RipmailDb, messageId: string): AttachmentMeta[] {
   // Try both with and without angle brackets for message_id
   const resolvedId = resolveMessageId(db, messageId) ?? messageId
@@ -224,7 +238,7 @@ export function readMailForDisplay(
 
 /**
  * Read an indexed file (Drive, localDir) by its ID/path.
- * When `opts.fullBody` is true for Google Drive, fetches authoritative content from the API (with TTL cache).
+ * When `opts.fullBody` is true for Google Drive, fetches authoritative content from the API (metadata check + fingerprint-validated disk cache).
  * When `opts.sourceId` is set, matches that ripmail source (same as search_index `source`).
  */
 export async function readIndexedFile(
@@ -239,7 +253,7 @@ export async function readIndexedFile(
   const diRow = wantSource
     ? (db
         .prepare(
-          `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, s.kind AS source_kind
+          `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, di.mime, di.date_iso, s.kind AS source_kind
            FROM document_index di
            LEFT JOIN sources s ON s.id = di.source_id
            WHERE di.ext_id = ? AND di.source_id = ? AND di.kind IN ('googleDrive', 'file')
@@ -248,7 +262,7 @@ export async function readIndexedFile(
         .get(id, wantSource) as Record<string, unknown> | undefined)
     : (db
         .prepare(
-          `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, s.kind AS source_kind
+          `SELECT di.ext_id, di.source_id, di.title, di.body, di.kind, di.mime, di.date_iso, s.kind AS source_kind
            FROM document_index di
            LEFT JOIN sources s ON s.id = di.source_id
            WHERE di.ext_id = ? AND di.kind IN ('googleDrive', 'file')
@@ -260,6 +274,7 @@ export async function readIndexedFile(
     const rowKind = String(diRow['kind'] ?? '')
     const sourceId = String(diRow['source_id'] ?? '')
     const extId = String(diRow['ext_id'] ?? id)
+    const docModifiedAt = modifiedAtFromDocumentIndex(diRow['date_iso'])
     if (rowKind === 'googleDrive' && opts?.fullBody && ripmailHome) {
       const fetched = await readGoogleDriveFileBodyCached(ripmailHome, sourceId, extId)
       if (fetched) {
@@ -269,6 +284,7 @@ export async function readIndexedFile(
           title: fetched.title,
           bodyText: fetched.text,
           mime: fetched.mime,
+          ...(docModifiedAt ? { modifiedAt: docModifiedAt } : {}),
         }
         const visualArtifacts = visualArtifactFromIndexedFileResult(result)
         return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result
@@ -283,11 +299,15 @@ export async function readIndexedFile(
 
     const body = String(diRow['body'] ?? '')
     const maxChars = opts?.fullBody ? Infinity : 4000
+    const mimeFromIndex =
+      typeof diRow['mime'] === 'string' && diRow['mime'].trim() ? String(diRow['mime']).trim() : undefined
     const result: ReadIndexedFileResult = {
       id: extId,
       sourceKind: String(diRow['source_kind'] ?? rowKind ?? ''),
       title: String(diRow['title'] ?? ''),
       bodyText: body.slice(0, maxChars),
+      ...(mimeFromIndex ? { mime: mimeFromIndex } : {}),
+      ...(docModifiedAt ? { modifiedAt: docModifiedAt } : {}),
     }
     const visualArtifacts = visualArtifactFromIndexedFileResult(result)
     return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result
@@ -296,7 +316,7 @@ export async function readIndexedFile(
   // localDir: look up in files table by abs_path or rel_path
   const fileRow = db
     .prepare(
-      `SELECT f.abs_path, f.source_id, f.title, f.body_text, f.mime, f.size, s.kind AS source_kind
+      `SELECT f.abs_path, f.source_id, f.title, f.body_text, f.mime, f.size, f.mtime, s.kind AS source_kind
        FROM files f
        LEFT JOIN sources s ON s.id = f.source_id
        WHERE f.abs_path = ? OR f.rel_path = ?
@@ -315,6 +335,7 @@ export async function readIndexedFile(
       }
     }
     const maxChars = opts?.fullBody ? Infinity : 4000
+    const fileModifiedAt = modifiedAtFromFileMtime(fileRow['mtime'])
     const result: ReadIndexedFileResult = {
       id: String(fileRow['abs_path'] ?? id),
       sourceKind: String(fileRow['source_kind'] ?? 'localDir'),
@@ -322,6 +343,7 @@ export async function readIndexedFile(
       bodyText: body.slice(0, maxChars),
       ...(typeof fileRow['mime'] === 'string' && fileRow['mime'] ? { mime: String(fileRow['mime']) } : {}),
       ...(typeof fileRow['size'] === 'number' ? { size: Number(fileRow['size']) } : {}),
+      ...(fileModifiedAt ? { modifiedAt: fileModifiedAt } : {}),
     }
     const visualArtifacts = visualArtifactFromIndexedFileResult(result)
     return visualArtifacts.length > 0 ? { ...result, visualArtifacts } : result

@@ -363,6 +363,30 @@ describe('parseRoute inbox primary', () => {
       overlay: { type: 'email', id: 'tid@example.com' },
     })
   })
+
+  it('parses /inbox with indexed-file detail as library zone (legacy URL)', () => {
+    expect(
+      parseRoute('http://localhost/inbox?panel=indexed-file&idx=file-id-1&src=my-drive-src'),
+    ).toEqual({
+      zone: 'library',
+      overlay: { type: 'indexed-file', id: 'file-id-1', source: 'my-drive-src' },
+    })
+  })
+})
+
+describe('parseRoute library primary', () => {
+  it('parses /library', () => {
+    expect(parseRoute('http://localhost/library')).toEqual({ zone: 'library' })
+  })
+
+  it('parses /library with indexed-file overlay', () => {
+    expect(
+      parseRoute('http://localhost/library?panel=indexed-file&idx=file-id-2&src=src-x'),
+    ).toEqual({
+      zone: 'library',
+      overlay: { type: 'indexed-file', id: 'file-id-2', source: 'src-x' },
+    })
+  })
 })
 
 describe('parseRoute your-wiki / hub', () => {
@@ -624,6 +648,16 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('library primary returns /library', () => {
+    expect(routeToUrl({ zone: 'library' })).toBe('/library')
+    expect(
+      routeToUrl({
+        zone: 'library',
+        overlay: { type: 'indexed-file', id: 'driveid', source: 'src1' },
+      }),
+    ).toBe('/library?panel=indexed-file&idx=driveid&src=src1')
+  })
+
   it('tunnels zone without handle serializes to /c; with handle to /tunnels/:handle', () => {
     expect(routeToUrl({ zone: 'tunnels' })).toBe('/c')
     expect(routeToUrl({ zone: 'tunnels', tunnelHandle: 'peer-h' })).toBe('/tunnels/peer-h')
@@ -723,6 +757,11 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'enron-demo' as const },
     { zone: 'inbox' },
     { zone: 'inbox', overlay: { type: 'email' as const, id: 'msg:x@y.com' } },
+    { zone: 'library' },
+    {
+      zone: 'library',
+      overlay: { type: 'indexed-file' as const, id: 'doc-id', source: 'drive-src' },
+    },
     { zone: 'tunnels', tunnelHandle: 'abc-123' },
     { zone: 'hub' },
     { zone: 'hub', overlay: { type: 'hub-wiki-about' as const } },

@@ -65,6 +65,20 @@
     }
   },
   "indexedFileViewer": {
-    "loadingTitle": "(loading)"
+    "loadingTitle": "(loading)",
+    "libraryEmptyHint": "Open an indexed document from search or chat to read it here.",
+    "documentHeadingAria": "Indexed document",
+    "openOriginal": "Open original",
+    "openOriginalTitle": "Open this document in its source app (new tab)",
+    "sourceGoogleDrive": "Google Drive",
+    "sourceLocalFiles": "Local files",
+    "sourceIndexed": "Indexed document",
+    "modifiedLabel": "Modified {{when}}",
+    "errorTitle": "Something went wrong",
+    "notFound": "This document could not be opened.",
+    "wrongKindMail": "This item is an email thread — open it from the inbox.",
+    "loadFailedGeneric": "Could not load this document.",
+    "loadFailedHttp": "Could not load this document (HTTP {{status}}).",
+    "loadFailedNetwork": "Could not load this document. Check your connection and try again."
   }
 }

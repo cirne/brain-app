@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs'
 import { Hono } from 'hono'
 import { decodeVisualArtifactRef } from '@shared/visualArtifacts.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
-import { prepareRipmailDb, ripmailReadIndexedFile } from '@server/ripmail/index.js'
+import { prepareRipmailDb, ripmailReadIndexedFile, readIndexedFileResultToViewerPayload } from '@server/ripmail/index.js'
 import { resolveVisualArtifactResponse } from '@server/ripmail/visualArtifacts.js'
 import { assertAgentReadPathAllowed, ripmailReadIdLooksLikeFilesystemPath } from '@server/agent/agentToolPolicy.js'
 import {
@@ -38,35 +38,6 @@ files.get('/artifact', async c => {
   }
 })
 
-/** Normalize `ripmail read --json` for Drive vs localDir (viewer JSON; not frontmatter). */
-function normalizeIndexedRipmailJson(j: Record<string, unknown>, queryId: string) {
-  const sk = j.sourceKind
-  if (sk === 'googleDrive') {
-    return {
-      id: queryId,
-      sourceKind: 'googleDrive' as const,
-      title: typeof j.title === 'string' ? j.title : queryId,
-      body: typeof j.body === 'string' ? j.body : '',
-      mime: typeof j.mime === 'string' ? j.mime : 'application/octet-stream',
-      readStatus: typeof j.readStatus === 'string' ? j.readStatus : 'ok',
-    }
-  }
-  if (sk === 'localDir') {
-    const path = typeof j.path === 'string' ? j.path : queryId
-    const title =
-      typeof j.filename === 'string' ? j.filename : path.split(/[/\\]/).filter(Boolean).pop() ?? path
-    return {
-      id: path,
-      sourceKind: 'localDir' as const,
-      title,
-      body: typeof j.bodyText === 'string' ? j.bodyText : '',
-      mime: typeof j.mime === 'string' ? j.mime : 'application/octet-stream',
-      readStatus: typeof j.readStatus === 'string' ? j.readStatus : 'ok',
-    }
-  }
-  return null
-}
-
 // GET /api/files/indexed?id=&source= — structured JSON for IndexedFileViewer (ripmail read --json --full-body)
 files.get('/indexed', async c => {
   const rawId = c.req.query('id')
@@ -91,10 +62,7 @@ files.get('/indexed', async c => {
     if (!result) {
       return c.json({ error: 'not an indexed file read (expected googleDrive or localDir)' }, 422)
     }
-    const normalized = normalizeIndexedRipmailJson(
-      { sourceKind: result.sourceKind, title: result.title, body: result.bodyText, bodyText: result.bodyText, path: result.id },
-      rawId.trim(),
-    )
+    const normalized = readIndexedFileResultToViewerPayload(result, rawId.trim())
     if (!normalized) {
       return c.json({ error: 'not an indexed file read (expected googleDrive or localDir)' }, 422)
     }

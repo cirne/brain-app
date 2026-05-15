@@ -50,6 +50,8 @@ export interface SearchResult {
   snippet: string
   bodyPreview: string
   indexedRelPath?: string
+  /** From Drive ingest (`document_index.mime`) or `files.mime` for localDir indexed paths */
+  mime?: string
   rank: number
 }
 
@@ -58,12 +60,65 @@ export interface SearchTimings {
   totalMs: number
 }
 
+/** Echo of structured search parameters (omit empty fields). Tool-oriented; not locale-specific. */
+export interface EffectiveSearchSnapshot {
+  pattern?: string
+  from?: string
+  to?: string
+  after?: string
+  before?: string
+  subject?: string
+  category?: string
+  caseSensitive?: boolean
+  limit?: number
+  offset?: number
+  sourceIds?: string[]
+}
+
+/** Which structured filters were active on the attempt that yielded zero matches. */
+export interface SearchConstraintsPresent {
+  hasPattern: boolean
+  caseSensitive: boolean
+  hasAfterDate: boolean
+  hasBeforeDate: boolean
+  hasFrom: boolean
+  hasTo: boolean
+  hasSubject: boolean
+  hasCategory: boolean
+  hasSourceIds: boolean
+}
+
 export interface SearchResultSet {
   results: SearchResult[]
   timings: SearchTimings
   totalMatched?: number
   hints: string[]
   normalizedQuery?: string
+  /**
+   * Present when `totalMatched === 0`: normalized params and stable relaxation IDs so the model can retry.
+   * Not emitted when matches exist (pagination-only empty page uses hints only).
+   */
+  effectiveSearch?: EffectiveSearchSnapshot
+  /** Stable IDs; suggested order for widening recall. See `searchZeroHitGuidance.ts`. */
+  suggestedRelaxations?: string[]
+  constraintsPresent?: SearchConstraintsPresent
+  /**
+   * Present when the matched pool is large (`totalMatched > limit` or ≥ absolute threshold).
+   * See `searchBroadHitGuidance.ts`.
+   */
+  recallSummary?: SearchRecallSummary
+  /** Stable IDs suggesting how to narrow the next search. */
+  suggestedNarrowings?: string[]
+}
+
+/** Volume metadata when matched rows exceed paging or absolute high-recall floor. */
+export interface SearchRecallSummary {
+  totalMatched: number
+  resultsReturned: number
+  /** Stable codes: `high_recall_total_exceeds_page`, `high_recall_large_pool`. */
+  reasons: string[]
+  limit?: number
+  offset?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +172,8 @@ export interface ReadIndexedFileResult {
   bodyText: string
   mime?: string
   size?: number
+  /** Raw modified-time string from index when present (Drive `date_iso`, etc.). */
+  modifiedAt?: string
   visualArtifacts?: VisualArtifact[]
 }
 

@@ -120,12 +120,13 @@
   <span
     class={cn(
       isCompactTruncate
-        ? 'tool-compact-truncate-inner flex min-h-0 min-w-0 flex-1 items-center gap-x-2 overflow-hidden'
+        ? 'tool-compact-truncate-inner flex min-w-0 flex-1 items-center gap-x-2 overflow-hidden'
         : 'tool-summary-body flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-[0.35em]',
     )}
   >
     <ChatInlineIndicator
       variant={toolCall.isError ? 'error' : 'default'}
+      inlineMetrics={isCompactTruncate ? 'inherit' : 'default'}
       class="shrink-0"
     >
       {#snippet icon()}
@@ -137,27 +138,31 @@
     </ChatInlineIndicator>
     {#if summaryParts}
       {#if summaryParts.mode === 'single_path'}
-        <ChatInlineIndicator labelOnly class="min-w-0 shrink">
+        <ChatInlineIndicator
+          labelOnly
+          inlineMetrics={isCompactTruncate ? 'inherit' : 'default'}
+          class="min-w-0 shrink"
+        >
           {#snippet children()}
-            <WikiFileName path={summaryParts.path} stripAlign />
+            <WikiFileName path={summaryParts.path} stripAlign={isCompactTruncate} />
           {/snippet}
         </ChatInlineIndicator>
       {:else if summaryParts.mode === 'move'}
         <span
           class={cn(
-            'tool-summary-move inline-flex min-h-6 min-w-0 flex-1 flex-wrap items-center gap-1 text-[11px] text-muted [&_.wfn-title-row]:items-center',
-            isCompactTruncate && 'tool-summary-move--compact min-w-0 overflow-hidden',
+            'tool-summary-move inline-flex min-w-0 flex-1 flex-wrap items-center gap-1 text-muted',
+            isCompactTruncate ? 'overflow-hidden' : 'min-h-6 text-[11px] [&_.wfn-title-row]:items-center',
           )}
         >
-          <WikiFileName path={summaryParts.from} stripAlign />
+          <WikiFileName path={summaryParts.from} stripAlign={isCompactTruncate} />
           <span class="tool-summary-arrow shrink-0 text-[10px] opacity-55" aria-hidden="true">→</span>
-          <WikiFileName path={summaryParts.to} stripAlign />
+          <WikiFileName path={summaryParts.to} stripAlign={isCompactTruncate} />
         </span>
       {:else}
         <span
           class={cn(
-            'tool-summary-plain min-h-6 min-w-0 max-w-[min(100%,28rem)] truncate font-mono text-muted',
-            isCompactTruncate && 'tool-summary-plain--compact',
+            'tool-summary-plain min-w-0 max-w-[min(100%,28rem)] truncate font-mono text-muted',
+            isCompactTruncate ? 'tool-summary-plain--compact' : 'min-h-6 text-[11px]',
           )}
           title={isCompactTruncate ? undefined : summaryParts.text}>{summaryParts.text}</span>
       {/if}

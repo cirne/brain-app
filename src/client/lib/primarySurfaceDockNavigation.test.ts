@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
 import {
   inboxThreadSurfaceForCompose,
+  indexedFileSurfaceForCompose,
   primaryDockOverlayToKeepForChatSplit,
 } from './primarySurfaceDockNavigation.js'
 import type { Route, SurfaceContext } from '@client/router.js'
@@ -70,6 +71,36 @@ describe('primarySurfaceDockNavigation', () => {
       ).toBeUndefined()
     })
 
+    it('keeps indexed-file overlay when library-primary doc is open and wide', () => {
+      expect(
+        primaryDockOverlayToKeepForChatSplit(
+          {
+            zone: 'library',
+            overlay: { type: 'indexed-file', id: 'fid-1', source: 'drive' },
+          },
+          { isMobile: false, workspaceColumnWidth: min },
+          min,
+        ),
+      ).toEqual({ type: 'indexed-file', id: 'fid-1', source: 'drive' })
+      expect(
+        primaryDockOverlayToKeepForChatSplit(
+          { zone: 'library', overlay: { type: 'indexed-file', id: 'fid-2' } },
+          { isMobile: false, workspaceColumnWidth: min },
+          min,
+        ),
+      ).toEqual({ type: 'indexed-file', id: 'fid-2' })
+    })
+
+    it('does not keep indexed-file without id on library-primary', () => {
+      expect(
+        primaryDockOverlayToKeepForChatSplit(
+          { zone: 'library', overlay: { type: 'indexed-file' } },
+          { isMobile: false, workspaceColumnWidth: min },
+          min,
+        ),
+      ).toBeUndefined()
+    })
+
     it('does not keep overlay for unrelated zones', () => {
       const r: Pick<Route, 'zone' | 'overlay'> = { zone: 'hub', overlay: { type: 'hub' } }
       expect(
@@ -105,6 +136,41 @@ describe('primarySurfaceDockNavigation', () => {
     it('returns null without email thread id overlay', () => {
       expect(
         inboxThreadSurfaceForCompose({ type: 'email' }, { type: 'chat' }),
+      ).toBeNull()
+    })
+  })
+
+  describe('indexedFileSurfaceForCompose', () => {
+    it('reuses agent context when id matches', () => {
+      const ctx: SurfaceContext = {
+        type: 'indexed-file',
+        id: 'f1',
+        title: 'Doc',
+        sourceKind: 'drive',
+        source: 's1',
+      }
+      expect(
+        indexedFileSurfaceForCompose({ type: 'indexed-file', id: 'f1', source: 's1' }, ctx),
+      ).toBe(ctx)
+    })
+
+    it('returns minimal stub when viewer has not synced context yet', () => {
+      expect(
+        indexedFileSurfaceForCompose({ type: 'indexed-file', id: 'f2', source: 'src-x' }, {
+          type: 'chat',
+        }),
+      ).toEqual({
+        type: 'indexed-file',
+        id: 'f2',
+        title: '(loading)',
+        sourceKind: '',
+        source: 'src-x',
+      })
+    })
+
+    it('returns null without indexed-file id overlay', () => {
+      expect(
+        indexedFileSurfaceForCompose({ type: 'indexed-file' }, { type: 'chat' }),
       ).toBeNull()
     })
   })

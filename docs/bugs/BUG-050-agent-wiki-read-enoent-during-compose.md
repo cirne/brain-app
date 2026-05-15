@@ -9,7 +9,7 @@
 
 ## Summary
 
-During a **draft-mail** flow grounded in **travel / trip** planning, reads of wiki pages that should back date or trip context failed with **ENOENT**. The assistant had not established wiki evidence before suggesting timing; after the user asked for wiki-backed trips, reads still failed. **Same session** as in-app feedback **#16** (see [BUG-028](BUG-028-agent-email-draft-wrong-recipient-and-signature.md) for wrong **CC** / guessed contact email).
+During a **draft-mail** flow grounded in **travel / trip** planning, reads of wiki pages that should back date or trip context failed with **ENOENT**. The assistant had not established wiki evidence before suggesting timing; after the user asked for wiki-backed trips, reads still failed. **Same session** as in-app feedback **#16** (see [BUG-028 archived](archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md) for wrong **CC** / guessed contact email).
 
 ---
 
@@ -19,14 +19,14 @@ During a **draft-mail** flow grounded in **travel / trip** planning, reads of wi
 2. Observe mail/calendar tools used before wiki is searched.
 3. Ask the assistant to search **trips in the wiki**.
 4. Observe **ENOENT** on reads for the expected travel pages.
-5. Continue drafting — assistant may **guess** contact fields (see **BUG-028**).
+5. Continue drafting — assistant may **guess** contact fields (see **BUG-028** archived spec).
 
 ---
 
 ## Expected
 
 - Read tools resolve the same paths as the **viewer** and **`wikis/me/…`** layout (**BUG-043** semantics).
-- Assistant **prefers** wiki/contact evidence before guessing **To/CC** (**BUG-028**).
+- Assistant **prefers** wiki/contact evidence before guessing **To/CC** ([BUG-028 archived](archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md)).
 
 ---
 

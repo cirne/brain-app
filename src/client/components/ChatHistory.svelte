@@ -611,7 +611,7 @@
       </section>
 
       <section
-        class="ch-group ch-group--tunnels m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5 pb-5"
+        class="ch-group ch-group--tunnels m-0 mt-1 flex min-w-0 w-full max-w-full flex-col pt-3.5 pb-5"
         aria-labelledby="ch-heading-tunnels"
       >
         <div class="flex items-start justify-between gap-2 px-2 pb-2 pt-0.5">
@@ -667,7 +667,7 @@
       </section>
 
       <section
-        class="ch-group ch-group--wiki m-0 mt-1 flex min-w-0 w-full max-w-full flex-col border-t border-border pt-3.5"
+        class="ch-group ch-group--wiki m-0 mt-1 flex min-w-0 w-full max-w-full flex-col pt-3.5"
         aria-labelledby="ch-heading-wiki"
       >
         <h2

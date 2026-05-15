@@ -58,6 +58,12 @@ describe('mobileCompactNavCenterTitle', () => {
     ).toBe('Inbox')
   })
 
+  it('uses Library when /library is the primary surface', () => {
+    expect(
+      mobileCompactNavCenterTitle({ zone: 'library' }, { type: 'chat' }, undefined, null),
+    ).toBe('Library')
+  })
+
   it('uses @handle when tunnel detail is the primary surface', () => {
     expect(
       mobileCompactNavCenterTitle(

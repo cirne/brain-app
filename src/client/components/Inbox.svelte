@@ -351,9 +351,17 @@
     }
   }
 
+  function ripmailEntryJsonToInboxMessage(raw: unknown): InboxMessageResponse | null {
+    if (!raw || typeof raw !== 'object') return null
+    const o = raw as Record<string, unknown>
+    if (o.entryKind !== 'mail') return null
+    const { entryKind: _, ...rest } = o
+    return rest as InboxMessageResponse
+  }
+
   /** 404 can be transient right after sync / new mail; brief retries match “refresh fixes it”. */
   async function fetchInboxMessageForOpen(messageId: string, signal: AbortSignal): Promise<Response> {
-    const url = `/api/inbox/${encodeURIComponent(messageId)}`
+    const url = `/api/ripmail/entry/${encodeURIComponent(messageId)}`
     const delayMs = [0, 400, 900]
     let last: Response | undefined
     for (const d of delayMs) {
@@ -391,8 +399,14 @@
       const res = await fetchInboxMessageForOpen(id, signal)
       if (threadOpenLatest.isStale(token)) return
       if (res.ok) {
-        const message = (await res.json()) as InboxMessageResponse
+        const raw = await res.json()
+        const message = ripmailEntryJsonToInboxMessage(raw)
         if (threadOpenLatest.isStale(token)) return
+        if (!message) {
+          threadContent = null
+          threadLoadError = $t('inbox.inboxPanel.thread.errors.notFound')
+          return
+        }
         threadContent = threadContentFromMessage(message)
         const meta = {
           subject: headerValue(message.headers.subject) || $t('inbox.inboxPanel.thread.noSubject'),
@@ -449,8 +463,14 @@
       const res = await fetchInboxMessageForOpen(email.id, signal)
       if (threadOpenLatest.isStale(token)) return
       if (res.ok) {
-        const message = (await res.json()) as InboxMessageResponse
+        const raw = await res.json()
+        const message = ripmailEntryJsonToInboxMessage(raw)
         if (threadOpenLatest.isStale(token)) return
+        if (!message) {
+          threadContent = null
+          threadLoadError = $t('inbox.inboxPanel.thread.errors.notFound')
+          return
+        }
         threadContent = threadContentFromMessage(message)
         onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: message.bodyText.slice(0, 4000) })
       } else {

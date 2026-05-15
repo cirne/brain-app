@@ -83,6 +83,7 @@ export function hubActiveForOpenOverlay(
     route.zone === 'hub' ||
       route.zone === 'settings' ||
       route.zone === 'inbox' ||
+      route.zone === 'library' ||
       route.zone === 'tunnels' ||
       route.overlay?.type === 'hub',
   )
@@ -96,7 +97,8 @@ export function closeOverlayStrategy(
   useDesktopSplitDetail: boolean,
 ): CloseOverlayStrategy {
   if (!route.overlay) return 'none'
-  if (route.zone === 'wiki' || route.zone === 'inbox' || route.zone === 'tunnels') return 'immediate'
+  if (route.zone === 'wiki' || route.zone === 'inbox' || route.zone === 'library' || route.zone === 'tunnels')
+    return 'immediate'
   const t = route.overlay.type
   if (t === 'hub' || t === 'chat-history') return 'immediate'
   if (useDesktopSplitDetail) return 'animated_desktop'

@@ -13,7 +13,7 @@ vi.mock('@server/lib/llm/draftBodyRewrite.js', () => ({
 const ripmailInboxMock = vi.fn()
 const ripmailWhoMock = vi.fn()
 const ripmailReadMailMock = vi.fn()
-const ripmailReadMailForDisplayMock = vi.fn()
+const ripmailResolveEntryJsonMock = vi.fn()
 const ripmailDraftViewMock = vi.fn()
 const ripmailDraftEditMock = vi.fn()
 const ripmailDraftReplyMock = vi.fn()
@@ -25,7 +25,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailInbox: ripmailInboxMock,
   ripmailWho: ripmailWhoMock,
   ripmailReadMail: ripmailReadMailMock,
-  ripmailReadMailForDisplay: ripmailReadMailForDisplayMock,
+  ripmailResolveEntryJson: ripmailResolveEntryJsonMock,
   ripmailDraftView: ripmailDraftViewMock,
   ripmailDraftEdit: ripmailDraftEditMock,
   ripmailDraftReply: ripmailDraftReplyMock,
@@ -67,19 +67,19 @@ beforeEach(async () => {
     sourceId: 's1',
     isArchived: false,
   })
-  ripmailReadMailForDisplayMock.mockResolvedValue({
+  ripmailResolveEntryJsonMock.mockResolvedValue({
+    entryKind: 'mail',
     messageId: 'msg-99',
-    fromAddress: 'x@test.com',
-    toAddresses: [],
-    ccAddresses: [],
-    subject: 'Hi',
-    date: '2026-04-12',
+    threadId: 'msg-99',
+    headers: {
+      from: 'x@test.com',
+      to: [],
+      cc: [],
+      subject: 'Hi',
+      date: '2026-04-12',
+    },
     bodyKind: 'text',
     bodyText: 'plain text body',
-    rawPath: '',
-    threadId: 'msg-99',
-    sourceId: 's1',
-    isArchived: false,
   })
   ripmailDraftViewMock.mockReturnValue({ id: 'draft-1', subject: 'Re: Hello', body: 'Draft body', to: [], createdAt: '', updatedAt: '' })
   ripmailDraftEditMock.mockReturnValue({ id: 'draft-1', subject: 'Hi', body: 'Line1\n\nLine2', to: ['a@example.com'], createdAt: '', updatedAt: '' })
@@ -194,27 +194,24 @@ describe('GET /api/inbox/:id', () => {
       bodyKind: 'text',
       bodyText: 'plain text body',
     })
-    expect(ripmailReadMailForDisplayMock).toHaveBeenCalledWith(
-      expect.any(String),
-      'msg-99',
-    )
+    expect(ripmailResolveEntryJsonMock).toHaveBeenCalledWith(expect.any(String), 'msg-99')
   })
 
   it('returns HTML display body when available', async () => {
-    ripmailReadMailForDisplayMock.mockResolvedValue({
+    ripmailResolveEntryJsonMock.mockResolvedValue({
+      entryKind: 'mail',
       messageId: 'msg-html',
-      fromAddress: 'x@test.com',
-      toAddresses: ['y@test.com'],
-      ccAddresses: [],
-      subject: 'HTML',
-      date: '2026-04-12',
+      threadId: 'msg-html',
+      headers: {
+        from: 'x@test.com',
+        to: ['y@test.com'],
+        cc: [],
+        subject: 'HTML',
+        date: '2026-04-12',
+      },
       bodyKind: 'html',
       bodyText: 'plain fallback',
       bodyHtml: '<p>HTML body</p>',
-      rawPath: '',
-      threadId: 'msg-html',
-      sourceId: 's1',
-      isArchived: false,
     })
     const res = await app.request('/api/inbox/msg-html')
     expect(res.status).toBe(200)
@@ -228,20 +225,20 @@ describe('GET /api/inbox/:id', () => {
   })
 
   it('returns visual artifacts for display rendering when present', async () => {
-    ripmailReadMailForDisplayMock.mockResolvedValue({
+    ripmailResolveEntryJsonMock.mockResolvedValue({
+      entryKind: 'mail',
       messageId: 'msg-image',
-      fromAddress: 'x@test.com',
-      toAddresses: ['y@test.com'],
-      ccAddresses: [],
-      subject: 'Image',
-      date: '2026-04-12',
+      threadId: 'msg-image',
+      headers: {
+        from: 'x@test.com',
+        to: ['y@test.com'],
+        cc: [],
+        subject: 'Image',
+        date: '2026-04-12',
+      },
       bodyKind: 'html',
       bodyText: '',
       bodyHtml: '<img src="cid:image001">',
-      rawPath: '',
-      threadId: 'msg-image',
-      sourceId: 's1',
-      isArchived: false,
       visualArtifacts: [
         {
           kind: 'image',
@@ -269,8 +266,22 @@ describe('GET /api/inbox/:id', () => {
   })
 
   it('returns 404 when message not found', async () => {
-    ripmailReadMailForDisplayMock.mockResolvedValue(null)
+    ripmailResolveEntryJsonMock.mockResolvedValue(null)
     const res = await app.request('/api/inbox/no-such-id')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when resolver returns indexed file only', async () => {
+    ripmailResolveEntryJsonMock.mockResolvedValue({
+      entryKind: 'indexed-file',
+      id: 'drive1',
+      sourceKind: 'googleDrive',
+      title: 'Doc',
+      body: '',
+      mime: 'text/plain',
+      readStatus: 'ok',
+    })
+    const res = await app.request('/api/inbox/drive1')
     expect(res.status).toBe(404)
   })
 })

@@ -15,6 +15,7 @@ function compactNavFallbackTitle(
   if (route.zone === 'settings') return 'Settings'
   if (route.zone === 'hub') return 'Braintunnel Hub'
   if (route.zone === 'inbox') return 'Inbox'
+  if (route.zone === 'library') return 'Library'
   if (route.zone === 'tunnels') {
     const h = route.tunnelHandle?.trim()
     return h ? `@${h}` : 'Tunnels'

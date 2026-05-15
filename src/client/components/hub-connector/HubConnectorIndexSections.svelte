@@ -3,7 +3,6 @@
   import { cn } from '@client/lib/cn.js'
   import FileSourceConfigEditor from '@components/FileSourceConfigEditor.svelte'
   import HubConnectorCalendarSection from '@components/hub-connector/HubConnectorCalendarSection.svelte'
-  import HubConnectorDriveSection from '@components/hub-connector/HubConnectorDriveSection.svelte'
   import {
     formatRelativeDate,
     type HubSourceDetailOk,
@@ -71,14 +70,7 @@
     />
   {/if}
 
-  {#if sourceDetail.kind === 'googleDrive'}
-    <HubConnectorDriveSection
-      sourceId={sourceDetail.id}
-      fileSource={sourceDetail.fileSource}
-      includeSharedWithMe={sourceDetail.includeSharedWithMe}
-      onSaved={onReloadDetail}
-    />
-  {:else if sourceDetail.kind === 'localDir'}
+  {#if sourceDetail.kind === 'localDir'}
     <FileSourceConfigEditor
       sourceId={sourceDetail.id}
       sourceKind="localDir"

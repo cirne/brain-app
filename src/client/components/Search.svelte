@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookOpen, Mail, X, Search } from 'lucide-svelte'
+  import type { Component } from 'svelte'
+  import { Mail, FileText, Table2, File, X, Search } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
   import { formatDate } from '@client/lib/formatDate.js'
@@ -8,19 +9,38 @@
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
 
   type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
-  type EmailResult = { type: 'email'; id: string; from: string; subject: string; date: string; snippet: string; score: number }
-  type SearchResult = WikiResult | EmailResult
+  type EmailResult = {
+    type: 'email'
+    id: string
+    from: string
+    subject: string
+    date: string
+    snippet: string
+    score: number
+  }
+  type IndexedFileResult = {
+    type: 'indexed-file'
+    id: string
+    sourceId: string
+    sourceKind: string
+    subject: string
+    date: string
+    snippet: string
+    score: number
+    mime?: string
+  }
+  type SearchResult = WikiResult | EmailResult | IndexedFileResult
 
   let {
     onOpenWiki,
     onOpenEmail,
+    onOpenIndexedFile,
     onClose,
-    onWikiHome,
   }: {
     onOpenWiki: (_path: string) => void
     onOpenEmail: (_id: string, _subject: string, _from: string) => void
+    onOpenIndexedFile: (_id: string, _opts?: { sourceId?: string; title?: string }) => void
     onClose: () => void
-    onWikiHome?: () => void
   } = $props()
 
   let query = $state('')
@@ -33,6 +53,14 @@
   let debounceTimer: ReturnType<typeof setTimeout>
 
   const searchLatest = createAsyncLatest({ abortPrevious: true })
+
+  /** Prefer Meta (⌘) on Apple platforms; Ctrl elsewhere (matches globalShortcuts). */
+  const searchShortcutHintText = $derived.by(() => {
+    const plat = typeof navigator !== 'undefined' ? (navigator.platform ?? '') : ''
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent ?? '') : ''
+    const apple = /Mac|iPhone|iPad|iPod/i.test(plat) || /Mac OS/i.test(ua)
+    return apple ? $t('search.overlay.shortcut.mac') : $t('search.overlay.shortcut.other')
+  })
 
   $effect(() => {
     void results
@@ -50,11 +78,43 @@
     })
   })
 
+  function pickIndexedLeadIcon(mime?: string): Component {
+    const m = (mime ?? '').toLowerCase()
+    if (
+      m.includes('spreadsheet') ||
+      m.includes('excel') ||
+      m.includes('csv') ||
+      m.includes('tab-separated-values')
+    ) {
+      return Table2
+    }
+    if (m.includes('presentation') || m.includes('powerpoint')) {
+      return FileText
+    }
+    if (
+      m.includes('pdf') ||
+      m.includes('wordprocessing') ||
+      m.includes('/document') ||
+      m.includes('text/')
+    ) {
+      return FileText
+    }
+    return File
+  }
+
+  function indexedResultMeta(r: IndexedFileResult): string {
+    if (r.sourceKind === 'googleDrive') return `Google Drive · ${formatDate(r.date)}`
+    if (r.sourceKind === 'localDir') return `Files · ${formatDate(r.date)}`
+    return `${r.sourceKind} · ${formatDate(r.date)}`
+  }
+
   function openResultAt(index: number) {
     const result = results[index]
     if (!result) return
     if (result.type === 'wiki') {
       onOpenWiki(result.path)
+    } else if (result.type === 'indexed-file') {
+      onOpenIndexedFile(result.id, { sourceId: result.sourceId, title: result.subject })
     } else {
       onOpenEmail(result.id, result.subject, result.from)
     }
@@ -146,17 +206,28 @@
       class="header flex shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-3 py-2.5"
     >
       <Search size={16} class="search-icon" />
-      <input
-        bind:this={inputEl}
-        bind:value={query}
-        class="input min-w-0 flex-1 border-none bg-transparent py-1 text-base text-foreground focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-        placeholder={$t('search.placeholder.global')}
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-        type="search"
-        onkeydown={handleSearchInputKeydown}
-      />
+      <div class="relative min-w-0 flex-1">
+        <input
+          bind:this={inputEl}
+          bind:value={query}
+          class={cn(
+            'input w-full min-w-0 border-none bg-transparent py-1 text-base text-foreground focus:outline-none [&::-webkit-search-cancel-button]:hidden',
+            !query.trim() && 'pr-14',
+          )}
+          placeholder={$t('search.placeholder.global')}
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          type="search"
+          onkeydown={handleSearchInputKeydown}
+        />
+        {#if !query.trim()}
+          <span
+            class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 select-none text-xs tabular-nums text-muted opacity-70"
+            aria-hidden="true"
+          >{searchShortcutHintText}</span>
+        {/if}
+      </div>
       {#if loading}
         <span
           class="spinner h-4 w-4 shrink-0 rounded-full animate-[spin_0.6s_linear_infinite] border-2 border-border [border-top-color:var(--accent)]"
@@ -181,24 +252,11 @@
       class="results flex-1 overflow-y-auto [-webkit-overflow-scrolling:touch] md:max-h-[480px] md:border md:border-t-0 md:border-border md:bg-surface md:[box-shadow:0_8px_32px_rgba(0,0,0,0.4)]"
       bind:this={resultsEl}
     >
-    {#if !query.trim()}
-      <div class="search-empty flex flex-col items-center gap-3 px-5 pb-10 pt-8">
-        <p class="hint m-0 p-0 text-center text-sm text-muted">{$t('search.overlay.hint')}</p>
-        {#if onWikiHome}
-          <button
-            type="button"
-            class="wiki-home-cmd inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface-3 px-3.5 py-2 text-sm text-foreground hover:bg-surface-2"
-            onclick={() => { onWikiHome(); onClose() }}
-          >
-            <BookOpen size={16} strokeWidth={2} aria-hidden="true" />
-            <span>{$t('search.overlay.wikiHome')}</span>
-          </button>
-        {/if}
-      </div>
-    {:else if !loading && results.length === 0}
+    {#if query.trim()}
+      {#if !loading && results.length === 0}
       <p class="hint px-5 py-10 text-center text-sm text-muted">{$t('search.overlay.noResults', { query })}</p>
-    {:else}
-      {#each results as result, i (result.type === 'wiki' ? result.path : result.id)}
+      {:else}
+      {#each results as result, i (`${result.type}:${result.type === 'wiki' ? result.path : result.id}`)}
         {#if result.type === 'wiki'}
           <button
             type="button"
@@ -222,7 +280,7 @@
               {/if}
             </span>
           </button>
-        {:else}
+        {:else if result.type === 'email'}
           <button
             type="button"
             class={cn(
@@ -251,8 +309,41 @@
               {/if}
             </span>
           </button>
+        {:else}
+          {@const LeadIcon = pickIndexedLeadIcon(result.mime)}
+          <button
+            type="button"
+            class={cn(
+              'result block min-h-[52px] w-full border-b border-border px-4 py-3 text-left active:bg-surface-3',
+              highlightIndex === i && 'result-highlight bg-surface-3',
+            )}
+            data-result-index={i}
+            onclick={() => {
+              onOpenIndexedFile(result.id, { sourceId: result.sourceId, title: result.subject })
+              onClose()
+            }}
+          >
+            <span class="result-body flex min-w-0 flex-1 flex-col gap-[2px]">
+              <span class="email-result-title wfn-title-row w-full max-w-full">
+                <span class="wfn-lead-icon" aria-hidden="true">
+                  <LeadIcon size={12} />
+                </span>
+                <span
+                  class="email-subject min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis text-sm text-foreground"
+                >{result.subject}</span>
+              </span>
+              <span class="result-meta overflow-hidden whitespace-nowrap text-ellipsis text-xs text-muted"
+              >{indexedResultMeta(result)}</span>
+              {#if result.snippet}
+                <span
+                  class="result-snippet mt-0.5 overflow-hidden text-xs leading-snug text-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]"
+                >{result.snippet}</span>
+              {/if}
+            </span>
+          </button>
         {/if}
       {/each}
+      {/if}
     {/if}
     </div>
   </div>

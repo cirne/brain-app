@@ -8,7 +8,7 @@ import { useSearchDebounceTimers } from '@client/test/helpers/index.js'
 describe('Search.svelte', () => {
   useSearchDebounceTimers()
 
-  it('shows hint when query empty and fetches after debounce when typing', async () => {
+  it('shows Ctrl+K shortcut hint when query empty and fetches after debounce when typing', async () => {
     const onOpenWiki = vi.fn()
     const onOpenEmail = vi.fn()
     const onClose = vi.fn()
@@ -25,10 +25,10 @@ describe('Search.svelte', () => {
     vi.stubGlobal('fetch', mockFetch)
 
     render(Search, {
-      props: { onOpenWiki, onOpenEmail, onClose },
+      props: { onOpenWiki, onOpenEmail, onOpenIndexedFile: vi.fn(), onClose },
     })
 
-    expect(screen.getByText(/Search your docs and emails/i)).toBeInTheDocument()
+    expect(screen.getByText('Ctrl+K')).toBeInTheDocument()
 
     const input = screen.getByPlaceholderText(/Search your docs and emails/i)
     await fireEvent.input(input, { target: { value: 'loading-spinner-shape' } })
@@ -72,6 +72,7 @@ describe('Search.svelte', () => {
       props: {
         onOpenWiki: vi.fn(),
         onOpenEmail: vi.fn(),
+        onOpenIndexedFile: vi.fn(),
         onClose,
       },
     })
@@ -98,7 +99,7 @@ describe('Search.svelte', () => {
     )
 
     render(Search, {
-      props: { onOpenWiki, onOpenEmail: vi.fn(), onClose },
+      props: { onOpenWiki, onOpenEmail: vi.fn(), onOpenIndexedFile: vi.fn(), onClose },
     })
 
     const input = screen.getByPlaceholderText(/Search your docs and emails/i)
@@ -114,9 +115,7 @@ describe('Search.svelte', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('calls onWikiHome and onClose when Wiki home is clicked (empty query)', async () => {
-    const onWikiHome = vi.fn()
-    const onClose = vi.fn()
+  it('shows ⌘K on Apple navigator.platform', async () => {
     vi.stubGlobal(
       'fetch',
       createMockFetch([
@@ -126,14 +125,16 @@ describe('Search.svelte', () => {
         },
       ]),
     )
+    const realNavigator = globalThis.navigator
+    vi.stubGlobal('navigator', { ...realNavigator, platform: 'MacIntel' })
 
     render(Search, {
-      props: { onOpenWiki: vi.fn(), onOpenEmail: vi.fn(), onClose, onWikiHome },
+      props: { onOpenWiki: vi.fn(), onOpenEmail: vi.fn(), onOpenIndexedFile: vi.fn(), onClose: vi.fn() },
     })
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Wiki home' }))
-    expect(onWikiHome).toHaveBeenCalledTimes(1)
-    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('⌘K')).toBeInTheDocument()
+
+    vi.stubGlobal('navigator', realNavigator)
   })
 
   it('keyboard: ArrowDown/ArrowUp moves highlight among results; Enter opens highlighted wiki', async () => {
@@ -157,7 +158,7 @@ describe('Search.svelte', () => {
     )
 
     render(Search, {
-      props: { onOpenWiki, onOpenEmail: vi.fn(), onClose },
+      props: { onOpenWiki, onOpenEmail: vi.fn(), onOpenIndexedFile: vi.fn(), onClose },
     })
 
     const input = screen.getByPlaceholderText(/Search your docs and emails/i)
@@ -218,7 +219,7 @@ describe('Search.svelte', () => {
     )
 
     render(Search, {
-      props: { onOpenWiki: vi.fn(), onOpenEmail, onClose },
+      props: { onOpenWiki: vi.fn(), onOpenEmail, onOpenIndexedFile: vi.fn(), onClose },
     })
 
     const input = screen.getByPlaceholderText(/Search your docs and emails/i)
@@ -232,6 +233,62 @@ describe('Search.svelte', () => {
     await fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(onOpenEmail).toHaveBeenCalledWith('e99', 'Invoice', 'donna@example.com')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('keyboard: Enter opens highlighted indexed-file result', async () => {
+    const onOpenIndexedFile = vi.fn()
+    const onClose = vi.fn()
+
+    vi.stubGlobal(
+      'fetch',
+      createMockFetch([
+        {
+          match: (u) => u.startsWith('/api/search?'),
+          response: () =>
+            jsonResponse({
+              results: [
+                createWikiSearchResult({ path: 'only.md', excerpt: 'skip' }),
+                {
+                  type: 'indexed-file' as const,
+                  id: 'drive-file-1',
+                  sourceId: 'src-d',
+                  sourceKind: 'googleDrive',
+                  subject: 'Roadmap',
+                  date: new Date().toISOString(),
+                  snippet: 'cells',
+                  score: 2,
+                  mime: 'application/vnd.google-apps.spreadsheet',
+                },
+              ],
+            }),
+        },
+      ]),
+    )
+
+    render(Search, {
+      props: {
+        onOpenWiki: vi.fn(),
+        onOpenEmail: vi.fn(),
+        onOpenIndexedFile,
+        onClose,
+      },
+    })
+
+    const input = screen.getByPlaceholderText(/Search your docs and emails/i)
+    await fireEvent.input(input, { target: { value: 'road' } })
+    await vi.advanceTimersByTimeAsync(250)
+
+    await screen.findByText('Roadmap')
+
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onOpenIndexedFile).toHaveBeenCalledWith('drive-file-1', {
+      sourceId: 'src-d',
+      title: 'Roadmap',
+    })
     expect(onClose).toHaveBeenCalled()
   })
 })

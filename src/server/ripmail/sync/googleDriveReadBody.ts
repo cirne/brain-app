@@ -1,15 +1,20 @@
 /**
- * Authoritative Google Drive file read with disk cache (TTL: {@link REMOTE_DOCUMENT_BODY_CACHE_TTL_MS}).
+ * Authoritative Google Drive file read with disk cache validated by remote fingerprint
+ * (same formula as sync → {@link driveFileFingerprint}).
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { REMOTE_DOCUMENT_BODY_CACHE_TTL_MS } from '../remoteDocumentBodyCache.js'
+import type { drive_v3 } from 'googleapis'
 import { loadRipmailConfig } from './config.js'
 import { createGoogleDriveClient } from './googleDrive.js'
 import { extractDriveFileText } from './googleDriveFileContent.js'
+import { driveFileFingerprint } from './googleDriveFileFingerprint.js'
+
+const DRIVE_READ_BODY_META_FIELDS =
+  'id, name, mimeType, modifiedTime, md5Checksum, size, headRevisionId, trashed' as const
 
 function bodyCachePaths(ripmailHome: string, sourceId: string, fileId: string) {
   const h = createHash('sha256').update(`${sourceId}\0${fileId}`).digest('hex')
@@ -18,13 +23,32 @@ function bodyCachePaths(ripmailHome: string, sourceId: string, fileId: string) {
   return { dir, path, metaPath: `${path}.meta.json` }
 }
 
+function invalidateBodyCache(path: string, metaPath: string): void {
+  try {
+    unlinkSync(path)
+  } catch {
+    /* ignore */
+  }
+  try {
+    unlinkSync(metaPath)
+  } catch {
+    /* ignore */
+  }
+}
+
 export type GoogleDriveReadBodyOk = {
   text: string
   mime: string
   title: string
 }
 
-/** Fetch full text for a Drive file id; uses TTL cache under ripmail source dir. */
+type ReadBodyMetaJson = {
+  title?: string
+  mime?: string
+  contentFingerprint?: string
+}
+
+/** Fetch full text for a Drive file id; uses fingerprint-validated disk cache under ripmail source dir. */
 export async function readGoogleDriveFileBodyCached(
   ripmailHome: string,
   sourceId: string,
@@ -35,42 +59,44 @@ export async function readGoogleDriveFileBodyCached(
   if (!source || source.kind !== 'googleDrive') return null
 
   const { dir, path, metaPath } = bodyCachePaths(ripmailHome, sourceId, fileId)
-  const now = Date.now()
-  if (existsSync(path) && existsSync(metaPath)) {
-    try {
-      const st = statSync(path)
-      if (st.mtimeMs > now - REMOTE_DOCUMENT_BODY_CACHE_TTL_MS) {
-        const cachedText = readFileSync(path, 'utf8')
-        if (cachedText.trim().length > 0) {
-          const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as { title?: string; mime?: string }
-          return {
-            text: cachedText,
-            mime: typeof meta.mime === 'string' ? meta.mime : 'application/octet-stream',
-            title: typeof meta.title === 'string' ? meta.title : fileId,
-          }
-        }
-        try {
-          unlinkSync(path)
-          unlinkSync(metaPath)
-        } catch {
-          /* refetch without stale empty cache */
-        }
-      }
-    } catch {
-      /* refetch */
-    }
-  }
 
   const client = createGoogleDriveClient(ripmailHome, source)
   if (!client) return null
 
   const meta = await client.drive.files.get({
     fileId,
-    fields: 'id, name, mimeType, modifiedTime, md5Checksum, size, headRevisionId, trashed',
+    fields: DRIVE_READ_BODY_META_FIELDS,
     supportsAllDrives: true,
   })
-  const f = meta.data
-  if (!f.id || f.trashed) return null
+  const f = meta.data as drive_v3.Schema$File
+  if (!f.id) return null
+
+  if (f.trashed) {
+    invalidateBodyCache(path, metaPath)
+    return null
+  }
+
+  const remoteFp = driveFileFingerprint(f)
+
+  if (existsSync(path) && existsSync(metaPath)) {
+    try {
+      const cachedText = readFileSync(path, 'utf8')
+      const parsed = JSON.parse(readFileSync(metaPath, 'utf8')) as ReadBodyMetaJson
+      const cachedFp = typeof parsed.contentFingerprint === 'string' ? parsed.contentFingerprint.trim() : ''
+      if (cachedText.trim().length > 0 && cachedFp && cachedFp === remoteFp) {
+        return {
+          text: cachedText,
+          mime: typeof parsed.mime === 'string' ? parsed.mime : f.mimeType ?? 'application/octet-stream',
+          title: typeof parsed.title === 'string' ? parsed.title : f.name ?? fileId,
+        }
+      }
+      if (!cachedText.trim()) {
+        invalidateBodyCache(path, metaPath)
+      }
+    } catch {
+      /* refetch below */
+    }
+  }
 
   mkdirSync(dir, { recursive: true })
   const workRoot = join(ripmailHome, sourceId, 'cache', 'read-work')
@@ -87,6 +113,7 @@ export async function readGoogleDriveFileBodyCached(
       JSON.stringify({
         title: f.name ?? fileId,
         mime: f.mimeType ?? 'application/octet-stream',
+        contentFingerprint: remoteFp,
       }),
       'utf8',
     )

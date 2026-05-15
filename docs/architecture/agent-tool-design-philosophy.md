@@ -119,4 +119,4 @@ Larger models reason better with:
 - [pi-agent-stack.md](./pi-agent-stack.md) — pi-agent-core, tool definitions, metering
 - [agent-chat.md](./agent-chat.md) — chat persistence, SSE, tools overview
 - [chat-suggestions.md](./chat-suggestions.md) — `suggest_reply_options` and repair
-- [BUG-056](../bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md) — case study: search-first anchoring, hints as fix direction
+- [BUG-056 archived](../bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md) — case study: search-first anchoring, hints as fix direction

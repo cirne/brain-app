@@ -7,8 +7,10 @@
     "close": "Close search",
     "cancel": "Cancel",
     "clear": "Clear",
-    "hint": "Search your docs and emails",
-    "wikiHome": "Wiki home",
+    "shortcut": {
+      "mac": "⌘K",
+      "other": "Ctrl+K"
+    },
     "noResults": "No results for \"{{query}}\""
   }
 }

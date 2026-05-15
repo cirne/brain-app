@@ -16,53 +16,13 @@ User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039
 ## Active
 
 
-### [BUG-019](bugs/BUG-019-mail-visible-in-client-but-missing-from-search.md): Mail: inbox-visible message missing from Brain search (**open**)
-
-**Unresolved on staging** — domain / name queries still return nothing for mail that exists in Mail. Likely **default `search_index` excludes whole ripmail categories** (`list`, etc.); **`search_index` has no `--include-all`**. Local dev: row exists under **`hharriss@newrelic.com`**, **`category: list`**. Next: staging **rebuild-index**, optional **tool/skill**, revisit **index-everything vs default filters**. See [bugs/BUG-019-mail-visible-in-client-but-missing-from-search.md](bugs/BUG-019-mail-visible-in-client-but-missing-from-search.md). User feedback #2.
-
-### [BUG-022](bugs/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md): Inbox: message marked `ignore` without a matching user-visible rule
-
-**Open (investigate).** **Human-relevant** mail (e.g. invite) in **`ignore`** / not surfaced; **`rules.json`** does not explain. **Not** the same as missing **search** hits ([BUG-019](bugs/BUG-019-mail-visible-in-client-but-missing-from-search.md)). See [bugs/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md](bugs/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md). User feedback #9.
-
-### [BUG-023](bugs/BUG-023-safari-hold-to-speak-webkit-audio.md): Hold-to-speak: Safari / WebKit silent or broken capture
-
-**Open.** Desktop **Safari** and **iOS** WebKit can yield **ended track** or **all-zero PCM**; Chrome often works. **Gating** (`hearReplies`) and **PCM+WAV** workarounds in client; not fully fixed. See [bugs/BUG-023-safari-hold-to-speak-webkit-audio.md](bugs/BUG-023-safari-hold-to-speak-webkit-audio.md).
-
-### [BUG-024](bugs/BUG-024-first-chat-welcome-not-impressive.md): First-chat welcome is flat and generic
-
-The post-onboarding first-turn opener reads like a generic intro rather than a specific, data-driven first impression. Model skips inbox scanning, misreads shared calendars as the user's own, and consistently drops `suggest_reply_options` chips. See [bugs/BUG-024-first-chat-welcome-not-impressive.md](bugs/BUG-024-first-chat-welcome-not-impressive.md).
-
-### [BUG-028](bugs/BUG-028-agent-email-draft-wrong-recipient-and-signature.md): Agent email draft: wrong recipient and signature
-
-Draft `To` / **CC** / attribution may not match mailbox identity, thread, or wiki contacts; user corrected manually. Content fidelity vs **OPP-056** (overlay UX). User feedback **#13**, **#16**. See [bugs/BUG-028-agent-email-draft-wrong-recipient-and-signature.md](bugs/BUG-028-agent-email-draft-wrong-recipient-and-signature.md).
-
-### [BUG-031](bugs/BUG-031-wiki-viewer-internal-links-navigation.md): Wiki viewer: internal links often don’t navigate (`href="#"`, missing `data-wiki`)
-
-**Open.** Multiple client transforms + click fallbacks still insufficient; **simple fix:** real **`href`s** to SPA wiki URLs + fewer regex layers. See [bugs/BUG-031-wiki-viewer-internal-links-navigation.md](bugs/BUG-031-wiki-viewer-internal-links-navigation.md).
-
 ### [BUG-033](bugs/BUG-033-eval-judge-rejects-fixture-dates.md): Eval judge rejects fixture dates as “future” (`ask` evals)
 
 `ask` fixture answers around 2026 score low despite correct mail list; judge model cutoff vs fixture “today”. See [bugs/BUG-033-eval-judge-rejects-fixture-dates.md](bugs/BUG-033-eval-judge-rejects-fixture-dates.md).
 
-### [BUG-034](bugs/BUG-034-who-nicknames-i18n-and-query-contract.md): `who`: English-heavy nicknames, Rust subset, no OR/multi-term API
-
-Legacy nickname map parity + agents cannot pass variants in one query. See [bugs/BUG-034-who-nicknames-i18n-and-query-contract.md](bugs/BUG-034-who-nicknames-i18n-and-query-contract.md).
-
-### [BUG-035](bugs/BUG-035-actionable-file-not-found-errors.md): Raw file/OS errors not actionable (`read`/send paths)
-
-Leaks `os error 2` instead of ripmail-shaped errors + suggested `refresh`. See [bugs/BUG-035-actionable-file-not-found-errors.md](bugs/BUG-035-actionable-file-not-found-errors.md).
-
 ### [BUG-036](bugs/BUG-036-stats-inaccurate-threads-and-people.md): `stats`: misleading threads/people counts
 
 Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-threads-and-people.md](bugs/BUG-036-stats-inaccurate-threads-and-people.md).
-
-### [BUG-037](bugs/BUG-037-wizard-llm-provider-selection.md): Wizard/setup omit LLM provider + models
-
-Only OpenAI surfaced; multi-provider `llm` in config needs onboarding. See [bugs/BUG-037-wizard-llm-provider-selection.md](bugs/BUG-037-wizard-llm-provider-selection.md).
-
-### [BUG-038](bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md): Wizard exits on bad IMAP password (no retry)
-
-Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md](bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md).
 
 ### [BUG-046](bugs/BUG-046-wiki-unify-general-read-route-for-shared-peer-paths.md): Wiki: unify shared reads into general **`GET /api/wiki/:path`** (**open**)
 
@@ -88,10 +48,7 @@ Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-pas
 
 **Open (design).** Optional fields like **`from`** / **`since`** can cause **whole indexed sources** (e.g. Google Drive) to be **omitted** when those predicates don’t apply, instead of running **text search** with filters stripped or **timestamps mapped** (mail received vs file modified). See [bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md).
 
-### [BUG-056](bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md): Agent: “introduced me to …” resolves late — search-first and wrong-thread anchoring
-
-**Open.** Assistant leans on broad **`search_index`** and anchors on unrelated hits before **`find_person`** / contact-centric resolution; relational intro questions should pivot to people/entities earlier. Related mail search gaps: [BUG-019](bugs/BUG-019-mail-visible-in-client-but-missing-from-search.md). User feedback **#18**. See [bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md](bugs/BUG-056-agent-late-contact-resolution-introduced-me-queries.md).
-
+---
 
 ## Fixed (archived)
 
@@ -244,8 +201,49 @@ Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-pas
 
 **Fixed (2026-05-11).** Sync now persists `messages.body_html`; `readMailForDisplay()` returns stored row HTML directly instead of reparsing `raw_path` with fragile trust/fingerprint heuristics, avoiding BUG-051-class wrong-body regressions. Tests: `ripmail.test.ts`, `parse.test.ts`, `persist.test.ts`, `mailBodyDisplay.test.ts`. See [bugs/archive/BUG-052-inbox-html-email-display-never-renders.md](bugs/archive/BUG-052-inbox-html-email-display-never-renders.md).
 
+### [BUG-019](bugs/archive/BUG-019-mail-visible-in-client-but-missing-from-search.md): Mail visible in client but missing from Brain search
 
+**Archived (2026-05-15).** Likely tied to broken OAuth/refresh or a stale index at report time; not tracked as an active gap. User feedback **#2**. See [bugs/archive/BUG-019-mail-visible-in-client-but-missing-from-search.md](bugs/archive/BUG-019-mail-visible-in-client-but-missing-from-search.md).
 
+### [BUG-022](bugs/archive/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md): Inbox surfacing / `ignore` without matching rules
+
+**Archived (2026-05-15).** Inbox categorization / rules pipeline overhauled. User feedback **#9**. See [bugs/archive/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md](bugs/archive/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md).
+
+### [BUG-023](bugs/archive/BUG-023-safari-hold-to-speak-webkit-audio.md): Hold-to-speak: Safari / WebKit capture
+
+**Archived (2026-05-15).** Fixed or cannot reproduce on current WebKit/client. See [bugs/archive/BUG-023-safari-hold-to-speak-webkit-audio.md](bugs/archive/BUG-023-safari-hold-to-speak-webkit-audio.md).
+
+### [BUG-024](bugs/archive/BUG-024-first-chat-welcome-not-impressive.md): First-chat welcome flat / generic
+
+**Archived (2026-05-15).** First-chat welcome iteration shipped. See [bugs/archive/BUG-024-first-chat-welcome-not-impressive.md](bugs/archive/BUG-024-first-chat-welcome-not-impressive.md).
+
+### [BUG-028](bugs/archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md): Agent email draft wrong recipient / signature
+
+**Archived (2026-05-15).** Draft identity fidelity addressed. User feedback **#13**, **#16**. See [bugs/archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md](bugs/archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md).
+
+### [BUG-031](bugs/archive/BUG-031-wiki-viewer-internal-links-navigation.md): Wiki viewer internal links / `href="#"`
+
+**Archived (2026-05-15).** Navigation fixed. See [bugs/archive/BUG-031-wiki-viewer-internal-links-navigation.md](bugs/archive/BUG-031-wiki-viewer-internal-links-navigation.md).
+
+### [BUG-034](bugs/archive/BUG-034-who-nicknames-i18n-and-query-contract.md): `who` nicknames / query contract (CLI-era)
+
+**Archived (2026-05-15).** Standalone ripmail `who` CLI not the Brain integration surface. See [bugs/archive/BUG-034-who-nicknames-i18n-and-query-contract.md](bugs/archive/BUG-034-who-nicknames-i18n-and-query-contract.md).
+
+### [BUG-035](bugs/archive/BUG-035-actionable-file-not-found-errors.md): Raw file errors not actionable
+
+**Archived (2026-05-15).** In-process TS mail; error shaping / CLI-era narrative closed for this codebase. See [bugs/archive/BUG-035-actionable-file-not-found-errors.md](bugs/archive/BUG-035-actionable-file-not-found-errors.md).
+
+### [BUG-037](bugs/archive/BUG-037-wizard-llm-provider-selection.md): Wizard omitted LLM provider (CLI-era)
+
+**Archived (2026-05-15).** Ripmail wizard not used for Brain onboarding. See [bugs/archive/BUG-037-wizard-llm-provider-selection.md](bugs/archive/BUG-037-wizard-llm-provider-selection.md).
+
+### [BUG-038](bugs/archive/BUG-038-wizard-bad-password-exits-instead-of-retry.md): Wizard exited on bad IMAP password (CLI-era)
+
+**Archived (2026-05-15).** Ripmail wizard not used for Brain onboarding. See [bugs/archive/BUG-038-wizard-bad-password-exits-instead-of-retry.md](bugs/archive/BUG-038-wizard-bad-password-exits-instead-of-retry.md).
+
+### [BUG-056](bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md): Agent: “introduced me to …” resolves late — search-first and wrong-thread anchoring
+
+**Archived (2026-05-15).** Structured **`search_index`** zero-hit + high-recall hints, **`find_person`** description improved, **`enron-026`** regression for grounded high-recall answers (no mandatory **`find_person`**). User feedback **#18**. See [bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md](bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md).
 
 ### BUG-002 (archived): Chat — background stream hijacked the right panel
 

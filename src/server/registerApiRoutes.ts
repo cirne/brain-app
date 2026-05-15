@@ -8,6 +8,7 @@ import filesRoute from './routes/files.js'
 import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
+import ripmailRoute from './routes/ripmail.js'
 import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
 import backgroundStatusRoute from './routes/backgroundStatus.js'
@@ -52,6 +53,7 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   }
   app.route('/api/files', filesRoute)
   app.route('/api/inbox', inboxRoute)
+  app.route('/api/ripmail', ripmailRoute)
   app.route('/api/calendar', calendarRoute)
   app.route('/api/search', searchRoute)
   app.route('/api/imessage', imessageRoute)

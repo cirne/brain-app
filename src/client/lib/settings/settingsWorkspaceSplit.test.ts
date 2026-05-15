@@ -31,6 +31,12 @@ describe('settingsWorkspaceSplit', () => {
     ).toBe(false)
     expect(
       routeShowsWorkspaceSplitDetail({
+        zone: 'library',
+        overlay: { type: 'indexed-file', id: 'f1' },
+      }),
+    ).toBe(false)
+    expect(
+      routeShowsWorkspaceSplitDetail({
         overlay: { type: 'wiki', path: 'a.md' },
       }),
     ).toBe(true)

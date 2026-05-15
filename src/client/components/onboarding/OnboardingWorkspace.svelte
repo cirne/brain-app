@@ -289,6 +289,25 @@
     agentContext = { type: 'email', threadId: id, subject, from }
   }
 
+  function openIndexedFileFromSearch(id: string, sourceId?: string) {
+    navigate({
+      ...obChatSession(),
+      overlay: {
+        type: 'indexed-file',
+        id,
+        ...(sourceId?.trim() ? { source: sourceId.trim() } : {}),
+      },
+    })
+    route = parseRoute()
+    agentContext = {
+      type: 'indexed-file',
+      id,
+      title: '(loading)',
+      sourceKind: '',
+      ...(sourceId?.trim() ? { source: sourceId.trim() } : {}),
+    }
+  }
+
   function openEmailFromChat(threadId: string, subject?: string, from?: string) {
     openEmailFromSearch(threadId, subject ?? '', from ?? '')
   }
@@ -421,6 +440,10 @@
     }}
     onOpenEmail={(id, subject, from) => {
       openEmailFromSearch(id, subject, from)
+      showSearch = false
+    }}
+    onOpenIndexedFile={(id, opts) => {
+      openIndexedFileFromSearch(id, opts?.sourceId)
       showSearch = false
     }}
     onClose={() => {

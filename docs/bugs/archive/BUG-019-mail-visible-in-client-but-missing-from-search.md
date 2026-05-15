@@ -1,6 +1,8 @@
 # BUG-019: Inbox-visible message missing from Brain search / index
 
-**Status:** **Open (unresolved).** Staging still cannot surface the expected mail with normal assistant search (e.g. domain-wide or name-based queries); local investigation narrowed likely causes but product behavior is unchanged.
+**Status:** **Archived (2026-05-15).** Likely tied to broken OAuth/refresh or a stale index at the time of the report; not tracked as an active search gap.
+
+**Was:** **Open (unresolved).** Staging still cannot surface the expected mail with normal assistant search (e.g. domain-wide or name-based queries); local investigation narrowed likely causes but product behavior is unchanged.
 
 ## Summary
 
@@ -29,7 +31,7 @@ The reporter wonders whether the message was **discarded**, treated as **spam**,
 
 | Where | Finding |
 | ----- | ------- |
-| **Local dev** (`RIPMAIL_HOME` under `data/ripmail`) | The reported-class message **exists** in SQLite and **`document_index_fts`**: New Relic “contact sales” follow-up from **`hharriss@newrelic.com`** (display **Hunter Harriss**, two **`s`**), **`category: list`**. It **does not** appear under default **`ripmail search`** because ripmail applies **`default_category_filter_sql`** — **`list`** (and several other buckets) are **excluded** unless **`--include-all`** or an explicit **`--category`** includes those values. **`search_index`** in Brain does **not** pass **`--include-all`** (see `buildRipmailSearchCommandLine` in [`src/server/agent/tools/ripmailCli.ts`](../../src/server/agent/tools/ripmailCli.ts)). Free-text **`Hunter Harris`** (one **`s`**) also fails regex-on-body vs **Harriss** unless the model uses the right spelling or filters. |
+| **Local dev** (`RIPMAIL_HOME` under `data/ripmail`) | The reported-class message **exists** in SQLite and **`document_index_fts`**: New Relic “contact sales” follow-up from **`hharriss@newrelic.com`** (display **Hunter Harriss**, two **`s`**), **`category: list`**. It **does not** appear under default **`ripmail search`** because ripmail applies **`default_category_filter_sql`** — **`list`** (and several other buckets) are **excluded** unless **`--include-all`** or an explicit **`--category`** includes those values. **`search_index`** in Brain does **not** pass **`--include-all`** (see `buildRipmailSearchCommandLine` in [`src/server/agent/tools/ripmailCli.ts`](../../../src/server/agent/tools/ripmailCli.ts)). Free-text **`Hunter Harris`** (one **`s`**) also fails regex-on-body vs **Harriss** unless the model uses the right spelling or filters. |
 | **Staging** | User confirms the mail remains **not findable** with realistic assistant queries (e.g. anything **@newrelic.com**, or **`Harris`** + **`after: 180d`**): no New Relic hit. Treat as **still broken for users** until default search semantics or tooling change. |
 
 **Likely primary cause (product):** “Search my mail” assumes **everything indexed is searchable**, but **default ripmail search hides whole categories** (`list`, `promotional`, `automated`, etc.). Many vendor domains are entirely or mostly in those buckets, so **domain-wide search can return nothing** while Mail.app still shows the message in Inbox.
@@ -62,6 +64,6 @@ Secondary: **no in-app tool** documents or exposes **`ripmail rebuild-index`**; 
 
 ## References
 
-- `ripmail` CLI: `search`, `inbox`, `rebuild-index`, `refresh` — [`ripmail/AGENTS.md`](../../ripmail/AGENTS.md); backlog is [**`docs/BUGS.md`**](../BUGS.md) (see [`ripmail/docs/BUGS.md`](../../ripmail/docs/BUGS.md)).
-- Default excluded categories: [`ripmail/src/mail_category.rs`](../../ripmail/src/mail_category.rs) (`DEFAULT_EXCLUDED_CATEGORIES`, `default_category_filter_sql`).
-- Agent tools: `search_index` — [`docs/architecture/integrations.md`](../architecture/integrations.md), `src/server/agent/tools.ts` (`buildRipmailSearchCommandLine`).
+- `ripmail` CLI: `search`, `inbox`, `rebuild-index`, `refresh` — [`ripmail/AGENTS.md`](../../../ripmail/AGENTS.md); backlog is [**`docs/BUGS.md`**](../../BUGS.md) (see [`ripmail/docs/BUGS.md`](../../../ripmail/docs/BUGS.md)).
+- Default excluded categories: [`ripmail/src/mail_category.rs`](../../../ripmail/src/mail_category.rs) (`DEFAULT_EXCLUDED_CATEGORIES`, `default_category_filter_sql`).
+- Agent tools: `search_index` — [`docs/architecture/integrations.md`](../../architecture/integrations.md), `src/server/agent/tools.ts` (`buildRipmailSearchCommandLine`).

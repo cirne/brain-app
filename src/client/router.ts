@@ -38,7 +38,7 @@ export type Overlay =
   | { type: 'chat-history' }
 
 /** Primary surface of the current route. Absent (`undefined`) means the default chat column (`/c`). */
-export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox' | 'tunnels'
+export type RouteZone = 'hub' | 'settings' | 'wiki' | 'inbox' | 'library' | 'tunnels'
 
 /** Dedicated first-run path segment under `/onboarding/…` (matches persisted onboarding states). */
 export type OnboardingUrlStep = 'not-started' | 'confirming-handle' | 'indexing'
@@ -81,6 +81,7 @@ export type Route = {
   /**
    * Primary surface when not the default chat column.
    * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`, `'inbox'` → `/inbox?…`,
+   * `'library'` → `/library?…` (indexed Drive/local corpus reader),
    * `'tunnels'` → `/tunnels/:handle` only (bare `/tunnels` parses as chat; URL is canonicalized to `/c`).
    * Absent means chat (`/c`).
    */
@@ -479,7 +480,23 @@ function inboxRouteFromSearch(href: string): Route | null {
   if (!overlay) {
     return { zone: 'inbox' }
   }
+  /** Indexed docs full-width reader lives under `/library`; remap legacy `/inbox?panel=indexed-file`. */
+  if (overlay.type === 'indexed-file') {
+    return { zone: 'library', overlay }
+  }
   return { zone: 'inbox', overlay }
+}
+
+function libraryRouteFromSearch(href: string): Route | null {
+  const url = new URL(href, 'http://localhost')
+  if (url.pathname !== '/library') {
+    return null
+  }
+  const overlay = overlayFromSearchParams(url.searchParams)
+  if (!overlay) {
+    return { zone: 'library' }
+  }
+  return { zone: 'library', overlay }
 }
 
 function hubRouteFromSearch(href: string): Route | null {
@@ -608,6 +625,11 @@ export function parseRoute(href: string = location.href): Route {
     return inboxParsed
   }
 
+  const libraryParsed = libraryRouteFromSearch(href)
+  if (libraryParsed) {
+    return libraryParsed
+  }
+
   const hubParsed = hubRouteFromSearch(href)
   if (hubParsed) {
     return hubParsed
@@ -715,6 +737,15 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     const q = overlayToSearchParams(o)
     const qs = q.toString()
     return qs ? `/inbox?${qs}` : '/inbox'
+  }
+
+  if (zone === 'library') {
+    if (!o) {
+      return '/library'
+    }
+    const q = overlayToSearchParams(o)
+    const qs = q.toString()
+    return qs ? `/library?${qs}` : '/library'
   }
 
   if (zone === 'tunnels') {

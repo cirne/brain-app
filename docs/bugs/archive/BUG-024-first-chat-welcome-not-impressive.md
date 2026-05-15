@@ -1,6 +1,8 @@
 # BUG-024 — First-chat welcome is flat and generic
 
-**Status:** Open  
+**Status:** **Archived (2026-05-15).** First-chat welcome iteration shipped; narrative preserved below.
+
+**Was:** Open  
 **Priority:** High (first impression)  
 **Dev repro:** navigate to `http://localhost:3000/first-chat`
 

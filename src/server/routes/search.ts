@@ -12,8 +12,57 @@ const execAsync = promisify(exec)
 const search = new Hono()
 
 type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
-type EmailResult = { type: 'email'; id: string; from: string; subject: string; date: string; snippet: string; score: number }
-export type SearchResult = WikiResult | EmailResult
+type EmailResult = {
+  type: 'email'
+  id: string
+  from: string
+  subject: string
+  date: string
+  snippet: string
+  score: number
+}
+type IndexedFileSearchResult = {
+  type: 'indexed-file'
+  id: string
+  sourceId: string
+  sourceKind: string
+  subject: string
+  date: string
+  snippet: string
+  score: number
+  mime?: string
+}
+export type SearchResult = WikiResult | EmailResult | IndexedFileSearchResult
+
+function snippetPlain(s: string | undefined): string {
+  return (s ?? '').replace(/<[^>]+>/g, '').replace(/\r?\n/g, ' ').trim()
+}
+
+function mapRipmailRowToGlobalSearch(r: import('@server/ripmail/types.js').SearchResult): EmailResult | IndexedFileSearchResult {
+  const snippet = snippetPlain(r.snippet)
+  if (r.sourceKind === 'mail') {
+    return {
+      type: 'email',
+      id: r.messageId,
+      from: r.fromName || r.fromAddress,
+      subject: r.subject,
+      date: r.date,
+      snippet,
+      score: r.rank,
+    }
+  }
+  return {
+    type: 'indexed-file',
+    id: r.messageId,
+    sourceId: r.sourceId,
+    sourceKind: r.sourceKind,
+    subject: r.subject,
+    date: r.date,
+    snippet,
+    score: r.rank,
+    ...(r.mime?.trim() ? { mime: r.mime.trim() } : {}),
+  }
+}
 
 search.get('/', async (c) => {
   const q = c.req.query('q')?.trim()
@@ -56,18 +105,10 @@ search.get('/', async (c) => {
         })
       )
     }),
-    ripmailSearch(ripmailHomeForBrain(), { query: q, limit: 10, includeAll: false })
-      .then((data): EmailResult[] =>
-        (data.results ?? []).slice(0, 10).map((r) => ({
-          type: 'email' as const,
-          id: r.messageId,
-          from: r.fromName || r.fromAddress,
-          subject: r.subject,
-          date: r.date,
-          snippet: r.snippet?.replace(/<[^>]+>/g, '').replace(/\r?\n/g, ' ').trim() ?? '',
-          score: r.rank,
-        }))
-      ),
+    ripmailSearch(ripmailHomeForBrain(), { query: q, limit: 10, includeAll: false }).then(
+      (data): Array<EmailResult | IndexedFileSearchResult> =>
+        (data.results ?? []).slice(0, 10).map(mapRipmailRowToGlobalSearch),
+    ),
   ])
 
   const wiki = wikiResult.status === 'fulfilled' ? wikiResult.value : []

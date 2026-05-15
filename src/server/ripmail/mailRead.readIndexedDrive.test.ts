@@ -24,6 +24,7 @@ describe('readIndexedFile (googleDrive)', () => {
     const forA = await readIndexedFile(db, '/rip', 'same-file-id', { fullBody: true, sourceId: 'drive-a' })
     expect(forA?.title).toBe('From A')
     expect(forA?.bodyText).toBe('body-a')
+    expect(forA?.modifiedAt).toBe('2024-01-01')
 
     const forB = await readIndexedFile(db, '/rip', 'same-file-id', { fullBody: true, sourceId: 'drive-b' })
     expect(forB?.title).toBe('From B')

@@ -16,6 +16,17 @@ import { randomUUID } from 'node:crypto'
 import { openMemoryRipmailDb, openRipmailDb, closeRipmailDb } from './db.js'
 import { SCHEMA_VERSION } from './schema.js'
 import { search } from './search.js'
+import {
+  RELAXATION_CASE_INSENSITIVE,
+  RELAXATION_REMOVE_AFTER,
+  RELAXATION_REMOVE_BEFORE,
+} from './searchZeroHitGuidance.js'
+import {
+  HIGH_RECALL_LARGE_POOL,
+  HIGH_RECALL_TOTAL_EXCEEDS_PAGE,
+  NARROW_ADD_FROM_FILTER,
+  NARROW_TIGHTEN_BODY_REGEX,
+} from './searchBroadHitGuidance.js'
 import { readMail, readMailForDisplay } from './mailRead.js'
 import { who } from './who.js'
 import { status } from './status.js'
@@ -131,8 +142,8 @@ function insertIndexedDriveDoc(
 // ---------------------------------------------------------------------------
 
 describe('schema', () => {
-  it('SCHEMA_VERSION is 31', () => {
-    expect(SCHEMA_VERSION).toBe(31)
+  it('SCHEMA_VERSION is 32', () => {
+    expect(SCHEMA_VERSION).toBe(32)
   })
 
   it('openMemoryRipmailDb creates DB with expected tables', () => {
@@ -194,6 +205,8 @@ describe('search', () => {
     const r = search(db, { query: '[invalid-regex', includeAll: true })
     expect(r.results).toHaveLength(0)
     expect(r.hints.some((h) => h.toLowerCase().includes('invalid'))).toBe(true)
+    expect(r.effectiveSearch?.pattern).toBe('[invalid-regex')
+    expect(r.suggestedRelaxations).toEqual([])
   })
 
   it('filter-only search (no pattern) works', () => {
@@ -258,6 +271,8 @@ describe('search', () => {
     expect(r.results).toHaveLength(0)
     expect(r.hints.join('\n')).toMatch(/inline operators/i)
     expect(r.hints.join('\n')).toMatch(/from:/i)
+    expect(r.effectiveSearch?.pattern).toContain('from:alice')
+    expect(r.suggestedRelaxations).toEqual([])
   })
 
   it('respects caseSensitive for mail regex matching', () => {
@@ -313,6 +328,116 @@ describe('search', () => {
     expect(page.results).toHaveLength(1)
     expect(page.results[0]!.subject).toBe('Z1')
     expect(page.totalMatched).toBe(3)
+  })
+
+  it('does not attach structured zero-hit guidance when totalMatched > 0 but page is empty (offset)', () => {
+    insertMessage(db, {
+      subject: 'pagination lone',
+      bodyText: 'UNIQUE_TOKEN_PAGINATION_EMPTY_PAGE',
+      fromAddress: 'p@corp.com',
+      date: '2026-08-01T12:00:00Z',
+    })
+    const r = search(db, {
+      query: 'UNIQUE_TOKEN_PAGINATION_EMPTY_PAGE',
+      includeAll: true,
+      limit: 5,
+      offset: 5,
+    })
+    expect(r.totalMatched).toBe(1)
+    expect(r.results).toHaveLength(0)
+    expect(r.effectiveSearch).toBeUndefined()
+    expect(r.suggestedRelaxations).toBeUndefined()
+  })
+
+  it('omits structured zero-hit fields when there are matches', () => {
+    const r = search(db, { query: 'Budget', includeAll: true })
+    expect(r.results.length).toBeGreaterThan(0)
+    expect(r.effectiveSearch).toBeUndefined()
+    expect(r.suggestedRelaxations).toBeUndefined()
+    expect(r.constraintsPresent).toBeUndefined()
+  })
+
+  it('zero-hit case-sensitive pattern suggests case_insensitive first', () => {
+    insertMessage(db, {
+      subject: 'Camel token',
+      bodyText: 'UniqueCamelXYZ token body',
+      fromAddress: 'camel@corp.com',
+      date: '2026-05-01T12:00:00Z',
+    })
+    const r = search(db, { query: 'uniquecamelxyz', caseSensitive: true, includeAll: true })
+    expect(r.totalMatched).toBe(0)
+    expect(r.suggestedRelaxations?.[0]).toBe(RELAXATION_CASE_INSENSITIVE)
+    expect(r.effectiveSearch?.pattern).toBe('uniquecamelxyz')
+    expect(r.effectiveSearch?.caseSensitive).toBe(true)
+    expect(r.constraintsPresent?.caseSensitive).toBe(true)
+    expect(r.constraintsPresent?.hasPattern).toBe(true)
+  })
+
+  it('zero-hit filter-only search suggests remove_after and remove_before when bounds exclude mail', () => {
+    const r = search(db, {
+      from: 'finance@corp.com',
+      afterDate: '2099-01-01',
+      beforeDate: '2099-06-01',
+      includeAll: true,
+    })
+    expect(r.totalMatched).toBe(0)
+    expect(r.suggestedRelaxations).toEqual([RELAXATION_REMOVE_AFTER, RELAXATION_REMOVE_BEFORE])
+    expect(r.effectiveSearch?.from).toBe('finance@corp.com')
+    expect(r.effectiveSearch?.after).toBe('2099-01-01')
+    expect(r.effectiveSearch?.before).toBe('2099-06-01')
+    expect(r.constraintsPresent?.hasAfterDate).toBe(true)
+    expect(r.constraintsPresent?.hasBeforeDate).toBe(true)
+    expect(r.constraintsPresent?.hasPattern).toBe(false)
+  })
+
+  it('zero-hit filter-only with unknown sender has empty suggestedRelaxations when no dates', () => {
+    const r = search(db, { from: 'nobody-here-99999@corp.com', includeAll: true })
+    expect(r.totalMatched).toBe(0)
+    expect(r.suggestedRelaxations).toEqual([])
+    expect(r.constraintsPresent?.hasFrom).toBe(true)
+  })
+
+  it('high-recall pattern search attaches recallSummary and suggestedNarrowings', () => {
+    const TOKEN = 'UNIQUE_BROAD_HIT_POOL_TOKEN'
+    for (let i = 0; i < 55; i++) {
+      insertMessage(db, {
+        subject: `hit-${i}`,
+        bodyText: `${TOKEN} row`,
+        fromAddress: 'broad-hit@corp.com',
+        date: `2026-07-${String((i % 28) + 1).padStart(2, '0')}T12:00:00Z`,
+      })
+    }
+    const r = search(db, { query: TOKEN, includeAll: true, limit: 5 })
+    expect(r.totalMatched).toBeGreaterThanOrEqual(55)
+    expect(r.recallSummary?.reasons).toContain(HIGH_RECALL_TOTAL_EXCEEDS_PAGE)
+    expect(r.recallSummary?.reasons).toContain(HIGH_RECALL_LARGE_POOL)
+    expect(r.recallSummary?.limit).toBe(5)
+    expect(r.suggestedNarrowings).toContain(NARROW_TIGHTEN_BODY_REGEX)
+    expect(r.suggestedNarrowings).toContain(NARROW_ADD_FROM_FILTER)
+  })
+
+  it('high-recall filter-only omits tighten_body_regex', () => {
+    const addr = 'broad_only_filter_hit@corp.com'
+    for (let i = 0; i < 52; i++) {
+      insertMessage(db, {
+        subject: `bf-${i}`,
+        bodyText: 'body',
+        fromAddress: addr,
+        date: `2026-08-${String((i % 28) + 1).padStart(2, '0')}T12:00:00Z`,
+      })
+    }
+    const r = search(db, { from: addr, includeAll: true, limit: 10 })
+    expect(r.totalMatched).toBeGreaterThanOrEqual(52)
+    expect(r.recallSummary).toBeDefined()
+    expect(r.suggestedNarrowings?.includes(NARROW_TIGHTEN_BODY_REGEX)).toBe(false)
+  })
+
+  it('low-recall search omits recallSummary', () => {
+    const r = search(db, { query: 'Budget', limit: 50, includeAll: true })
+    expect((r.totalMatched ?? 0) > 0).toBe(true)
+    expect(r.totalMatched ?? 0).toBeLessThan(50)
+    expect(r.recallSummary).toBeUndefined()
+    expect(r.suggestedNarrowings).toBeUndefined()
   })
 
   it('matches Google Drive rows in document_index (regex across title, ext id, body)', () => {

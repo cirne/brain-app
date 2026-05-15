@@ -212,6 +212,12 @@ describe('assistantShellNavigation', () => {
       expect(hubActiveForOpenOverlay(r, wiki, false)).toBe(true)
     })
 
+    it('follows library primary like inbox when not mobile bridge case', () => {
+      const r = makeRoute({ zone: 'library' })
+      const wiki: Overlay = { type: 'wiki', path: 'p.md' }
+      expect(hubActiveForOpenOverlay(r, wiki, false)).toBe(true)
+    })
+
     it('is true when hub overlay open even if hubActive false', () => {
       const r = makeRoute({ overlay: { type: 'hub' } })
       const wiki: Overlay = { type: 'wiki', path: 'p.md' }
@@ -243,6 +249,18 @@ describe('assistantShellNavigation', () => {
       expect(
         closeOverlayStrategy(
           makeRoute({ overlay: { type: 'chat-history' } }),
+          true,
+        ),
+      ).toBe('immediate')
+    })
+
+    it('immediate for library primary with overlay', () => {
+      expect(
+        closeOverlayStrategy(
+          makeRoute({
+            zone: 'library',
+            overlay: { type: 'indexed-file', id: 'doc-1' },
+          }),
           true,
         ),
       ).toBe('immediate')

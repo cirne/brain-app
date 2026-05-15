@@ -11,7 +11,7 @@
 
 **Status:** Open  
 **Tags:** `email` · `chat` · `ux` · `overlay` · `ripmail`  
-**Related:** [OPP-019](./OPP-019-gmail-first-class-brain.md) (Gmail + ripmail integration); [ripmail OPP-055](../ripmail/docs/opportunities/OPP-055-multipart-alternative-html-plain-outbound.md) (Markdown drafts → multipart outbound); [OPP-016](./OPP-016-agent-chat-draft-queue.md) (deprioritized: composer-side draft queue — different problem); [BUG-028](../../bugs/BUG-028-agent-email-draft-wrong-recipient-and-signature.md) (draft **content** — wrong recipient / signature despite overlay goals)
+**Related:** [OPP-019](./OPP-019-gmail-first-class-brain.md) (Gmail + ripmail integration); [ripmail OPP-055](../ripmail/docs/opportunities/OPP-055-multipart-alternative-html-plain-outbound.md) (Markdown drafts → multipart outbound); [OPP-016](./OPP-016-agent-chat-draft-queue.md) (deprioritized: composer-side draft queue — different problem); [BUG-028 archived](../../bugs/archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md) (draft **content** — wrong recipient / signature despite overlay goals)
 
 **Additional user feedback:** Issue **#13** (`2026-04-27`) — drafted mail had incorrect `To` and signature attribution; manual correction before send.
 

@@ -1,7 +1,6 @@
 # BUG-056 — Agent: "who introduced me to …" stalls on broad mail search instead of pivoting to contacts
 
-**Status:** Open  
-**Priority:** Medium  
+**Status:** **Archived (2026-05-15).** Structured **`search_index`** zero-hit + high-recall metadata shipped (`recallSummary`, `suggestedNarrowings`, etc.); **`find_person`** tool description strengthened for identity vs noisy search; **`enron-026-intro-km-world-markets-vague`** regression checks grounded answers without requiring **`find_person`**. First-hit anchoring when snippets mislead remains a general modeling concern—not tracked as this backlog item.
 
 **Related feedback:** #18 (2026-05-14)
 
@@ -19,7 +18,7 @@ Concrete example from feedback: clues (person names, geography, topical keywords
 
 ## Design direction — tool hints, not more prescriptions
 
-See **[agent-tool-design-philosophy.md](../architecture/agent-tool-design-philosophy.md)** for principles. The fix should **not** add case-specific rules ("for introduced-me questions, call find_person first"). Instead:
+See **[agent-tool-design-philosophy.md](../../architecture/agent-tool-design-philosophy.md)** for principles. The fix should **not** add case-specific rules ("for introduced-me questions, call find_person first"). Instead:
 
 1. **Tool output hints.** When `search_index` returns sparse or ambiguous results for a person-name-shaped query:
    - Inject a hint into the JSON `hints` array (same infrastructure as `searchIndexCoerce.ts` recency hints).
@@ -45,17 +44,23 @@ See **[agent-tool-design-philosophy.md](../architecture/agent-tool-design-philos
 
 ## Implementation sketch
 
-1. **`searchIndexCoerce.ts` or `ripmailAgentTools.ts`:** After search executes, if:
-   - Result count is low (≤2) or totalMatched is 0
-   - AND the query or `from` field looks like a person name (reuse `looksLikePersonNameOnly`)
-   - → Merge a hint: `"Sparse results for a person-name query. For identity/company resolution, try find_person."`
+1. **`search_index` structured recall hints (shipped):**
+   - **Zero hits (`totalMatched === 0`):** **`effectiveSearch`**, **`constraintsPresent`**, **`suggestedRelaxations`** (`case_insensitive`, `remove_after`, `remove_before`). See [`src/server/ripmail/searchZeroHitGuidance.ts`](../../../src/server/ripmail/searchZeroHitGuidance.ts). Pagination-only empty pages (`totalMatched > 0`) omit zero-hit fields.
+   - **Broad / high-recall pools (`totalMatched > limit` or `totalMatched` ≥ 50):** **`recallSummary`** (counts, stable **`reasons`**: `high_recall_total_exceeds_page`, `high_recall_large_pool`) and **`suggestedNarrowings`** (`add_after_date`, …, `tighten_body_regex` for pattern searches). See [`src/server/ripmail/searchBroadHitGuidance.ts`](../../../src/server/ripmail/searchBroadHitGuidance.ts).
+   - Wired from [`src/server/ripmail/search.ts`](../../../src/server/ripmail/search.ts). Tests: [`src/server/ripmail/ripmail.test.ts`](../../../src/server/ripmail/ripmail.test.ts).
 
-2. **`find_person` description:** Update to emphasize identity/company resolution, not just "search contacts."
+2. **Sparse / ambiguous nonempty recall (follow-up outside this ticket):** **`recallSummary`** / **`suggestedNarrowings`** narrow pools without English heuristics; **first-hit anchoring** with misleading snippets may still warrant ranking or better snippets separately.
 
-3. **No system prompt changes** unless removing over-specific rules that already exist.
+3. **`find_person` description:** **Shipped** — identity-first positioning in **`ripmailAgentTools.ts`** (see design direction above).
+
+4. **No system prompt carve-outs** unless removing over-specific rules.
+
+## Regression eval
+
+- **`enron-026-intro-km-world-markets-vague`** in [`eval/tasks/enron-v1.jsonl`](../../../eval/tasks/enron-v1.jsonl): expects **`search_index`/`read_mail_message`**, grounded **Robert Johnston** + **World Markets Online** / **World Telecoms Online**, plus **`llmJudge`** (does **not** require **`find_person`**). Targets high-recall narrative from indexed mail; **not** zero-hit recovery.
 
 ## Related
 
-- **[agent-tool-design-philosophy.md](../architecture/agent-tool-design-philosophy.md)** — principles guiding this direction
-- **[BUG-019](BUG-019-mail-visible-in-client-but-missing-from-search.md)** — index gaps that compound search-only strategies
-- **[BUG-028](BUG-028-agent-email-draft-wrong-recipient-and-signature.md)** — separate (compose fidelity), but same theme: prefer authoritative identity over inference
+- **[agent-tool-design-philosophy.md](../../architecture/agent-tool-design-philosophy.md)** — principles guiding this direction
+- **[BUG-019 archived](BUG-019-mail-visible-in-client-but-missing-from-search.md)** — index gaps that compound search-only strategies
+- **[BUG-028 archived](BUG-028-agent-email-draft-wrong-recipient-and-signature.md)** — separate (compose fidelity), but same theme: prefer authoritative identity over inference

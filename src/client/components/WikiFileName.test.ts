@@ -42,10 +42,13 @@ describe('WikiFileName.svelte', () => {
     expect(container.querySelector('.opacity-90')).toBeTruthy()
   })
 
-  it('adds strip align class for transcript tool rows', () => {
+  it('applies strip-align classes for transcript tool rows', () => {
     const { container } = render(WikiFileName, {
       props: { path: 'me.md', stripAlign: true },
     })
-    expect(container.querySelector('.wfn-title-row--strip')).toBeTruthy()
+    const row = container.querySelector('.wfn-title-row')
+    expect(row).toBeTruthy()
+    expect(row).toHaveClass('min-h-0')
+    expect(row?.className).toContain('[&_.wfn-name]:leading-inherit')
   })
 })

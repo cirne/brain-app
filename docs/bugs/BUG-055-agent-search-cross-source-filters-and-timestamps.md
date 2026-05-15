@@ -23,7 +23,7 @@ Users and the agent both expect **“search everything I’ve indexed”** unles
 ## Non-goals (for this ticket)
 
 - Perfect ranking across heterogeneous sources (can follow from the same design).
-- Changing default mail category filters ([BUG-019](BUG-019-mail-visible-in-client-but-missing-from-search.md))—related “missing hits” story but different mechanism.
+- Changing default mail category filters ([BUG-019 archived](archive/BUG-019-mail-visible-in-client-but-missing-from-search.md))—related “missing hits” story but different mechanism.
 
 ## Fix direction (open)
 
@@ -34,5 +34,5 @@ Users and the agent both expect **“search everything I’ve indexed”** unles
 
 ## Related
 
-- [BUG-019](BUG-019-mail-visible-in-client-but-missing-from-search.md) — mail category / default filters hiding indexed messages.
+- [BUG-019 archived](archive/BUG-019-mail-visible-in-client-but-missing-from-search.md) — mail category / default filters hiding indexed messages.
 - Code touchpoints likely include `src/server/ripmail/search.ts`, agent mail/search tools, and any indexed-Drive search path wired into `search_index`.

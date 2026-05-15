@@ -11,6 +11,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
   import BrainHubPage from '@components/BrainHubPage.svelte'
   import Inbox from '@components/Inbox.svelte'
+  import IndexedFileViewer from '@components/IndexedFileViewer.svelte'
   import Tunnels from '@components/Tunnels.svelte'
   import BrainAccessPage from '@components/brain-access/BrainAccessPage.svelte'
   import PolicyDetailPage from '@components/brain-access/PolicyDetailPage.svelte'
@@ -111,6 +112,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import { primaryComposerMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
   import {
     inboxThreadSurfaceForCompose,
+    indexedFileSurfaceForCompose,
     primaryDockOverlayToKeepForChatSplit,
   } from '@client/lib/primarySurfaceDockNavigation.js'
   import { overlayForWikiPrimaryShortcut } from '@client/lib/wikiPrimaryShortcutOverlay.js'
@@ -447,6 +449,10 @@ import AppShell from '@components/app/AppShell.svelte'
     if (z === 'inbox' && o?.type === 'email' && o.id) {
       return `inbox-email-${o.id}`
     }
+    if (z === 'library' && o?.type === 'indexed-file' && o.id) {
+      const src = o.source?.trim() ?? ''
+      return `library-indexed-${o.id}-${src}`
+    }
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return 'wiki-primary'
     const p = 'path' in o ? (o.path ?? '') : ''
     return `wiki-primary-${o.type}-${p}`
@@ -651,6 +657,12 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.agentContext = { type: 'chat' }
       return
     }
+    if (shell.route.zone === 'library') {
+      navigateShell({ zone: 'library' as RouteZone }, { replace: true })
+      shell.route = parseRoute()
+      shell.agentContext = { type: 'chat' }
+      return
+    }
     if (shell.route.zone === 'tunnels') {
       navigateShell({ ...chatSessionPart() }, { replace: true })
       shell.route = parseRoute()
@@ -693,6 +705,9 @@ import AppShell from '@components/app/AppShell.svelte'
     }
     if (shell.route.zone === 'inbox') {
       return { zone: 'inbox', useChatSession: false }
+    }
+    if (shell.route.zone === 'library') {
+      return { zone: 'library', useChatSession: false }
     }
     if (shell.route.zone === 'tunnels') {
       return { zone: 'tunnels', useChatSession: false }
@@ -975,6 +990,39 @@ import AppShell from '@components/app/AppShell.svelte'
     }
   }
 
+  function openIndexedFileFromSearchPrimarySurface(id: string, sourceId?: string) {
+    const overlay: Overlay = {
+      type: 'indexed-file',
+      id,
+      ...(sourceId?.trim() ? { source: sourceId.trim() } : {}),
+    }
+    const r = primarySurfaceRouteForOverlay(overlay)
+    if (!r) {
+      openIndexedFileDoc(id, sourceId)
+      return
+    }
+    navigateShell({
+      zone: r.zone,
+      overlay: r.overlay,
+    })
+    shell.route = parseRoute()
+    shell.agentContext = {
+      type: 'indexed-file',
+      id,
+      title: '(loading)',
+      sourceKind: '',
+      ...(sourceId?.trim() ? { source: sourceId.trim() } : {}),
+    }
+  }
+
+  function openIndexedFileFromShell(id: string, sourceId?: string) {
+    if (shellOpenPrefersPrimaryDetailSurface() || routeUsesFullWidthPrimaryWorkspace(shell.route)) {
+      openIndexedFileFromSearchPrimarySurface(id, sourceId)
+    } else {
+      openIndexedFileDoc(id, sourceId)
+    }
+  }
+
   function openEmailFromChat(threadId: string, subject?: string, from?: string) {
     openEmailFromSearch(threadId, subject ?? '', from ?? '')
   }
@@ -1254,8 +1302,9 @@ import AppShell from '@components/app/AppShell.svelte'
 
     const isWikiDock = z === 'wiki' && (o.type === 'wiki' || o.type === 'wiki-dir')
     const isInboxEmailDock = z === 'inbox' && o.type === 'email' && o.id
+    const isLibraryIndexedDock = z === 'library' && o.type === 'indexed-file' && o.id
 
-    if (!isWikiDock && !isInboxEmailDock) return
+    if (!isWikiDock && !isInboxEmailDock && !isLibraryIndexedDock) return
 
     const overlayToKeep = primaryDockOverlayToKeepForChatSplit(
       shell.route,
@@ -1265,6 +1314,8 @@ import AppShell from '@components/app/AppShell.svelte'
 
     const emailSurfForNarrow =
       !overlayToKeep && isInboxEmailDock ? inboxThreadSurfaceForCompose(o, shell.agentContext) : null
+    const indexedSurfForNarrow =
+      !overlayToKeep && isLibraryIndexedDock ? indexedFileSurfaceForCompose(o, shell.agentContext) : null
 
     shell.chatTitleForUrl = null
     navigateShell(overlayToKeep ? { overlay: overlayToKeep } : {}, { replace: true })
@@ -1293,11 +1344,24 @@ import AppShell from '@components/app/AppShell.svelte'
         if (!(cur.type === 'email' && cur.threadId === o.id)) {
           shell.agentContext = { type: 'email', threadId: o.id, subject: '(loading)', from: '' }
         }
+      } else if (isLibraryIndexedDock && o.id) {
+        const cur = shell.agentContext
+        if (!(cur.type === 'indexed-file' && cur.id === o.id)) {
+          shell.agentContext = {
+            type: 'indexed-file',
+            id: o.id,
+            title: '(loading)',
+            sourceKind: '',
+            ...(o.source?.trim() ? { source: o.source.trim() } : {}),
+          }
+        }
       }
     } else {
       alignShellWithBareChatRoute(shell)
       if (emailSurfForNarrow) {
         shell.agentContext = emailSurfForNarrow
+      } else if (indexedSurfForNarrow) {
+        shell.agentContext = indexedSurfForNarrow
       }
     }
 
@@ -1316,7 +1380,8 @@ import AppShell from '@components/app/AppShell.svelte'
     const o = shell.route.overlay
     const wikiPrimary = z === 'wiki' && o && (o.type === 'wiki' || o.type === 'wiki-dir')
     const inboxEmailPrimary = z === 'inbox' && o?.type === 'email' && o.id
-    if (!wikiPrimary && !inboxEmailPrimary) return
+    const libraryIndexedPrimary = z === 'library' && o?.type === 'indexed-file' && o.id
+    if (!wikiPrimary && !inboxEmailPrimary && !libraryIndexedPrimary) return
     void fetchWikiDockWikiFiles()
     void fetchWikiDockSkills()
     return registerWikiFileListRefetch(fetchWikiDockWikiFiles)
@@ -1362,6 +1427,7 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone === 'settings' ||
       shell.route.zone === 'wiki' ||
       shell.route.zone === 'inbox' ||
+      shell.route.zone === 'library' ||
       shell.route.zone === 'tunnels'
     )
       return
@@ -1388,6 +1454,7 @@ import AppShell from '@components/app/AppShell.svelte'
       shell.route.zone !== 'settings' &&
       shell.route.zone !== 'wiki' &&
       shell.route.zone !== 'inbox' &&
+      shell.route.zone !== 'library' &&
       shell.route.zone !== 'tunnels' &&
       shell.route.overlay?.type !== 'hub'
     if (!onChat || !sid) {
@@ -1458,6 +1525,7 @@ import AppShell from '@components/app/AppShell.svelte'
     shell.isMobile &&
       shell.route.zone !== 'wiki' &&
       shell.route.zone !== 'inbox' &&
+      shell.route.zone !== 'library' &&
       shell.route.zone !== 'tunnels',
   )
   const appMobileNavCenterTitle = $derived(
@@ -1471,8 +1539,11 @@ import AppShell from '@components/app/AppShell.svelte'
 {#if shell.showSearch}
   <Search
     onOpenWiki={(path) => { openWikiFromShell(path); shell.showSearch = false }}
-    onWikiHome={navigateWikiPrimary}
     onOpenEmail={(id, subject, from) => { openEmailFromShell(id, subject, from); shell.showSearch = false }}
+    onOpenIndexedFile={(id, opts) => {
+      openIndexedFileFromShell(id, opts?.sourceId)
+      shell.showSearch = false
+    }}
     onClose={() => shell.showSearch = false}
   />
 {/if}
@@ -1746,6 +1817,52 @@ import AppShell from '@components/app/AppShell.svelte'
                       </div>
                     </div>
                   {/if}
+                </div>
+              {/if}
+            </div>
+          {:else if shell.route.zone === 'library'}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              {#if shell.route.overlay?.type === 'indexed-file' && shell.route.overlay.id}
+                <div class="library-primary-main flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                    <IndexedFileViewer
+                      id={shell.route.overlay.id}
+                      source={shell.route.overlay.source}
+                      onContextChange={setContext}
+                    />
+                  </div>
+                  <div
+                    class="wiki-primary-composer-dock shrink-0 bg-surface [padding-bottom:env(safe-area-inset-bottom,0px)]"
+                  >
+                    <div
+                      class="wiki-primary-composer-stack mx-auto box-border w-full max-w-chat px-[clamp(12px,3vw,40px)] pb-3 pt-2 md:px-[clamp(16px,4%,40px)]"
+                    >
+                      <UnifiedChatComposer
+                        bind:this={wikiDockComposerRef}
+                        transparentSurround={true}
+                        voiceEligible={wikiDockVoiceEligible}
+                        sessionResetKey={wikiDockComposerSessionKey}
+                        placeholder={wikiDockPlaceholder}
+                        streaming={false}
+                        queuedMessages={[]}
+                        wikiFiles={wikiDockWikiFiles}
+                        skills={wikiDockSkills}
+                        onSend={(t) => void primarySurfaceDockComposeSend(t)}
+                        onDraftChange={(d) => {
+                          wikiDockDraft = d
+                        }}
+                        onTranscribe={onWikiDockVoiceTranscribe}
+                        onRequestFocusText={() => void wikiDockComposerRef?.focus()}
+                        hearReplies={wikiDockHearReplies}
+                      />
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <div class="hub-scroll flex min-h-0 flex-1 flex-col items-center justify-center overflow-x-hidden overflow-y-auto px-6 py-12">
+                  <p class="max-w-md text-center text-sm text-muted">
+                    {$t('wiki.indexedFileViewer.libraryEmptyHint')}
+                  </p>
                 </div>
               {/if}
             </div>

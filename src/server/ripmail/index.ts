@@ -17,6 +17,9 @@ export {
   ripmailDbPath,
 } from './db.js'
 export { SCHEMA_VERSION } from './schema.js'
+export { ripmailResolveEntryJson } from './resolveEntry.js'
+export { readIndexedFileResultToViewerPayload, type IndexedFileViewerApiPayload } from './indexedEntryPayload.js'
+export type { RipmailEntryResponseJson, RipmailEntryMailJson } from './resolveEntry.js'
 
 export type {
   SearchOptions,

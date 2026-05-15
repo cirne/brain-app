@@ -10,6 +10,7 @@ import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import type { RipmailDb } from '../db.js'
 import type { SourceConfig } from './config.js'
 import { createGoogleDriveClient } from './googleDrive.js'
+import { driveFileFingerprint } from './googleDriveFileFingerprint.js'
 import {
   DRIVE_SYNC_MAX_BINARY_DOWNLOAD_BYTES,
   extractDriveFileText,
@@ -81,16 +82,6 @@ function fileSourceMaxBytes(source: SourceConfig): number {
   return typeof n === 'number' && n > 0 ? n : 10_000_000
 }
 
-function driveFileFingerprint(f: drive_v3.Schema$File): string {
-  const md5 = f.md5Checksum?.trim()
-  if (md5) return `md5:${md5}`
-  const rev = f.headRevisionId?.trim()
-  if (rev) return `rev:${rev}`
-  const mt = f.modifiedTime?.trim() ?? ''
-  const sz = String(f.size ?? '')
-  return `meta:${mt}:${sz}:${f.mimeType ?? ''}`
-}
-
 function upsertDocumentIndex(
   db: RipmailDb,
   sourceId: string,
@@ -98,14 +89,15 @@ function upsertDocumentIndex(
   title: string,
   body: string,
   dateIso: string,
+  mime: string,
 ): void {
   db.prepare(`DELETE FROM document_index WHERE source_id = ? AND kind = 'googleDrive' AND ext_id = ?`).run(
     sourceId,
     extId,
   )
   db.prepare(
-    `INSERT INTO document_index (source_id, kind, ext_id, title, body, date_iso) VALUES (?, 'googleDrive', ?, ?, ?, ?)`,
-  ).run(sourceId, extId, title, body.slice(0, DRIVE_SYNC_BODY_MAX_CHARS), dateIso)
+    `INSERT INTO document_index (source_id, kind, ext_id, title, body, date_iso, mime) VALUES (?, 'googleDrive', ?, ?, ?, ?, ?)`,
+  ).run(sourceId, extId, title, body.slice(0, DRIVE_SYNC_BODY_MAX_CHARS), dateIso, mime)
 }
 
 function upsertCloudMeta(
@@ -206,7 +198,7 @@ async function ingestFileIfNeeded(
   const text = await extractDriveFileText(drive, f, workDir, driveHttpOpts, {
     maxBinaryDownloadBytes: DRIVE_SYNC_MAX_BINARY_DOWNLOAD_BYTES,
   })
-  upsertDocumentIndex(db, sourceId, fileId, name, text, dateIso)
+  upsertDocumentIndex(db, sourceId, fileId, name, text, dateIso, mime)
   upsertCloudMeta(db, sourceId, fileId, fp, f.modifiedTime ?? '')
   return prev ? 'updated' : 'added'
 }

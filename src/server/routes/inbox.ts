@@ -16,8 +16,8 @@ import {
   ripmailDraftReply,
   ripmailDraftForward,
   ripmailSend,
-  ripmailReadMailForDisplay,
   ripmailArchive,
+  ripmailResolveEntryJson,
 } from '@server/ripmail/index.js'
 import { DraftSourceMessageNotFoundError, type EditDraftOptions } from '@server/ripmail/draft.js'
 
@@ -222,28 +222,17 @@ inbox.post('/draft/:draftId/send', async (c) => {
   }
 })
 
-// GET /api/inbox/:id — read a message
+// GET /api/inbox/:id — read a message (mail only; indexed files use `/api/ripmail/entry/:id` or `/api/files/indexed`)
 inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
     const home = ripmailHomeForBrain()
-    const msg = await ripmailReadMailForDisplay(home, id)
-    if (!msg) return c.json({ error: 'Not found' }, 404)
-    return c.json({
-      messageId: msg.messageId,
-      threadId: msg.threadId,
-      headers: {
-        from: msg.fromAddress,
-        to: msg.toAddresses,
-        cc: msg.ccAddresses,
-        subject: msg.subject,
-        date: msg.date,
-      },
-      bodyKind: msg.bodyKind,
-      bodyText: msg.bodyText,
-      ...(msg.bodyHtml ? { bodyHtml: msg.bodyHtml } : {}),
-      ...(msg.visualArtifacts?.length ? { visualArtifacts: msg.visualArtifacts } : {}),
-    })
+    const resolved = await ripmailResolveEntryJson(home, id)
+    if (!resolved || resolved.entryKind !== 'mail') {
+      return c.json({ error: 'Not found' }, 404)
+    }
+    const { entryKind: _, ...msg } = resolved
+    return c.json(msg)
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }
