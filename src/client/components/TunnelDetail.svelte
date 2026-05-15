@@ -6,12 +6,20 @@
   import { subscribeTunnelActivity } from '@client/lib/hubEvents/hubEventsClient.js'
   import { t } from '@client/lib/i18n/index.js'
   import { consumeTunnelOutboundSendStream } from '@client/lib/consumeTunnelOutboundSendStream.js'
-  import { classifyGrantPolicy, normalizePolicyText } from '@client/lib/brainAccessPolicyGrouping.js'
-  import { loadBrainAccessCustomPolicies } from '@client/lib/brainAccessCustomPolicies.js'
+  import {
+    classifyGrantPolicy,
+    normalizePolicyText,
+    type GrantPolicyClassifySource,
+  } from '@client/lib/brainAccessPolicyGrouping.js'
+  import {
+    fetchBrainAccessCustomPoliciesFromServer,
+    mergeServerAndLegacyCustomPolicies,
+    type BrainAccessCustomPolicy,
+  } from '@client/lib/brainAccessCustomPolicies.js'
   import {
     BRAIN_QUERY_POLICY_TEMPLATES,
     templateById,
-    type BrainQueryBuiltInPolicyId,
+    type BrainQueryBuiltinPolicyId,
   } from '@client/lib/brainQueryPolicyTemplates.js'
   import TunnelMessage from '@components/TunnelMessage.svelte'
   import TunnelPendingMessage from '@components/TunnelPendingMessage.svelte'
@@ -47,8 +55,11 @@
   let replyUiBind = $state<'review' | 'auto' | undefined>('review')
   let policyBusy = $state(false)
   let inboundPrivacyPolicy = $state('')
+  let inboundPresetPolicyKey = $state<string | null>(null)
+  let inboundCustomPolicyId = $state<string | null>(null)
+  let tunnelCustomPolicies = $state<BrainAccessCustomPolicy[]>([])
   /** Built-in preset id when text matches template; '' when custom / other policy. */
-  let accessSelect = $state<'' | BrainQueryBuiltInPolicyId>('')
+  let accessSelect = $state<'' | BrainQueryBuiltinPolicyId>('')
   let accessBusy = $state(false)
   let connectionSheetOpen = $state(false)
   let autoSendConfirmOpen = $state(false)
@@ -70,8 +81,13 @@
 
   const accessClassified = $derived.by(() => {
     const raw = inboundPrivacyPolicy.trim()
-    if (!raw) return null
-    return classifyGrantPolicy(inboundPrivacyPolicy, loadBrainAccessCustomPolicies())
+    if (!raw && !inboundPresetPolicyKey && !inboundCustomPolicyId) return null
+    const grantLike: GrantPolicyClassifySource = {
+      privacyPolicy: inboundPrivacyPolicy,
+      presetPolicyKey: inboundPresetPolicyKey,
+      customPolicyId: inboundCustomPolicyId,
+    }
+    return classifyGrantPolicy(grantLike, tunnelCustomPolicies)
   })
 
   const accessHintText = $derived.by(() => {
@@ -154,6 +170,8 @@
         inboundGrantId?: unknown
         outboundGrantId?: unknown
         inboundPrivacyPolicy?: unknown
+        inboundPresetPolicyKey?: unknown
+        inboundCustomPolicyId?: unknown
       }
       peerUserId = typeof j.peerUserId === 'string' && j.peerUserId.trim() ? j.peerUserId.trim() : ''
       peerDisplayName =
@@ -167,12 +185,25 @@
           ? j.outboundGrantId.trim()
           : outboundGrantIdInitial ?? null
 
+      const fetchedCustom = await fetchBrainAccessCustomPoliciesFromServer()
+      tunnelCustomPolicies = mergeServerAndLegacyCustomPolicies(fetchedCustom)
+
       inboundPrivacyPolicy =
         typeof j.inboundPrivacyPolicy === 'string' ? j.inboundPrivacyPolicy : ''
+      const pk = j.inboundPresetPolicyKey
+      inboundPresetPolicyKey = typeof pk === 'string' && pk.trim() ? pk.trim() : null
+      const cid = j.inboundCustomPolicyId
+      inboundCustomPolicyId = typeof cid === 'string' && cid.trim() ? cid.trim() : null
       {
-        const cls = inboundPrivacyPolicy.trim()
-          ? classifyGrantPolicy(inboundPrivacyPolicy, loadBrainAccessCustomPolicies())
-          : null
+        const grantLike: GrantPolicyClassifySource = {
+          privacyPolicy: inboundPrivacyPolicy,
+          presetPolicyKey: inboundPresetPolicyKey,
+          customPolicyId: inboundCustomPolicyId,
+        }
+        const cls =
+          inboundPrivacyPolicy.trim() || inboundPresetPolicyKey || inboundCustomPolicyId
+            ? classifyGrantPolicy(grantLike, tunnelCustomPolicies)
+            : null
         accessSelect = cls?.kind === 'builtin' && cls.builtinId ? cls.builtinId : ''
       }
 
@@ -218,7 +249,7 @@
     }
   }
 
-  async function patchInboundPrivacyPreset(presetId: BrainQueryBuiltInPolicyId): Promise<void> {
+  async function patchInboundPrivacyPreset(presetId: BrainQueryBuiltinPolicyId): Promise<void> {
     const tmpl = templateById(presetId)
     const gid = inboundGrantId?.trim() ?? ''
     if (!tmpl || !gid) return
@@ -227,7 +258,7 @@
       const res = await apiFetch(`/api/brain-query/grants/${encodeURIComponent(gid)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ privacyPolicy: tmpl.text }),
+        body: JSON.stringify({ presetPolicyKey: presetId }),
       })
       if (res.ok) await loadTimeline()
     } finally {
@@ -235,7 +266,7 @@
     }
   }
 
-  async function onAccessPresetChange(next: BrainQueryBuiltInPolicyId): Promise<void> {
+  async function onAccessPresetChange(next: BrainQueryBuiltinPolicyId): Promise<void> {
     if (connectionDisabled) return
     const tmpl = templateById(next)
     if (tmpl && normalizePolicyText(inboundPrivacyPolicy) === normalizePolicyText(tmpl.text)) {
@@ -247,7 +278,7 @@
   function onPolicySelect(e: Event) {
     if (connectionDisabled) return
     const el = e.currentTarget as HTMLSelectElement
-    const v = el.value as '' | BrainQueryBuiltInPolicyId
+    const v = el.value as '' | BrainQueryBuiltinPolicyId
     accessSelect = v
     if (v === '') return
     void onAccessPresetChange(v)

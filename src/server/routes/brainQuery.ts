@@ -13,6 +13,12 @@ import {
   resolveUserIdByPrimaryEmail,
 } from '@server/lib/tenant/workspaceHandleDirectory.js'
 import {
+  createBrainQueryCustomPolicy,
+  deleteBrainQueryCustomPolicy,
+  listBrainQueryCustomPoliciesForOwner,
+  updateBrainQueryCustomPolicy,
+} from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
+import {
   createBrainQueryGrant,
   getActiveBrainQueryGrant,
   getBrainQueryGrantById,
@@ -20,10 +26,12 @@ import {
   listBrainQueryGrantsForOwner,
   revokeBrainQueryGrantAndReciprocal,
   revokeBrainQueryGrantAsAsker,
-  updateBrainQueryGrantPrivacyPolicy,
+  updateBrainQueryGrantPrivacyInstructions,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { resolveGrantPrivacyInstructions } from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
 import { deleteOwnerInboundForRevokedBrainQueryGrant } from '@server/lib/chat/brainTunnelInboundCleanup.js'
+import { isBrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
 
 const GRANT_POLICY_PREVIEW_MAX = 200
 
@@ -33,15 +41,47 @@ function grantPrivacyPolicyPreview(policy: string): string {
   return `${t.slice(0, GRANT_POLICY_PREVIEW_MAX - 1)}…`
 }
 
+export type BrainQueryCustomPolicyApi = {
+  id: string
+  ownerId: string
+  title: string
+  body: string
+  createdAtMs: number
+  updatedAtMs: number
+}
+
+function toCustomPolicyApi(row: {
+  id: string
+  owner_id: string
+  title: string
+  body: string
+  created_at_ms: number
+  updated_at_ms: number
+}): BrainQueryCustomPolicyApi {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    title: row.title,
+    body: row.body,
+    createdAtMs: row.created_at_ms,
+    updatedAtMs: row.updated_at_ms,
+  }
+}
+
 export type BrainQueryGrantApi = {
   id: string
   ownerId: string
   ownerHandle: string
   askerId: string
   askerHandle?: string
+  presetPolicyKey: string | null
+  customPolicyId: string | null
+  /** Resolved privacy instructions (preset from `.hbs` or custom row body). */
   privacyPolicy: string
-  /** @deprecated Prefer {@link policy}; true when policy is `auto`. */
+  /** @deprecated Prefer {@link replyMode}; true when replyMode is `auto`. */
   autoSend: boolean
+  replyMode: 'auto' | 'review' | 'ignore'
+  /** @deprecated Prefer {@link replyMode}. */
   policy: 'auto' | 'review' | 'ignore'
   createdAtMs: number
   updatedAtMs: number
@@ -55,15 +95,19 @@ async function toApiGrant(row: BrainQueryGrantRow): Promise<BrainQueryGrantApi> 
     askerMeta && typeof askerMeta.confirmedAt === 'string' && askerMeta.confirmedAt.length > 0
       ? askerMeta.handle
       : undefined
+  const resolved = resolveGrantPrivacyInstructions(row)
   return {
     id: row.id,
     ownerId: row.owner_id,
     ownerHandle: ownerMeta?.handle ?? row.owner_id,
     askerId: row.asker_id,
     ...(askerHandle ? { askerHandle } : {}),
-    privacyPolicy: row.privacy_policy,
-    autoSend: row.policy === 'auto',
-    policy: row.policy,
+    presetPolicyKey: row.preset_policy_key,
+    customPolicyId: row.custom_policy_id,
+    privacyPolicy: resolved,
+    autoSend: row.reply_mode === 'auto',
+    replyMode: row.reply_mode,
+    policy: row.reply_mode,
     createdAtMs: row.created_at_ms,
     updatedAtMs: row.updated_at_ms,
   }
@@ -128,6 +172,87 @@ async function resolveAskerUserId(params: {
 
 const brainQuery = new Hono()
 
+brainQuery.get('/policies', async (c) => {
+  const ctx = getTenantContext()
+  const rows = listBrainQueryCustomPoliciesForOwner(ctx.tenantUserId)
+  return c.json({ policies: rows.map(toCustomPolicyApi) })
+})
+
+brainQuery.post('/policies', async (c) => {
+  const ctx = getTenantContext()
+  let body: { title?: unknown; label?: unknown; body?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const titleFromBody =
+    typeof body.title === 'string'
+      ? body.title
+      : typeof body.label === 'string'
+        ? body.label
+        : ''
+  const text = typeof body.body === 'string' ? body.body : ''
+  try {
+    const row = createBrainQueryCustomPolicy({
+      ownerId: ctx.tenantUserId,
+      title: titleFromBody,
+      body: text,
+    })
+    return c.json(toCustomPolicyApi(row))
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'create_failed'
+    if (msg === 'title_required' || msg === 'body_required') {
+      return c.json({ error: msg }, 400)
+    }
+    return c.json({ error: 'create_failed', message: msg }, 500)
+  }
+})
+
+brainQuery.patch('/policies/:id', async (c) => {
+  const ctx = getTenantContext()
+  const id = c.req.param('id')
+  let body: { title?: unknown; label?: unknown; body?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const title =
+    body.title !== undefined && typeof body.title === 'string'
+      ? body.title
+      : body.label !== undefined && typeof body.label === 'string'
+        ? body.label
+        : undefined
+  const text = body.body !== undefined && typeof body.body === 'string' ? body.body : undefined
+  if (title === undefined && text === undefined) {
+    return c.json({ error: 'no_updates' }, 400)
+  }
+  const updated = updateBrainQueryCustomPolicy({
+    policyId: id,
+    ownerId: ctx.tenantUserId,
+    ...(title !== undefined ? { title } : {}),
+    ...(text !== undefined ? { body: text } : {}),
+  })
+  if (!updated) {
+    return c.json({ error: 'not_found_or_forbidden' }, 404)
+  }
+  return c.json(toCustomPolicyApi(updated))
+})
+
+brainQuery.delete('/policies/:id', async (c) => {
+  const ctx = getTenantContext()
+  const id = c.req.param('id')
+  const out = deleteBrainQueryCustomPolicy({ policyId: id, ownerId: ctx.tenantUserId })
+  if (!out.ok) {
+    if (out.reason === 'in_use') {
+      return c.json({ error: 'policy_in_use', message: 'Remove or reassign grants using this policy first.' }, 409)
+    }
+    return c.json({ error: 'not_found_or_forbidden' }, 404)
+  }
+  return c.json({ ok: true as const })
+})
+
 brainQuery.get('/grants', async (c) => {
   const ctx = getTenantContext()
   const ownedRows = listBrainQueryGrantsForOwner(ctx.tenantUserId)
@@ -143,7 +268,8 @@ brainQuery.post('/grants', async (c) => {
     askerEmail?: unknown
     askerHandle?: unknown
     askerUserId?: unknown
-    privacyPolicy?: unknown
+    presetPolicyKey?: unknown
+    customPolicyId?: unknown
   }
   try {
     body = await c.req.json()
@@ -153,7 +279,10 @@ brainQuery.post('/grants', async (c) => {
   const askerEmailRaw = typeof body.askerEmail === 'string' ? body.askerEmail.trim() : ''
   const askerHandleRaw = typeof body.askerHandle === 'string' ? body.askerHandle.trim() : ''
   const askerUserIdRaw = typeof body.askerUserId === 'string' ? body.askerUserId.trim() : ''
-  const privacyPolicy = typeof body.privacyPolicy === 'string' ? body.privacyPolicy : undefined
+  const presetRaw = typeof body.presetPolicyKey === 'string' ? body.presetPolicyKey.trim() : ''
+  const presetPolicyKey = isBrainQueryBuiltinPolicyId(presetRaw) ? presetRaw : undefined
+  const customRaw = typeof body.customPolicyId === 'string' ? body.customPolicyId.trim() : ''
+  const customPolicyId = customRaw.length > 0 ? customRaw : undefined
   const modes = [askerEmailRaw, askerHandleRaw, askerUserIdRaw].filter((s) => s.length > 0)
   if (modes.length === 0) {
     return c.json({ error: 'asker_required', message: 'Provide askerUserId, handle, or email.' }, 400)
@@ -161,6 +290,18 @@ brainQuery.post('/grants', async (c) => {
   if (modes.length > 1) {
     return c.json(
       { error: 'asker_conflict', message: 'Provide only one of askerUserId, handle, or email.' },
+      400,
+    )
+  }
+  if (presetPolicyKey === undefined && customPolicyId === undefined) {
+    return c.json(
+      { error: 'grant_privacy_required', message: 'Provide exactly one of presetPolicyKey or customPolicyId.' },
+      400,
+    )
+  }
+  if (presetPolicyKey !== undefined && customPolicyId !== undefined) {
+    return c.json(
+      { error: 'grant_privacy_conflict', message: 'Provide only one of presetPolicyKey or customPolicyId.' },
       400,
     )
   }
@@ -177,7 +318,8 @@ brainQuery.post('/grants', async (c) => {
     const row = createBrainQueryGrant({
       ownerId: ctx.tenantUserId,
       askerId: resolved.askerId,
-      ...(privacyPolicy !== undefined ? { privacyPolicy } : {}),
+      ...(presetPolicyKey !== undefined ? { presetPolicyKey } : {}),
+      ...(customPolicyId !== undefined ? { customPolicyId } : {}),
     })
     const api = await toApiGrant(row)
     try {
@@ -188,7 +330,7 @@ brainQuery.post('/grants', async (c) => {
           grantId: row.id,
           ownerId: ctx.tenantUserId,
           ownerHandle: api.ownerHandle,
-          privacyPolicyPreview: grantPrivacyPolicyPreview(row.privacy_policy),
+          privacyPolicyPreview: grantPrivacyPolicyPreview(resolveGrantPrivacyInstructions(row)),
           createdAtMs: row.created_at_ms,
         },
       })
@@ -198,6 +340,12 @@ brainQuery.post('/grants', async (c) => {
     return c.json(api)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'create_failed'
+    if (msg === 'grant_privacy_xor_invalid') {
+      return c.json({ error: msg, message: 'Provide exactly one of presetPolicyKey or customPolicyId.' }, 400)
+    }
+    if (msg === 'custom_policy_not_found') {
+      return c.json({ error: msg, message: 'Unknown or inaccessible custom policy id.' }, 400)
+    }
     if (msg.includes('SQLITE_CONSTRAINT') || msg.includes('UNIQUE')) {
       return c.json(
         { error: 'grant_exists', message: 'A grant for this collaborator already exists.' },
@@ -214,26 +362,50 @@ brainQuery.post('/grants', async (c) => {
 brainQuery.patch('/grants/:id', async (c) => {
   const ctx = getTenantContext()
   const id = c.req.param('id')
-  let body: { privacyPolicy?: unknown }
+  let body: { presetPolicyKey?: unknown; customPolicyId?: unknown }
   try {
     body = await c.req.json()
   } catch {
     return c.json({ error: 'invalid_json' }, 400)
   }
-  const privacyPolicy = typeof body.privacyPolicy === 'string' ? body.privacyPolicy : ''
-  if (!privacyPolicy.trim()) {
-    return c.json({ error: 'privacyPolicy_required' }, 400)
+  const presetRaw = typeof body.presetPolicyKey === 'string' ? body.presetPolicyKey.trim() : ''
+  const presetPolicyKey = isBrainQueryBuiltinPolicyId(presetRaw) ? presetRaw : undefined
+  const customRaw = typeof body.customPolicyId === 'string' ? body.customPolicyId.trim() : ''
+  const customPolicyId = customRaw.length > 0 ? customRaw : undefined
+  if (presetPolicyKey === undefined && customPolicyId === undefined) {
+    return c.json(
+      { error: 'grant_privacy_required', message: 'Provide exactly one of presetPolicyKey or customPolicyId.' },
+      400,
+    )
   }
-  const updated = updateBrainQueryGrantPrivacyPolicy({
-    grantId: id,
-    ownerId: ctx.tenantUserId,
-    privacyPolicy,
-  })
-  if (!updated) {
-    return c.json({ error: 'not_found_or_forbidden' }, 404)
+  if (presetPolicyKey !== undefined && customPolicyId !== undefined) {
+    return c.json(
+      { error: 'grant_privacy_conflict', message: 'Provide only one of presetPolicyKey or customPolicyId.' },
+      400,
+    )
   }
-  const api = await toApiGrant(updated)
-  return c.json(api)
+  try {
+    const updated = updateBrainQueryGrantPrivacyInstructions({
+      grantId: id,
+      ownerId: ctx.tenantUserId,
+      ...(presetPolicyKey !== undefined ? { presetPolicyKey } : {}),
+      ...(customPolicyId !== undefined ? { customPolicyId } : {}),
+    })
+    if (!updated) {
+      return c.json({ error: 'not_found_or_forbidden' }, 404)
+    }
+    const api = await toApiGrant(updated)
+    return c.json(api)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'update_failed'
+    if (msg === 'grant_privacy_xor_invalid') {
+      return c.json({ error: msg }, 400)
+    }
+    if (msg === 'custom_policy_not_found') {
+      return c.json({ error: msg }, 400)
+    }
+    return c.json({ error: 'update_failed', message: msg }, 500)
+  }
 })
 
 brainQuery.delete('/grants/:id', async (c) => {

@@ -1,4 +1,4 @@
-import type { BrainQueryBuiltInPolicyId } from '@client/lib/brainQueryPolicyTemplates.js'
+import type { BrainQueryBuiltinPolicyId } from '@client/lib/brainQueryPolicyTemplates.js'
 
 /** Tailwind utility bundles for policy cards (light + dark aware). */
 export type PolicyCardTone = {
@@ -7,7 +7,7 @@ export type PolicyCardTone = {
   softBg: string
 }
 
-const builtinTones: Record<BrainQueryBuiltInPolicyId, PolicyCardTone> = {
+const builtinTones: Record<BrainQueryBuiltinPolicyId, PolicyCardTone> = {
   trusted: {
     bar: 'border-l-purple-500',
     ring: 'border-purple-300 dark:border-purple-700',
@@ -22,6 +22,11 @@ const builtinTones: Record<BrainQueryBuiltInPolicyId, PolicyCardTone> = {
     bar: 'border-l-green-500',
     ring: 'border-green-300 dark:border-green-700',
     softBg: 'bg-green-50/70 dark:bg-green-950/30',
+  },
+  'server-default': {
+    bar: 'border-l-slate-500',
+    ring: 'border-slate-300 dark:border-slate-600',
+    softBg: 'bg-slate-50/80 dark:bg-slate-900/35',
   },
 }
 
@@ -63,7 +68,7 @@ function hashPolicyId(policyId: string): number {
 
 export function policyCardTone(opts: {
   kind: 'builtin' | 'custom' | 'adhoc'
-  builtinId?: BrainQueryBuiltInPolicyId
+  builtinId?: BrainQueryBuiltinPolicyId
   colorIndex?: number
   policyId: string
 }): PolicyCardTone {

@@ -1,7 +1,7 @@
 import type { BrainAccessCustomPolicy } from './brainAccessCustomPolicies.js'
 import {
   BRAIN_QUERY_POLICY_TEMPLATES,
-  type BrainQueryBuiltInPolicyId,
+  type BrainQueryBuiltinPolicyId,
 } from './brainQueryPolicyTemplates.js'
 
 /** Grant row from `GET /api/brain-query/grants` (owner view). */
@@ -12,11 +12,18 @@ export type BrainAccessGrantRow = {
   askerId: string
   askerHandle?: string
   privacyPolicy: string
+  presetPolicyKey?: string | null
+  customPolicyId?: string | null
+  replyMode?: 'auto' | 'review' | 'ignore'
   createdAtMs: number
   updatedAtMs: number
   /** When true, answering side streams tunnel replies immediately (default off = review first). */
   autoSend?: boolean
 }
+
+/** Subset for classification when only resolved prose + XOR ids are known (e.g. tunnel timeline). */
+export type GrantPolicyClassifySource = Pick<BrainAccessGrantRow, 'privacyPolicy'> &
+  Partial<Pick<BrainAccessGrantRow, 'presetPolicyKey' | 'customPolicyId'>>
 
 export function normalizePolicyText(s: string): string {
   return s.trim().replace(/\r\n/g, '\n')
@@ -32,18 +39,60 @@ export function simpleTextHash(s: string): string {
   return (h >>> 0).toString(16)
 }
 
-export function classifyGrantPolicy(
-  privacyPolicy: string,
-  customPolicies: BrainAccessCustomPolicy[],
-): {
+export type GrantPolicyMeta = {
   policyId: string
   kind: 'builtin' | 'custom' | 'adhoc'
-  builtinId?: BrainQueryBuiltInPolicyId
+  builtinId?: BrainQueryBuiltinPolicyId
   label: string
   hint?: string
   canonicalText: string
-} {
-  const n = normalizePolicyText(privacyPolicy)
+}
+
+/** Resolve Hub bucket from server grant fields (preset key, custom policy id, or legacy resolved text). */
+export function classifyGrantPolicy(
+  grant: GrantPolicyClassifySource,
+  customPolicies: BrainAccessCustomPolicy[],
+): GrantPolicyMeta {
+  const pk = grant.presetPolicyKey?.trim()
+  if (pk) {
+    const t = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === pk)
+    if (t) {
+      return {
+        policyId: t.id,
+        kind: 'builtin',
+        builtinId: t.id,
+        label: t.label,
+        hint: t.hint,
+        canonicalText: t.text,
+      }
+    }
+    return {
+      policyId: pk,
+      kind: 'adhoc',
+      label: 'Preset',
+      canonicalText: grant.privacyPolicy.trim(),
+    }
+  }
+  const cid = grant.customPolicyId?.trim()
+  if (cid) {
+    const c = customPolicies.find((p) => p.id === cid)
+    if (c) {
+      return {
+        policyId: c.id,
+        kind: 'custom',
+        label: c.name,
+        canonicalText: c.text,
+      }
+    }
+    return {
+      policyId: cid,
+      kind: 'adhoc',
+      label: 'Other policy',
+      canonicalText: grant.privacyPolicy.trim(),
+    }
+  }
+
+  const n = normalizePolicyText(grant.privacyPolicy)
   for (const t of BRAIN_QUERY_POLICY_TEMPLATES) {
     if (normalizePolicyText(t.text) === n) {
       return {
@@ -71,14 +120,14 @@ export function classifyGrantPolicy(
     policyId: `adhoc:${hash}`,
     kind: 'adhoc',
     label: 'Other policy',
-    canonicalText: privacyPolicy.trim(),
+    canonicalText: grant.privacyPolicy.trim(),
   }
 }
 
 export type PolicyCardModel = {
   policyId: string
   kind: 'builtin' | 'custom' | 'adhoc'
-  builtinId?: BrainQueryBuiltInPolicyId
+  builtinId?: BrainQueryBuiltinPolicyId
   label: string
   hint?: string
   canonicalText: string
@@ -96,7 +145,7 @@ export function buildPolicyCardModels(
 ): PolicyCardModel[] {
   const classified = grantedByMe.map((g) => ({
     grant: g,
-    meta: classifyGrantPolicy(g.privacyPolicy, customPolicies),
+    meta: classifyGrantPolicy(g, customPolicies),
   }))
 
   const byId = new Map<string, BrainAccessGrantRow[]>()
@@ -155,7 +204,5 @@ export function grantsMatchingPolicyId(
   customPolicies: BrainAccessCustomPolicy[],
   policyId: string,
 ): BrainAccessGrantRow[] {
-  return grantedByMe.filter(
-    (g) => classifyGrantPolicy(g.privacyPolicy, customPolicies).policyId === policyId,
-  )
+  return grantedByMe.filter((g) => classifyGrantPolicy(g, customPolicies).policyId === policyId)
 }

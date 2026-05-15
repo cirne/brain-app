@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 058 -->
-**Next bug id:** **BUG-058**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 059 -->
+**Next bug id:** **BUG-059**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -52,6 +52,10 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 
 ## Fixed (archived)
 
+
+### [BUG-058](bugs/archive/BUG-058-brain-query-privacy-templates-filter-not-relevance.md): Brain Query privacy presets were framed as relevance/detail, not outbound filters
+
+**Fixed (2026-05-15).** Rewrote built-in privacy templates and `b2b/filter.hbs` as deny-list fences; added B2B filter eval `b2b-filter-preset-fence-codename-courtesy`; merged server policies with legacy `custom:*` local rows on Policy detail load. See [bugs/archive/BUG-058-brain-query-privacy-templates-filter-not-relevance.md](bugs/archive/BUG-058-brain-query-privacy-templates-filter-not-relevance.md).
 
 ### [BUG-001](bugs/archive/BUG-001-wiki-em-dash-unicode-literal.md): Wiki/docs show `\u2014` or em dashes
 

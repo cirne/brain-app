@@ -87,7 +87,7 @@ describe('b2bAgent', () => {
     expect(prompt).toContain('NEVER PASS THROUGH')
     expect(prompt).toContain(POLICY_ALWAYS_OMIT.slice(0, 40))
     expect(prompt).toContain('Filtering rules')
-    expect(prompt).toContain('Strip assistant fluff')
+    expect(prompt).toContain('Assistant fluff')
   })
 
   it('b2b-e2e.jsonl tasks include anti-assistant finalText guardrails', async () => {

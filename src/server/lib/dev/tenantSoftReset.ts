@@ -14,6 +14,7 @@ import { deleteAllNotifications } from '@server/lib/notifications/notificationsR
 import { setOnboardingStateForce } from '@server/lib/onboarding/onboardingState.js'
 import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
 import { deleteBrainQueryGrantsForTenant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { deleteBrainQueryCustomPoliciesForOwner } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import { wipeWikiContentAt } from '@server/lib/wiki/wikiDir.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { deleteColdQueryRateLimitsForSenderHandle } from '@server/lib/global/coldQueryRateLimits.js'
@@ -60,6 +61,7 @@ async function rmTenantSubtree(homeDir: string, name: string): Promise<void> {
 export async function executeTenantSoftReset(tenantUserId: string): Promise<void> {
   const home = brainHome()
   deleteBrainQueryGrantsForTenant(tenantUserId)
+  deleteBrainQueryCustomPoliciesForOwner(tenantUserId)
 
   const meta = await readHandleMeta(home)
   const workspaceHandle =

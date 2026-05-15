@@ -283,8 +283,7 @@ describe('ReviewDetail.svelte', () => {
 
     await waitFor(() => {
       expect(establishBody?.sessionId).toBe('s-cold')
-      expect(typeof establishBody?.privacyPolicy).toBe('string')
-      expect((establishBody?.privacyPolicy as string).length).toBeGreaterThan(20)
+      expect(establishBody?.presetPolicyKey).toBe('general')
       expect(onMutate).toHaveBeenCalled()
     })
   })

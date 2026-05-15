@@ -12,7 +12,7 @@
     customPolicies: BrainAccessCustomPolicy[]
     excludePolicyId?: string
     onDismiss: () => void
-    onApply: (_grantId: string, _newPrivacyPolicyText: string) => void | Promise<void>
+    onApply: (_grantId: string, _targetPolicyId: string) => void | Promise<void>
   }
 
   let { open, grantId, customPolicies, excludePolicyId, onDismiss, onApply }: Props = $props()
@@ -43,11 +43,11 @@
     if (targets.length === 0) return
     const gid = grantId
     const row = targets.find((t) => t.policyId === selectedPolicyId)
-    const text = row?.text.trim() ?? ''
-    if (!gid || !text || busy) return
+    const targetId = row?.policyId.trim() ?? ''
+    if (!gid || !targetId || busy) return
     busy = true
     try {
-      await onApply(gid, text)
+      await onApply(gid, targetId)
       onDismiss()
     } finally {
       busy = false

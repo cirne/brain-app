@@ -5,8 +5,10 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
 
 /**
  * Bump when `brain-global.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
+ * Version 9: `brain_query_custom_policies` + grants use XOR `preset_policy_key` | `custom_policy_id`; file recreated.
+ * Version 10: `brain_query_custom_policies.label` → `title` (display title for custom policies); file recreated.
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 7
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 10
 
 /**
  * Cross-tenant metadata (brain-query delegation grants; tenant-registry migration later).
@@ -40,19 +42,31 @@ CREATE TABLE brain_global_schema (
 `)
     db.prepare(`INSERT INTO brain_global_schema (id, version) VALUES (1, ?)`).run(BRAIN_GLOBAL_SCHEMA_VERSION)
     db.exec(`
-CREATE TABLE brain_query_grants (
+CREATE TABLE brain_query_custom_policies (
   id              TEXT PRIMARY KEY,
   owner_id        TEXT NOT NULL,
-  asker_id        TEXT NOT NULL,
-  privacy_policy  TEXT NOT NULL,
-  policy          TEXT NOT NULL DEFAULT 'review' CHECK (policy IN ('auto', 'review', 'ignore')),
+  title           TEXT NOT NULL,
+  body            TEXT NOT NULL,
   created_at_ms   INTEGER NOT NULL,
-  updated_at_ms   INTEGER NOT NULL,
-  revoked_at_ms   INTEGER,
+  updated_at_ms   INTEGER NOT NULL
+);
+CREATE INDEX idx_brain_query_custom_policies_owner ON brain_query_custom_policies(owner_id);
+
+CREATE TABLE brain_query_grants (
+  id                   TEXT PRIMARY KEY,
+  owner_id             TEXT NOT NULL,
+  asker_id             TEXT NOT NULL,
+  preset_policy_key    TEXT,
+  custom_policy_id     TEXT REFERENCES brain_query_custom_policies(id),
+  reply_mode           TEXT NOT NULL DEFAULT 'review' CHECK (reply_mode IN ('auto', 'review', 'ignore')),
+  created_at_ms        INTEGER NOT NULL,
+  updated_at_ms        INTEGER NOT NULL,
+  revoked_at_ms        INTEGER,
   UNIQUE(owner_id, asker_id)
 );
 CREATE INDEX idx_brain_query_grants_owner ON brain_query_grants(owner_id);
 CREATE INDEX idx_brain_query_grants_asker ON brain_query_grants(asker_id);
+CREATE INDEX idx_brain_query_grants_custom_policy ON brain_query_grants(custom_policy_id);
 
 CREATE TABLE cold_query_rate_limits (
   sender_handle    TEXT NOT NULL,
@@ -97,6 +111,7 @@ export function getBrainGlobalDb(): Database.Database {
     db = new Database(path)
     initBrainGlobalSchema(db)
   }
+  db.pragma('foreign_keys = ON')
   db.pragma('journal_mode = WAL')
   cached = db
   cachedPath = path

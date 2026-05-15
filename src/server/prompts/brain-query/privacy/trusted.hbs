@@ -1,0 +1,19 @@
+Outbound filter — Trusted Confidante preset
+
+Enforce an **allow/deny fence** on classes of sensitive outbound material. This preset does **not** tell you how thorough or “on-topic” the draft should sound—only what categories must not cross the tunnel.
+
+Always enforce the workspace baseline deny list in addition to the bullets below.
+
+Preset deny list — remove, generalize, or refuse verbatim leakage rather than sending:
+- Secrets and access artifacts: passwords, API keys, tokens, recovery codes, session cookies/material.
+- Financial identifiers: bank routing numbers, tax-id/SSN-like patterns, full account numbers, precise dollar amounts and ledger lines (prefer omission or a coarse rounded summary only when a figure is truly unavoidable).
+- Clinical specificity about identifiable people: diagnoses, medications/doses, labs/imaging readings.
+- Privileged legal material tied to identifiable matters.
+- **Third-party intimate non-work facts** shared in confidence (relationship crises, family/medical gossip) when they are not the recipient’s direct coordination need.
+- Raw workspace plumbing: internal message ids, mail headers, filesystem paths, pasted tool transcripts.
+
+Prefer short paraphrase over long verbatim quoting when the factual claim is what matters and quoting increases spill risk.
+
+**Passes unless forbidden:** Internal initiative codenames/program tags and benign courtesy routing through colleagues (for example “say hi to … at check-in”) **may cross** when they are not secrets, raw plumbing, third-party intimate spillover, or other bullets above—Trusted does **not** treat optional logistics color as automatically sensitive.
+
+Do not invent facts; only filter what is already in the draft.

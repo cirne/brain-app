@@ -16,19 +16,19 @@ describe('brainAccessPolicyGrouping', () => {
   ]
 
   it('classifyGrantPolicy matches built-in template text', () => {
-    const c = classifyGrantPolicy(trustedText, [])
+    const c = classifyGrantPolicy({ privacyPolicy: trustedText }, [])
     expect(c.policyId).toBe('trusted')
     expect(c.kind).toBe('builtin')
   })
 
   it('classifyGrantPolicy matches custom saved policy', () => {
-    const c = classifyGrantPolicy('Only legal matters.', custom)
+    const c = classifyGrantPolicy({ privacyPolicy: 'Only legal matters.' }, custom)
     expect(c.policyId).toBe('custom:x')
     expect(c.kind).toBe('custom')
   })
 
   it('classifyGrantPolicy buckets unknown text as adhoc', () => {
-    const c = classifyGrantPolicy('Totally unique policy prose.', [])
+    const c = classifyGrantPolicy({ privacyPolicy: 'Totally unique policy prose.' }, [])
     expect(c.kind).toBe('adhoc')
     expect(c.policyId.startsWith('adhoc:')).toBe(true)
   })
@@ -83,7 +83,7 @@ describe('brainAccessPolicyGrouping', () => {
     ]
     const cards = buildPolicyCardModels(grants, custom)
     const ids = cards.map((c) => c.policyId)
-    expect(ids.slice(0, 3)).toEqual(['trusted', 'general', 'minimal-disclosure'])
+    expect(ids.slice(0, 4)).toEqual(['trusted', 'general', 'minimal-disclosure', 'server-default'])
     expect(ids).toContain('custom:x')
     expect(ids.some((x) => x.startsWith('adhoc:'))).toBe(true)
   })

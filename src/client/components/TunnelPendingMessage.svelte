@@ -6,7 +6,7 @@
   import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
   import {
     BRAIN_QUERY_POLICY_TEMPLATES,
-    type BrainQueryBuiltInPolicyId,
+    type BrainQueryBuiltinPolicyId,
   } from '@client/lib/brainQueryPolicyTemplates.js'
   import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
   import { CircleX, Send } from 'lucide-svelte'
@@ -25,7 +25,7 @@
   let draftEditor = $state<TipTapMarkdownEditor | undefined>()
   let busy = $state(false)
   let actionError = $state<string | null>(null)
-  let selectedTemplateId = $state<BrainQueryBuiltInPolicyId>('general')
+  let selectedTemplateId = $state<BrainQueryBuiltinPolicyId>('general')
 
   const isColdInbound = $derived(Boolean(row.isColdQuery && !row.grantId))
   const peerLabel = $derived.by(() => {
@@ -119,12 +119,10 @@
     busy = true
     actionError = null
     try {
-      const tpl = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === selectedTemplateId)
-      const privacyPolicy = tpl?.text ?? BRAIN_QUERY_POLICY_TEMPLATES[0]!.text
       const res = await apiFetch('/api/chat/b2b/establish-grant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: row.sessionId, privacyPolicy }),
+        body: JSON.stringify({ sessionId: row.sessionId, presetPolicyKey: selectedTemplateId }),
       })
       if (!res.ok) {
         actionError = $t('chat.review.detail.actionFailed')

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@client/test/render.js'
 import TunnelDetail from './TunnelDetail.svelte'
 import { apiFetch } from '@client/lib/apiFetch.js'
@@ -33,6 +33,8 @@ function timelineJson(over: Record<string, unknown> = {}) {
     outboundGrantId: 'og',
     inboundPolicy: 'review',
     inboundPrivacyPolicy: trustedText,
+    inboundPresetPolicyKey: 'trusted',
+    inboundCustomPolicyId: null,
     timeline: [],
     ...over,
   }
@@ -43,6 +45,20 @@ describe('TunnelDetail.svelte', () => {
     vi.mocked(apiFetch).mockReset()
     vi.mocked(consumeTunnelOutboundSendStream).mockReset()
     tunnelActivityHandler = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (u.includes('/api/brain-query/policies')) {
+          return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as typeof fetch,
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('renders auto-sent hint when timeline message carries auto_sent hint', async () => {
@@ -123,7 +139,7 @@ describe('TunnelDetail.svelte', () => {
     })
   })
 
-  it('changing access preset PATCHes brain-query grants privacy', async () => {
+  it('changing access preset PATCHes brain-query grant preset key', async () => {
     vi.mocked(apiFetch)
       .mockResolvedValueOnce(
         new Response(JSON.stringify(timelineJson()), { status: 200, headers: { 'Content-Type': 'application/json' } }),
@@ -133,7 +149,7 @@ describe('TunnelDetail.svelte', () => {
       )
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify(timelineJson({ inboundPrivacyPolicy: generalText })),
+          JSON.stringify(timelineJson({ inboundPrivacyPolicy: generalText, inboundPresetPolicyKey: 'general' })),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
       )
@@ -156,8 +172,8 @@ describe('TunnelDetail.svelte', () => {
             'method' in init &&
             init.method === 'PATCH' &&
             typeof init.body === 'string' &&
-            init.body.includes('"privacyPolicy"') &&
-            init.body.includes('A complete, useful reply'),
+            init.body.includes('"presetPolicyKey"') &&
+            init.body.includes('general'),
         ),
       ).toBe(true)
     })

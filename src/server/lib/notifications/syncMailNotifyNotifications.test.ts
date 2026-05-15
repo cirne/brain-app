@@ -317,7 +317,7 @@ describe('syncMailNotifyNotificationsFromRipmailDb brain_query_mail enrichment',
           nowIso: '2026-01-01T00:00:00.000Z',
         }),
     )
-    createBrainQueryGrant({ ownerId, askerId })
+    createBrainQueryGrant({ ownerId, askerId, presetPolicyKey: 'general' })
 
     const ownerHome = tenantHomeDir(ownerId)
     process.env.BRAIN_HOME = ownerHome
@@ -367,7 +367,7 @@ describe('syncMailNotifyNotificationsFromRipmailDb brain_query_mail enrichment',
           nowIso: '2026-01-01T00:00:00.000Z',
         }),
     )
-    createBrainQueryGrant({ ownerId, askerId: otherAskerId })
+    createBrainQueryGrant({ ownerId, askerId: otherAskerId, presetPolicyKey: 'general' })
 
     const ownerHome = tenantHomeDir(ownerId)
     process.env.BRAIN_HOME = ownerHome
@@ -410,7 +410,7 @@ describe('syncMailNotifyNotificationsFromRipmailDb brain_query_mail enrichment',
           nowIso: '2026-01-01T00:00:00.000Z',
         }),
     )
-    createBrainQueryGrant({ ownerId, askerId })
+    createBrainQueryGrant({ ownerId, askerId, presetPolicyKey: 'general' })
 
     const ownerHome = tenantHomeDir(ownerId)
     process.env.BRAIN_HOME = ownerHome
@@ -453,7 +453,7 @@ describe('syncMailNotifyNotificationsFromRipmailDb brain_query_mail enrichment',
           nowIso: '2026-01-01T00:00:00.000Z',
         }),
     )
-    createBrainQueryGrant({ ownerId, askerId })
+    createBrainQueryGrant({ ownerId, askerId, presetPolicyKey: 'general' })
 
     const ownerHome = tenantHomeDir(ownerId)
     process.env.BRAIN_HOME = ownerHome

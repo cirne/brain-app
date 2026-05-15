@@ -2,12 +2,11 @@
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import { t } from '@client/lib/i18n/index.js'
   import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
-  import { addBrainAccessCustomPolicy } from '@client/lib/brainAccessCustomPolicies.js'
 
   type Props = {
     open: boolean
     onDismiss: () => void
-    /** Called after policy saved to localStorage */
+    /** Called after policy is saved on the server. */
     onCreated: () => void
   }
 
@@ -41,11 +40,12 @@
     if (!n || !text || busy) return
     busy = true
     try {
-      addBrainAccessCustomPolicy({
-        name: n,
-        text,
-        colorIndex: Number.parseInt(colorChoice, 10) || 0,
+      const res = await fetch('/api/brain-query/policies', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ label: n, body: text }),
       })
+      if (!res.ok) return
       onCreated()
       onDismiss()
     } finally {

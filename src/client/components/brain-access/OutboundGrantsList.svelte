@@ -32,7 +32,7 @@
   {:else}
     <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
       {#each grantedToMe as row (row.id)}
-        {@const meta = classifyGrantPolicy(row.privacyPolicy, customPolicies)}
+        {@const meta = classifyGrantPolicy(row, customPolicies)}
         <li
           class="inline-flex max-w-full items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-2 py-1.5 pl-3 pr-1 text-[0.8125rem] text-foreground"
         >

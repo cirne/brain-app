@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createBrainQueryCustomPolicy } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 
 let brainHome: string
@@ -310,17 +311,19 @@ describe('chatStorage', () => {
     process.env.BRAIN_GLOBAL_SQLITE_PATH = join(brainHome, 'brain-global.sqlite')
     const pendOwner = 'usr_pend111111111111111111111'
     const pendAsker = 'usr_pend222222222222222222222'
+    const pendPol = createBrainQueryCustomPolicy({ ownerId: pendOwner, title: 'p', body: 'Brief.' })
     const pendGrant = createBrainQueryGrant({
       ownerId: pendOwner,
       askerId: pendAsker,
-      privacyPolicy: 'Brief.',
+      customPolicyId: pendPol.id,
     })
     const sentOwner = 'usr_sent333333333333333333333'
     const sentAsker = 'usr_sent444444444444444444444'
+    const sentPol = createBrainQueryCustomPolicy({ ownerId: sentOwner, title: 's', body: 'Brief.' })
     const sentGrant = createBrainQueryGrant({
       ownerId: sentOwner,
       askerId: sentAsker,
-      privacyPolicy: 'Brief.',
+      customPolicyId: sentPol.id,
     })
     try {
       const { ensureSessionStub, appendTurn, listB2BInboundReviewRows } = await import('@server/lib/chat/chatStorage.js')
@@ -362,10 +365,11 @@ describe('chatStorage', () => {
     process.env.BRAIN_GLOBAL_SQLITE_PATH = join(brainHome, 'brain-global.sqlite')
     const goneOwner = 'usr_goneooooooooooooooooooooooo'
     const goneAsker = 'usr_goneqqqqqqqqqqqqqqqqqqqqqqqq'
+    const vanPol = createBrainQueryCustomPolicy({ ownerId: goneOwner, title: 'v', body: '.' })
     const vanished = createBrainQueryGrant({
       ownerId: goneOwner,
       askerId: goneAsker,
-      privacyPolicy: '.',
+      customPolicyId: vanPol.id,
     })
     try {
       const { ensureSessionStub, appendTurn, loadSession, listB2BInboundReviewRows } = await import(

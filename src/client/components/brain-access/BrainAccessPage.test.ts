@@ -23,6 +23,9 @@ describe('BrainAccessPage.svelte', () => {
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
         const u = reqUrl(input)
+        if (u.includes('/api/brain-query/policies')) {
+          return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
+        }
         if (u.includes('/api/brain-query/grants')) {
           return Promise.resolve(
             new Response(JSON.stringify({ grantedByMe: [], grantedToMe: [] }), { status: 200 }),

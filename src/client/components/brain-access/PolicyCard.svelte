@@ -10,7 +10,7 @@
   type Props = {
     model: PolicyCardModel
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
-    onAddUser: (_policyCanonicalText: string, _entry: WorkspaceHandleEntry) => void | Promise<void>
+    onAddUser: (_model: PolicyCardModel, _entry: WorkspaceHandleEntry) => void | Promise<void>
     onRemoveGrant: (_grantId: string) => void | Promise<void>
     onOpenChangePolicy: (_grantId: string) => void
     removeBusyId?: string | null
@@ -84,7 +84,7 @@
         excludeHandles={excludeHandles}
         disabled={addBusy}
         busy={addBusy}
-        onPick={(entry) => void onAddUser(model.canonicalText, entry)}
+        onPick={(entry) => void onAddUser(model, entry)}
       />
     </div>
   </div>

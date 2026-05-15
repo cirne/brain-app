@@ -1,5 +1,6 @@
 import type { NotificationKickoffHints } from '@shared/notifications/presentation.js'
 import { getBrainQueryGrantById } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { resolveGrantPrivacyInstructions } from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
 
 const APP_QUEUE_HEADER = '[App — notification queue item]' as const
 
@@ -50,12 +51,13 @@ function brainQueryMailAppContext(h: NotificationKickoffHints): string {
   if (h.peerPrimaryEmail) meta.push(`- peer_primary_email: ${JSON.stringify(h.peerPrimaryEmail)}`)
 
   const grant = h.grantId?.trim() ? getBrainQueryGrantById(h.grantId.trim()) : null
+  const resolvedPolicy = grant ? resolveGrantPrivacyInstructions(grant).trim() : ''
   const policyBlock =
-    grant && grant.privacy_policy.trim().length > 0
+    resolvedPolicy.length > 0
       ? [
           '',
           '**Grant policy (instructions for drafting a reply; not a cryptographic guarantee):**',
-          grant.privacy_policy.trim(),
+          resolvedPolicy,
         ].join('\n')
       : ''
 
@@ -87,12 +89,13 @@ function brainQueryQuestionAppContext(h: NotificationKickoffHints): string {
       : ''
 
   const grant = h.grantId?.trim() ? getBrainQueryGrantById(h.grantId.trim()) : null
+  const resolvedPolicy = grant ? resolveGrantPrivacyInstructions(grant).trim() : ''
   const policyBlock =
-    grant && grant.privacy_policy.trim().length > 0
+    resolvedPolicy.length > 0
       ? [
           '',
           '**Grant policy (instructions for drafting a reply; not a cryptographic guarantee):**',
-          grant.privacy_policy.trim(),
+          resolvedPolicy,
         ].join('\n')
       : ''
 

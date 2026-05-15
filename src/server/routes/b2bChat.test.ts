@@ -20,6 +20,7 @@ import {
   getBrainQueryGrantById,
   setBrainQueryGrantAutoSend,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createBrainQueryCustomPolicy } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import * as b2bAgent from '@server/agent/b2bAgent.js'
 import { ensureSessionStub, loadSession, listInboundSessionIdsForRemoteGrant } from '@server/lib/chat/chatStorage.js'
 import { recordColdQuerySent } from '@server/lib/global/coldQueryRateLimits.js'
@@ -37,6 +38,11 @@ function mountB2BChat(): Hono {
   app.use('/api/*', vaultGateMiddleware)
   app.route('/api/chat/b2b', b2bChatRoute)
   return app
+}
+
+function grantWithCustomBody(ownerId: string, askerId: string, body: string) {
+  const pol = createBrainQueryCustomPolicy({ ownerId, title: 't', body })
+  return createBrainQueryGrant({ ownerId, askerId, customPolicyId: pol.id })
 }
 
 describe('/api/chat/b2b', () => {
@@ -83,7 +89,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'demo-ken-lay')
     const askerSid = await sessionFor(askerId, 'demo-steve-kean')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Leadership summaries only.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Leadership summaries only.')
 
     const app = mountB2BChat()
     const res = await app.request('http://localhost/api/chat/b2b/tunnels', {
@@ -120,7 +126,7 @@ describe('/api/chat/b2b', () => {
     await registerSessionTenant(ownerSid, ownerId)
     const askerSid = await sessionFor(askerId, 'demo-steve-kean')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const outboundSid = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
     await runWithTenantContextAsync(
@@ -208,7 +214,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'demo-ken-lay')
     const askerSid = await sessionFor(askerId, 'demo-steve-kean')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const app = mountB2BChat()
     const res1 = await app.request('http://localhost/api/chat/b2b/ensure-session', {
@@ -243,7 +249,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'wd-owner')
     const askerSid = await sessionFor(askerId, 'wd-asker')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const app = mountB2BChat()
     const ensureRes = await app.request('http://localhost/api/chat/b2b/ensure-session', {
@@ -291,7 +297,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'inb-owner')
     const askerSid = await sessionFor(askerId, 'inb-asker')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const inboundSid = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     await runWithTenantContextAsync(
@@ -345,7 +351,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'gid-inb-owner')
     const askerSid = await sessionFor(askerId, 'gid-inb-asker')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
     const inboundSid = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
 
     await runWithTenantContextAsync(
@@ -387,7 +393,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'wd2-owner')
     const askerSid = await sessionFor(askerId, 'wd2-asker')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const app = mountB2BChat()
     const withdrawRes = await app.request('http://localhost/api/chat/b2b/withdraw-as-asker', {
@@ -469,7 +475,7 @@ describe('/api/chat/b2b', () => {
     const ownerSid = await sessionFor(ownerId, 'demo-owner-in')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'demo-asker-in')
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const inboundId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
     await runWithTenantContextAsync(
@@ -519,7 +525,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'owner-ign')
     const askerSid = await sessionFor(askerId, 'asker-ign')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
     const { setBrainQueryGrantPolicy } = await import('@server/lib/brainQuery/brainQueryGrantsRepo.js')
     setBrainQueryGrantPolicy({ grantId: grant.id, ownerId, policy: 'ignore' })
 
@@ -543,7 +549,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'owner-h')
     const askerSid = await sessionFor(askerId, 'asker-h')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const app = mountB2BChat()
     const res = await app.request('http://localhost/api/chat/b2b/send', {
@@ -565,7 +571,7 @@ describe('/api/chat/b2b', () => {
     await sessionFor(ownerId, 'owner-a')
     const askerSid = await sessionFor(askerId, 'asker-a')
     await registerSessionTenant(askerSid, askerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
     setBrainQueryGrantAutoSend({ grantId: grant.id, ownerId, autoSend: true })
 
     const app = mountB2BChat()
@@ -588,7 +594,7 @@ describe('/api/chat/b2b', () => {
     const ownerSid = await sessionFor(ownerId, 'owner-r')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'asker-r')
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const inboundId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     await runWithTenantContextAsync(
@@ -630,7 +636,7 @@ describe('/api/chat/b2b', () => {
     const ownerSid = await sessionFor(ownerId, 'owner-dismiss')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'asker-dismiss')
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const inboundId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
     await runWithTenantContextAsync(
@@ -683,7 +689,7 @@ describe('/api/chat/b2b', () => {
     const ownerSid = await sessionFor(ownerId, 'owner-multi')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'asker-multi')
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Limited.' })
+    const grant = grantWithCustomBody(ownerId, askerId, 'Limited.')
 
     const { runB2BQueryForGrant } = await import('./b2bChat.js')
     const base = {
@@ -731,7 +737,7 @@ describe('/api/chat/b2b', () => {
     const ownerSid = await sessionFor(ownerId, 'owner-p')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'asker-p')
-    const grant = createBrainQueryGrant({ ownerId, askerId })
+    const grant = createBrainQueryGrant({ ownerId, askerId, presetPolicyKey: 'general' })
 
     const app = mountB2BChat()
     const res = await app.request(`http://localhost/api/chat/b2b/grants/${encodeURIComponent(grant.id)}/auto-send`, {
@@ -889,6 +895,12 @@ describe('/api/chat/b2b', () => {
       },
     )
 
+    const coldPol = createBrainQueryCustomPolicy({
+      ownerId,
+      title: 'cold-handshake',
+      body: 'ALLOWED: Work topics only.\n\nOMIT: Personal life.',
+    })
+
     const est = await app.request('http://localhost/api/chat/b2b/establish-grant', {
       method: 'POST',
       headers: {
@@ -897,7 +909,7 @@ describe('/api/chat/b2b', () => {
       },
       body: JSON.stringify({
         sessionId: inboundId,
-        privacyPolicy: 'ALLOWED: Work topics only.\n\nOMIT: Personal life.',
+        customPolicyId: coldPol.id,
       }),
     })
     expect(est.status).toBe(200)

@@ -5,6 +5,7 @@ import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { resolveEnronDemoUserByKey } from '@server/lib/auth/enronDemo.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createBrainQueryCustomPolicy } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import {
   B2B_GRANT_HISTORY_MAX_CHARS,
   B2B_GRANT_HISTORY_MAX_MESSAGES,
@@ -18,6 +19,7 @@ import { checkExpect } from './checkExpect.js'
 import { collectAgentPromptMetrics } from './collectAgentPromptMetrics.js'
 import type { B2BV1Task } from './types.js'
 import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
+import { resolveGrantPrivacyInstructions, toB2BGrantPolicySnapshot } from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
 import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 
 ensurePromptsRoot(fileURLToPath(new URL('../../prompts', import.meta.url)))
@@ -68,10 +70,16 @@ export async function runB2BEvalCase(
 
   const ownerHome = ensureTenantHomeDir(owner.tenantUserId)
   ensureTenantHomeDir(asker.tenantUserId)
+  const policyBody = task.privacyPolicy ?? DEFAULT_B2B_EVAL_POLICY
+  const custom = createBrainQueryCustomPolicy({
+    ownerId: owner.tenantUserId,
+    title: 'eval',
+    body: policyBody,
+  })
   const grant = createBrainQueryGrant({
     ownerId: owner.tenantUserId,
     askerId: asker.tenantUserId,
-    privacyPolicy: task.privacyPolicy ?? DEFAULT_B2B_EVAL_POLICY,
+    customPolicyId: custom.id,
   })
 
   const prevSuggestRepair = process.env.BRAIN_SUGGEST_REPLY_REPAIR
@@ -95,7 +103,7 @@ export async function runB2BEvalCase(
           if (!initialMessages.length) initialMessages = undefined
         }
 
-        const agent = createB2BAgent(grant, wikiDir(), {
+        const agent = createB2BAgent(toB2BGrantPolicySnapshot(grant), wikiDir(), {
           ownerDisplayName: owner.label,
           ownerHandle: owner.workspaceHandle,
           timezone: 'America/Chicago',
@@ -129,7 +137,7 @@ export async function runB2BEvalCase(
           options.skipFilter === true
             ? draftText
             : await filterB2BResponse({
-                privacyPolicy: grant.privacy_policy,
+                privacyPolicy: resolveGrantPrivacyInstructions(grant),
                 draftAnswer: draftText,
               })
         const check = await checkExpect(task.expect, finalText, m.toolTextConcat, m.toolNames)

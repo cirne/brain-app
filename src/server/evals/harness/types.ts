@@ -2,7 +2,13 @@
  * JSONL eval task expectations (Enron, wiki agents — see eval/tasks/*.jsonl).
  */
 
-import type { BrainQueryBuiltInPolicyId } from '../../../client/lib/brainQueryPolicyTemplates.js'
+import type { BrainQueryBuiltinPolicyId } from '../../../client/lib/brainQueryPolicyTemplates.js'
+
+/** Built-in presets exercised by `b2b-filter.jsonl` (`server-default` is intentionally omitted). */
+export type BrainQueryB2bFilterPresetId = Extract<
+  BrainQueryBuiltinPolicyId,
+  'trusted' | 'general' | 'minimal-disclosure'
+>
 
 /** Single clause or composite (all/any). Shared by Enron and wiki JSONL evals. */
 export type EvalExpect =
@@ -83,7 +89,7 @@ export type B2BFilterEvalTask = {
   id: string
   /** Scenario id from JSONL (use with `EVAL_CASE_ID` to run all three policies). */
   caseGroupId: string
-  policyId: BrainQueryBuiltInPolicyId
+  policyId: BrainQueryB2bFilterPresetId
   privacyPolicy: string
   draftAnswer: string
   expect: EvalExpect
@@ -93,7 +99,7 @@ export type B2BFilterEvalTask = {
 export type B2BFilterEvalJsonlRow = {
   id: string
   draftAnswer: string
-  expectByPolicy: Record<BrainQueryBuiltInPolicyId, EvalExpect>
+  expectByPolicy: Record<BrainQueryB2bFilterPresetId, EvalExpect>
 }
 
 /** Wiki buildout (enrich) or cleanup (lint) agent — see eval/tasks/wiki-v1.jsonl. */

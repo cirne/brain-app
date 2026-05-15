@@ -1,6 +1,6 @@
 # Brain-query grants and Braintunnel B2B
 
-Cross-brain collaboration is **grant-gated**: who may query whose workspace, with per-connection **privacy policy** prose (until **policy-by-reference** ships — [Denormalized `privacy_policy` on grants (follow-up)](./brain-to-brain-access-policy.md#denormalized-privacy_policy-on-grants-follow-up)).
+Cross-brain collaboration is **grant-gated**: who may query whose workspace, with per-connection **privacy instructions** stored **by reference** — either a **built-in preset key** (`preset_policy_key`, resolved from `.hbs` under `brain-query/privacy/`) or a **custom policy row** (`custom_policy_id` → `brain_query_custom_policies`). **Exactly one** of the two is set per grant (enforced in application code). **`reply_mode`** remains on the grant (`auto` | `review` | `ignore`). Resolved prose is still returned on APIs as `privacyPolicy` for display and notifications.
 
 **Canonical transport (today):** **chat-native Braintunnel** — **Tunnels** in the assistant UI, HTTP **`/api/chat/b2b`**, paired **`b2b_outbound`** / **`b2b_inbound`** sessions in tenant SQLite, **cold query** and **review / approve** before the asker sees the final reply. **Architecture SSOT:** **[braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)**.
 
@@ -10,9 +10,10 @@ Cross-brain collaboration is **grant-gated**: who may query whose workspace, wit
 
 **Specs / direction:** [IDEA-brain-query-delegation.md](../ideas/IDEA-brain-query-delegation.md) · Chat-native rollout: [archived OPP-110](../opportunities/archive/OPP-110-chat-native-brain-to-brain.md), [archived OPP-111](../opportunities/archive/OPP-111-tunnel-fast-follows.md) (shipped 2026-05-12).
 
-- **Global DB:** `brain_query_grants` (no `brain_query_log`) in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts) alongside `wiki_shares`; schema version bump recreates the file per early-dev rules.
+- **Global DB:** `brain_query_grants` (XOR `preset_policy_key` | `custom_policy_id`, plus `reply_mode`) and **`brain_query_custom_policies`** (owner-scoped `label` / `body`) in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts). **Schema v9** recreates `brain-global.sqlite` per early-dev rules (wipes prior global grant and custom-policy rows on bump).
 - **API (when `BRAIN_B2B_ENABLED`):**
-  - **`GET/POST/PATCH/DELETE /api/brain-query/grants`** — grant CRUD only.
+  - **`GET/POST/PATCH/DELETE /api/brain-query/policies`** — custom policy templates only (built-ins remain enum + `.hbs`).
+  - **`GET/POST/PATCH/DELETE /api/brain-query/grants`** — grant CRUD with `presetPolicyKey` xor `customPolicyId` on create/update.
   - **`/api/chat/b2b/*`** — tunnel threads, cold query, review queue — [braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md).
 - **Settings / Hub UI:** Sharing → **Brain to Brain** / **Brain access** — policies, collaborators, revokes.
 

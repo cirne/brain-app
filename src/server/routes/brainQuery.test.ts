@@ -16,6 +16,7 @@ import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { listNotifications } from '@server/lib/notifications/notificationsRepo.js'
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createBrainQueryCustomPolicy } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import { ensureSessionStub, loadSession } from '@server/lib/chat/chatStorage.js'
 
 function mountBrainQuery(): Hono {
@@ -75,6 +76,8 @@ describe('/api/brain-query', () => {
     const askerSid = await sessionFor(askerId, 'peer-q')
     await registerSessionTenant(askerSid, askerId)
 
+    const custom = createBrainQueryCustomPolicy({ ownerId, title: 't', body: 'Be brief.' })
+
     const app = mountBrainQuery()
     const post = await app.request('http://localhost/api/brain-query/grants', {
       method: 'POST',
@@ -82,7 +85,7 @@ describe('/api/brain-query', () => {
         'content-type': 'application/json',
         cookie: `brain_session=${ownerSid}`,
       },
-      body: JSON.stringify({ askerHandle: '@peer-q', privacyPolicy: 'Be brief.' }),
+      body: JSON.stringify({ askerHandle: '@peer-q', customPolicyId: custom.id }),
     })
     expect(post.status).toBe(200)
     const row = (await post.json()) as { id: string; askerId: string; ownerHandle: string }
@@ -115,7 +118,7 @@ describe('/api/brain-query', () => {
     const ownerSid = await sessionFor(ownerId, 'rev-owner')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'to-revoke')
-    const row = createBrainQueryGrant({ ownerId, askerId })
+    const row = createBrainQueryGrant({ ownerId, askerId, presetPolicyKey: 'general' })
 
     const app = mountBrainQuery()
     const del = await app.request(`http://localhost/api/brain-query/grants/${row.id}`, {
@@ -131,8 +134,8 @@ describe('/api/brain-query', () => {
     const laySid = await sessionFor(layId, 'lay-demo')
     await registerSessionTenant(laySid, layId)
     await sessionFor(peerId, 'peer-demo')
-    const outbound = createBrainQueryGrant({ ownerId: layId, askerId: peerId })
-    createBrainQueryGrant({ ownerId: peerId, askerId: layId })
+    const outbound = createBrainQueryGrant({ ownerId: layId, askerId: peerId, presetPolicyKey: 'general' })
+    createBrainQueryGrant({ ownerId: peerId, askerId: layId, presetPolicyKey: 'general' })
 
     const app = mountBrainQuery()
     const del = await app.request(`http://localhost/api/brain-query/grants/${outbound.id}`, {
@@ -155,7 +158,8 @@ describe('/api/brain-query', () => {
     const ownerSid = await sessionFor(ownerId, 'inbx-owner-api')
     await registerSessionTenant(ownerSid, ownerId)
     await sessionFor(askerId, 'inbx-asker-api')
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Brief.' })
+    const briefPol = createBrainQueryCustomPolicy({ ownerId, title: 'b', body: 'Brief.' })
+    const grant = createBrainQueryGrant({ ownerId, askerId, customPolicyId: briefPol.id })
     const inboundSid = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
 
     await runWithTenantContextAsync(
@@ -193,7 +197,8 @@ describe('/api/brain-query', () => {
     await sessionFor(ownerId, 'ask-rev-own')
     const askerSid = await sessionFor(askerId, 'ask-rev-peer')
     await registerSessionTenant(askerSid, askerId)
-    const inbound = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Brief.' })
+    const briefPol2 = createBrainQueryCustomPolicy({ ownerId, title: 'b2', body: 'Brief.' })
+    const inbound = createBrainQueryGrant({ ownerId, askerId, customPolicyId: briefPol2.id })
     const inboundSid = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
 
     await runWithTenantContextAsync(
@@ -230,7 +235,7 @@ describe('/api/brain-query', () => {
     await registerSessionTenant(ownerSid, ownerId)
     const askerSid = await sessionFor(askerId, 'receiver')
     await registerSessionTenant(askerSid, askerId)
-    const inbound = createBrainQueryGrant({ ownerId, askerId })
+    const inbound = createBrainQueryGrant({ ownerId, askerId, presetPolicyKey: 'general' })
 
     const app = mountBrainQuery()
     const del = await app.request(`http://localhost/api/brain-query/grants/${inbound.id}`, {

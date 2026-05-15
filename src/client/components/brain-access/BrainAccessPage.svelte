@@ -4,14 +4,17 @@
   import { t } from '@client/lib/i18n/index.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import {
-    loadBrainAccessCustomPolicies,
+    fetchBrainAccessCustomPoliciesFromServer,
+    mergeServerAndLegacyCustomPolicies,
     type BrainAccessCustomPolicy,
   } from '@client/lib/brainAccessCustomPolicies.js'
   import {
     buildPolicyCardModels,
     classifyGrantPolicy,
     type BrainAccessGrantRow,
+    type PolicyCardModel,
   } from '@client/lib/brainAccessPolicyGrouping.js'
+  import { isBrainQueryBuiltinTemplateId } from '@client/lib/brainQueryPolicyTemplates.js'
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
   import PolicyCard from './PolicyCard.svelte'
   import OutboundGrantsList from './OutboundGrantsList.svelte'
@@ -37,10 +40,6 @@
   let createCustomOpen = $state(false)
   let addBusy = $state(false)
 
-  function readCustomPolicies(): BrainAccessCustomPolicy[] {
-    return loadBrainAccessCustomPolicies()
-  }
-
   function parseGrants(json: unknown): { grantedByMe: BrainAccessGrantRow[]; grantedToMe: BrainAccessGrantRow[] } | null {
     if (!json || typeof json !== 'object') return null
     const o = json as Record<string, unknown>
@@ -61,6 +60,13 @@
       ) {
         return null
       }
+      const replyRaw = r.replyMode
+      const replyMode =
+        replyRaw === 'auto' || replyRaw === 'review' || replyRaw === 'ignore' ? replyRaw : undefined
+      const pkRaw = r.presetPolicyKey
+      const presetPolicyKey = typeof pkRaw === 'string' && pkRaw.trim() ? pkRaw.trim() : null
+      const cRaw = r.customPolicyId
+      const customPolicyId = typeof cRaw === 'string' && cRaw.trim() ? cRaw.trim() : null
       const askerHandle = typeof r.askerHandle === 'string' ? r.askerHandle : undefined
       const autoSend = r.autoSend === true
       return {
@@ -70,6 +76,9 @@
         askerId: r.askerId,
         ...(askerHandle ? { askerHandle } : {}),
         privacyPolicy: r.privacyPolicy,
+        presetPolicyKey,
+        customPolicyId,
+        ...(replyMode ? { replyMode } : {}),
         createdAtMs: r.createdAtMs,
         updatedAtMs: r.updatedAtMs,
         ...(autoSend ? { autoSend: true } : {}),
@@ -84,7 +93,8 @@
   async function reload(): Promise<void> {
     loadError = null
     busy = true
-    customPolicies = readCustomPolicies()
+    const remote = await fetchBrainAccessCustomPoliciesFromServer()
+    customPolicies = mergeServerAndLegacyCustomPolicies(remote)
     try {
       const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
@@ -111,17 +121,40 @@
 
   const policyCards = $derived(buildPolicyCardModels(grantedByMe, customPolicies))
 
-  async function addUser(canonicalText: string, entry: WorkspaceHandleEntry): Promise<void> {
+  async function addUser(model: PolicyCardModel, entry: WorkspaceHandleEntry): Promise<void> {
     loadError = null
     addBusy = true
     try {
+      let grantBody: Record<string, string> = { askerHandle: entry.handle }
+      if (model.kind === 'builtin') {
+        grantBody.presetPolicyKey = model.policyId
+      } else if (model.kind === 'custom') {
+        grantBody.customPolicyId = model.policyId
+      } else {
+        const pr = await fetch('/api/brain-query/policies', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            label: (model.label || 'Policy').slice(0, 120),
+            body: model.canonicalText.trim(),
+          }),
+        })
+        if (!pr.ok) {
+          const j = (await pr.json().catch(() => ({}))) as { message?: string; error?: string }
+          loadError = j.message ?? j.error ?? $t('access.brainAccessPage.errors.couldNotAddHandle', { handle: entry.handle })
+          return
+        }
+        const created = (await pr.json()) as { id?: string }
+        if (!created.id) {
+          loadError = $t('access.brainAccessPage.errors.couldNotAddHandle', { handle: entry.handle })
+          return
+        }
+        grantBody.customPolicyId = created.id
+      }
       const res = await fetch('/api/brain-query/grants', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          askerHandle: entry.handle,
-          privacyPolicy: canonicalText,
-        }),
+        body: JSON.stringify(grantBody),
       })
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
@@ -153,14 +186,17 @@
     }
   }
 
-  async function patchGrantPrivacy(grantId: string, privacyPolicy: string): Promise<void> {
+  async function patchGrantTarget(grantId: string, targetPolicyId: string): Promise<void> {
     loadError = null
     busy = true
     try {
+      const body = isBrainQueryBuiltinTemplateId(targetPolicyId)
+        ? { presetPolicyKey: targetPolicyId }
+        : { customPolicyId: targetPolicyId }
       const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(grantId)}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ privacyPolicy }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         loadError = $t('access.brainAccessPage.errors.updateFailed', { status: res.status })
@@ -179,7 +215,7 @@
     if (!gid) return undefined
     const row = grantedByMe.find((g) => g.id === gid)
     if (!row) return undefined
-    return classifyGrantPolicy(row.privacyPolicy, customPolicies).policyId
+    return classifyGrantPolicy(row, customPolicies).policyId
   })
 </script>
 
@@ -211,7 +247,7 @@
             <PolicyCard
               {model}
               {onSettingsNavigate}
-              onAddUser={(text, entry) => void addUser(text, entry)}
+              onAddUser={(model, entry) => void addUser(model, entry)}
               onRemoveGrant={(id) => void removeGrant(id)}
               onOpenChangePolicy={(id) => {
                 changeGrantId = id
@@ -251,7 +287,7 @@
   onDismiss={() => {
     changeGrantId = null
   }}
-  onApply={(grantId, text) => patchGrantPrivacy(grantId, text)}
+  onApply={(grantId, targetPolicyId) => patchGrantTarget(grantId, targetPolicyId)}
 />
 
 <CustomPolicyCreator
@@ -260,7 +296,6 @@
     createCustomOpen = false
   }}
   onCreated={() => {
-    customPolicies = readCustomPolicies()
     void reload()
   }}
 />

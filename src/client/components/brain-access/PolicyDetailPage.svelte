@@ -5,24 +5,13 @@
   import type { WorkspaceHandleEntry } from '@client/lib/workspaceHandleSuggest.js'
   import { t } from '@client/lib/i18n/index.js'
   import {
-    loadBrainAccessCustomPolicies,
     removeBrainAccessCustomPolicy,
     updateBrainAccessCustomPolicy,
+    fetchBrainAccessCustomPoliciesFromServer,
+    mergeServerAndLegacyCustomPolicies,
     type BrainAccessCustomPolicy,
   } from '@client/lib/brainAccessCustomPolicies.js'
-  import {
-    clearBuiltinPolicyDraft,
-    loadBuiltinPolicyDraft,
-    saveBuiltinPolicyDraft,
-  } from '@client/lib/brainAccessBuiltinPolicyDrafts.js'
-  import { BRAIN_QUERY_POLICY_TEMPLATES } from '@client/lib/brainQueryPolicyTemplates.js'
-  import {
-    buildPolicyCardModels,
-    classifyGrantPolicy,
-    grantsMatchingPolicyId,
-    normalizePolicyText,
-    type BrainAccessGrantRow,
-  } from '@client/lib/brainAccessPolicyGrouping.js'
+  import { isBrainQueryBuiltinTemplateId } from '@client/lib/brainQueryPolicyTemplates.js'
   import { policyCardTone } from './policyColors.js'
   import UserDetailRow from './UserDetailRow.svelte'
   import AddUserDropdown from './AddUserDropdown.svelte'
@@ -52,6 +41,7 @@
   let autoSendBusyId = $state<string | null>(null)
   let editingPolicyText = $state(false)
   let draftPolicyText = $state('')
+  let draftPolicyTitle = $state('')
   let changeGrantId = $state<string | null>(null)
   let addBusy = $state(false)
   let pendingDeletePreset = $state<{ label: string } | null>(null)
@@ -79,6 +69,13 @@
       }
       const askerHandle = typeof r.askerHandle === 'string' ? r.askerHandle : undefined
       const autoSend = r.autoSend === true
+      const replyRaw = r.replyMode
+      const replyMode =
+        replyRaw === 'auto' || replyRaw === 'review' || replyRaw === 'ignore' ? replyRaw : undefined
+      const pkRaw = r.presetPolicyKey
+      const presetPolicyKey = typeof pkRaw === 'string' && pkRaw.trim() ? pkRaw.trim() : null
+      const cRaw = r.customPolicyId
+      const customPolicyId = typeof cRaw === 'string' && cRaw.trim() ? cRaw.trim() : null
       return {
         id: r.id,
         ownerId: r.ownerId,
@@ -86,6 +83,9 @@
         askerId: r.askerId,
         ...(askerHandle ? { askerHandle } : {}),
         privacyPolicy: r.privacyPolicy,
+        presetPolicyKey,
+        customPolicyId,
+        ...(replyMode ? { replyMode } : {}),
         createdAtMs: r.createdAtMs,
         updatedAtMs: r.updatedAtMs,
         ...(autoSend ? { autoSend: true } : {}),
@@ -114,8 +114,8 @@
   async function reload(): Promise<void> {
     loadError = null
     busy = true
-    const customs = loadBrainAccessCustomPolicies()
-    customPolicies = customs
+    const customsRemote = await fetchBrainAccessCustomPoliciesFromServer()
+    customPolicies = mergeServerAndLegacyCustomPolicies(customsRemote)
     try {
       const gRes = await fetch('/api/brain-query/grants')
       if (!gRes.ok) {
@@ -128,7 +128,7 @@
         return
       }
       grantedByMe = parsed.grantedByMe
-      const inPolicy = grantsMatchingPolicyId(grantedByMe, customs, props.policyId)
+      const inPolicy = grantsMatchingPolicyId(grantedByMe, customPolicies, props.policyId)
       await hydrateProfiles(inPolicy)
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
@@ -166,26 +166,52 @@
     if (grantsInPolicy.length > 0) {
       return card?.canonicalText ?? grantsInPolicy[0]?.privacyPolicy ?? ''
     }
-    if (card?.kind === 'builtin') {
-      const draft = loadBuiltinPolicyDraft(props.policyId)
-      if (draft !== undefined) return draft
-    }
     return card?.canonicalText ?? ''
   })
 
+  const isBuiltinPreset = $derived(card?.kind === 'builtin')
+  /** Built-in templates are server-defined; custom and ad-hoc rows can edit title + body. */
+  const policyTextEditable = $derived(!isBuiltinPreset)
   async function addUser(entry: WorkspaceHandleEntry): Promise<void> {
-    const text = canonical.trim()
-    if (!text) {
-      loadError = $t('access.policyDetailPage.errors.missingPolicyText')
-      return
-    }
+    if (!card) return
     addBusy = true
     loadError = null
     try {
+      let grantBody: Record<string, string> = { askerHandle: entry.handle }
+      if (card.kind === 'builtin') {
+        grantBody.presetPolicyKey = card.policyId
+      } else if (card.kind === 'custom') {
+        grantBody.customPolicyId = card.policyId
+      } else {
+        const text = canonical.trim()
+        if (!text) {
+          loadError = $t('access.policyDetailPage.errors.missingPolicyText')
+          return
+        }
+        const pr = await fetch('/api/brain-query/policies', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            title: (heading || 'Policy').slice(0, 120),
+            body: text,
+          }),
+        })
+        if (!pr.ok) {
+          const j = (await pr.json().catch(() => ({}))) as { message?: string; error?: string }
+          loadError = j.message ?? j.error ?? $t('access.policyDetailPage.errors.couldNotAddHandle', { handle: entry.handle })
+          return
+        }
+        const created = (await pr.json()) as { id?: string }
+        if (!created.id) {
+          loadError = $t('access.policyDetailPage.errors.couldNotAddHandle', { handle: entry.handle })
+          return
+        }
+        grantBody.customPolicyId = created.id
+      }
       const res = await fetch('/api/brain-query/grants', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ askerHandle: entry.handle, privacyPolicy: text }),
+        body: JSON.stringify(grantBody),
       })
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
@@ -238,6 +264,18 @@
     }
   }
 
+  async function patchGrantToPolicyTarget(grantId: string, targetPolicyId: string): Promise<boolean> {
+    const body = isBrainQueryBuiltinTemplateId(targetPolicyId)
+      ? { presetPolicyKey: targetPolicyId }
+      : { customPolicyId: targetPolicyId }
+    const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(grantId)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.ok
+  }
+
   async function saveAllPolicyText(text: string): Promise<void> {
     const trimmed = text.trim()
     if (trimmed.length === 0) return
@@ -248,24 +286,90 @@
       busy = true
       loadError = null
       try {
-        for (const g of list) {
-          const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(g.id)}`, {
+        let navigatedPolicyId: string | undefined
+
+        if (card?.kind === 'builtin') {
+          const template = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === props.policyId)
+          const matchesBuiltin =
+            template != null && normalizePolicyText(trimmed) === normalizePolicyText(template.text)
+          if (matchesBuiltin) {
+            for (const g of list) {
+              if (!(await patchGrantToPolicyTarget(g.id, props.policyId))) {
+                loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
+                return
+              }
+            }
+            clearBuiltinPolicyDraft(props.policyId)
+            navigatedPolicyId = props.policyId
+          } else {
+            const pr = await fetch('/api/brain-query/policies', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                label: (heading || 'Policy').slice(0, 120),
+                body: trimmed,
+              }),
+            })
+            if (!pr.ok) {
+              loadError = $t('access.policyDetailPage.errors.saveFailed', { status: pr.status })
+              return
+            }
+            const created = (await pr.json()) as { id?: string }
+            if (!created.id) {
+              loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
+              return
+            }
+            for (const g of list) {
+              if (!(await patchGrantToPolicyTarget(g.id, created.id))) {
+                loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
+                return
+              }
+            }
+            clearBuiltinPolicyDraft(props.policyId)
+            navigatedPolicyId = created.id
+          }
+        } else if (card?.kind === 'custom' && props.policyId.startsWith('bqc_')) {
+          const res = await fetch(`/api/brain-query/policies/${encodeURIComponent(props.policyId)}`, {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ privacyPolicy: trimmed }),
+            body: JSON.stringify({ body: trimmed }),
           })
           if (!res.ok) {
             loadError = $t('access.policyDetailPage.errors.saveFailed', { status: res.status })
             return
           }
+          navigatedPolicyId = props.policyId
+        } else {
+          const pr = await fetch('/api/brain-query/policies', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              label: (heading || 'Policy').slice(0, 120),
+              body: trimmed,
+            }),
+          })
+          if (!pr.ok) {
+            loadError = $t('access.policyDetailPage.errors.saveFailed', { status: pr.status })
+            return
+          }
+          const created = (await pr.json()) as { id?: string }
+          if (!created.id) {
+            loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
+            return
+          }
+          for (const g of list) {
+            if (!(await patchGrantToPolicyTarget(g.id, created.id))) {
+              loadError = $t('access.policyDetailPage.errors.saveFailed', { status: 500 })
+              return
+            }
+          }
+          navigatedPolicyId = created.id
         }
-        if (card?.kind === 'builtin') clearBuiltinPolicyDraft(props.policyId)
+
         editingPolicyText = false
         await reload()
-        const customsNext = loadBrainAccessCustomPolicies()
-        const nextBucket = classifyGrantPolicy(trimmed, customsNext).policyId
-        if (nextBucket !== props.policyId) {
-          props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
+        if (navigatedPolicyId !== undefined && navigatedPolicyId !== props.policyId) {
+          props.onSettingsNavigate({ type: 'brain-access-policy', policyId: navigatedPolicyId }, { replace: true })
         }
       } catch (e) {
         loadError = e instanceof Error ? e.message : String(e)
@@ -283,9 +387,19 @@
           loadError = $t('access.policyDetailPage.errors.couldNotUpdateSavedPolicy')
           return
         }
+      } else if (card?.kind === 'custom' && props.policyId.startsWith('bqc_')) {
+        const res = await fetch(`/api/brain-query/policies/${encodeURIComponent(props.policyId)}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ body: trimmed }),
+        })
+        if (!res.ok) {
+          loadError = $t('access.policyDetailPage.errors.saveFailed', { status: res.status })
+          return
+        }
       } else if (card?.kind === 'builtin') {
-        const template = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === props.policyId)
-        if (template && normalizePolicyText(trimmed) === normalizePolicyText(template.text)) {
+        const tpl = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === props.policyId)
+        if (tpl && normalizePolicyText(trimmed) === normalizePolicyText(tpl.text)) {
           clearBuiltinPolicyDraft(props.policyId)
         } else {
           saveBuiltinPolicyDraft(props.policyId, trimmed)
@@ -297,12 +411,6 @@
 
       editingPolicyText = false
       await reload()
-      const customsNext = loadBrainAccessCustomPolicies()
-      const nextBucket = classifyGrantPolicy(trimmed, customsNext).policyId
-      if (nextBucket !== props.policyId) {
-        if (card?.kind === 'builtin') clearBuiltinPolicyDraft(props.policyId)
-        props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
-      }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e)
     } finally {
@@ -310,22 +418,17 @@
     }
   }
 
-  async function applyMovePolicy(grantId: string, newText: string): Promise<void> {
+  async function applyMovePolicy(grantId: string, targetPolicyId: string): Promise<void> {
     busy = true
     loadError = null
     try {
-      const res = await fetch(`/api/brain-query/grants/${encodeURIComponent(grantId)}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ privacyPolicy: newText }),
-      })
-      if (!res.ok) {
-        loadError = $t('access.policyDetailPage.errors.updateFailed', { status: res.status })
+      if (!(await patchGrantToPolicyTarget(grantId, targetPolicyId))) {
+        loadError = $t('access.policyDetailPage.errors.updateFailed', { status: 500 })
         return
       }
       await reload()
-      const customsNext = loadBrainAccessCustomPolicies()
-      const nextBucket = classifyGrantPolicy(newText, customsNext).policyId
+      const updated = grantedByMe.find((g) => g.id === grantId)
+      const nextBucket = updated ? classifyGrantPolicy(updated, customPolicies).policyId : targetPolicyId
       changeGrantId = null
       if (nextBucket !== props.policyId) {
         props.onSettingsNavigate({ type: 'brain-access-policy', policyId: nextBucket }, { replace: true })
@@ -348,7 +451,9 @@
   const heading = $derived(card?.label ?? $t('access.policyDetailPage.fallbackPolicyLabel'))
   const hint = $derived(card?.hint)
 
-  const isCustomPolicyId = $derived(props.policyId.startsWith('custom:'))
+  const isCustomPolicyId = $derived(
+    props.policyId.startsWith('bqc_') || props.policyId.startsWith('custom:'),
+  )
   const canDeleteCustomPreset = $derived(isCustomPolicyId && grantsInPolicy.length === 0)
 
   function requestDeleteCustomPreset() {
@@ -360,8 +465,23 @@
     pendingDeletePreset = null
   }
 
-  function confirmDeleteCustomPreset() {
-    if (!pendingDeletePreset || !props.policyId.startsWith('custom:')) return
+  async function confirmDeleteCustomPreset(): Promise<void> {
+    if (!pendingDeletePreset) return
+    if (props.policyId.startsWith('bqc_')) {
+      busy = true
+      try {
+        const res = await fetch(`/api/brain-query/policies/${encodeURIComponent(props.policyId)}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) return
+        pendingDeletePreset = null
+        props.onBackToBrainAccessList()
+      } finally {
+        busy = false
+      }
+      return
+    }
+    if (!props.policyId.startsWith('custom:')) return
     const ok = removeBrainAccessCustomPolicy(props.policyId)
     pendingDeletePreset = null
     if (ok) props.onBackToBrainAccessList()
@@ -544,7 +664,7 @@
   onDismiss={() => {
     changeGrantId = null
   }}
-  onApply={(grantId, text) => applyMovePolicy(grantId, text)}
+  onApply={(grantId, targetPolicyId) => applyMovePolicy(grantId, targetPolicyId)}
 />
 
 <ConfirmDialog
@@ -555,7 +675,7 @@
   cancelLabel={$t('common.actions.cancel')}
   confirmVariant="danger"
   onDismiss={cancelDeleteCustomPreset}
-  onConfirm={confirmDeleteCustomPreset}
+  onConfirm={() => void confirmDeleteCustomPreset()}
 >
   {#snippet children()}
     {#if pendingDeletePreset}

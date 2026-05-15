@@ -1,39 +1,64 @@
 import { randomBytes } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import { getBrainGlobalDb } from '@server/lib/global/brainGlobalDb.js'
-import { DEFAULT_BRAIN_QUERY_PRIVACY_POLICY } from './defaultPrivacyPolicy.js'
+import { getBrainQueryCustomPolicyById } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
+import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import { isBrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
 
-/** Owner-side tunnel policy: auto-reply, review each reply, or ignore inbound from this asker. */
-export type BrainQueryGrantPolicy = 'auto' | 'review' | 'ignore'
+/** Owner-side tunnel setting: auto-reply, review each reply, or ignore inbound from this asker. */
+export type BrainQueryGrantReplyMode = 'auto' | 'review' | 'ignore'
+
+/** @deprecated Use {@link BrainQueryGrantReplyMode}. */
+export type BrainQueryGrantPolicy = BrainQueryGrantReplyMode
 
 export type BrainQueryGrantRow = {
   id: string
   owner_id: string
   asker_id: string
-  privacy_policy: string
-  policy: BrainQueryGrantPolicy
+  /** Mutually exclusive with `custom_policy_id`; built-in key resolved from `.hbs`. */
+  preset_policy_key: string | null
+  /** Mutually exclusive with `preset_policy_key`; FK to `brain_query_custom_policies`. */
+  custom_policy_id: string | null
+  reply_mode: BrainQueryGrantReplyMode
   created_at_ms: number
   updated_at_ms: number
   revoked_at_ms: number | null
 }
 
-function parsePolicy(raw: unknown): BrainQueryGrantPolicy {
+function parseReplyMode(raw: unknown): BrainQueryGrantReplyMode {
   const s = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
   if (s === 'auto' || s === 'review' || s === 'ignore') return s
   return 'review'
 }
 
+/** Exactly one of preset or custom must be set (application invariant). */
+export function assertGrantPrivacyXor(row: Pick<BrainQueryGrantRow, 'preset_policy_key' | 'custom_policy_id'>): void {
+  const hasP = row.preset_policy_key != null && row.preset_policy_key.trim().length > 0
+  const hasC = row.custom_policy_id != null && row.custom_policy_id.trim().length > 0
+  if (hasP === hasC) {
+    throw new Error('grant_privacy_xor_invalid')
+  }
+}
+
 function rowFromStmt(r: unknown): BrainQueryGrantRow | null {
   if (!r || typeof r !== 'object') return null
   const o = r as Record<string, unknown>
+  const pk = o.preset_policy_key
+  const cid = o.custom_policy_id
+  const preset_policy_key =
+    pk != null && typeof pk === 'string' && pk.trim().length > 0 ? pk.trim() : null
+  const custom_policy_id =
+    cid != null && typeof cid === 'string' && cid.trim().length > 0 ? cid.trim() : null
   if (
     typeof o.id !== 'string' ||
     typeof o.owner_id !== 'string' ||
     typeof o.asker_id !== 'string' ||
-    typeof o.privacy_policy !== 'string' ||
     typeof o.created_at_ms !== 'number' ||
     typeof o.updated_at_ms !== 'number'
   ) {
+    return null
+  }
+  if ((preset_policy_key == null) === (custom_policy_id == null)) {
     return null
   }
   const rev = o.revoked_at_ms
@@ -41,8 +66,9 @@ function rowFromStmt(r: unknown): BrainQueryGrantRow | null {
     id: o.id,
     owner_id: o.owner_id,
     asker_id: o.asker_id,
-    privacy_policy: o.privacy_policy,
-    policy: parsePolicy(o.policy),
+    preset_policy_key,
+    custom_policy_id,
+    reply_mode: parseReplyMode(o.reply_mode),
     created_at_ms: o.created_at_ms,
     updated_at_ms: o.updated_at_ms,
     revoked_at_ms: typeof rev === 'number' ? rev : null,
@@ -53,11 +79,34 @@ function newId(): string {
   return `bqg_${randomBytes(12).toString('hex')}`
 }
 
+function resolvePrivacyColumns(params: {
+  ownerId: string
+  presetPolicyKey?: BrainQueryBuiltinPolicyId
+  customPolicyId?: string
+  db: Database.Database
+}): { preset_policy_key: string | null; custom_policy_id: string | null } {
+  const hasPreset = params.presetPolicyKey != null && isBrainQueryBuiltinPolicyId(params.presetPolicyKey)
+  const cid = params.customPolicyId?.trim() ?? ''
+  const hasCustom = cid.length > 0
+  if (hasPreset === hasCustom) {
+    throw new Error('grant_privacy_xor_invalid')
+  }
+  if (hasPreset) {
+    return { preset_policy_key: params.presetPolicyKey!, custom_policy_id: null }
+  }
+  const policy = getBrainQueryCustomPolicyById(cid, params.db)
+  if (!policy || policy.owner_id !== params.ownerId.trim()) {
+    throw new Error('custom_policy_not_found')
+  }
+  return { preset_policy_key: null, custom_policy_id: cid }
+}
+
 export function createBrainQueryGrant(params: {
   ownerId: string
   askerId: string
-  privacyPolicy?: string
-  policy?: BrainQueryGrantPolicy
+  presetPolicyKey?: BrainQueryBuiltinPolicyId
+  customPolicyId?: string
+  replyMode?: BrainQueryGrantReplyMode
   db?: Database.Database
 }): BrainQueryGrantRow {
   const db = params.db ?? getBrainGlobalDb()
@@ -69,25 +118,28 @@ export function createBrainQueryGrant(params: {
   if (owner_id === asker_id) {
     throw new Error('asker_is_owner')
   }
-  const privacy_policy =
-    typeof params.privacyPolicy === 'string' && params.privacyPolicy.trim().length > 0
-      ? params.privacyPolicy.trim()
-      : DEFAULT_BRAIN_QUERY_PRIVACY_POLICY
-  const policy: BrainQueryGrantPolicy = params.policy ?? 'review'
+  const { preset_policy_key, custom_policy_id } = resolvePrivacyColumns({
+    ownerId: owner_id,
+    presetPolicyKey: params.presetPolicyKey,
+    customPolicyId: params.customPolicyId,
+    db,
+  })
+  const reply_mode: BrainQueryGrantReplyMode = params.replyMode ?? 'review'
   const id = newId()
   const now = Date.now()
   /** One row per (owner, asker); remove prior row so re-invite works after revoke or legacy soft-revoke. */
   db.prepare(`DELETE FROM brain_query_grants WHERE owner_id = ? AND asker_id = ?`).run(owner_id, asker_id)
   db.prepare(
     `INSERT INTO brain_query_grants (
-      id, owner_id, asker_id, privacy_policy, policy, created_at_ms, updated_at_ms, revoked_at_ms
-    ) VALUES (@id, @owner_id, @asker_id, @privacy_policy, @policy, @created_at_ms, @updated_at_ms, NULL)`,
+      id, owner_id, asker_id, preset_policy_key, custom_policy_id, reply_mode, created_at_ms, updated_at_ms, revoked_at_ms
+    ) VALUES (@id, @owner_id, @asker_id, @preset_policy_key, @custom_policy_id, @reply_mode, @created_at_ms, @updated_at_ms, NULL)`,
   ).run({
     id,
     owner_id,
     asker_id,
-    privacy_policy,
-    policy,
+    preset_policy_key,
+    custom_policy_id,
+    reply_mode,
     created_at_ms: now,
     updated_at_ms: now,
   })
@@ -137,36 +189,41 @@ export function listBrainQueryGrantsForAsker(askerId: string, db?: Database.Data
   return rows.map((r) => rowFromStmt(r)).filter((x): x is BrainQueryGrantRow => x !== null)
 }
 
-export function updateBrainQueryGrantPrivacyPolicy(params: {
+export function updateBrainQueryGrantPrivacyInstructions(params: {
   grantId: string
   ownerId: string
-  privacyPolicy: string
+  presetPolicyKey?: BrainQueryBuiltinPolicyId
+  customPolicyId?: string
   db?: Database.Database
 }): BrainQueryGrantRow | null {
   const d = params.db ?? getBrainGlobalDb()
   const row = getBrainQueryGrantById(params.grantId, d)
   if (!row || row.owner_id !== params.ownerId) return null
-  const text = params.privacyPolicy.trim()
-  if (!text) return null
+  const { preset_policy_key, custom_policy_id } = resolvePrivacyColumns({
+    ownerId: params.ownerId,
+    presetPolicyKey: params.presetPolicyKey,
+    customPolicyId: params.customPolicyId,
+    db: d,
+  })
   const now = Date.now()
   d.prepare(
-    `UPDATE brain_query_grants SET privacy_policy = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`,
-  ).run(text, now, params.grantId, params.ownerId)
+    `UPDATE brain_query_grants SET preset_policy_key = ?, custom_policy_id = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`,
+  ).run(preset_policy_key, custom_policy_id, now, params.grantId, params.ownerId)
   return getBrainQueryGrantById(params.grantId, d)
 }
 
-export function setBrainQueryGrantPolicy(params: {
+export function setBrainQueryGrantReplyMode(params: {
   grantId: string
   ownerId: string
-  policy: BrainQueryGrantPolicy
+  replyMode: BrainQueryGrantReplyMode
   db?: Database.Database
 }): BrainQueryGrantRow | null {
   const d = params.db ?? getBrainGlobalDb()
   const row = getBrainQueryGrantById(params.grantId, d)
   if (!row || row.owner_id !== params.ownerId.trim()) return null
   const now = Date.now()
-  d.prepare(`UPDATE brain_query_grants SET policy = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`).run(
-    params.policy,
+  d.prepare(`UPDATE brain_query_grants SET reply_mode = ?, updated_at_ms = ? WHERE id = ? AND owner_id = ?`).run(
+    params.replyMode,
     now,
     params.grantId,
     params.ownerId.trim(),
@@ -174,28 +231,43 @@ export function setBrainQueryGrantPolicy(params: {
   return getBrainQueryGrantById(params.grantId, d)
 }
 
-/** @deprecated Use {@link setBrainQueryGrantPolicy} with `'auto' | 'review'`. */
+/** @deprecated Use {@link setBrainQueryGrantReplyMode}. */
+export function setBrainQueryGrantPolicy(params: {
+  grantId: string
+  ownerId: string
+  policy: BrainQueryGrantReplyMode
+  db?: Database.Database
+}): BrainQueryGrantRow | null {
+  return setBrainQueryGrantReplyMode({
+    grantId: params.grantId,
+    ownerId: params.ownerId,
+    replyMode: params.policy,
+    db: params.db,
+  })
+}
+
+/** @deprecated Use {@link setBrainQueryGrantReplyMode}. */
 export function setBrainQueryGrantAutoSend(params: {
   grantId: string
   ownerId: string
   autoSend: boolean
   db?: Database.Database
 }): BrainQueryGrantRow | null {
-  return setBrainQueryGrantPolicy({
+  return setBrainQueryGrantReplyMode({
     grantId: params.grantId,
     ownerId: params.ownerId,
-    policy: params.autoSend ? 'auto' : 'review',
+    replyMode: params.autoSend ? 'auto' : 'review',
     db: params.db,
   })
 }
 
 /** Whether outbound replies are sent to the asker without owner review (grant opt-in). */
 export function grantRowAutoSendEnabled(row: BrainQueryGrantRow): boolean {
-  return row.policy === 'auto'
+  return row.reply_mode === 'auto'
 }
 
 export function grantRowIgnoresInbound(row: BrainQueryGrantRow): boolean {
-  return row.policy === 'ignore'
+  return row.reply_mode === 'ignore'
 }
 
 /** Remove grant row (owner revoking outbound access). */

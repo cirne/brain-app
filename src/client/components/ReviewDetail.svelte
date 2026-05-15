@@ -6,7 +6,7 @@
   import type { B2BGrantPolicyApi, B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
   import {
     BRAIN_QUERY_POLICY_TEMPLATES,
-    type BrainQueryBuiltInPolicyId,
+    type BrainQueryBuiltinPolicyId,
   } from '@client/lib/brainQueryPolicyTemplates.js'
   import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
@@ -37,7 +37,7 @@
   let busy = $state(false)
   let actionError = $state<string | null>(null)
   let autoSendConfirmOpen = $state(false)
-  let selectedTemplateId = $state<BrainQueryBuiltInPolicyId>('general')
+  let selectedTemplateId = $state<BrainQueryBuiltinPolicyId>('general')
 
   const isColdInbound = $derived(Boolean(row.isColdQuery && !row.grantId))
   const canEditGrantPolicy = $derived(Boolean(row.grantId && row.policy != null))
@@ -225,12 +225,10 @@
     busy = true
     actionError = null
     try {
-      const tpl = BRAIN_QUERY_POLICY_TEMPLATES.find((t) => t.id === selectedTemplateId)
-      const privacyPolicy = tpl?.text ?? BRAIN_QUERY_POLICY_TEMPLATES[0]!.text
       const res = await apiFetch('/api/chat/b2b/establish-grant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: row.sessionId, privacyPolicy }),
+        body: JSON.stringify({ sessionId: row.sessionId, presetPolicyKey: selectedTemplateId }),
       })
       if (!res.ok) {
         actionError = $t('chat.review.detail.actionFailed')

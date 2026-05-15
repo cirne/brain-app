@@ -17,7 +17,8 @@ import {
   type BrainQueryGrantPolicy,
   type BrainQueryGrantRow,
 } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
-import { DEFAULT_BRAIN_QUERY_PRIVACY_POLICY } from '@server/lib/brainQuery/defaultPrivacyPolicy.js'
+import { resolveGrantPrivacyInstructions, toB2BGrantPolicySnapshot } from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
+import { isBrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
 import {
   appendTurn,
   deleteSessionFile,
@@ -128,7 +129,7 @@ async function redraftInboundAssistantForGrant(params: {
         remoteGrantId: grant.id,
         excludeSessionId: inboundId,
       })
-      const agent = createB2BAgent(grant, wikiDir(), {
+      const agent = createB2BAgent(toB2BGrantPolicySnapshot(grant), wikiDir(), {
         ownerDisplayName: ownerVis.displayName,
         ownerHandle: ownerVis.handle,
         timezone,
@@ -136,7 +137,10 @@ async function redraftInboundAssistantForGrant(params: {
         ...(grantHistory.length ? { initialMessages: grantHistory } : {}),
       })
       const draft = await promptB2BAgentForText(agent, userQuestion)
-      const answer = await filterB2BResponse({ privacyPolicy: grant.privacy_policy, draftAnswer: draft })
+      const answer = await filterB2BResponse({
+        privacyPolicy: resolveGrantPrivacyInstructions(grant),
+        draftAnswer: draft,
+      })
       await replaceLastAssistantMessageInSession(inboundId, {
         role: 'assistant',
         content: answer,
@@ -448,7 +452,7 @@ async function buildMergedTunnelRowsForTenant(ctx: TenantContext): Promise<Tunne
       outboundGrant: acc.outbound,
       inboundGrant: acc.inbound,
     })
-    const inboundPolicy = acc.inbound?.policy ?? null
+    const inboundPolicy = acc.inbound?.reply_mode ?? null
     rows.push({
       peerUserId,
       outboundGrantId: acc.outbound?.id ?? null,
@@ -568,7 +572,7 @@ async function buildTunnelTimeline(params: {
     const firstUserRow = rows.find((r) => r.role === 'user')
     const grantIdNorm = typeof doc.remoteGrantId === 'string' ? doc.remoteGrantId.trim() : ''
     const grantSnap = grantIdNorm ? getBrainQueryGrantById(grantIdNorm) : null
-    const policySnap = grantSnap?.policy ?? null
+    const policySnap = grantSnap?.reply_mode ?? null
     const isColdInbound = !!(doc.isColdQuery === true && !grantSnap)
     const st = doc.approvalState ?? 'pending'
 
@@ -689,17 +693,14 @@ function grantIsActiveForAsker(row: BrainQueryGrantRow | null, askerId: string):
   return row != null && row.asker_id === askerId && row.revoked_at_ms == null
 }
 
-function syntheticGrantForCold(params: { ownerId: string; askerId: string; privacyPolicy?: string }): BrainQueryGrantRow {
-  const privacy_policy =
-    typeof params.privacyPolicy === 'string' && params.privacyPolicy.trim().length > 0
-      ? params.privacyPolicy.trim()
-      : DEFAULT_BRAIN_QUERY_PRIVACY_POLICY
+function syntheticGrantForCold(params: { ownerId: string; askerId: string }): BrainQueryGrantRow {
   return {
     id: 'cold_query_synthetic',
     owner_id: params.ownerId,
     asker_id: params.askerId,
-    privacy_policy,
-    policy: 'review',
+    preset_policy_key: 'server-default',
+    custom_policy_id: null,
+    reply_mode: 'review',
     created_at_ms: 0,
     updated_at_ms: 0,
     revoked_at_ms: null,
@@ -834,7 +835,7 @@ export async function runB2BQueryForGrant(params: {
         remoteGrantId: grant.id,
         excludeSessionId: null,
       })
-      const agent = createB2BAgent(grant, wikiDir(), {
+      const agent = createB2BAgent(toB2BGrantPolicySnapshot(grant), wikiDir(), {
         ownerDisplayName: params.ownerDisplayName,
         ownerHandle: params.ownerHandle,
         timezone: params.timezone,
@@ -842,7 +843,10 @@ export async function runB2BQueryForGrant(params: {
         ...(grantHistory.length ? { initialMessages: grantHistory } : {}),
       })
       const draft = await promptB2BAgentForText(agent, message)
-      answer = await filterB2BResponse({ privacyPolicy: grant.privacy_policy, draftAnswer: draft })
+      answer = await filterB2BResponse({
+        privacyPolicy: resolveGrantPrivacyInstructions(grant),
+        draftAnswer: draft,
+      })
       await appendTurn({
         sessionId: inbound.sessionId,
         userMessage: message,
@@ -941,9 +945,11 @@ b2bChat.get('/tunnel-timeline/:handle', async (c) => {
     inboundGrantId: inboundGrant?.id ?? null,
     peerHandle: peerVis.handle,
     peerDisplayName: peerVis.displayName,
-    inboundPolicy: inboundGrant?.policy ?? null,
+    inboundPolicy: inboundGrant?.reply_mode ?? null,
     /** Owner-only inbound grant privacy prose (for preset UI); null when no inbound grant. */
-    inboundPrivacyPolicy: inboundGrant?.privacy_policy ?? null,
+    inboundPrivacyPolicy: inboundGrant ? resolveGrantPrivacyInstructions(inboundGrant) : null,
+    inboundPresetPolicyKey: inboundGrant?.preset_policy_key ?? null,
+    inboundCustomPolicyId: inboundGrant?.custom_policy_id ?? null,
     timeline,
   })
 })
@@ -1147,17 +1153,31 @@ b2bChat.post('/send', async (c) => {
 /** Cold inbound: owner picks privacy policy; creates grant + links sessions, then redrafts assistant in background. */
 b2bChat.post('/establish-grant', async (c) => {
   const ctx = getTenantContext()
-  let body: { sessionId?: unknown; privacyPolicy?: unknown; timezone?: unknown }
+  let body: { sessionId?: unknown; presetPolicyKey?: unknown; customPolicyId?: unknown; timezone?: unknown }
   try {
     body = await c.req.json()
   } catch {
     return c.json({ error: 'invalid_json' }, 400)
   }
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
-  const privacyPolicy = typeof body.privacyPolicy === 'string' ? body.privacyPolicy.trim() : ''
+  const presetRaw = typeof body.presetPolicyKey === 'string' ? body.presetPolicyKey.trim() : ''
+  const customRaw = typeof body.customPolicyId === 'string' ? body.customPolicyId.trim() : ''
+  const presetPolicyKey = isBrainQueryBuiltinPolicyId(presetRaw) ? presetRaw : undefined
+  const customPolicyId = customRaw.length > 0 ? customRaw : undefined
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
   if (!sessionId) return c.json({ error: 'sessionId_required' }, 400)
-  if (!privacyPolicy) return c.json({ error: 'privacy_policy_required' }, 400)
+  if (presetPolicyKey === undefined && customPolicyId === undefined) {
+    return c.json(
+      { error: 'grant_privacy_required', message: 'Provide exactly one of presetPolicyKey or customPolicyId.' },
+      400,
+    )
+  }
+  if (presetPolicyKey !== undefined && customPolicyId !== undefined) {
+    return c.json(
+      { error: 'grant_privacy_conflict', message: 'Provide only one of presetPolicyKey or customPolicyId.' },
+      400,
+    )
+  }
 
   const session = await loadSession(sessionId)
   if (!session || session.sessionType !== 'b2b_inbound') {
@@ -1197,12 +1217,22 @@ b2bChat.post('/establish-grant', async (c) => {
   }
   if (!lastUser) return c.json({ error: 'no_user_message' }, 400)
 
-  const grant = createBrainQueryGrant({
-    ownerId: ctx.tenantUserId,
-    askerId,
-    privacyPolicy,
-    policy: 'review',
-  })
+  let grant: BrainQueryGrantRow
+  try {
+    grant = createBrainQueryGrant({
+      ownerId: ctx.tenantUserId,
+      askerId,
+      replyMode: 'review',
+      ...(presetPolicyKey !== undefined ? { presetPolicyKey } : {}),
+      ...(customPolicyId !== undefined ? { customPolicyId } : {}),
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'grant_create_failed'
+    if (msg === 'grant_privacy_xor_invalid' || msg === 'custom_policy_not_found') {
+      return c.json({ error: msg }, 400)
+    }
+    return c.json({ error: 'grant_create_failed', message: msg }, 500)
+  }
 
   finalizeColdSessionWithGrant(sessionId, grant.id)
   const askerCtx = await tenantContextForUser(askerId)
@@ -1274,7 +1304,8 @@ b2bChat.post('/approve', async (c) => {
     const grant = createBrainQueryGrant({
       ownerId: ctx.tenantUserId,
       askerId: session.coldPeerUserId!.trim(),
-      policy: establishPolicy,
+      presetPolicyKey: 'server-default',
+      replyMode: establishPolicy,
     })
     finalizeColdSessionWithGrant(sessionId, grant.id)
     const askerId = session.coldPeerUserId!.trim()
@@ -1413,6 +1444,7 @@ b2bChat.get('/review', async (c) => {
       grantId: r.grantId,
       isColdQuery: r.isColdQuery,
       policy: r.policy,
+      replyMode: r.policy,
       peerHandle: r.peerHandle,
       peerDisplayName: r.peerDisplayName,
       askerSnippet: r.askerSnippet,
@@ -1466,8 +1498,9 @@ b2bChat.patch('/grants/:grantId', async (c) => {
 
   return c.json({
     ok: true,
-    policy: updated.policy,
-    autoSend: updated.policy === 'auto',
+    policy: updated.reply_mode,
+    replyMode: updated.reply_mode,
+    autoSend: updated.reply_mode === 'auto',
   })
 })
 
@@ -1492,7 +1525,7 @@ b2bChat.patch('/grants/:grantId/auto-send', async (c) => {
     policy: body.autoSend ? 'auto' : 'review',
   })
   if (!updated) return c.json({ error: 'update_failed' }, 500)
-  return c.json({ ok: true, autoSend: updated.policy === 'auto', policy: updated.policy })
+  return c.json({ ok: true, autoSend: updated.reply_mode === 'auto', policy: updated.reply_mode, replyMode: updated.reply_mode })
 })
 
 b2bChat.post('/regenerate', async (c) => {
@@ -1555,7 +1588,7 @@ b2bChat.post('/regenerate', async (c) => {
       remoteGrantId: grant.id,
       excludeSessionId: sessionId,
     })
-    const agent = createB2BAgent(grant, wikiDir(), {
+    const agent = createB2BAgent(toB2BGrantPolicySnapshot(grant), wikiDir(), {
       ownerDisplayName: owner.displayName,
       ownerHandle: owner.handle,
       timezone,
@@ -1563,7 +1596,10 @@ b2bChat.post('/regenerate', async (c) => {
       ...(grantHistory.length ? { initialMessages: grantHistory } : {}),
     })
     const draft = await promptB2BAgentForText(agent, augmented)
-    return filterB2BResponse({ privacyPolicy: grant.privacy_policy, draftAnswer: draft })
+    return filterB2BResponse({
+      privacyPolicy: resolveGrantPrivacyInstructions(grant),
+      draftAnswer: draft,
+    })
   })
 
   const ok = await replaceLastAssistantMessageInSession(sessionId, {

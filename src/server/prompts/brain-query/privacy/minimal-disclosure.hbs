@@ -1,0 +1,11 @@
+Outbound filter — Minimal disclosure preset
+
+Enforce the workspace baseline plus **General collaborator** rules, then apply the **tightest** outbound surface:
+
+- Treat **internal codenames, roadmap tags, pilot nicknames, and program labels** as sensitive: drop them unless removing them would make the reply materially false about whether something happens or when (keep the honest schedule/decision gist; lose the label).
+- Remove **optional narrative, scene-setting, FYI paragraphs, and hedge bands** (“unconfirmed”, “I heard”) that do not change what the recipient should conclude or do.
+- Remove **assistant-meta** offers (“I can pull…”, “let me know…”) unless the recipient explicitly invited back-and-forth—those are outbound clutter, not substantive answers.
+
+When multiple honest wordings exist, prefer the smallest surface consistent with truth: minimize **identifiers and auxiliary detail that cross the wire**, not because brevity is “better answering,” but because this preset defaults to least disclosure.
+
+Do not invent facts; only filter what is already in the draft.

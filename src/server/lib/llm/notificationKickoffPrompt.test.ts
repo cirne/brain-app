@@ -5,8 +5,21 @@ import {
   notificationKickoffAppContextText,
   parseNotificationKickoffFromBody,
 } from './notificationKickoffPrompt.js'
+import * as resolvePrivacy from '@server/lib/brainQuery/resolveGrantPrivacyInstructions.js'
 import * as brainQueryGrantsRepo from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
 import * as notificationsRepo from '@server/lib/notifications/notificationsRepo.js'
+
+const kickoffTestGrant = {
+  id: 'bqg_0123456789abcdef01234567',
+  owner_id: 'usr_o',
+  asker_id: 'usr_a',
+  preset_policy_key: 'general' as const,
+  custom_policy_id: null,
+  reply_mode: 'review' as const,
+  created_at_ms: 0,
+  updated_at_ms: 0,
+  revoked_at_ms: null,
+}
 
 describe('notificationKickoffPrompt', () => {
   it('parseNotificationKickoffFromBody extracts hints', () => {
@@ -190,16 +203,8 @@ describe('notificationKickoffPrompt', () => {
   })
 
   it('notificationKickoffAppContextText for brain_query_question uses draft_email new not read_mail', () => {
-    const spy = vi.spyOn(brainQueryGrantsRepo, 'getBrainQueryGrantById').mockReturnValue({
-      id: 'bqg_0123456789abcdef01234567',
-      owner_id: 'usr_o',
-      asker_id: 'usr_a',
-      privacy_policy: 'Replies: facts only.',
-      policy: 'review' as const,
-      created_at_ms: 0,
-      updated_at_ms: 0,
-      revoked_at_ms: null,
-    })
+    const spy = vi.spyOn(brainQueryGrantsRepo, 'getBrainQueryGrantById').mockReturnValue(kickoffTestGrant)
+    const resSpy = vi.spyOn(resolvePrivacy, 'resolveGrantPrivacyInstructions').mockReturnValue('Replies: facts only.')
     try {
       const t = notificationKickoffAppContextText({
         notificationId: 'n1',
@@ -219,6 +224,7 @@ describe('notificationKickoffPrompt', () => {
       expect(t).not.toContain('read_mail_message')
     } finally {
       spy.mockRestore()
+      resSpy.mockRestore()
     }
   })
 
@@ -252,16 +258,8 @@ describe('notificationKickoffPrompt', () => {
   })
 
   it('notificationKickoffAppContextText for brain_query_mail injects grant privacy_policy when present', () => {
-    const spy = vi.spyOn(brainQueryGrantsRepo, 'getBrainQueryGrantById').mockReturnValue({
-      id: 'bqg_0123456789abcdef01234567',
-      owner_id: 'usr_o',
-      asker_id: 'usr_a',
-      privacy_policy: 'Keep logistics only.',
-      policy: 'review' as const,
-      created_at_ms: 0,
-      updated_at_ms: 0,
-      revoked_at_ms: null,
-    })
+    const spy = vi.spyOn(brainQueryGrantsRepo, 'getBrainQueryGrantById').mockReturnValue(kickoffTestGrant)
+    const resSpy = vi.spyOn(resolvePrivacy, 'resolveGrantPrivacyInstructions').mockReturnValue('Keep logistics only.')
     try {
       const t = notificationKickoffAppContextText({
         notificationId: 'n1',
@@ -273,6 +271,7 @@ describe('notificationKickoffPrompt', () => {
       expect(t).toContain('Keep logistics only.')
     } finally {
       spy.mockRestore()
+      resSpy.mockRestore()
     }
   })
 

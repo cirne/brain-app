@@ -738,7 +738,7 @@ export async function listB2BInboundReviewRows(params: {
       continue
     }
 
-    const policy = grantRow?.policy ?? null
+    const policy = grantRow?.reply_mode ?? null
 
     out.push({
       sessionId: r.session_id,

@@ -1,28 +1,29 @@
 import { createInterface } from 'node:readline'
 import { createReadStream } from 'node:fs'
 import { BRAIN_QUERY_POLICY_TEMPLATES } from '../../../client/lib/brainQueryPolicyTemplates.js'
-import type { BrainQueryBuiltInPolicyId } from '../../../client/lib/brainQueryPolicyTemplates.js'
 import type {
   B2BFilterEvalJsonlRow,
   B2BFilterEvalTask,
   B2BPreflightTask,
   B2BV1Task,
+  BrainQueryB2bFilterPresetId,
   EnronV1Task,
   WikiV1Task,
 } from './types.js'
 import { resolve } from 'node:path'
 
-/** Order matches built-in policy templates (trusted → general → minimal). */
-export const B2B_FILTER_EVAL_POLICY_ORDER: readonly BrainQueryBuiltInPolicyId[] = [
+/** Order matches rows expanded from `b2b-filter.jsonl`. */
+export const B2B_FILTER_EVAL_POLICY_ORDER: readonly BrainQueryB2bFilterPresetId[] = [
   'trusted',
   'general',
   'minimal-disclosure',
 ] as const
 
 export function expandB2BFilterEvalJsonlRows(rows: B2BFilterEvalJsonlRow[]): B2BFilterEvalTask[] {
-  const policyText = new Map<BrainQueryBuiltInPolicyId, string>()
-  for (const t of BRAIN_QUERY_POLICY_TEMPLATES) {
-    policyText.set(t.id, t.text)
+  const policyText = new Map<BrainQueryB2bFilterPresetId, string>()
+  for (const policyId of B2B_FILTER_EVAL_POLICY_ORDER) {
+    const t = BRAIN_QUERY_POLICY_TEMPLATES.find((x) => x.id === policyId)
+    if (t) policyText.set(policyId, t.text)
   }
   const out: B2BFilterEvalTask[] = []
   for (const row of rows) {

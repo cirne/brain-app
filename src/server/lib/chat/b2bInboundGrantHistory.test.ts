@@ -7,6 +7,7 @@ import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.
 import { closeTenantDbForTests } from '@server/lib/tenant/tenantSqlite.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
+import { createBrainQueryCustomPolicy } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import { appendTurn, ensureSessionStub } from './chatStorage.js'
 import { B2B_GRANT_HISTORY_MAX_MESSAGES, loadB2BInboundGrantHistoryAgentMessages, trimAgentMessagesByTotalChars } from './b2bInboundGrantHistory.js'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
@@ -38,7 +39,8 @@ describe('b2bInboundGrantHistory', () => {
     const ownerId = 'usr_hist_owner1111111111111111'
     const askerId = 'usr_hist_asker2222222222222222'
     ensureTenantHomeDir(ownerId)
-    const grant = createBrainQueryGrant({ ownerId, askerId, privacyPolicy: 'Test policy.' })
+    const pol = createBrainQueryCustomPolicy({ ownerId, title: 't', body: 'Test policy.' })
+    const grant = createBrainQueryGrant({ ownerId, askerId, customPolicyId: pol.id })
     const inbound1 = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
     const inbound2 = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 

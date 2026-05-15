@@ -35,6 +35,8 @@ describe('PolicyDetailPage.svelte', () => {
     askerId: 'a1',
     askerHandle: 'coleague',
     privacyPolicy: trustedBody,
+    presetPolicyKey: 'trusted',
+    customPolicyId: null,
     createdAtMs: 1,
     updatedAtMs: 1,
   }
@@ -45,6 +47,9 @@ describe('PolicyDetailPage.svelte', () => {
       'fetch',
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const u = reqUrl(input)
+        if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
+          return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
+        }
         if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
           return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [trustedGrant] }), { status: 200 }))
         }
@@ -105,18 +110,32 @@ describe('PolicyDetailPage.svelte', () => {
     expect(screen.getByRole('textbox')).toHaveValue(trustedBody)
   })
 
-  it('Save PATCHes grants, closes the editor, and navigates when text moves out of this bucket', async () => {
+  it('Save creates server policy and PATCHes grants when text leaves builtin bucket', async () => {
     const onSettingsNavigate = vi.fn()
     const fetchSpy = vi.mocked(fetch)
     const nextText = 'unique-short-inline-policy-marker-abc'
-    const grantAfterSave = { ...trustedGrant, privacyPolicy: nextText }
+    const newPolicyId = 'bqc_policy_saved_test'
+    const grantAfterSave = {
+      ...trustedGrant,
+      privacyPolicy: nextText,
+      presetPolicyKey: null,
+      customPolicyId: newPolicyId,
+    }
     let getCount = 0
     fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const u = reqUrl(input)
+      if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
+        return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
+      }
       if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
         getCount += 1
         const body = getCount >= 2 ? [grantAfterSave] : [trustedGrant]
         return Promise.resolve(new Response(JSON.stringify({ grantedByMe: body }), { status: 200 }))
+      }
+      if (u.includes('/api/brain-query/policies') && init?.method === 'POST') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: newPolicyId, label: 'Policy', body: nextText }), { status: 200 }),
+        )
       }
       if (u.includes('/api/brain-query/grants/g1') && init?.method === 'PATCH') {
         return Promise.resolve(new Response('{}', { status: 200 }))
@@ -144,10 +163,19 @@ describe('PolicyDetailPage.svelte', () => {
 
     await waitFor(() =>
       expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/brain-query/policies',
+        expect.objectContaining({
+          method: 'POST',
+        }),
+      ),
+    )
+
+    await waitFor(() =>
+      expect(fetchSpy).toHaveBeenCalledWith(
         '/api/brain-query/grants/g1',
         expect.objectContaining({
           method: 'PATCH',
-          body: JSON.stringify({ privacyPolicy: nextText.trim() }),
+          body: JSON.stringify({ customPolicyId: newPolicyId }),
         }),
       ),
     )
@@ -156,7 +184,7 @@ describe('PolicyDetailPage.svelte', () => {
       expect(onSettingsNavigate).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'brain-access-policy',
-          policyId: expect.stringMatching(/^adhoc:[0-9a-f]+$/),
+          policyId: newPolicyId,
         }),
         { replace: true },
       ),
@@ -176,6 +204,9 @@ describe('PolicyDetailPage.svelte', () => {
       vi.mocked(fetch).mockImplementation(
         ((input: RequestInfo | URL, init?: RequestInit) => {
           const u = reqUrl(input)
+          if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
+            return Promise.resolve(new Response(JSON.stringify({ policies: [] }), { status: 200 }))
+          }
           if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
             return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [] }), { status: 200 }))
           }
@@ -290,13 +321,8 @@ describe('PolicyDetailPage.svelte', () => {
   })
 
   it('custom policy with collaborators disables Delete policy', async () => {
-    const customKey = 'brain.brainAccess.customPolicies.v1'
-    const customId = 'custom:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    const customId = 'bqc_with_grant_collab_test'
     const customText = 'custom-text-with-grant'
-    localStorage.setItem(
-      customKey,
-      JSON.stringify([{ id: customId, name: 'With grant', text: customText, colorIndex: 0 }]),
-    )
 
     const grantOnCustom = {
       id: 'gc',
@@ -305,6 +331,8 @@ describe('PolicyDetailPage.svelte', () => {
       askerId: 'a1',
       askerHandle: 'coleague',
       privacyPolicy: customText,
+      presetPolicyKey: null,
+      customPolicyId: customId,
       createdAtMs: 1,
       updatedAtMs: 1,
     }
@@ -312,6 +340,16 @@ describe('PolicyDetailPage.svelte', () => {
     const fetchSpy = vi.mocked(fetch)
     fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const u = reqUrl(input)
+      if (u.includes('/api/brain-query/policies') && (!init?.method || init.method === 'GET')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              policies: [{ id: customId, ownerId: 'o1', label: 'With grant', body: customText, createdAtMs: 1, updatedAtMs: 1 }],
+            }),
+            { status: 200 },
+          ),
+        )
+      }
       if (u.includes('/api/brain-query/grants') && (!init?.method || init.method === 'GET')) {
         return Promise.resolve(new Response(JSON.stringify({ grantedByMe: [grantOnCustom] }), { status: 200 }))
       }
