@@ -13,11 +13,15 @@ import {
   buildB2BResearchPrompt,
   createB2BToolOptions,
   createB2BPreflightAgent,
+  finalizeB2BFilteredText,
   parsePreflightExpectsResponse,
 } from './b2bAgent.js'
 import { getFastBrainLlm, resetBrainLlmCanonicalCacheForTest } from '@server/lib/llm/effectiveBrainLlm.js'
 import { resolveModel } from '@server/lib/llm/resolveModel.js'
-import { loadB2BPreflightTasksFromFile } from '@server/evals/harness/loadJsonlEvalTasks.js'
+import {
+  loadB2BFilterV1TasksFromFile,
+  loadB2BPreflightTasksFromFile,
+} from '@server/evals/harness/loadJsonlEvalTasks.js'
 
 ensurePromptsRoot(fileURLToPath(new URL('../prompts', import.meta.url)))
 
@@ -39,19 +43,20 @@ describe('b2bAgent', () => {
     }
   })
 
-  it('builds a research prompt with owner profile and grant policy', async () => {
+  it('builds a research prompt with owner profile (grant policy is filter-only, not embedded)', async () => {
     const wikiRoot = await mkdtemp(join(tmpdir(), 'b2b-agent-prompt-'))
     try {
       await writeFile(join(wikiRoot, 'me.md'), 'Ken Lay prefers concise leadership updates.\n', 'utf-8')
       const prompt = buildB2BResearchPrompt({
         ownerDisplayName: 'Kenneth Lay',
-        privacyPolicy: 'Do not reveal financial details.',
         wikiRoot,
         timezone: 'America/Chicago',
         promptClock: { tenantUserId: null },
       })
       expect(prompt).toContain('Kenneth Lay')
-      expect(prompt).toContain('Do not reveal financial details.')
+      expect(prompt).toContain('Draft first, policy second')
+      expect(prompt).toContain('privacy-filter step')
+      expect(prompt).not.toContain('<<<BEGIN_B2B_PRIVACY_POLICY>>>')
       expect(prompt).toContain('Ken Lay prefers concise leadership updates.')
       expect(prompt).toContain('Do not expose tool calls')
       expect(prompt).toContain('Single outbound message')
@@ -72,8 +77,8 @@ describe('b2bAgent', () => {
     expect(prompt).toContain('Strip assistant fluff')
   })
 
-  it('b2b-v1.jsonl tasks include anti-assistant finalText guardrails', async () => {
-    const tasks = await loadB2BV1TasksFromFile(join(getEvalRepoRoot(), 'eval/tasks/b2b-v1.jsonl'))
+  it('b2b-e2e.jsonl tasks include anti-assistant finalText guardrails', async () => {
+    const tasks = await loadB2BV1TasksFromFile(join(getEvalRepoRoot(), 'eval/tasks/b2b-e2e.jsonl'))
     expect(tasks.length).toBeGreaterThan(0)
     expect(tasks.every(t => JSON.stringify(t.expect).includes('let me know'))).toBe(true)
   })
@@ -108,6 +113,12 @@ describe('b2bAgent', () => {
     }
   })
 
+  it('finalizeB2BFilteredText falls back only on empty whitespace', () => {
+    expect(finalizeB2BFilteredText('  ok  ')).toBe('ok')
+    expect(finalizeB2BFilteredText('')).toBe("I can't answer that from the access currently granted.")
+    expect(finalizeB2BFilteredText('   \n')).toBe("I can't answer that from the access currently granted.")
+  })
+
   it('parsePreflightExpectsResponse accepts bare JSON and embedded JSON', () => {
     expect(parsePreflightExpectsResponse('{"expectsResponse":false}')).toBe(false)
     expect(parsePreflightExpectsResponse('{"expectsResponse":true}')).toBe(true)
@@ -123,6 +134,17 @@ describe('b2bAgent', () => {
       expect(typeof t.id).toBe('string')
       expect(typeof t.message).toBe('string')
       expect(typeof t.expectsResponse).toBe('boolean')
+    }
+  })
+
+  it('b2b-filter-v1.jsonl loads with id + privacyPolicy + draftAnswer + expect', async () => {
+    const tasks = await loadB2BFilterV1TasksFromFile(join(getEvalRepoRoot(), 'eval/tasks/b2b-filter-v1.jsonl'))
+    expect(tasks.length).toBeGreaterThan(0)
+    for (const t of tasks) {
+      expect(typeof t.id).toBe('string')
+      expect(typeof t.privacyPolicy).toBe('string')
+      expect(typeof t.draftAnswer).toBe('string')
+      expect(t.expect).toBeDefined()
     }
   })
 })

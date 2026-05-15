@@ -40,7 +40,7 @@ Braintunnel demo handles (stored slugs; leading `@` is accepted in UI and normal
 Runs the **whole eval pipeline** with **`BRAIN_DATA_ROOT=./data`**:
 
 1. **Vitest** — `vitest.eval.config.ts` → `src/server/evals/**/*.test.ts`.
-2. **JSONL LLM suites** — Enron v1, **Mail compose v1** (`draft_email`), then Wiki v1 (**wiki-v1.jsonl** ∪ **wiki-kean-v1.jsonl** unless `EVAL_WIKI_TASKS` overrides). Reports under **`data-eval/eval-runs/`**.
+2. **JSONL LLM suites** — Enron v1, **Mail compose v1** (`draft_email`), **B2B E2E** (`b2b-e2e.jsonl`), then Wiki v1 (**wiki-v1.jsonl** ∪ **wiki-kean-v1.jsonl** unless `EVAL_WIKI_TASKS` overrides). Reports under **`data-eval/eval-runs/`**.
 
 **Prerequisites:**
 
@@ -59,41 +59,57 @@ Tasks in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl). Harness matches product
 |-----|---------|
 | `BRAIN_HOME` | Optional override; default Kean tenant under `$BRAIN_DATA_ROOT` |
 | `BRAIN_DATA_ROOT` | Set by `eval:run` to `./data`; required for default brain resolution |
-| `EVAL_MAX_CONCURRENCY` | Parallel cases (default `12`) |
+| `EVAL_MAX_CONCURRENCY` | Parallel cases (default **16**; single source: `src/server/evals/harness/defaultEvalConcurrency.ts`) |
 | `EVAL_CASE_ID` / `--id` | Single task id |
 | `EVAL_TASKS` | Override Enron JSONL path |
 | `EVAL_ASSISTANT_NOW` | Clock for relative mail windows (Enron v1 defaults `2002-01-01` when unset) |
 | `EVAL_AGENT_TRACE` | `1` for per-case `[eval:agent]` JSON lines (tool / turn timeline on stdout) |
 | `BRAIN_RIPMAIL_SUBPROCESS_LOG` | `errors` to quiet successful ripmail subprocess logs |
 
-### B2B tunnel policy eval (LLM-as-judge)
+### B2B evals (all suites in parallel)
 
-[`tasks/b2b-policies.jsonl`](tasks/b2b-policies.jsonl) is generated from the same strings as [`src/client/lib/brainQueryPolicyTemplates.ts`](../src/client/lib/brainQueryPolicyTemplates.ts) so grant text matches the picker. Regenerate after editing templates:
+`npm run eval:b2b` starts **preflight**, **filter**, **research-only**, and **E2E** (`b2b-e2e.jsonl`) as **four parallel workers** (separate processes). Wall time is roughly the **slowest** suite, not the sum. Do not pass `--id` unless that id exists in every suite’s JSONL; use a single-suite command instead.
+
+| Script | Suite |
+|--------|--------|
+| `npm run eval:b2b` | All of the below, parallel |
+| `npm run eval:b2b:preflight` | Preflight classifier only |
+| `npm run eval:b2b:filter` | Privacy filter LLM only (`b2b-filter-v1.jsonl`) — **breadth** for policy/redaction |
+| `npm run eval:b2b:research` | Research agent only (no filter; `b2b-research-v1.jsonl`) — **breadth** for tools |
+| `npm run eval:b2b:e2e` | **Slim full tunnel** — research + filter (`b2b-e2e.jsonl`). Aliases: `eval:b2b:v1`, `eval:b2b:policies` |
+
+Kebab aliases (`eval:b2b-preflight`, etc.) call the same commands as the colon scripts.
+
+Any failing case sets the suite process **exit code to 1** (`runLlmJsonlEval`); `eval:b2b` exits 1 if any worker fails.
+
+### B2B end-to-end eval (slim)
+
+[`tasks/b2b-e2e.jsonl`](tasks/b2b-e2e.jsonl) — **research (tools) + privacy filter**, same production path as the tunnel. Intentionally **few** cases (mixed Kean↔Lay directions, one Trusted travel smoke with **LLM judge**). **Policy presets** and redaction scenarios: use **`eval:b2b:filter`**. **Tooling / mail depth:** use **`eval:b2b:research`**.
+
+Regenerate after changing tasks in `generateB2bE2eJsonl.ts`:
 
 ```bash
-npx tsx --tsconfig tsconfig.server.json src/server/evals/generateB2bPoliciesJsonl.ts
+npx tsx --tsconfig tsconfig.server.json src/server/evals/generateB2bE2eJsonl.ts
 ```
 
-It runs the B2B eval harness with **Ken Lay (asker) → Steve Kean (owner)** and three built-in **`privacyPolicy`** templates (wording is **domain-neutral**—personal coordination and non-work asks are first-class in Trusted/General). The **sample question** is fixed to **late-2001 Enron credit / agency themes** so the seeded mail corpus can answer it; judge rubrics still score against that question in policy-neutral terms. Expectations combine substring/tool checks with **`expect.kind: "llmJudge"`**.
-
 ```bash
-npm run eval:b2b-policies
-# single case (same flags as other eval CLIs):
-npm run eval:b2b-policies -- --id b2b-policy-minimal-kean-lay
+npm run eval:b2b:e2e
+npm run eval:b2b:e2e -- --id b2b-e2e-004-trusted-travel-kean-lay
 ```
 
 | Env | Purpose |
 |-----|---------|
-| `EVAL_B2B_POLICY_TASKS` | Override JSONL path (default `eval/tasks/b2b-policies.jsonl`) |
-| `BRAIN_EVAL_JUDGE_LLM` | Judge model (`provider/model` or nickname); default in code: `openai/gpt-5.4-nano` |
+| `EVAL_B2B_E2E_TASKS` | Override JSONL path (default `eval/tasks/b2b-e2e.jsonl`) |
+| `EVAL_B2B_TASKS` / `EVAL_B2B_POLICY_TASKS` | Legacy overrides (same as E2E path) |
+| `BRAIN_EVAL_JUDGE_LLM` | Judge model when a case uses `llmJudge` |
 
 ### B2B tunnel preflight eval (fast LLM)
 
 [`tasks/b2b-preflight.jsonl`](tasks/b2b-preflight.jsonl) labels whether each inbound tunnel message should run the research+draft pipeline. The harness uses the same preflight agent stack as production: **optional `BRAIN_FAST_LLM`** (cheaper model when set); **when unset, preflight uses `BRAIN_LLM`** (standard tier). No tools. **No ripmail seed** is required.
 
 ```bash
-npm run eval:b2b-preflight
-npm run eval:b2b-preflight -- --id b2b-preflight-thanks
+npm run eval:b2b:preflight
+npm run eval:b2b:preflight -- --id b2b-preflight-thanks
 ```
 
 | Env | Purpose |
@@ -180,7 +196,7 @@ Requires the same Kean ripmail index as mail eval (`./data/usr_enrondemo00000000
 | Script | Purpose |
 |--------|---------|
 | `brain:seed-enron-demo` | Seeds **all three** Enron demo tenants under `./data` (tarball download/cache + ingest). |
-| `eval:run` | Vitest eval slice + Enron v1 + Wiki v1 JSONL (`scripts/eval-run.mjs`). |
+| `eval:run` | Vitest eval slice + Enron v1 + mail compose + **B2B E2E** + Wiki v1 JSONL (`scripts/eval-run.mjs`). |
 
 `npm run ripmail:build`; eval prefers `target/release/ripmail`. Reindex example:
 

@@ -10,6 +10,7 @@ import {
   getEffectiveLlmProviderForEval,
   sanitizeLlmModelIdForFilename,
 } from './effectiveLlmEnv.js'
+import { logJsonlEvalCaseFailure } from './logJsonlEvalCaseFailure.js'
 import { parseEvalMaxConcurrency } from './llmPreflight.js'
 import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
 import { resolveEvalBrainHome } from '../evalDefaultBrainHome.js'
@@ -144,6 +145,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
         )
         const status = r.ok ? 'ok' : 'FAIL'
         console.log(`${logPrefix} ${status}  ${formatCaseLogLine(r)}`)
+        if (!r.ok) logJsonlEvalCaseFailure(logPrefix, r)
         return r
       }),
     ),
@@ -201,5 +203,8 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
     `${logPrefix} done  pass ${pass} / ${caseResults.length}  totalTokens=${sumUsage.totalTokens}  cost~${sumUsage.costTotal.toFixed(4)}  ${Math.round(wallTotalMs)}ms wall`,
   )
   console.log(`${logPrefix} wrote ${outFile}`)
+  if (fail > 0) {
+    process.exitCode = 1
+  }
   return caseResults.length
 }

@@ -13,6 +13,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
+import { DEFAULT_EVAL_JSONL_CONCURRENCY } from './harness/defaultEvalConcurrency.js'
 import { runLlmJsonlEvalMain, getEvalRepoRoot } from './harness/runLlmJsonlEval.js'
 import { resolveEvalBrainHome } from './evalDefaultBrainHome.js'
 import { loadWikiV1TasksFromFile } from './harness/loadJsonlEvalTasks.js'
@@ -227,7 +228,7 @@ export async function runWikiV1Main(): Promise<number> {
     resolveTaskFilePath: () => tasksPathAbsForType,
     loadTasks: loadWikiV1TasksFromFile,
     runCase: task => runWikiEvalCaseSubprocess(task, taskSourceAbsById.get(task.id) ?? tasksPathAbsForType),
-    defaultMaxConcurrency: 12,
+    defaultMaxConcurrency: DEFAULT_EVAL_JSONL_CONCURRENCY,
     formatCaseLogLine: r =>
       `${r.id}  ${Math.round(r.wallMs)}ms  tokens=${r.usage.totalTokens} cost~${r.usage.costTotal.toFixed(4)}  tools=${r.toolNames.join(',')}`,
     caseToReport: (c, task) => ({

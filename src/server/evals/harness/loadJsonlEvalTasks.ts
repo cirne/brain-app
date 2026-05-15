@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline'
 import { createReadStream } from 'node:fs'
-import type { B2BPreflightTask, B2BV1Task, EnronV1Task, WikiV1Task } from './types.js'
+import type { B2BFilterV1Task, B2BPreflightTask, B2BV1Task, EnronV1Task, WikiV1Task } from './types.js'
 import { resolve } from 'node:path'
 
 /**
@@ -33,4 +33,8 @@ export async function loadB2BV1TasksFromFile(absPath: string): Promise<B2BV1Task
 
 export async function loadB2BPreflightTasksFromFile(absPath: string): Promise<B2BPreflightTask[]> {
   return loadJsonlEvalFile<B2BPreflightTask>(absPath)
+}
+
+export async function loadB2BFilterV1TasksFromFile(absPath: string): Promise<B2BFilterV1Task[]> {
+  return loadJsonlEvalFile<B2BFilterV1Task>(absPath)
 }

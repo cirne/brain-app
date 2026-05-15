@@ -72,6 +72,17 @@ export type B2BPreflightTask = {
   expectsResponse: boolean
 }
 
+/**
+ * B2B privacy filter only — one LLM call (`filterB2BResponse` / `b2b/filter.hbs`).
+ * No tools; `expect` is checked against finalized filter output (`finalizeB2BFilteredText`).
+ */
+export type B2BFilterV1Task = {
+  id: string
+  privacyPolicy: string
+  draftAnswer: string
+  expect: EvalExpect
+}
+
 /** Wiki buildout (enrich) or cleanup (lint) agent — see eval/tasks/wiki-v1.jsonl. */
 export type WikiV1Task = {
   id: string

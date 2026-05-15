@@ -37,7 +37,18 @@ const DEFAULT_B2B_EVAL_POLICY = [
   'Summarize rather than quote sensitive source material.',
 ].join('\n')
 
-export async function runB2BEvalCase(task: B2BV1Task): Promise<RunAgentEvalCaseResult> {
+export type RunB2BEvalCaseOptions = {
+  /**
+   * When true, `expect` is checked against the **research draft** only (no `filterB2BResponse` LLM).
+   * Use for JSONL suites that isolate the research agent; full tunnel scoring leaves this unset (filter on).
+   */
+  skipFilter?: boolean
+}
+
+export async function runB2BEvalCase(
+  task: B2BV1Task,
+  options: RunB2BEvalCaseOptions = {},
+): Promise<RunAgentEvalCaseResult> {
   const owner = resolveEnronDemoUserByKey(task.owner)
   const asker = resolveEnronDemoUserByKey(task.asker)
   if (!owner || !asker) {
@@ -113,10 +124,14 @@ export async function runB2BEvalCase(task: B2BV1Task): Promise<RunAgentEvalCaseR
             provider: m.provider,
           }
         }
-        const finalText = await filterB2BResponse({
-          privacyPolicy: grant.privacy_policy,
-          draftAnswer: m.finalText,
-        })
+        const draftText = m.finalText
+        const finalText =
+          options.skipFilter === true
+            ? draftText
+            : await filterB2BResponse({
+                privacyPolicy: grant.privacy_policy,
+                draftAnswer: draftText,
+              })
         const check = await checkExpect(task.expect, finalText, m.toolTextConcat, m.toolNames)
         return {
           id: task.id,

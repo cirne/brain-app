@@ -42,14 +42,12 @@ export function createB2BToolOptions(timezone?: string): CreateAgentToolsOptions
 
 export function buildB2BResearchPrompt(params: {
   ownerDisplayName: string
-  privacyPolicy: string
   wikiRoot: string
   timezone?: string
   promptClock?: PromptClockOptions
 }): string {
   return renderPromptTemplate('b2b/research.hbs', {
     ownerDisplayName: params.ownerDisplayName,
-    privacyPolicy: params.privacyPolicy,
     dateContext: new Handlebars.SafeString(buildDateContext(params.timezone ?? 'UTC', params.promptClock)),
     ownerProfile: new Handlebars.SafeString(meProfilePromptSection(params.wikiRoot)),
   })
@@ -123,12 +121,15 @@ export async function runB2BPreflight(message: string): Promise<boolean> {
   return parsed ?? true
 }
 
-export function createB2BAgent(grant: B2BGrantPolicy, wikiRoot: string, options: B2BAgentOptions): Agent {
+/**
+ * B2B research pass (tools + draft). Per-grant `privacy_policy` is **not** embedded here; callers apply
+ * {@link filterB2BResponse} afterward. `_grant` keeps the call signature stable for callers.
+ */
+export function createB2BAgent(_grant: B2BGrantPolicy, wikiRoot: string, options: B2BAgentOptions): Agent {
   const model = requireStandardBrainLlm()
   const tools = createAgentTools(wikiRoot, createB2BToolOptions(options.timezone))
   const systemPrompt = buildB2BResearchPrompt({
     ownerDisplayName: options.ownerDisplayName,
-    privacyPolicy: grant.privacy_policy,
     wikiRoot,
     timezone: options.timezone,
     promptClock: options.promptClock,
@@ -180,6 +181,14 @@ function lastAssistantTextFromMessages(messages: AgentMessage[] | null | undefin
   return ''
 }
 
+/** User turn for the B2B privacy filter agent (draft is embedded in the system prompt). */
+export const B2B_FILTER_USER_TURN = 'Return the filtered answer.'
+
+/** Product semantics when the filter model returns only whitespace. */
+export function finalizeB2BFilteredText(filteredRaw: string): string {
+  return filteredRaw.trim() || "I can't answer that from the access currently granted."
+}
+
 export async function promptB2BAgentForText(agent: Agent, message: string): Promise<string> {
   let endMessages: AgentMessage[] = []
   await agent.waitForIdle()
@@ -198,6 +207,6 @@ export async function promptB2BAgentForText(agent: Agent, message: string): Prom
 
 export async function filterB2BResponse(params: { privacyPolicy: string; draftAnswer: string }): Promise<string> {
   const agent = createB2BFilterAgent(params.privacyPolicy, params.draftAnswer)
-  const filtered = await promptB2BAgentForText(agent, 'Return the filtered answer.')
-  return filtered.trim() || "I can't answer that from the access currently granted."
+  const filtered = await promptB2BAgentForText(agent, B2B_FILTER_USER_TURN)
+  return finalizeB2BFilteredText(filtered)
 }

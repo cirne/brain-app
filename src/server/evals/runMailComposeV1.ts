@@ -4,6 +4,7 @@
  */
 import { join, resolve } from 'node:path'
 import { runAgentEvalCase } from './harness/runAgentEvalCase.js'
+import { DEFAULT_EVAL_JSONL_CONCURRENCY } from './harness/defaultEvalConcurrency.js'
 import { runLlmJsonlEvalMain } from './harness/runLlmJsonlEval.js'
 import { loadEnronV1TasksFromFile } from './harness/loadJsonlEvalTasks.js'
 import type { EnronV1Task } from './harness/types.js'
@@ -30,7 +31,7 @@ async function runMailComposeV1MainInner(): Promise<number> {
         : join(root, 'eval', 'tasks', 'mail-compose-v1.jsonl'),
     loadTasks: loadEnronV1TasksFromFile,
     runCase: runAgentEvalCase,
-    defaultMaxConcurrency: 12,
+    defaultMaxConcurrency: DEFAULT_EVAL_JSONL_CONCURRENCY,
     formatCaseLogLine: r =>
       `${r.id}  ${Math.round(r.wallMs)}ms  tokens=${r.usage.totalTokens} cost~${r.usage.costTotal.toFixed(4)}`,
     caseToReport: c => ({

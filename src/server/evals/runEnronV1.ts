@@ -1,11 +1,12 @@
 /**
  * Enron v1 eval runner: load JSONL tasks, run with bounded parallelism, write JSON report.
  * CLI: `BRAIN_DATA_ROOT=./data npx tsx src/server/evals/enronV1cli.ts`
- * Env: EVAL_MAX_CONCURRENCY (default 12), EVAL_TASKS (path to jsonl, default eval/tasks/enron-v1.jsonl).
+ * Env: EVAL_MAX_CONCURRENCY (default from `DEFAULT_EVAL_JSONL_CONCURRENCY`), EVAL_TASKS (path to jsonl, default eval/tasks/enron-v1.jsonl).
  * If **EVAL_ASSISTANT_NOW** is unset/empty, sets default **2002-01-01** for the run (see `resolveEvalAnchoredNow` + assistant session date).
  */
 import { join, resolve } from 'node:path'
 import { runAgentEvalCase } from './harness/runAgentEvalCase.js'
+import { DEFAULT_EVAL_JSONL_CONCURRENCY } from './harness/defaultEvalConcurrency.js'
 import { runLlmJsonlEvalMain } from './harness/runLlmJsonlEval.js'
 import { loadEnronV1TasksFromFile } from './harness/loadJsonlEvalTasks.js'
 import type { EnronV1Task } from './harness/types.js'
@@ -31,7 +32,7 @@ async function runEnronV1MainInner(): Promise<number> {
       process.env.EVAL_TASKS ? resolve(process.env.EVAL_TASKS) : join(root, 'eval', 'tasks', 'enron-v1.jsonl'),
     loadTasks: loadEnronV1TasksFromFile,
     runCase: runAgentEvalCase,
-    defaultMaxConcurrency: 12,
+    defaultMaxConcurrency: DEFAULT_EVAL_JSONL_CONCURRENCY,
     formatCaseLogLine: r =>
       `${r.id}  ${Math.round(r.wallMs)}ms  tokens=${r.usage.totalTokens} cost~${r.usage.costTotal.toFixed(4)}`,
     caseToReport: c => ({

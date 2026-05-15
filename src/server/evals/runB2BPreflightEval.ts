@@ -1,4 +1,5 @@
 import { join, resolve } from 'node:path'
+import { DEFAULT_EVAL_JSONL_CONCURRENCY } from './harness/defaultEvalConcurrency.js'
 import { runLlmJsonlEvalMain } from './harness/runLlmJsonlEval.js'
 import { loadB2BPreflightTasksFromFile } from './harness/loadJsonlEvalTasks.js'
 import { runB2BPreflightEvalCase } from './harness/runB2BPreflightEvalCase.js'
@@ -14,7 +15,7 @@ export async function runB2BPreflightEvalMain(): Promise<number> {
         : join(root, 'eval', 'tasks', 'b2b-preflight.jsonl'),
     loadTasks: loadB2BPreflightTasksFromFile,
     runCase: runB2BPreflightEvalCase,
-    defaultMaxConcurrency: 4,
+    defaultMaxConcurrency: DEFAULT_EVAL_JSONL_CONCURRENCY,
     formatCaseLogLine: r =>
       `${r.id}  ${Math.round(r.wallMs)}ms  tokens=${r.usage.totalTokens} cost~${r.usage.costTotal.toFixed(4)}`,
     caseToReport: (c, task) => ({

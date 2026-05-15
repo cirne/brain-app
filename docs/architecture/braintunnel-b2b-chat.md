@@ -99,7 +99,7 @@ Grants CRUD for Hub remains under **`/api/brain-query/grants`** (see [brain-quer
 
 ## Owner-side agent and privacy
 
-Restricted toolset and two-pass **research + filter** for answers: [`b2bAgent.ts`](../../src/server/agent/b2bAgent.ts). Policy text on the grant feeds the filter pass ([brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md)).
+Restricted toolset and two-pass **research + filter** for answers: [`b2bAgent.ts`](../../src/server/agent/b2bAgent.ts). The **research** prompt drafts from tools without embedding the grant policy; **policy text on the grant feeds the filter pass only** ([brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md)).
 
 ---
 
