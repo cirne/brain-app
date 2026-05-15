@@ -24,6 +24,7 @@ import {
   setDefaultSendSource,
   setSourceIncludeInDefault,
 } from '@server/lib/platform/ripmailConfigEdit.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 const hub = new Hono()
 
@@ -86,7 +87,21 @@ hub.post('/sources/update-calendar-ids', async (c) => {
   if (!r.ok) {
     return c.json({ ok: false as const, error: r.error }, 400)
   }
-  void spawnRipmailRefreshSource(id).catch(() => {})
+  const calRefreshStartedAt = Date.now()
+  void spawnRipmailRefreshSource(id).then((r) => {
+    if (!r.ok) {
+      brainLogger.warn(
+        {
+          sourceId: id,
+          lane: 'refresh',
+          context: 'update-calendar-ids',
+          durationMs: Date.now() - calRefreshStartedAt,
+          err: r.error ?? 'refresh failed',
+        },
+        'hub:sources-refresh:failed',
+      )
+    }
+  })
   return c.json({ ok: true as const })
 })
 
@@ -143,9 +158,20 @@ hub.post('/sources/refresh', async (c) => {
   }
   // Same pattern as POST /api/inbox/sync: ripmail can run for RIPMAIL_REFRESH_TIMEOUT_MS — respond
   // immediately so Hub UI (mail + Drive) is not blocked for the full window.
+  const refreshStartedAt = Date.now()
   void spawnRipmailRefreshSource(id).then((r) => {
+    const durationMs = Date.now() - refreshStartedAt
     if (!r.ok) {
-      console.error('[hub/sources/refresh] ripmail refresh failed:', r.error ?? 'refresh failed')
+      brainLogger.warn(
+        {
+          sourceId: id,
+          lane: 'refresh',
+          context: 'sources-refresh',
+          durationMs,
+          err: r.error ?? 'refresh failed',
+        },
+        'hub:sources-refresh:failed',
+      )
     }
   })
   return c.json({ ok: true as const })
@@ -219,13 +245,31 @@ hub.post('/sources/backfill', async (c) => {
     return c.json({ ok: false as const, error: 'invalid backfill window' }, 400)
   }
   const jobId = randomUUID()
+  brainLogger.info(
+    { jobId, sourceId: id, since, lane: 'backfill' },
+    'hub:sources-backfill:accepted',
+  )
+  const backfillStartedAt = Date.now()
   void spawnRipmailBackfillSource(id, since).then((r) => {
+    const durationMs = Date.now() - backfillStartedAt
     if (!r.ok) {
-      console.error(
-        `[hub/sources/backfill] jobId=${jobId} ripmail backfill failed:`,
-        r.error ?? 'backfill failed',
+      brainLogger.warn(
+        {
+          jobId,
+          sourceId: id,
+          since,
+          lane: 'backfill',
+          durationMs,
+          err: r.error ?? 'backfill failed',
+        },
+        'hub:sources-backfill:failed',
       )
+      return
     }
+    brainLogger.info(
+      { jobId, sourceId: id, since, lane: 'backfill', durationMs },
+      'hub:sources-backfill:completed',
+    )
   })
   return c.json({ ok: true as const, jobId })
 })

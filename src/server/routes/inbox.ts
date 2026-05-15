@@ -90,10 +90,19 @@ inbox.post('/sync', async (c) => {
   const doc = await readOnboardingStateDoc()
   const isOnboardingSlice = doc.state === 'not-started' || doc.state === 'indexing'
   const syncFn = isOnboardingSlice ? syncInboxRipmailOnboarding : syncInboxRipmail
+  /** Distinct from Hub `lane: backfill` logs — same underlying `historicalSince` path. */
+  const lane = isOnboardingSlice ? 'onboarding-backfill' : 'refresh-all'
+  const startedAt = Date.now()
   void syncFn(undefined).then((result) => {
-    if (!result.ok) {
-      brainLogger.error({ err: result.error ?? 'inbox sync failed' }, '[inbox/sync] ripmail sync failed')
-    }
+    if (result.ok) return
+    brainLogger.warn(
+      {
+        lane,
+        durationMs: Date.now() - startedAt,
+        err: result.error ?? 'inbox sync failed',
+      },
+      'inbox:sync:failed',
+    )
   })
   return c.json({ ok: true })
 })

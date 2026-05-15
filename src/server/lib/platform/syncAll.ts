@@ -6,6 +6,7 @@ import { ensureGoogleOAuthImapSiblingSources } from './googleOAuth.js'
 import { RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailTimeouts.js'
 import { refresh as ripmailRefresh } from '@server/ripmail/sync/index.js'
 import { syncMailNotifyNotificationsFromRipmailDbSafe } from '@server/lib/notifications/syncMailNotifyNotifications.js'
+import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
 export { ripmailProcessEnv as ripmailRefreshEnv, RIPMAIL_REFRESH_TIMEOUT_MS }
 
@@ -58,7 +59,7 @@ export async function syncCalendarSourcesRipmail(_signal?: AbortSignal): Promise
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (calendar-only refresh):', e)
+    brainLogger.warn({ err: formatExecError(e), context: 'calendar-only-refresh' }, 'sync:ripmail:ensure-oauth-failed')
   }
   const { sources, error } = await getHubRipmailSourcesList()
   if (error) {
@@ -74,7 +75,7 @@ export async function syncCalendarSourcesRipmail(_signal?: AbortSignal): Promise
       await syncMailNotifyNotificationsFromRipmailDbSafe()
     } catch (e) {
       const detail = formatExecError(e)
-      console.error(`[brain-app] ripmail refresh ${id} failed:`, detail)
+      brainLogger.warn({ sourceId: id, err: detail }, 'sync:ripmail:calendar-source-failed')
       return { ok: false, error: detail }
     }
   }
@@ -85,7 +86,7 @@ export async function syncInboxRipmail(_signal?: AbortSignal): Promise<SyncCompo
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources:', e)
+    brainLogger.warn({ err: formatExecError(e), context: 'inbox-sync-all' }, 'sync:ripmail:ensure-oauth-failed')
   }
   try {
     await ripmailRefresh(ripmailHomeForBrain())
@@ -93,24 +94,24 @@ export async function syncInboxRipmail(_signal?: AbortSignal): Promise<SyncCompo
     return { ok: true }
   } catch (e) {
     const detail = formatExecError(e)
-    console.error('[brain-app] ripmail refresh failed:', detail)
+    brainLogger.warn({ err: detail }, 'sync:ripmail:inbox-refresh-failed')
     return { ok: false, error: detail }
   }
 }
 
 function logDetachedRipmailRefreshError(sourceId: string | undefined, e: unknown): void {
   const detail = formatExecError(e)
-  console.error('[brain-app] ripmail refresh continued after early return failed:', {
-    sourceId: sourceId ?? null,
-    error: detail,
-  })
+  brainLogger.warn(
+    { sourceId: sourceId ?? null, err: detail },
+    'sync:ripmail:bounded-detached-failed',
+  )
 }
 
 async function runRipmailRefreshWork(sourceId?: string): Promise<void> {
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (bounded refresh):', e)
+    brainLogger.warn({ err: formatExecError(e), context: 'bounded-refresh' }, 'sync:ripmail:ensure-oauth-failed')
   }
   const sid = sourceId?.trim() || undefined
   await ripmailRefresh(ripmailHomeForBrain(), sid ? { sourceId: sid } : undefined)
@@ -174,7 +175,7 @@ export async function syncInboxRipmailOnboarding(_signal?: AbortSignal): Promise
   try {
     await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (onboarding sync):', e)
+    brainLogger.warn({ err: formatExecError(e), context: 'onboarding-sync' }, 'sync:ripmail:ensure-oauth-failed')
   }
   try {
     await ripmailRefresh(ripmailHomeForBrain(), { historicalSince: '1y' })
@@ -182,7 +183,7 @@ export async function syncInboxRipmailOnboarding(_signal?: AbortSignal): Promise
     return { ok: true }
   } catch (e) {
     const detail = formatExecError(e)
-    console.error('[brain-app] ripmail refresh (onboarding) failed:', detail)
+    brainLogger.warn({ err: detail, lane: 'onboarding-backfill' }, 'sync:ripmail:onboarding-failed')
     return { ok: false, error: detail }
   }
 }
