@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 057 -->
-**Next bug id:** **BUG-057**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 058 -->
+**Next bug id:** **BUG-058**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -47,6 +47,10 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 ### [BUG-055](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md): Agent search: mail-only filters skip non-mail index (e.g. Drive)
 
 **Open (design).** Optional fields like **`from`** / **`since`** can cause **whole indexed sources** (e.g. Google Drive) to be **omitted** when those predicates don’t apply, instead of running **text search** with filters stripped or **timestamps mapped** (mail received vs file modified). See [bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md](bugs/BUG-055-agent-search-cross-source-filters-and-timestamps.md).
+
+### [BUG-057](bugs/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md): Ripmail: backfill/refresh reliability, logging, and UI must match reality
+
+**Open.** Refresh/backfill failures can be invisible in the UI; Hub status omits fields so **`needsBackfill` / `lastUid`** mislead; Gmail short-window bootstrap vs historical pull is easy to confuse. Need structured ops logs (NR), honest API + connector copy, and trackable backfill outcomes. See [bugs/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md](bugs/BUG-057-ripmail-backfill-refresh-reliability-logging-ui.md).
 
 ---
 
