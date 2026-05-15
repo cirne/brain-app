@@ -48,6 +48,11 @@ export type LlmJsonlEvalConfig<TTask extends { id: string }> = {
   ripIndexHint: string
   /** When false, do not require `ripmail/ripmail.db` under eval BRAIN_HOME (e.g. preflight-only suites). */
   requireRipmailDb?: boolean
+  /**
+   * When `EVAL_CASE_ID` is set, default is `t.id === onlyId`.
+   * Override for suites that also match on a parent key (e.g. B2B filter `caseGroupId`).
+   */
+  filterTasksByEvalCaseId?: (allTasks: TTask[], onlyId: string) => TTask[]
 }
 
 /**
@@ -68,6 +73,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
     caseToReport,
     ripIndexHint,
     requireRipmailDb = true,
+    filterTasksByEvalCaseId,
   } = config
 
   /** JSONL evals must not perform real `ripmail send` (set `EVAL_RIPMAIL_SEND_DRY_RUN=0` to allow). */
@@ -119,7 +125,7 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   const onlyId = process.env.EVAL_CASE_ID?.trim()
   let tasks: TTask[] = allTasks
   if (onlyId) {
-    tasks = allTasks.filter(t => t.id === onlyId)
+    tasks = filterTasksByEvalCaseId ? filterTasksByEvalCaseId(allTasks, onlyId) : allTasks.filter(t => t.id === onlyId)
     if (tasks.length === 0) {
       console.log(
         `${logPrefix} Skipping: no case with id ${JSON.stringify(onlyId)} in this suite (${allTasks.length} other case(s) in file).`,

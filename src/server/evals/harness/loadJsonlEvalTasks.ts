@@ -1,7 +1,48 @@
 import { createInterface } from 'node:readline'
 import { createReadStream } from 'node:fs'
-import type { B2BFilterV1Task, B2BPreflightTask, B2BV1Task, EnronV1Task, WikiV1Task } from './types.js'
+import { BRAIN_QUERY_POLICY_TEMPLATES } from '../../../client/lib/brainQueryPolicyTemplates.js'
+import type { BrainQueryBuiltInPolicyId } from '../../../client/lib/brainQueryPolicyTemplates.js'
+import type {
+  B2BFilterEvalJsonlRow,
+  B2BFilterEvalTask,
+  B2BPreflightTask,
+  B2BV1Task,
+  EnronV1Task,
+  WikiV1Task,
+} from './types.js'
 import { resolve } from 'node:path'
+
+/** Order matches built-in policy templates (trusted → general → minimal). */
+export const B2B_FILTER_EVAL_POLICY_ORDER: readonly BrainQueryBuiltInPolicyId[] = [
+  'trusted',
+  'general',
+  'minimal-disclosure',
+] as const
+
+export function expandB2BFilterEvalJsonlRows(rows: B2BFilterEvalJsonlRow[]): B2BFilterEvalTask[] {
+  const policyText = new Map<BrainQueryBuiltInPolicyId, string>()
+  for (const t of BRAIN_QUERY_POLICY_TEMPLATES) {
+    policyText.set(t.id, t.text)
+  }
+  const out: B2BFilterEvalTask[] = []
+  for (const row of rows) {
+    for (const policyId of B2B_FILTER_EVAL_POLICY_ORDER) {
+      const expect = row.expectByPolicy[policyId]
+      if (expect === undefined) {
+        throw new Error(`b2b-filter JSONL row ${JSON.stringify(row.id)} missing expectByPolicy.${policyId}`)
+      }
+      out.push({
+        id: `${row.id}__${policyId}`,
+        caseGroupId: row.id,
+        policyId,
+        privacyPolicy: policyText.get(policyId)!,
+        draftAnswer: row.draftAnswer,
+        expect,
+      })
+    }
+  }
+  return out
+}
 
 /**
  * Load one JSONL file (one JSON object per line; lines starting with # are comments).
@@ -35,6 +76,7 @@ export async function loadB2BPreflightTasksFromFile(absPath: string): Promise<B2
   return loadJsonlEvalFile<B2BPreflightTask>(absPath)
 }
 
-export async function loadB2BFilterV1TasksFromFile(absPath: string): Promise<B2BFilterV1Task[]> {
-  return loadJsonlEvalFile<B2BFilterV1Task>(absPath)
+export async function loadB2BFilterEvalTasksFromFile(absPath: string): Promise<B2BFilterEvalTask[]> {
+  const rows = await loadJsonlEvalFile<B2BFilterEvalJsonlRow>(absPath)
+  return expandB2BFilterEvalJsonlRows(rows)
 }

@@ -2,6 +2,8 @@
  * JSONL eval task expectations (Enron, wiki agents — see eval/tasks/*.jsonl).
  */
 
+import type { BrainQueryBuiltInPolicyId } from '../../../client/lib/brainQueryPolicyTemplates.js'
+
 /** Single clause or composite (all/any). Shared by Enron and wiki JSONL evals. */
 export type EvalExpect =
   | { all: EvalExpect[] }
@@ -73,14 +75,25 @@ export type B2BPreflightTask = {
 }
 
 /**
- * B2B privacy filter only — one LLM call (`filterB2BResponse` / `b2b/filter.hbs`).
- * No tools; `expect` is checked against finalized filter output (`finalizeB2BFilteredText`).
+ * B2B privacy filter eval — one LLM call per row (`filterB2BResponse` / `b2b/filter.hbs`).
+ * JSONL defines one scenario per line; the loader expands it to one task per built-in policy.
  */
-export type B2BFilterV1Task = {
+export type B2BFilterEvalTask = {
+  /** `${caseGroupId}__${policyId}` */
   id: string
+  /** Scenario id from JSONL (use with `EVAL_CASE_ID` to run all three policies). */
+  caseGroupId: string
+  policyId: BrainQueryBuiltInPolicyId
   privacyPolicy: string
   draftAnswer: string
   expect: EvalExpect
+}
+
+/** One line in `eval/tasks/b2b-filter.jsonl` before expansion. */
+export type B2BFilterEvalJsonlRow = {
+  id: string
+  draftAnswer: string
+  expectByPolicy: Record<BrainQueryBuiltInPolicyId, EvalExpect>
 }
 
 /** Wiki buildout (enrich) or cleanup (lint) agent — see eval/tasks/wiki-v1.jsonl. */

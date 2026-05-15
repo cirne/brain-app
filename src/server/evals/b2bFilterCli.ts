@@ -1,7 +1,7 @@
 import { loadEvalEnvAndLlmCli } from './parseEvalLlmCli.js'
 import { runB2BFilterEvalMain } from './runB2BFilterEval.js'
 
-loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/evals/b2bFilterCli.ts [--id b2b-filter-trusted-travel-passthrough]
+loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/evals/b2bFilterCli.ts [--id b2b-filter-travel-passthrough]
 
 Runs B2B tunnel **privacy filter** JSONL evals only (draft answer + policy → one LLM call; same stack as filterB2BResponse).
 No ripmail seed required. Uses BRAIN_LLM (standard tier), same as production filter agent.

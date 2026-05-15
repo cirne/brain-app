@@ -7,7 +7,7 @@ import {
 } from '@server/agent/b2bAgent.js'
 import { checkExpect } from './checkExpect.js'
 import { collectAgentPromptMetrics } from './collectAgentPromptMetrics.js'
-import type { B2BFilterV1Task } from './types.js'
+import type { B2BFilterEvalTask } from './types.js'
 import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
 import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 
@@ -26,7 +26,7 @@ const ZERO: LlmUsageSnapshot = {
  * One `finalizeB2BFilteredText`-wrapped B2B filter LLM call (no research agent, no tools).
  * Matches the filter step in `filterB2BResponse` (prompt + user turn + empty fallback).
  */
-export async function runB2BFilterEvalCase(task: B2BFilterV1Task): Promise<RunAgentEvalCaseResult> {
+export async function runB2BFilterEvalCase(task: B2BFilterEvalTask): Promise<RunAgentEvalCaseResult> {
   const prevSuggestRepair = process.env.BRAIN_SUGGEST_REPLY_REPAIR
   process.env.BRAIN_SUGGEST_REPLY_REPAIR = '0'
   try {

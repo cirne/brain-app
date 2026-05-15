@@ -74,7 +74,7 @@ Tasks in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl). Harness matches product
 |--------|--------|
 | `npm run eval:b2b` | All of the below, parallel |
 | `npm run eval:b2b:preflight` | Preflight classifier only |
-| `npm run eval:b2b:filter` | Privacy filter LLM only (`b2b-filter-v1.jsonl`) — **breadth** for policy/redaction |
+| `npm run eval:b2b:filter` | Privacy filter LLM only (`b2b-filter.jsonl`; each scenario × 3 built-in policies) — **breadth** for policy/redaction |
 | `npm run eval:b2b:research` | Research agent only (no filter; `b2b-research-v1.jsonl`) — **breadth** for tools |
 | `npm run eval:b2b:e2e` | **Slim full tunnel** — research + filter (`b2b-e2e.jsonl`). Aliases: `eval:b2b:v1`, `eval:b2b:policies` |
 

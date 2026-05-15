@@ -19,9 +19,18 @@ import {
 import { getFastBrainLlm, resetBrainLlmCanonicalCacheForTest } from '@server/lib/llm/effectiveBrainLlm.js'
 import { resolveModel } from '@server/lib/llm/resolveModel.js'
 import {
-  loadB2BFilterV1TasksFromFile,
+  B2B_FILTER_EVAL_POLICY_ORDER,
+  loadB2BFilterEvalTasksFromFile,
   loadB2BPreflightTasksFromFile,
+  loadJsonlEvalFile,
 } from '@server/evals/harness/loadJsonlEvalTasks.js'
+import type { B2BFilterEvalJsonlRow, EvalExpect } from '@server/evals/harness/types.js'
+
+function evalExpectHasLlmJudge(e: EvalExpect): boolean {
+  if ('all' in e) return e.all.some(evalExpectHasLlmJudge)
+  if ('any' in e) return e.any.some(evalExpectHasLlmJudge)
+  return 'kind' in e && e.kind === 'llmJudge'
+}
 
 ensurePromptsRoot(fileURLToPath(new URL('../prompts', import.meta.url)))
 
@@ -137,14 +146,25 @@ describe('b2bAgent', () => {
     }
   })
 
-  it('b2b-filter-v1.jsonl loads with id + privacyPolicy + draftAnswer + expect', async () => {
-    const tasks = await loadB2BFilterV1TasksFromFile(join(getEvalRepoRoot(), 'eval/tasks/b2b-filter-v1.jsonl'))
-    expect(tasks.length).toBeGreaterThan(0)
+  it('b2b-filter.jsonl expands each scenario across built-in policies with llmJudge', async () => {
+    const path = join(getEvalRepoRoot(), 'eval/tasks/b2b-filter.jsonl')
+    const rows = await loadJsonlEvalFile<B2BFilterEvalJsonlRow>(path)
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(typeof row.id).toBe('string')
+      expect(typeof row.draftAnswer).toBe('string')
+      for (const pid of B2B_FILTER_EVAL_POLICY_ORDER) {
+        expect(row.expectByPolicy[pid]).toBeDefined()
+        expect(evalExpectHasLlmJudge(row.expectByPolicy[pid]!), `${row.id} / ${pid}`).toBe(true)
+      }
+    }
+    const tasks = await loadB2BFilterEvalTasksFromFile(path)
+    expect(tasks.length).toBe(rows.length * B2B_FILTER_EVAL_POLICY_ORDER.length)
     for (const t of tasks) {
-      expect(typeof t.id).toBe('string')
+      expect(t.id).toBe(`${t.caseGroupId}__${t.policyId}`)
       expect(typeof t.privacyPolicy).toBe('string')
       expect(typeof t.draftAnswer).toBe('string')
-      expect(t.expect).toBeDefined()
+      expect(evalExpectHasLlmJudge(t.expect), t.id).toBe(true)
     }
   })
 })
