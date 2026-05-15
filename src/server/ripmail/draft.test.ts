@@ -215,7 +215,7 @@ describe('ripmail draft reply/forward source validation', () => {
     expect(draft.body).toContain('> Earlier text.')
   })
 
-  it('quotes stripped HTML when indexed body_text is empty', () => {
+  it('quotes turndown text derived from HTML when indexed body_text is empty', () => {
     insertMessage({
       messageId: '<msg-html>',
       fromAddress: 'html@example.com',
@@ -227,7 +227,7 @@ describe('ripmail draft reply/forward source validation', () => {
     const draft = draftReply(db, ripmailHome, { messageId: 'msg-html', body: 'Got it.' })
 
     expect(draft.body).toContain('Got it.')
-    expect(draft.body).toMatch(/>\s*Hello\s+world/)
+    expect(draft.body).toContain('> Hello **world**')
   })
 
   it('throws and saves nothing when a forward source message is not indexed', () => {

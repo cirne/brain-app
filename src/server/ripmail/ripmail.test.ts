@@ -628,6 +628,28 @@ describe('readMail', () => {
     expect(r!.bodyText).toContain('quick brown fox')
   })
 
+  /**
+   * Regression: messages indexed with empty `body_text` but populated `body_html` (common for HTML-only
+   * marketing/notification mail) must still yield agent-visible plaintext — otherwise `read_mail_message`
+   * returns empty `bodyText` while the inbox UI renders HTML (feedback #19 / NetJets tail notification).
+   */
+  it('derives agent-visible body text from stored HTML when body_text is empty', () => {
+    insertMessage(db, {
+      subject: 'N866QS - NetJets Tail Number Notification',
+      bodyText: '',
+      bodyHtml:
+        '<html><body><p>Aircraft type: <strong>Gulfstream G650</strong></p><p>Tail number: N866QS</p></body></html>',
+      messageId: '<html-only-body@test>',
+    })
+    const r = readMail(db, 'html-only-body@test')
+    expect(r).not.toBeNull()
+    const text = (r!.bodyText ?? '').trim()
+    expect(text.length).toBeGreaterThan(0)
+    expect(text).toMatch(/Gulfstream/)
+    expect(text).toMatch(/N866QS/)
+    expect(r!.bodyHtml).toBeUndefined()
+  })
+
   it('returns stored HTML body only when requested', () => {
     insertMessage(db, {
       subject: 'HTML body test',

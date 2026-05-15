@@ -15,6 +15,7 @@ import {
   visualArtifactFromIndexedFileResult,
 } from './visualArtifacts.js'
 import { readGoogleDriveFileBodyCached } from './sync/googleDriveReadBody.js'
+import { htmlToAgentMarkdown } from '../lib/htmlToAgentMarkdown.js'
 
 interface MessageRow {
   message_id: string
@@ -181,7 +182,11 @@ export function readMail(
       : attachments
 
   let bodyText: string | undefined = row.body_text ?? undefined
-  if (opts?.plainBody === false) bodyText = undefined
+  if (opts?.plainBody === false) {
+    bodyText = undefined
+  } else if (!(bodyText ?? '').trim() && row.body_html?.trim()) {
+    bodyText = htmlToAgentMarkdown(row.body_html)
+  }
   const bodyHtml = opts?.includeHtml && row.body_html?.trim() ? row.body_html : undefined
 
   return {
