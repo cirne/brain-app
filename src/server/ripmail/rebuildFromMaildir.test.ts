@@ -9,6 +9,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { closeRipmailDb, openRipmailDb } from './db.js'
+
+const { parseEmlMock, delegateToActualParseEml } = vi.hoisted(() => {
+  async function delegateToActualParseEml(
+    raw: Buffer | string,
+    rawPath: string,
+    opts: { folder: string; uid: number; sourceId: string; labels?: string[]; category?: string },
+  ) {
+    const mod = await vi.importActual<typeof import('./sync/parse.js')>('./sync/parse.js')
+    return mod.parseEml(raw, rawPath, opts)
+  }
+  return { parseEmlMock: vi.fn(delegateToActualParseEml), delegateToActualParseEml }
+})
+
+vi.mock('./sync/parse.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./sync/parse.js')>()
+  return { ...actual, parseEml: parseEmlMock as typeof actual.parseEml }
+})
+
 import {
   collectEmlPaths,
   inferMailboxIdFromMaildirRoot,
@@ -197,5 +215,47 @@ describe('rebuildIndexFromMaildir', () => {
     expect(db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
 
     closeRipmailDb(ripHome)
+  })
+
+  /**
+   * Staging: rebuild child failed with TypeError when mailparser (or similar) yielded a non-string
+   * contentType — `att.mimeType?.trim()` still calls `.trim` on non-strings. See NR `ripmail:rebuild:child-failed`.
+   */
+  it('rebuild insert tolerates non-string attachment mimeType (mailparser edge)', async () => {
+    parseEmlMock.mockImplementation(async (raw, rawPath, opts) => {
+      const base = await delegateToActualParseEml(raw, rawPath, opts)
+      return {
+        ...base,
+        attachments: [
+          {
+            filename: 'doc.bin',
+            // e.g. numeric or structured Content-Type leaking through — must not throw in insert trx
+            mimeType: 42 as unknown as string,
+            size: 100,
+            storedPath: '',
+          },
+        ],
+      }
+    })
+
+    const root = mkdtempSync(join(tmpdir(), 'brain-rebuild-mime-'))
+    cleanup = root
+    const ripHome = join(root, 'rip')
+    const mbId = 'eval_mail_com'
+    const maildir = join(ripHome, mbId, 'maildir', 'cur')
+    mkdirSync(maildir, { recursive: true })
+    writeFileSync(join(maildir, '0000001.eml'), SAMPLE_EML)
+
+    try {
+      const n = await rebuildIndexFromMaildir(ripHome, join(ripHome, mbId, 'maildir'))
+      expect(n).toBe(1)
+
+      const db = openRipmailDb(ripHome)
+      const att = db.prepare(`SELECT mime_type FROM attachments`).get() as { mime_type: string }
+      expect(att.mime_type).toBe('application/octet-stream')
+      closeRipmailDb(ripHome)
+    } finally {
+      parseEmlMock.mockImplementation(delegateToActualParseEml)
+    }
   })
 })

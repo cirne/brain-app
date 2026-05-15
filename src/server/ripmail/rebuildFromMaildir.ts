@@ -441,7 +441,13 @@ export async function appendMaildirToOpenDb(
       upsertThread.run(mid, row.msg.subject, row.msg.date)
 
       for (const att of row.msg.attachments) {
-        const mime = att.mimeType?.trim() ? att.mimeType : mimeFromExt(att.filename)
+        let mime: string
+        if (typeof att.mimeType === 'string') {
+          const t = att.mimeType.trim()
+          mime = t.includes('/') ? t : mimeFromExt(att.filename)
+        } else {
+          mime = mimeFromExt(att.filename)
+        }
         insertAttachment.run(mid, att.filename, mime, att.size, '')
       }
       inserted += 1
