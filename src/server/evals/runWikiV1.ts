@@ -1,5 +1,5 @@
 /**
- * Wiki buildout + cleanup (lint) eval: load JSONL tasks, one subprocess per case (isolated
+ * Wiki execute (buildout/execute alias), survey, and cleanup (lint) eval: load JSONL tasks, one subprocess per case (isolated
  * `BRAIN_WIKI_ROOT` under `.data-eval/wiki-eval-cases/<task-id>/`, persisted for inspection), JSON report.
  * CLI: `npx tsx src/server/evals/wikiV1cli.ts`
  * Env: EVAL_WIKI_TASKS or EVAL_TASKS (path), EVAL_MAX_CONCURRENCY, BRAIN_HOME, EVAL_SUBPROCESS_REPORT_FILE (worker only)

@@ -43,9 +43,12 @@ export interface CreateAgentToolsOptions {
   timezone?: string
   /**
    * When `forbidden`, **`write`** rejects targets that do not already exist on disk (wiki buildout — archived OPP-067).
+   * When `planAllowlist`, new paths must appear in {@link wikiWriteAllowlist} (lowercase vault-relative).
    * @default 'allowed'
    */
   wikiWriteCreates?: WikiWriteCreatesPolicy
+  /** When {@link wikiWriteCreates} is `planAllowlist`, allowed **new** `write` paths (normalized lowercase). */
+  wikiWriteAllowlist?: readonly string[]
   /**
    * When set, **`calendar`** tool only allows these `op` values (onboarding interview guardrail).
    */
@@ -70,8 +73,15 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
   const unifiedWikiRoot = options?.unifiedWikiRoot ?? wikiDir
+  const allow =
+    options?.wikiWriteCreates === 'planAllowlist'
+      ? new Set((options.wikiWriteAllowlist ?? []).map((p) => p.replace(/\\/g, '/').trim().toLowerCase()))
+      : undefined
   const { read, edit, write, grep, find } = createWikiScopedPiTools(wikiDir, {
     wikiWriteCreates: options?.wikiWriteCreates ?? 'allowed',
+    ...(options?.wikiWriteCreates === 'planAllowlist'
+      ? { writeAllowlistRelPaths: allow ?? new Set() }
+      : {}),
     unifiedWikiRoot,
   })
 

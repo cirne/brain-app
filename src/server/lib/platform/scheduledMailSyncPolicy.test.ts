@@ -39,7 +39,10 @@ describe('shouldDeferScheduledRipmailRefreshForTenant', () => {
     ).toBe(false)
   })
 
-  it('defers enriching/cleaning for lap >= 2 when this tenant owns the loop', () => {
+  it('defers surveying/enriching/cleaning for lap >= 2 when this tenant owns the loop', () => {
+    expect(
+      shouldDeferScheduledRipmailRefreshForTenant('usr_abc', baseSup, { phase: 'surveying', lap: 2 }),
+    ).toBe(true)
     expect(
       shouldDeferScheduledRipmailRefreshForTenant('usr_abc', baseSup, { phase: 'enriching', lap: 2 }),
     ).toBe(true)
@@ -48,7 +51,10 @@ describe('shouldDeferScheduledRipmailRefreshForTenant', () => {
     ).toBe(true)
   })
 
-  it('does not defer lap 1 enriching — supervisor skips its own pre-lap refresh on first lap', () => {
+  it('does not defer lap 1 — supervisor skips its own pre-lap refresh on first lap', () => {
+    expect(
+      shouldDeferScheduledRipmailRefreshForTenant('usr_abc', baseSup, { phase: 'surveying', lap: 1 }),
+    ).toBe(false)
     expect(
       shouldDeferScheduledRipmailRefreshForTenant('usr_abc', baseSup, { phase: 'enriching', lap: 1 }),
     ).toBe(false)

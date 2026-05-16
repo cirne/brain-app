@@ -1,19 +1,5 @@
 /** Matches supervisor phases in `BackgroundRunDoc` / Your Wiki UI. */
-export type YourWikiPhase = 'starting' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
-
-/** OPP-095 persisted `wiki-bootstrap.json` status (subset for Hub). */
-export type WikiBootstrapBackgroundSlice = {
-  status: 'not-started' | 'running' | 'completed' | 'failed'
-  completedAt: string | null
-  skipped?: boolean
-  stats?: {
-    peopleCreated: number
-    projectsCreated: number
-    topicsCreated: number
-    travelCreated: number
-  }
-  lastError?: string
-}
+export type YourWikiPhase = 'starting' | 'surveying' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
 
 /** Unified Hub / tooling snapshot (GET `/api/background-status`). */
 export type BackgroundStatusResponse = {
@@ -28,6 +14,8 @@ export type BackgroundStatusResponse = {
     backfillListedTarget?: number | null
     configured: boolean
     dateRange: { from: string | null; to: string | null }
+    /** Oldest indexed message is at least `WIKI_SUPERVISOR_MIN_INDEXED_HISTORY_DAYS` before now. */
+    indexedHistoryDepthOk: boolean
     phase1Complete: boolean
     phase2Complete: boolean
     syncRunning: boolean
@@ -51,10 +39,8 @@ export type BackgroundStatusResponse = {
     currentLap: number
     detail: string
     lastRunAt: string | null
-    /** Mailbox configured and indexed mail ≥ wiki buildout gate — supervisor auto-start may fire (not tied to onboarding `done`). */
+    /** Mailbox passes wiki supervisor preflight (`wikiSupervisorMailPreflightPasses`: configured, indexed count, 90d history depth). Supervisor auto-start may fire; not tied to onboarding `done`. */
     autoStartEligible: boolean
-    /** OPP-095 first-draft bootstrap disk state (before continuous enrich/cleanup laps). */
-    bootstrap: WikiBootstrapBackgroundSlice
     /** Lap ran without a confirmed-fresh mail refresh (timeout or error). */
     lapMailSyncStale?: boolean
     error?: string

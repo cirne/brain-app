@@ -59,6 +59,7 @@
 
   const isLive = $derived(
     wikiDoc?.phase === 'starting' ||
+      wikiDoc?.phase === 'surveying' ||
       wikiDoc?.phase === 'enriching' ||
       wikiDoc?.phase === 'cleaning',
   )
@@ -78,6 +79,7 @@
     }
     const phase = d.phase
     if (phase === 'starting') return $t('onboarding.seedingInterstitial.mobileStatus.starting')
+    if (phase === 'surveying') return $t('onboarding.seedingInterstitial.mobileStatus.surveying')
     if (phase === 'enriching') return $t('onboarding.seedingInterstitial.mobileStatus.enriching')
     if (phase === 'cleaning') return $t('onboarding.seedingInterstitial.mobileStatus.cleaning')
     return $t('onboarding.common.working')

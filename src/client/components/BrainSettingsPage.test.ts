@@ -55,6 +55,7 @@ function defaultFetchHandler(): typeof fetch {
               messageAvailableForProgress: null,
               configured: false,
               dateRange: { from: null, to: null },
+              indexedHistoryDepthOk: false,
               phase1Complete: false,
               phase2Complete: false,
               syncRunning: false,
@@ -74,7 +75,6 @@ function defaultFetchHandler(): typeof fetch {
               detail: '',
               lastRunAt: null,
               autoStartEligible: false,
-              bootstrap: { status: 'not-started', completedAt: null },
             },
             onboarding: {
               state: 'done',

@@ -13,7 +13,7 @@ export type BackgroundTimelineEvent = {
 }
 
 /** Mirrors server `YourWikiPhase`. */
-export type YourWikiPhase = 'starting' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
+export type YourWikiPhase = 'starting' | 'surveying' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
 
 /** Mirrors server `LlmUsageSnapshot` — keep in sync with `src/server/lib/llmUsage.ts`. */
 export type LlmUsageSnapshot = {

@@ -94,7 +94,7 @@ function resolvePromptClock(
 /**
  * Single place for onboarding **session IANA timezone**: system prompts and `createAgentTools` calendar enrichment.
  * - **`interview`:** use client-provided TZ when present; otherwise the host default (historic behavior).
- * - **`profiling` / `buildout` / `bootstrap`:** client TZ when present; otherwise **UTC**.
+ * - **`profiling` / `buildout`:** client TZ when present; otherwise **UTC**.
  */
 export function resolveOnboardingSessionTimezone(
   variant: OnboardingAgentToolVariant,
@@ -171,7 +171,6 @@ export type CreateOnboardingAgentOptions = {
   /**
    * `profiling` omits web/video tools on top of the shared onboarding base.
    * `interview` — OPP-054 guided onboarding (allowlisted tools).
-   * `bootstrap` — OPP-095 first-draft wiki (**`write`** allowed for bounded new pages once).
    * Default: `buildout`.
    */
   variant?: OnboardingAgentToolVariant
@@ -182,7 +181,9 @@ export type CreateOnboardingAgentOptions = {
    * for `calendar` tool enrichment defaults.
    */
   timezone?: string
-  /** Hydrate from persisted `/api/chat` JSON (unified initial bootstrap continuing same session). */
+  /** For `execute` variant only — lowercase normalized paths permitted for new-file `write`. */
+  wikiWriteAllowlist?: readonly string[]
+  /** Hydrate from persisted chat (e.g. initial bootstrap session). */
   initialMessages?: AgentMessage[]
 }
 
@@ -201,11 +202,19 @@ export function createOnboardingAgent(
     includeLocalMessageTools,
     extraOmit: options?.extraOmitToolNames,
   })
-  const toolTimezone = resolveOnboardingSessionTimezone(variant, options?.timezone)
+  const toolTimezone = resolveOnboardingSessionTimezone(
+    variant === 'survey' || variant === 'execute' ? 'buildout' : variant,
+    options?.timezone,
+  )
+  const wikiWriteCreates: import('./tools/wikiScopedFsTools.js').WikiWriteCreatesPolicy =
+    variant === 'execute' ? 'planAllowlist' : variant === 'buildout' ? 'forbidden' : 'allowed'
   const tools = createAgentTools(wikiRoot, {
     ...toolOpts,
     timezone: toolTimezone,
-    wikiWriteCreates: variant === 'buildout' ? 'forbidden' : 'allowed',
+    wikiWriteCreates,
+    ...(variant === 'execute'
+      ? { wikiWriteAllowlist: options?.wikiWriteAllowlist ?? [] }
+      : {}),
     ...(variant === 'interview'
       ? { calendarAllowedOps: ['list_calendars', 'configure_source'] as const }
       : {}),

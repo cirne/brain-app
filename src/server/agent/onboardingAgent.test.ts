@@ -33,49 +33,42 @@ describe('buildWikiBuildoutFirstRunScopeNote', () => {
 })
 
 describe('buildWikiBuildoutSystemPrompt', () => {
-  it('grounds buildout in mail + wiki read tools (first run)', () => {
+  it('describes wiki execute agent and first-run vault scope', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
     const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', userPage, {
       isFirstBuildoutRun: true,
     })
+    expect(p).toMatch(/wiki execute/i)
+    expect(p).toMatch(/validated lap plan/i)
     expect(p).toMatch(/`read`.*`grep`.*`find`/i)
-    expect(p).toMatch(/never `wiki\/me\.md`/i)
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
     expect(p).toContain('web_search')
     expect(p).toContain('fetch_page')
-    expect(p).toMatch(/Parallel edits/i)
-    expect(p).toMatch(/grep.*verify link targets/i)
-    expect(p).toMatch(/compact/i)
     expect(p).toContain('people/lewis-cirne.md')
     expect(p).toMatch(/starter layout/i)
     expect(p).toMatch(/template\.md/i)
     expect(p).not.toMatch(/Optional interview focus/i)
     expect(p).not.toContain('- cats')
     expect(p).toMatch(/Obsidian-style/i)
-    expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
-    expect(p).toMatch(/newest relevant/i)
-    expect(p).toMatch(/conflict.*latest dated/i)
     expect(p).toMatch(/Contact.*Identifiers/i)
     expect(p).toMatch(/Never.*invent phone/i)
-    expect(p).not.toContain('list_recent_messages')
   })
 
-  it('omits starter layout after first run', () => {
+  it('uses returning scope on later laps (no starter layout block)', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
     const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', userPage, {
       isFirstBuildoutRun: false,
     })
-    expect(p).toMatch(/\*\*later\*\* enrichment pass/i)
-    expect(p).toMatch(/vault manifest/i)
+    expect(p).toMatch(/\*\*later\*\* lap/i)
+    expect(p).toMatch(/injected plan/i)
     expect(p).not.toMatch(/starter layout/i)
     expect(p).not.toMatch(/Optional interview focus/i)
-    expect(p).toMatch(/wiki-edits\.jsonl/i)
   })
 
   it('exposes returning scope copy via buildWikiBuildoutReturningScopeNote', () => {
     const n = buildWikiBuildoutReturningScopeNote()
-    expect(n).toMatch(/vault manifest/i)
+    expect(n).toMatch(/injected plan/i)
     expect(n).not.toMatch(/template\.md/i)
   })
 
@@ -89,11 +82,11 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/Local Messages \(optional\)/i)
   })
 
-  it('when user people page is unknown, instructs not to create account-holder page', () => {
+  it('when user people page is unknown, focuses on plan-listed paths only', () => {
     const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', null, {
       isFirstBuildoutRun: true,
     })
-    expect(p).toMatch(/do not create one/i)
+    expect(p).toMatch(/plan-listed paths only/i)
   })
 })
 

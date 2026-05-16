@@ -10,6 +10,7 @@ export function onboardingMailStatusFromBackground(
     indexedTotal: m.indexedTotal,
     lastSyncedAt: m.lastSyncedAt,
     dateRange: m.dateRange,
+    indexedHistoryDepthOk: m.indexedHistoryDepthOk,
     syncRunning: m.syncRunning,
     refreshRunning: m.refreshRunning,
     backfillRunning: m.backfillRunning,

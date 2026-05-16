@@ -168,7 +168,12 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
   return out
 }
 
-export type OnboardingAgentToolVariant = 'buildout' | 'bootstrap' | 'profiling' | 'interview'
+export type OnboardingAgentToolVariant =
+  | 'buildout'
+  | 'profiling'
+  | 'interview'
+  | 'survey'
+  | 'execute'
 
 /**
  * Guided onboarding interview: mail + wiki + optional web_search + calendar list/configure only
@@ -184,7 +189,7 @@ export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'read_mail_message',
   'read_indexed_file',
   'find_person',
-  /** Round out people/project context when mail shows importance but detail is thin (bootstrap onboarding). */
+  /** Round out people/project context when mail shows importance but detail is thin (interview onboarding). */
   'web_search',
   /** Default calendar selection before first chat (`list_calendars` / `configure_source` only at runtime). */
   'calendar',
@@ -223,7 +228,7 @@ function omitForOnboardingVariant(variant: OnboardingAgentToolVariant): readonly
   if (variant === 'profiling') {
     return mergeOmitToolNames(ONBOARDING_BASE_OMIT, ONBOARDING_PROFILING_EXTRA_OMIT)
   }
-  if (variant === 'interview') {
+  if (variant === 'interview' || variant === 'survey') {
     // Satisfied via onlyToolNames in buildCreateAgentToolsOptions; unreachable for omit list.
     return []
   }
@@ -266,6 +271,25 @@ export function buildCreateAgentToolsOptions(args: {
     return {
       includeLocalMessageTools: false,
       onlyToolNames: ONBOARDING_INTERVIEW_ONLY,
+    }
+  }
+
+  if (preset === 'onboarding' && onboardingVariant === 'survey') {
+    const surveyTools: AgentToolName[] = [
+      'read',
+      'grep',
+      'find',
+      'search_index',
+      'read_mail_message',
+      'read_indexed_file',
+      'find_person',
+    ]
+    if (includeLocalMessageTools) {
+      surveyTools.push('list_recent_messages', 'get_message_thread')
+    }
+    return {
+      includeLocalMessageTools: includeLocalMessageTools ?? false,
+      onlyToolNames: surveyTools,
     }
   }
 

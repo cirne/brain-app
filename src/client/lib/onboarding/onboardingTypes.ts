@@ -18,6 +18,8 @@ export type OnboardingMailStatus = {
   messageAvailableForProgress: number | null
   /** Gmail historical lane listed-ID target while `backfillRunning`. */
   backfillListedTarget?: number | null
+  /** True when oldest indexed message is at least `WIKI_SUPERVISOR_MIN_INDEXED_HISTORY_DAYS` before now. */
+  indexedHistoryDepthOk?: boolean
   /** Ripmail still has mail to pull; sync is idle — good time to kick `refresh`. */
   pendingBackfill?: boolean
   /** Gmail extended historical sync (~1y) may still add mail while lanes look idle. */

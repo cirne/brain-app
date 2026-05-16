@@ -1,30 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as onboardingMailStatus from '@server/lib/onboarding/onboardingMailStatus.js'
 import type { OnboardingMailStatusPayload } from '@server/lib/onboarding/onboardingMailStatus.js'
-import * as onboardingState from '@server/lib/onboarding/onboardingState.js'
 
 const { mockEnsure } = vi.hoisted(() => ({
   mockEnsure: vi.fn().mockResolvedValue(undefined),
 }))
 
-const { mockEnqueue } = vi.hoisted(() => ({
-  mockEnqueue: vi.fn().mockResolvedValue(undefined),
-}))
-
-vi.mock('@server/agent/yourWikiSupervisor.js', () => ({
+vi.mock('@server/agent/yourWikiSupervisor.js', (): { ensureYourWikiRunning: () => Promise<void> } => ({
   ensureYourWikiRunning: mockEnsure,
 }))
 
-vi.mock('@server/agent/wikiBootstrapRunner.js', () => ({
-  enqueueWikiBootstrap: mockEnqueue,
-}))
+const MS_PER_DAY = 86_400_000
+
+/** Oldest indexed date far enough for `wikiSupervisorMailPreflightPasses` (90d rule). */
+const DEEP_MAIL_FROM = '2015-01-01T00:00:00.000Z'
 
 function mail(overrides: Partial<OnboardingMailStatusPayload> = {}): OnboardingMailStatusPayload {
   const base: OnboardingMailStatusPayload = {
     configured: true,
     indexedTotal: 1000,
     lastSyncedAt: null,
-    dateRange: { from: null, to: null },
+    dateRange: { from: DEEP_MAIL_FROM, to: '2026-01-15T12:00:00.000Z' },
     syncRunning: false,
     refreshRunning: false,
     backfillRunning: false,
@@ -44,17 +40,10 @@ function mail(overrides: Partial<OnboardingMailStatusPayload> = {}): OnboardingM
 }
 
 describe('kickWikiSupervisorIfIndexedGatePasses', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockEnsure.mockClear()
-    mockEnqueue.mockClear()
-    vi.spyOn(onboardingState, 'readWikiBootstrapState').mockResolvedValue({
-      status: 'completed',
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      completedAt: '2026-01-01T00:00:00.000Z',
-      stats: { peopleCreated: 0, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
-    })
-    delete process.env.WIKI_BOOTSTRAP_SKIP
+    const mod = await import('./wikiKickAfterOnboardingDone.js')
+    mod._resetWikiKickHistoryThrottleForTests()
   })
   afterEach(() => {
     vi.restoreAllMocks()
@@ -87,61 +76,48 @@ describe('kickWikiSupervisorIfIndexedGatePasses', () => {
     expect(mockEnsure).toHaveBeenCalledTimes(1)
   })
 
+  it('does nothing when indexed history is too shallow even if count passes', async () => {
+    const recent = new Date(Date.now() - 10 * MS_PER_DAY).toISOString()
+    vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(
+      mail({
+        indexedTotal: 5000,
+        ftsReady: 5000,
+        dateRange: { from: recent, to: new Date().toISOString() },
+      }),
+    )
+    const { kickWikiSupervisorIfIndexedGatePasses } = await import('./wikiKickAfterOnboardingDone.js')
+    await kickWikiSupervisorIfIndexedGatePasses()
+    expect(mockEnsure).not.toHaveBeenCalled()
+  })
+
+  it('throttles repeated kicks while history stays shallow', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-15T12:00:00.000Z').getTime())
+    try {
+      const recent = new Date(Date.now() - 10 * MS_PER_DAY).toISOString()
+      const spy = vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(
+        mail({
+          indexedTotal: 5000,
+          ftsReady: 5000,
+          dateRange: { from: recent, to: new Date().toISOString() },
+        }),
+      )
+      const { kickWikiSupervisorIfIndexedGatePasses } = await import('./wikiKickAfterOnboardingDone.js')
+      await kickWikiSupervisorIfIndexedGatePasses()
+      await kickWikiSupervisorIfIndexedGatePasses()
+      expect(spy).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(3 * 60_000 + 1)
+      await kickWikiSupervisorIfIndexedGatePasses()
+      expect(spy).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('calls ensureYourWikiRunning when configured and indexed at threshold', async () => {
     vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mail())
     const { kickWikiSupervisorIfIndexedGatePasses } = await import('./wikiKickAfterOnboardingDone.js')
     await kickWikiSupervisorIfIndexedGatePasses()
-    expect(mockEnsure).toHaveBeenCalledTimes(1)
-    expect(mockEnqueue).not.toHaveBeenCalled()
-  })
-
-  it('runs enqueueWikiBootstrap when bootstrap has not started yet', async () => {
-    vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mail())
-    vi.spyOn(onboardingState, 'readWikiBootstrapState')
-      .mockResolvedValueOnce({
-        status: 'not-started',
-        version: 1,
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      })
-      .mockResolvedValueOnce({
-        status: 'completed',
-        version: 1,
-        updatedAt: '2026-01-01T00:00:00.000Z',
-        completedAt: '2026-01-01T00:00:00.000Z',
-        stats: { peopleCreated: 1, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
-      })
-    const { kickWikiSupervisorIfIndexedGatePasses } = await import('./wikiKickAfterOnboardingDone.js')
-    await kickWikiSupervisorIfIndexedGatePasses()
-    expect(mockEnqueue).toHaveBeenCalledTimes(1)
-    expect(mockEnsure).toHaveBeenCalledTimes(1)
-  })
-
-  it('defers supervisor while bootstrap is running', async () => {
-    vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mail())
-    vi.spyOn(onboardingState, 'readWikiBootstrapState').mockResolvedValue({
-      status: 'running',
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    })
-    const { kickWikiSupervisorIfIndexedGatePasses } = await import('./wikiKickAfterOnboardingDone.js')
-    await kickWikiSupervisorIfIndexedGatePasses()
-    expect(mockEnsure).not.toHaveBeenCalled()
-    expect(mockEnqueue).not.toHaveBeenCalled()
-  })
-
-  it('starts supervisor when WIKI_BOOTSTRAP_SKIP without enqueue', async () => {
-    process.env.WIKI_BOOTSTRAP_SKIP = 'true'
-    vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mail())
-    vi.spyOn(onboardingState, 'readWikiBootstrapState').mockResolvedValue({
-      status: 'not-started',
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    })
-    const markSkipped = vi.spyOn(onboardingState, 'markWikiBootstrapSkipped').mockResolvedValue(undefined)
-    const { kickWikiSupervisorIfIndexedGatePasses } = await import('./wikiKickAfterOnboardingDone.js')
-    await kickWikiSupervisorIfIndexedGatePasses()
-    expect(markSkipped).toHaveBeenCalled()
-    expect(mockEnqueue).not.toHaveBeenCalled()
     expect(mockEnsure).toHaveBeenCalledTimes(1)
   })
 })

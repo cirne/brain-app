@@ -98,6 +98,7 @@
     "yourWikiLabel": "Your Wiki",
     "mobileStatus": {
       "starting": "Starting…",
+      "surveying": "Surveying wiki…",
       "enriching": "Enriching pages…",
       "cleaning": "Cleaning up…"
     }

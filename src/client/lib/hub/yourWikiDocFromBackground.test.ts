@@ -12,10 +12,6 @@ describe('buildInitialYourWikiDocFromWikiSlice', () => {
       detail: 'Working',
       lastRunAt: '2026-05-01T12:00:00Z',
       autoStartEligible: true,
-      bootstrap: {
-        status: 'not-started',
-        completedAt: null,
-      },
       error: undefined,
     }
     const d = buildInitialYourWikiDocFromWikiSlice(wiki, '2026-05-01T11:00:00Z')

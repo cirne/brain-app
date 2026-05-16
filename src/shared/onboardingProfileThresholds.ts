@@ -8,6 +8,12 @@ export const ONBOARDING_PROFILE_INDEX_AUTOPROCEED = ONBOARDING_PROFILE_INDEX_MAN
 export const WIKI_BUILDOUT_MIN_MESSAGES = 1000
 
 /**
+ * Your Wiki supervisor also waits until the **oldest** indexed message is at least this many days before
+ * “now” (wall clock), so survey is not dominated by a thin recent slice. See `wikiSupervisorMailPreflightPasses` in `wikiMailIndexedHistoryGate.ts`.
+ */
+export const WIKI_SUPERVISOR_MIN_INDEXED_HISTORY_DAYS = 90
+
+/**
  * Historical: server once rejected `indexing` → `onboarding-agent` while `backfillRunning`.
  * Interview advances on indexed threshold (or small-inbox drain) while the initial ~1y historical slice runs in the background.
  * Kept for any external docs or stale clients referencing the string.

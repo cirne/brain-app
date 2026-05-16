@@ -270,6 +270,7 @@
 
   function yourWikiPhaseLabel(phase: string | undefined): string {
     if (phase === 'starting') return $t('nav.yourWiki.phase.starting')
+    if (phase === 'surveying') return $t('nav.yourWiki.phase.surveying')
     if (phase === 'enriching') return $t('nav.yourWiki.phase.enriching')
     if (phase === 'cleaning') return $t('nav.yourWiki.phase.cleaning')
     if (phase === 'paused') return $t('nav.yourWiki.phase.paused')
@@ -413,7 +414,7 @@
                 <span class={cn(
                   'phase-pill-mini whitespace-nowrap bg-surface-3 px-1.5 py-px text-[9px] font-extrabold uppercase tracking-wider text-muted',
                   mobilePanel && 'text-[10px] px-1.5 py-0.5',
-                  ['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-accent-foreground',
+                  ['starting', 'surveying', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-accent-foreground',
                 )}>
                   {yourWikiPhaseLabel(yourWikiHdr.current.doc.phase)}
                 </span>

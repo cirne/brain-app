@@ -3,6 +3,7 @@
  */
 
 import type { BrainQueryBuiltinPolicyId } from '@shared/brainQueryBuiltinPolicyIds.js'
+import type { WikiLapPlan } from '../../lib/wiki/wikiLapPlan.js'
 
 /** Built-in presets exercised by `b2b-filter.jsonl` (`server-default` is intentionally omitted). */
 export type BrainQueryB2bFilterPresetId = Extract<
@@ -107,11 +108,13 @@ export type B2BFilterEvalJsonlRow = {
   expectByPolicy: Record<BrainQueryB2bFilterPresetId, EvalExpect>
 }
 
-/** Wiki buildout (enrich) or cleanup (lint) agent — see eval/tasks/wiki-v1.jsonl. */
+/** Wiki buildout (execute), survey (plan), or cleanup (lint) — see eval/tasks/wiki-v1.jsonl. */
 export type WikiV1Task = {
   id: string
-  /** `buildout` = wiki buildout agent; `cleanup` = vault lint agent (read/grep/edit). */
-  agent: 'buildout' | 'cleanup'
+  /** `buildout` / `execute` = wiki execute agent; `survey` = readonly survey; `cleanup` = vault lint agent. */
+  agent: 'buildout' | 'execute' | 'survey' | 'cleanup'
   userMessage: string
+  /** When set, uses wiki execute agent with plan-derived write allowlist (production-style paths). */
+  executePlan?: WikiLapPlan
   expect: EvalExpect
 }

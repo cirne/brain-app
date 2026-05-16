@@ -13,6 +13,7 @@ describe('yourWikiNarrativeLine', () => {
     expect(yourWikiNarrativeLine('starting', '   ')).toBe(
       'Building your first wiki pages from your profile and indexed mail…',
     )
+    expect(yourWikiNarrativeLine('surveying', null)).toContain('Surveying')
   })
 })
 

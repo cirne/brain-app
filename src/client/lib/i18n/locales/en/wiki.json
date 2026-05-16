@@ -2,6 +2,7 @@
   "overview": {
     "titleDefault": "Your Wiki",
     "titleBuildingFirstPages": "Building your first pages",
+    "titleSurveying": "Surveying your wiki",
     "titleExpanding": "Expanding your wiki",
     "titleTidying": "Tidying links and pages",
     "titlePaused": "Wiki updates paused",
@@ -10,6 +11,7 @@
     "titleUpToDate": "Wiki is up to date",
     "subtitleLoadingStatus": "Loading status…",
     "subtitlePreparing": "Getting everything ready…",
+    "subtitleSurveyingGaps": "Surveying for gaps to improve",
     "subtitlePreparingSources": "Preparing sources…",
     "subtitleLookingForPages": "Looking for pages to improve",
     "subtitleCleaning": "Cleaning up links and orphaned pages",
@@ -55,7 +57,7 @@
     }
   },
   "yourWikiDetail": {
-    "sectionLead": "Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up links and structure. Pause anytime; when you resume, the next background pass starts fresh.",
+    "sectionLead": "Your Wiki improves continuously in the background—a survey finds gaps vs your mail, then pages are updated to a bounded plan, then links and structure are cleaned up. Pause anytime; when you resume, the next background pass starts fresh.",
     "steps": "Steps",
     "actions": {
       "pauseTitle": "Pause background wiki updates",

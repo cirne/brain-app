@@ -16,12 +16,12 @@ export const LLM_AGENT_KINDS = [
   'onboarding_interview',
   /** Onboarding “seed my wiki” buildout in-session (Hub / optional flows). */
   'onboarding_wiki_buildout',
-  /** Background Your Wiki buildout / enrichment pass (wiki background runner, enrich). */
+  /** Background Your Wiki execute / enrichment pass (wiki background runner). */
   'wiki_enrichment',
   /** Background Your Wiki cleanup / lint pass (wiki background runner, cleanup). */
   'wiki_cleanup',
-  /** One-shot wiki first-draft bootstrap (OPP-095); may write new entity pages once. */
-  'wiki_bootstrap',
+  /** Background Your Wiki survey pass (planning only). */
+  'wiki_survey',
 ] as const
 
 export type LlmAgentKind = (typeof LLM_AGENT_KINDS)[number]
@@ -31,9 +31,9 @@ export function isLlmAgentKind(s: string): s is LlmAgentKind {
 }
 
 export function agentKindForWikiSource(
-  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiBootstrap',
+  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiSurvey',
 ): LlmAgentKind {
   if (source === 'wikiExpansion') return 'wiki_enrichment'
   if (source === 'wikiCleanup') return 'wiki_cleanup'
-  return 'wiki_bootstrap'
+  return 'wiki_survey'
 }

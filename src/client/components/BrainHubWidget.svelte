@@ -18,11 +18,14 @@
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
 
   const phase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
-  const isRunning = $derived(phase === 'starting' || phase === 'enriching' || phase === 'cleaning')
+  const isRunning = $derived(
+    phase === 'starting' || phase === 'surveying' || phase === 'enriching' || phase === 'cleaning',
+  )
   const isPaused = $derived(phase === 'paused')
 
   const activeLabel = $derived.by((): string => {
     if (phase === 'starting') return $t('hub.brainHubWidget.phases.starting')
+    if (phase === 'surveying') return $t('hub.brainHubWidget.phases.surveying')
     if (phase === 'enriching') return $t('hub.brainHubWidget.phases.enriching')
     if (phase === 'cleaning') return $t('hub.brainHubWidget.phases.cleaning')
     if (phase === 'paused') return $t('hub.brainHubWidget.phases.paused')

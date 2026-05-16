@@ -16,7 +16,7 @@ export type ScheduledMailWikiDocSlice = {
 }
 
 /**
- * Skip server-scheduled ripmail refresh when this process is actively running wiki enrich/cleanup
+ * Skip server-scheduled ripmail refresh when this process is actively running wiki survey/execute/cleanup
  * laps for **this** tenant and a pre-lap mail refresh already ran for the current lap (lap ≥ 2).
  * Lap 1 skips supervisor-owned refresh intentionally — scheduled refresh still runs.
  */
@@ -30,5 +30,5 @@ export function shouldDeferScheduledRipmailRefreshForTenant(
   const lap = wikiDoc.lap ?? 0
   const phase = wikiDoc.phase
   if (lap < 2) return false
-  return phase === 'enriching' || phase === 'cleaning'
+  return phase === 'starting' || phase === 'surveying' || phase === 'enriching' || phase === 'cleaning'
 }

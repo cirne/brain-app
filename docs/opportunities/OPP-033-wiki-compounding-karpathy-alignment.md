@@ -1,6 +1,6 @@
 # OPP-033: Wiki compounding loop and Karpathy alignment
 
-> **Implementation architecture (canonical):** [your-wiki-background-pipeline.md](../architecture/your-wiki-background-pipeline.md) — bootstrap, supervisor laps, enrich/cleanup agents, limits, APIs. This OPP remains the **product / vision** umbrella; avoid duplicating lap-level detail here.
+> **Implementation architecture (canonical):** [your-wiki-background-pipeline.md](../architecture/your-wiki-background-pipeline.md) — survey / execute / cleanup supervisor laps, agents, limits, APIs. This OPP remains the **product / vision** umbrella; avoid duplicating lap-level detail here.
 
 ## Why this exists
 
@@ -13,13 +13,13 @@ This opportunity is the **product/engineering umbrella** for closing the gap: **
 
 | Agent / flow (shipped) | Karpathy-ish role | When it runs |
 | ---------------------- | ----------------- | ------------ |
-| **Wiki bootstrap** ([`wikiBootstrapRunner`](../../src/server/agent/wikiBootstrapRunner.ts)) | **Bounded first ingest** — `write` stubs for people/projects/topics/travel | Once after indexed gate; before supervisor ([pipeline doc](../architecture/your-wiki-background-pipeline.md)) |
-| **Your Wiki enrich** ([`runEnrichInvocation`](../../src/server/agent/wikiExpansionRunner.ts) + buildout agent) | **Deepen** existing pages from mail + queue | Every supervisor lap |
-| **Your Wiki cleanup** ([`runCleanupInvocation`](../../src/server/agent/wikiExpansionRunner.ts)) | **Lint** — links, orphans, index | End of each supervisor lap |
-| **Legacy `wiki-expansion` runs** | Same enrich agent, UUID run id | Hub / API one-off; **not** the continuous loop |
+| **Wiki survey** (`runSurveyInvocation` + survey agent) | **Plan** — readonly gap analysis vs mail index | Start of each supervisor lap |
+| **Wiki execute** (`runExecuteInvocation` + execute agent) | **Work** — `edit` + plan-gated **`write`** for `newPages` | After validated `WikiLapPlan` |
+| **Your Wiki cleanup** (`runCleanupInvocation`) | **Lint** — links, orphans, `index.md` hints for new pages | End of each supervisor lap |
+| **Legacy `wiki-expansion` runs** | One-shot lap (`runWikiYourLap`) with UUID run id | Hub / API one-off; **not** the continuous loop |
 | **Main chat assistant** | **Query** + optional wiki **write** for new pages | Every session |
 
-**Chat** creates new pages; **bootstrap** seeds the vault once; **supervisor** deepens and lints in laps. [OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md) surfaces activity in Hub.
+**Chat** may create new pages; the **supervisor** surveys, executes bounded plans, and cleans up in laps.
 
 ## Ingest cadence: Brain vs Karpathy (important distinction)
 

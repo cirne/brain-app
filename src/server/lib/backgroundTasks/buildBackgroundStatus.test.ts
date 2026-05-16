@@ -1,13 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { buildBackgroundStatusPayload } from './buildBackgroundStatus.js'
 import type { OnboardingMailStatusPayload } from '@server/lib/onboarding/onboardingMailStatus.js'
-import * as onboardingState from '@server/lib/onboarding/onboardingState.js'
 
 const baseMail = (): OnboardingMailStatusPayload => ({
   configured: true,
   indexedTotal: 600,
   lastSyncedAt: null,
-  dateRange: { from: null, to: null },
+  dateRange: {
+    from: '2015-01-01T00:00:00.000Z',
+    to: '2026-01-02T00:00:00.000Z',
+  },
   syncRunning: false,
   refreshRunning: false,
   backfillRunning: false,
@@ -20,18 +22,7 @@ const baseMail = (): OnboardingMailStatusPayload => ({
   indexingHint: null,
 })
 
-const wikiBootstrapCompleted = {
-  status: 'completed' as const,
-  version: 1,
-  updatedAt: '2026-01-01T00:00:00.000Z',
-  completedAt: '2026-01-01T00:00:00.000Z',
-  stats: { peopleCreated: 0, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
-}
-
 describe('buildBackgroundStatusPayload', () => {
-  beforeEach(() => {
-    vi.spyOn(onboardingState, 'readWikiBootstrapState').mockResolvedValue(wikiBootstrapCompleted)
-  })
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -113,16 +104,12 @@ describe('buildBackgroundStatusPayload', () => {
     expect(payload.onboarding.milestones.wikiReady).toBe(false)
     expect(payload.wiki.lapMailSyncStale).toBe(true)
     expect(payload.wiki.autoStartEligible).toBe(false)
+    expect(payload.mail.indexedHistoryDepthOk).toBe(true)
   })
 
-  it('sets wikiReady false when bootstrap has not finished yet', async () => {
-    vi.spyOn(onboardingState, 'readWikiBootstrapState').mockResolvedValue({
-      status: 'not-started',
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    })
+  it('sets wikiReady false when done but indexed below wiki buildout gate', async () => {
     const payload = await buildBackgroundStatusPayload({
-      mail: { ...baseMail(), indexedTotal: 1200, ftsReady: 1200 },
+      mail: { ...baseMail(), indexedTotal: 800, ftsReady: 800 },
       state: 'done',
       wikiMeExists: true,
       wikiDoc: {
@@ -142,7 +129,7 @@ describe('buildBackgroundStatusPayload', () => {
     })
     expect(payload.onboarding.milestones.wikiReady).toBe(false)
     expect(payload.wiki.autoStartEligible).toBe(false)
-    expect(payload.wiki.bootstrap.status).toBe('not-started')
+    expect(payload.mail.indexedHistoryDepthOk).toBe(true)
   })
 
   it('sets wikiReady when done and indexed crosses wiki gate', async () => {
@@ -167,6 +154,38 @@ describe('buildBackgroundStatusPayload', () => {
     })
     expect(payload.onboarding.milestones.wikiReady).toBe(true)
     expect(payload.wiki.autoStartEligible).toBe(true)
+    expect(payload.mail.indexedHistoryDepthOk).toBe(true)
+  })
+
+  it('wikiReady false when done and history shallow even if message count crosses gate', async () => {
+    const shallowFrom = new Date(Date.now() - 10 * 86_400_000).toISOString()
+    const payload = await buildBackgroundStatusPayload({
+      mail: {
+        ...baseMail(),
+        indexedTotal: 1200,
+        ftsReady: 1200,
+        dateRange: { from: shallowFrom, to: new Date().toISOString() },
+      },
+      state: 'done',
+      wikiMeExists: true,
+      wikiDoc: {
+        id: 'your-wiki',
+        kind: 'your-wiki',
+        status: 'completed',
+        label: 'Your Wiki',
+        detail: 'Up to date',
+        pageCount: 40,
+        logLines: [],
+        startedAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-02T00:00:00.000Z',
+        phase: 'idle',
+        lap: 3,
+      },
+      onboardingFlowActive: false,
+    })
+    expect(payload.mail.indexedHistoryDepthOk).toBe(false)
+    expect(payload.onboarding.milestones.wikiReady).toBe(false)
+    expect(payload.wiki.autoStartEligible).toBe(false)
   })
 
   it('autoStartEligible during onboarding-agent when indexed crosses wiki gate', async () => {

@@ -275,7 +275,7 @@ export function safeRecordCustomEvent(
   }
 }
 
-export type ToolCallSource = 'chat' | 'wikiExpansion' | 'wikiCleanup' | 'wiki_bootstrap'
+export type ToolCallSource = 'chat' | 'wikiExpansion' | 'wikiCleanup' | 'wiki_survey'
 
 export type ToolCallCorrelation = {
   sessionId?: string

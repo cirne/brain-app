@@ -3,6 +3,7 @@ import {
   ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
   ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
   WIKI_BUILDOUT_MIN_MESSAGES,
+  WIKI_SUPERVISOR_MIN_INDEXED_HISTORY_DAYS,
 } from './onboardingProfileThresholds.js'
 
 describe('onboardingProfileThresholds', () => {
@@ -13,5 +14,9 @@ describe('onboardingProfileThresholds', () => {
 
   it('defines wiki buildout gate after onboarding completes', () => {
     expect(WIKI_BUILDOUT_MIN_MESSAGES).toBe(1000)
+  })
+
+  it('defines wiki supervisor minimum indexed history depth (days)', () => {
+    expect(WIKI_SUPERVISOR_MIN_INDEXED_HISTORY_DAYS).toBe(90)
   })
 })

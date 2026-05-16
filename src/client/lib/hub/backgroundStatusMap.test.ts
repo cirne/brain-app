@@ -9,6 +9,7 @@ describe('onboardingMailStatusFromBackground', () => {
       messageAvailableForProgress: 100,
       configured: true,
       dateRange: { from: 'a', to: 'b' },
+      indexedHistoryDepthOk: true,
       phase1Complete: true,
       phase2Complete: false,
       syncRunning: false,
@@ -24,5 +25,6 @@ describe('onboardingMailStatusFromBackground', () => {
     expect(m.ftsReady).toBe(40)
     expect(m.messageAvailableForProgress).toBe(100)
     expect(m.dateRange).toEqual({ from: 'a', to: 'b' })
+    expect(m.indexedHistoryDepthOk).toBe(true)
   })
 })

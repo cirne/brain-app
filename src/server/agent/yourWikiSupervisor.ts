@@ -1,12 +1,12 @@
 /**
  * Your Wiki continuous supervisor.
  *
- * While Braintunnel is running and not paused, this supervisor runs enrich → cleanup laps
+ * While Braintunnel is running and not paused, this supervisor runs survey → execute → cleanup laps
  * automatically, updating one persistent "your-wiki" doc in the background store.
  *
  * Design decisions (per OPP-033):
  * - One in-process loop, no cron. Replaces "Full expansion / Continue pass" buttons.
- * - Resume always starts a new lap at enriching, never mid-stream continuation.
+ * - Resume always starts a new full lap at survey, never mid-stream continuation.
  * - Idle backoff when N consecutive no-op laps occur; wakes on mail sync or user nudge.
  * - Pause state is persisted across restarts in BRAIN_HOME/your-wiki/state.json.
  */
@@ -23,12 +23,7 @@ import {
   type BackgroundRunDoc,
   type YourWikiPhase,
 } from '@server/lib/chat/backgroundAgentStore.js'
-import {
-  runEnrichInvocation,
-  runCleanupInvocation,
-  pauseWikiExpansionRun,
-  pauseCleanupSession,
-} from './wikiExpansionRunner.js'
+import { runWikiYourLap, pauseWikiExpansionRun, pauseCleanupSession } from './wikiExpansionRunner.js'
 import { refreshMailAndWait } from '@server/lib/platform/syncAll.js'
 import type { WikiSupervisorMailSyncDeferSnapshot } from '@server/lib/platform/scheduledMailSyncPolicy.js'
 import {
@@ -47,11 +42,18 @@ export const YOUR_WIKI_DOC_ID = 'your-wiki'
 /** Consecutive no-op laps before the supervisor enters idle (waiting for a trigger). */
 const IDLE_AFTER_NO_OP_LAPS = 3
 
-/** When laps produce changes: start the next lap after this delay (ms). */
+/** When laps produce changes and mail sync was clean: start the next lap after this delay (ms). */
 const INTER_LAP_DELAY_MS = 5_000
 
 /** Backoff delays for successive no-op laps (ms). Capped at the last value. */
-const NO_OP_BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000]
+const NO_OP_BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const
+
+/**
+ * When the **pre-lap mail refresh** failed or timed out (`lapMailSyncIncomplete`) but this lap was still
+ * “productive” (no no-op streak), wait this long before the next lap so index/backfill can catch up — same
+ * as the first {@link NO_OP_BACKOFF_MS} step.
+ */
+const INTER_LAP_DELAY_AFTER_MAIL_SYNC_GAP_MS = NO_OP_BACKOFF_MS[0]
 
 // ─── In-memory state ─────────────────────────────────────────────────────────
 
@@ -164,14 +166,14 @@ async function loadOrCreateDoc(): Promise<BackgroundRunDoc> {
     timeline: [],
     startedAt: now,
     updatedAt: now,
-    phase: 'starting',
+    phase: 'surveying',
     lap: 0,
     consecutiveNoOpLaps: 0,
   }
 }
 
 function phaseToStatus(phase: YourWikiPhase): BackgroundRunDoc['status'] {
-  if (phase === 'enriching' || phase === 'starting') return 'running'
+  if (phase === 'enriching' || phase === 'starting' || phase === 'surveying') return 'running'
   if (phase === 'cleaning') return 'running'
   if (phase === 'paused') return 'paused'
   if (phase === 'idle') return 'completed'
@@ -181,6 +183,7 @@ function phaseToStatus(phase: YourWikiPhase): BackgroundRunDoc['status'] {
 
 function phaseLabel(phase: YourWikiPhase, lap: number): string {
   if (phase === 'starting') return 'Starting your first pages'
+  if (phase === 'surveying') return `Surveying · Lap ${lap}`
   if (phase === 'enriching') return `Enriching · Lap ${lap}`
   if (phase === 'cleaning') return `Cleaning up · Lap ${lap}`
   if (phase === 'paused') return 'Paused'
@@ -238,7 +241,7 @@ function supervisorStopping(): boolean {
 }
 
 /**
- * Best-effort: abort in-flight enrich/cleanup/refresh so shutdown can finish without waiting on LLMs
+ * Best-effort: abort in-flight survey/execute/cleanup/refresh so shutdown can finish without waiting on LLMs
  * or `ripmail refresh`. Does **not** persist pause state — only for SIGINT/SIGTERM.
  */
 export function prepareWikiSupervisorShutdown(): void {
@@ -252,7 +255,7 @@ export function prepareWikiSupervisorShutdown(): void {
 }
 
 /**
- * After enrich or cleanup: stop the outer loop on shutdown, or handle user pause (`setPhase` /
+ * After a lap: stop the outer loop on shutdown, or handle user pause (`setPhase` /
  * continue / break) — same logic as the historical duplicate blocks.
  */
 async function gatePauseOrShutdownAfterAgentPhase(
@@ -307,10 +310,11 @@ async function supervisorLoop(timezone?: string): Promise<void> {
     while (true) {
       if (supervisorStopping()) break
 
-      // ── Enrich phase ─────────────────────────────────────────────────────
+      // ── Survey / execute / cleanup (single lap pipeline) ─────────────────
       lap++
-      const isFirstLap = lap === 1 && (doc.phase === 'starting' || doc.phase === undefined)
-      await setPhase(doc, isFirstLap ? 'starting' : 'enriching', lap, isFirstLap ? 'Starting your first pages…' : `Enriching · Lap ${lap}…`)
+      const isFirstLap =
+        lap === 1 &&
+        (doc.phase === 'starting' || doc.phase === 'surveying' || doc.phase === undefined)
 
       touchRun(doc, {
         consecutiveNoOpLaps,
@@ -319,13 +323,9 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       await writeBackgroundRun(doc)
 
       // Refresh mail index before every lap except the initial build-out.
-      // Laps run after onboarding has already synced, so lap 1 skips the refresh.
-      // The sync note is minimal by design: it informs the agent that fresh data is available
-      // without listing specific recent items (which would bias toward recent-only activity).
       let syncNote: string | undefined
       if (!isFirstLap) {
-        touchRun(doc, { detail: 'Syncing mail before lap…' })
-        await writeBackgroundRun(doc)
+        await setPhase(doc, 'surveying', lap, 'Syncing mail before lap…')
         wikiLapSyncAbort = new AbortController()
         const syncResult = await refreshMailAndWait(90_000, wikiLapSyncAbort.signal)
         wikiLapSyncAbort = null
@@ -354,22 +354,31 @@ async function supervisorLoop(timezone?: string): Promise<void> {
 
       if (supervisorStopping()) break
 
-      const enrich = await runEnrichInvocation(YOUR_WIKI_DOC_ID, doc, { timezone, syncNote })
-
-      {
-        const g = await gatePauseOrShutdownAfterAgentPhase(doc, lap)
-        if (g === 'break') break
-        if (g === 'continue') continue
-      }
-
-      // ── Cleanup phase ─────────────────────────────────────────────────────
-      await setPhase(doc, 'cleaning', lap, `Cleaning up · Lap ${lap}…`)
-
-      const cleanupChanges = await runCleanupInvocation(YOUR_WIKI_DOC_ID, doc, {
+      const lapResult = await runWikiYourLap(YOUR_WIKI_DOC_ID, doc, {
         timezone,
-        changedFiles:
-          enrich.changedFiles.length > 0 ? enrich.changedFiles : [],
-        trigger: enrich.changedFiles.length > 0 ? 'supervisor' : 'full_vault',
+        syncNote,
+        lap,
+        onLapPhase: async (phase, ctx) => {
+          if (supervisorStopping()) return
+          if (phase === 'survey') {
+            await setPhase(
+              doc,
+              'surveying',
+              lap,
+              isFirstLap ? 'Starting your first pages…' : 'Surveying your wiki for gaps…',
+            )
+          } else if (phase === 'execute') {
+            const n = ctx.planWorkCount ?? 0
+            await setPhase(
+              doc,
+              'enriching',
+              lap,
+              n > 0 ? `Working on ${n} planned items…` : 'Executing wiki lap plan…',
+            )
+          } else if (phase === 'cleanup') {
+            await setPhase(doc, 'cleaning', lap, `Cleaning up · Lap ${lap}…`)
+          }
+        },
       })
 
       {
@@ -378,14 +387,29 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         if (g === 'continue') continue
       }
 
-      // ── No-op tracking and backoff ────────────────────────────────────────
-      const totalChanges = enrich.changeCount + cleanupChanges.editCount
-      if (totalChanges === 0) {
+      if (lapResult.error) {
+        if (lapResult.error === 'paused') {
+          await setPhase(doc, 'paused', lap, 'Paused')
+          break
+        }
+        touchRun(doc, {
+          phase: 'error',
+          status: 'error',
+          error: lapResult.error,
+          detail: lapResult.error,
+          lap,
+        })
+        await writeBackgroundRun(doc)
+        break
+      }
+
+      const isNoOp = lapResult.meaningfulPaths.length === 0
+      if (isNoOp) {
         consecutiveNoOpLaps++
       } else {
         consecutiveNoOpLaps = 0
       }
-      touchRun(doc, { consecutiveNoOpLaps })
+      touchRun(doc, { consecutiveNoOpLaps, lap })
       supervisorOuterCrashStreak = 0
 
       if (consecutiveNoOpLaps >= IDLE_AFTER_NO_OP_LAPS) {
@@ -412,9 +436,12 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         touchRun(doc, { consecutiveNoOpLaps, idleSince: undefined, idleReason: undefined })
       } else {
         // Small delay between laps — compute backoff for intermediate no-op laps
-        const backoffMs = consecutiveNoOpLaps > 0
-          ? (NO_OP_BACKOFF_MS[consecutiveNoOpLaps - 1] ?? NO_OP_BACKOFF_MS[NO_OP_BACKOFF_MS.length - 1])
-          : INTER_LAP_DELAY_MS
+        const backoffMs =
+          consecutiveNoOpLaps > 0
+            ? (NO_OP_BACKOFF_MS[consecutiveNoOpLaps - 1] ?? NO_OP_BACKOFF_MS[NO_OP_BACKOFF_MS.length - 1])
+            : doc.lapMailSyncIncomplete === true
+              ? INTER_LAP_DELAY_AFTER_MAIL_SYNC_GAP_MS
+              : INTER_LAP_DELAY_MS
 
         if (backoffMs > INTER_LAP_DELAY_MS) {
           touchRun(doc, {
@@ -499,7 +526,7 @@ export async function pauseYourWiki(): Promise<void> {
 }
 
 /**
- * Resume the supervisor. Always starts a new lap at enriching.
+ * Resume the supervisor. The next lap always runs the full pipeline (survey → execute → cleanup).
  * Does NOT continue a mid-stream interrupted session.
  */
 export async function resumeYourWiki(options: { timezone?: string } = {}): Promise<void> {

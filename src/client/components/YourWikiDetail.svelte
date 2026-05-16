@@ -63,7 +63,9 @@
   let detailScrollRoot = $state<HTMLElement | undefined>(undefined)
 
   const phase = $derived(doc?.phase as YourWikiPhase | undefined)
-  const isActive = $derived(phase === 'starting' || phase === 'enriching' || phase === 'cleaning')
+  const isActive = $derived(
+    phase === 'starting' || phase === 'surveying' || phase === 'enriching' || phase === 'cleaning',
+  )
   const isIdle = $derived(phase === 'idle' || (!isActive && phase !== 'paused' && phase !== 'error'))
   const isPaused = $derived(phase === 'paused')
 
@@ -180,6 +182,7 @@
           )}
         >
           {phase === 'starting' ? $t('nav.yourWiki.phase.starting') :
+           phase === 'surveying' ? $t('nav.yourWiki.phase.surveying') :
            phase === 'enriching' ? $t('nav.yourWiki.phase.enriching') :
            phase === 'cleaning' ? $t('nav.yourWiki.phase.cleaning') :
            phase === 'paused' ? $t('nav.yourWiki.phase.paused') :

@@ -1,5 +1,5 @@
 /**
- * One-shot wiki buildout (production WIKI_EXPANSION_INITIAL_MESSAGE) for manual inspection.
+ * One-shot wiki lap (survey → execute → cleanup) for manual inspection.
  * Usage: `BRAIN_DATA_ROOT=./data npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutCli.ts` (see eval/README.md)
  */
 import { randomUUID } from 'node:crypto'
@@ -7,13 +7,9 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
-import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from '../agent/wikiBuildoutAgent.js'
-import {
-  WIKI_EXPANSION_INITIAL_MESSAGE,
-  buildExpansionContextPrefix,
-} from '../agent/wikiExpansionRunner.js'
+import { runWikiYourLap } from '../agent/wikiExpansionRunner.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
-import { collectAgentPromptMetrics } from './harness/collectAgentPromptMetrics.js'
+import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
 import { getEvalRepoRoot } from './harness/runLlmJsonlEval.js'
 import { resolveEvalBrainHome } from './evalDefaultBrainHome.js'
 import { seedEnronEvalWiki } from './harness/seedEnronEvalWiki.js'
@@ -23,7 +19,7 @@ ensurePromptsRoot(fileURLToPath(new URL('../prompts', import.meta.url)))
 
 loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutCli.ts [options]
 
-Runs one full wiki enrich pass (same user message as “Your Wiki” deepen lap). Seeds starter + Enron eval me.md / assistant.md + buildout eval stubs into the vault.
+Runs one full wiki lap (same pipeline as Your Wiki). Seeds starter + Enron eval me.md / assistant.md + eval stubs into the vault.
 
 Requires BRAIN_HOME (default: Kean demo tenant under ./data) with Enron ripmail index; run npm run brain:seed-enron-demo first.
 
@@ -51,31 +47,43 @@ async function main(): Promise<void> {
 
   await seedEnronEvalWiki()
   const vault = wikiDir()
-  const prefix = await buildExpansionContextPrefix(vault)
-  const fullMessage = prefix ? `${prefix}${WIKI_EXPANSION_INITIAL_MESSAGE}` : WIKI_EXPANSION_INITIAL_MESSAGE
 
   console.log(`[eval:wiki:full-pass] BRAIN_HOME=${brain}`)
   console.log(`[eval:wiki:full-pass] vault=${vault}`)
 
-  const sessionId = `manual-wiki-bo-${randomUUID()}`
-  const agent = await getOrCreateWikiBuildoutAgent(sessionId, { timezone: 'America/Chicago' })
-  try {
-    const m = await collectAgentPromptMetrics(agent, fullMessage, {
-      evalTraceCaseId: 'wiki-manual-full-pass',
-    })
-    console.log(`[eval:wiki:full-pass] tools=${m.toolNames.join(', ')}`)
-    if (m.error) {
-      console.error(`[eval:wiki:full-pass] error: ${m.error}`)
-      process.exit(1)
-    }
-    const preview = m.finalText.trim().slice(0, 800)
-    if (preview) console.log(`[eval:wiki:full-pass] final (preview):\n${preview}${m.finalText.length > 800 ? '…' : ''}`)
-  } finally {
-    deleteWikiBuildoutSession(sessionId)
+  const runId = `manual-wiki-lap-${randomUUID()}`
+  const now = new Date().toISOString()
+  const doc: BackgroundRunDoc = {
+    id: runId,
+    kind: 'wiki-expansion',
+    status: 'running',
+    label: 'Wiki lap',
+    detail: 'Running…',
+    pageCount: 0,
+    logLines: [],
+    logEntries: [],
+    timeline: [],
+    startedAt: now,
+    updatedAt: now,
+    lap: 1,
+  }
+
+  const r = await runWikiYourLap(runId, doc, { timezone: 'America/Chicago', lap: 1 })
+  if (r.error) {
+    console.error(`[eval:wiki:full-pass] error: ${r.error}`)
+    process.exit(1)
+  }
+  console.log(
+    `[eval:wiki:full-pass] surveyIdle=${r.surveyIdle} meaningfulPaths=${r.meaningfulPaths.join(', ') || '(none)'}`,
+  )
+  if (r.plan && !r.plan.idle) {
+    console.log(
+      `[eval:wiki:full-pass] plan: new=${r.plan.newPages.length} deepen=${r.plan.deepens.length} refresh=${r.plan.refreshes.length}`,
+    )
   }
 }
 
-void main().catch(e => {
+void main().catch((e) => {
   console.error(e)
   process.exit(1)
 })

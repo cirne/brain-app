@@ -21,21 +21,6 @@ export async function recordWikiSupervisorOuterLoopFailure(message: string): Pro
   })
 }
 
-/** Persist wiki first-draft bootstrap failures (OPP-095) for unified status / debugging. */
-export async function recordWikiBootstrapFailure(message: string): Promise<void> {
-  const trimmed = message.trim().slice(0, 2000)
-  await appendTask({
-    id: crypto.randomUUID(),
-    type: 'wiki-bootstrap',
-    status: 'failed',
-    priority: 0,
-    retries: 0,
-    maxRetries: 0,
-    lastError: trimmed || '(unknown)',
-    completedAt: new Date().toISOString(),
-  })
-}
-
 /** Recent failed orchestrator records (newest last). */
 export async function listRecentFailedOrchestratorTasks(limit = 8): Promise<BackgroundTaskRecord[]> {
   const tasks = await readTaskQueue()

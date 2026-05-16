@@ -29,11 +29,20 @@ import { applyWikiFindProvenanceAnnotations } from '@server/lib/wiki/wikiToolPro
 /** Per-find call: glob case-sensitivity (fd + walk). Passed into `glob` via ALS because pi's find does not forward tool params there. */
 const wikiFindCaseSensitiveAls = new AsyncLocalStorage<boolean>()
 
-/** `forbidden` blocks **`write`** when the target file does not exist (wiki buildout deepen-only — archived OPP-067). */
-export type WikiWriteCreatesPolicy = 'allowed' | 'forbidden'
+/**
+ * - `forbidden` — **`write`** only for paths that already exist ( historic deepen-only buildout).
+ * - `planAllowlist` — **`write`** may create **new** files only when the resolved vault-relative path is listed
+ *   in {@link WikiScopedPiToolsOptions.writeAllowlistRelPaths} (lowercase); existing paths always allowed.
+ */
+export type WikiWriteCreatesPolicy = 'allowed' | 'forbidden' | 'planAllowlist'
 
 export type WikiScopedPiToolsOptions = {
   wikiWriteCreates?: WikiWriteCreatesPolicy
+  /**
+   * When {@link wikiWriteCreates} is `planAllowlist`, new-file **`write`** is allowed only for these
+   * vault-relative paths (compared lowercase after normalize).
+   */
+  writeAllowlistRelPaths?: ReadonlySet<string>
   /** Wiki root for filesystem ops (defaults to same directory as {@link wikiDir}). */
   unifiedWikiRoot?: string
 }
@@ -195,13 +204,23 @@ export function createWikiScopedPiTools(wikiRoot: string, options?: WikiScopedPi
       }
       assertWritable(path, 'write')
       await assertAgentWikiWriteUsesSubdirectory(wikiRoot, path)
-      if (options?.wikiWriteCreates === 'forbidden') {
-        const abs = resolve(wikiRoot, path)
-        try {
-          await access(abs, FsConstants.F_OK)
-        } catch {
+      const abs = resolve(wikiRoot, path)
+      const exists = await access(abs, FsConstants.F_OK)
+        .then(() => true)
+        .catch(() => false)
+
+      if (options?.wikiWriteCreates === 'forbidden' && !exists) {
+        throw new Error(
+          'Wiki buildout cannot create new pages with `write`. Use `edit` on an existing path. New markdown pages are created by the chat assistant.',
+        )
+      }
+
+      if (options?.wikiWriteCreates === 'planAllowlist' && !exists) {
+        const allow = options.writeAllowlistRelPaths
+        const key = path.replace(/\\/g, '/').trim().toLowerCase()
+        if (!allow || !allow.has(key)) {
           throw new Error(
-            'Wiki buildout cannot create new pages with `write`. Use `edit` on an existing path. New markdown pages are created by the chat assistant.',
+            'Wiki execute phase cannot `write` this path — it was not in the survey plan newPages list. Use `edit` on existing paths only.',
           )
         }
       }

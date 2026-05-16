@@ -8,6 +8,7 @@ import {
   markWikiBuildoutFirstPassDone,
   readWikiBuildoutIsFirstRun,
 } from '@server/lib/onboarding/onboardingState.js'
+import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
 import {
   appendLogEntry,
   appendTimelineEvent,
@@ -43,55 +44,49 @@ import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 import { readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
 import {
-  listThinWikiPageCandidates,
-  mergeWikiDeepenPriorityPaths,
-} from '@server/lib/wiki/wikiThinPageCandidates.js'
-import {
-  getOrCreateWikiBuildoutAgent,
-  deleteWikiBuildoutSession,
+  getOrCreateWikiExecuteAgent,
+  deleteWikiExecuteSession,
   ensureWikiVaultScaffoldForBuildout,
-} from './wikiBuildoutAgent.js'
+} from './wikiExecuteAgent.js'
+import { deleteWikiSurveySession, getOrCreateWikiSurveyAgent } from './wikiSurveyAgent.js'
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
+import { lastAssistantTextFromMessages } from '@server/evals/harness/extractTranscript.js'
+import { readWikiSaturationLedger } from '@server/lib/wiki/wikiSaturationLedger.js'
+import { buildWikiVaultGapContextBlock } from '@server/lib/wiki/wikiVaultIndexGap.js'
+import { readWikiLastLapPlan, writeWikiLastLapPlan } from '@server/lib/wiki/wikiLapPlanPersistence.js'
+import {
+  collectPlanTargetPaths,
+  evidenceIdsByPathFromPlan,
+  formatPlanForExecutePrompt,
+  parseWikiLapPlanFromModelText,
+  validateAndSanitizeWikiLapPlan,
+  writeAllowlistFromPlan,
+  type WikiLapPlan,
+} from '@server/lib/wiki/wikiLapPlan.js'
+import { mergeWikiSaturationFromLap } from '@server/lib/wiki/wikiSaturationLedger.js'
+import {
+  WIKI_EXECUTE_MAX_TOOL_CALLS,
+  WIKI_LAP_MIN_MEANINGFUL_CHARS,
+  WIKI_SURVEY_MAX_TOOL_CALLS,
+} from '@shared/wikiLap.js'
 
-/** Tail size for \`wiki-edits.jsonl\` injection into enrich laps (archived OPP-067). */
-export const WIKI_DEEPEN_RECENT_EDITS_LIMIT = 35
+/** Tail size for `wiki-edits.jsonl` in pipeline context (survey / cleanup). */
+export const WIKI_PIPELINE_RECENT_EDITS_LIMIT = 20
 
-/** Max paths in the merged **Deepen this lap** list. */
+export const WIKI_SURVEY_USER_MESSAGE = `Run a **wiki survey** now.
+
+Use your tools to compare the **vault** against the **indexed mail** (and optional Messages). Propose a **bounded** lap plan: new pages only with strong evidence, deepens, refreshes. Respect injected **server gaps** and **saturation** hints.
+
+Finish with **only** a \`\`\`json code block\`\`\` containing the WikiLapPlan object (see your system instructions). No other prose after the closing fence.`
+
+export const WIKI_EXECUTE_USER_MESSAGE = `Execute the **wiki lap plan** in your user message above (after the injected context). Work the listed **newPages** / **deepens** / **refreshes** with evidence from mail tools. Then stop.`
+
+export const WIKI_EXECUTE_CONTINUE_MESSAGE = `Continue the **wiki execute** pass: follow the same plan discipline as the initial execute message.`
+
+/** @deprecated Legacy alias — survey+execute pipeline replaces queue-only deepen. */
+export const WIKI_DEEPEN_RECENT_EDITS_LIMIT = WIKI_PIPELINE_RECENT_EDITS_LIMIT
+/** @deprecated */
 export const WIKI_DEEPEN_WORK_QUEUE_CAP = 30
-
-/**
- * User messages for the wiki **buildout** (enrich) agent: **`read` / `grep` / `find` / `edit`** plus
- * indexed mail, optional local Messages, **web_search**, **fetch_page**. Does **not** create new pages
- * (**`write`** is blocked for new paths — chat owns creation). Each supervisor lap runs enrich first,
- * then **cleanup** — see `buildCleanupSystemPrompt`.
- */
-export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a **wiki deepen** pass (enrichment only).
-
-Goal: Improve **existing** pages listed in the injected **Deepen this lap** queue and manifest — evidence-backed, concise. Do **not** create new markdown files; use **edit** only.
-
-How:
-- **Start** from **Deepen this lap (priority)** and **Recent wiki edits** / **Thin pages** sections in the injected context, then the vault manifest.
-- **Mail:** Use **search_index** and **read_mail_message** / **read_indexed_file** only to support deepening **those targets** (and minimal cross-links), not to discover brand-new entities for new files.
-- **Stay brief:** Lead + bullets; no full biography. Prefer synthesis over quoting mail.
-- **Accuracy:** When sources show text is wrong or outdated, **edit** surgically. Prefer the newest dated relevant message for current-state facts.
-- **Account holder \`people/*\`:** Keep compact (3–8 bullets); link to [[me]].
-- **index.md:** **edit** vault-root **\`index.md\`** only if hub links need fixing after other **edit**s — do **not** **write** a new file.
-- **Links:** Fix **[[wikilinks]]** with **edit**. Use **grep** / **find** / **read** as needed.
-
-If the injected queue is empty or says idle, do **not** run speculative inbox-wide discovery — finish after a light **index.md** check if needed. Narrate briefly.`
-
-export const WIKI_EXPANSION_CONTINUE_MESSAGE = `Continue the **wiki deepen** pass (follow-up lap).
-
-**Focus**  
-Existing pages only — **edit** to add evidence, fix staleness, fix **[[wikilinks]]**, add Contact/Identifiers on **people/*.md** when tools provide facts.
-
-**Priorities**  
-- Paths in **Deepen this lap (priority)** and recent/thin sections above.  
-- **edit** only — no new **people/**, **projects/**, or **topics/** files (chat creates those).  
-- **index.md:** refresh with **edit** if your other edits change what the hub should list.  
-- If evidence conflicts, prefer the newest dated relevant source for current-state facts.
-
-Keep pages brief. If there is nothing meaningful to deepen this lap, say so and stop. Narrate briefly.`
 
 /** System prompt for the **cleanup** phase — separate agent from buildout; runs after enrich or full-vault passes. */
 export function buildCleanupSystemPrompt(timezone: string): string {
@@ -110,12 +105,19 @@ export function buildCleanupUserMessage(parts: {
   contextPrefix: string
   changedFiles: readonly string[]
   trigger: CleanupInvocationTrigger
+  /** Ensure vault-root hub links these new entity pages with [[wikilinks]]. */
+  newPagePaths?: readonly string[]
 }): string {
-  const { contextPrefix, changedFiles, trigger } = parts
+  const { contextPrefix, changedFiles, trigger, newPagePaths } = parts
   const useAnchor =
     trigger !== 'full_vault' && changedFiles.length > 0
 
-  const supervisorAnchoredTask = (): string => `## Files changed in the preceding writer session (start here)
+  const newPagesSection =
+    newPagePaths && newPagePaths.length > 0
+      ? `## New pages this lap (link from index.md)\n\n${newPagePaths.map((p) => `- ${sanitizeWikiPathOneLine(p)}`).join('\n')}\n\nAdd or fix **[[wikilinks]]** on vault-root **index.md** so these are reachable. Prefer compact hub sections.\n\n`
+      : ''
+
+  const supervisorAnchoredTask = (): string => `${newPagesSection}## Files changed in the preceding writer session (start here)
 
 ${changedFiles.map((p) => `- ${sanitizeWikiPathOneLine(p)}`).join('\n')}
 
@@ -124,7 +126,7 @@ These paths are the **starting anchor** for this cleanup pass. Prioritize link h
 Follow your system instructions: scan (grep/find), fix broken links and light issues, maintain root nav when needed, avoid over-polishing. Narrate briefly as you go.`
 
   const taskBody = !useAnchor
-    ? `Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update index.md or _index.md if present, and make light edits where needed. Work methodically and narrate briefly.`
+    ? `${newPagesSection}Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update index.md or _index.md if present, and make light edits where needed. Work methodically and narrate briefly.`
     : supervisorAnchoredTask()
 
   const task = `${taskBody}`
@@ -209,12 +211,7 @@ function safeDetails(d: unknown): unknown {
 }
 
 /**
- * Read me.md, assistant.md, vault manifest, recent `wiki-edits.jsonl` paths, and thin-page candidates
- * for enrich (buildout) laps — archived OPP-067 deepen-only queue injection.
- *
- * `syncNote` is an optional note about recent mail sync freshness (added for laps 2+). It is
- * kept deliberately minimal to avoid recency bias — we inform the agent that data is fresh
- * without listing specific recent content.
+ * Shared **injected context** for survey, execute, and cleanup: profile, optional recent edits, manifest.
  */
 export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: string): Promise<string> {
   const mePath = join(wikiRoot, 'me.md')
@@ -222,7 +219,7 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
   try {
     meMdContent = await readFile(mePath, 'utf-8')
   } catch {
-    // me.md not yet written (very early first run) — model will rely on buildout system prompt
+    /* early first run */
   }
 
   const assistantPath = join(wikiRoot, 'assistant.md')
@@ -230,7 +227,7 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
   try {
     assistantMdContent = await readFile(assistantPath, 'utf-8')
   } catch {
-    /* optional — starter seed usually provides it */
+    /* optional */
   }
 
   const parts: string[] = []
@@ -245,40 +242,17 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
 
   const manifestPaths = await listWikiFiles(wikiRoot)
 
-  const recentRows = await readRecentWikiEdits(WIKI_DEEPEN_RECENT_EDITS_LIMIT)
+  const recentRows = await readRecentWikiEdits(WIKI_PIPELINE_RECENT_EDITS_LIMIT)
   const recentPaths = recentRows.map((r) => r.path)
-  const thinPaths = await listThinWikiPageCandidates(wikiRoot, manifestPaths)
-  const priorityPaths = mergeWikiDeepenPriorityPaths(
-    recentPaths,
-    thinPaths,
-    WIKI_DEEPEN_WORK_QUEUE_CAP,
-  )
-
   if (recentPaths.length > 0) {
     parts.push(
       `## Recent wiki edits (from wiki-edits.jsonl, newest-first)\n\n${recentPaths.map((p) => `- ${p}`).join('\n')}`,
     )
   }
 
-  if (thinPaths.length > 0) {
-    parts.push(`## Thin pages (deepen candidates)\n\n${thinPaths.map((p) => `- ${p}`).join('\n')}`)
-  }
-
-  if (priorityPaths.length > 0) {
-    parts.push(
-      `## Deepen this lap (priority)\n\n${priorityPaths.map((p) => `- ${p}`).join('\n')}`,
-    )
-  } else {
-    parts.push(
-      `## Deepen this lap (priority)\n\n` +
-        `*No recent wiki edits logged and no thin **people/** / **projects/** / **topics/** candidates detected.* ` +
-        `**Idle:** do not run speculative inbox-wide entity discovery. You may **read**/**edit** vault-root \`index.md\` lightly if links are clearly stale; otherwise finish with no changes.`,
-    )
-  }
-
   if (manifestPaths.length > 0) {
     parts.push(
-      `## Existing wiki pages (vault manifest)\n\n${manifestPaths.map(p => `- ${p}`).join('\n')}`,
+      `## Existing wiki pages (vault manifest)\n\n${manifestPaths.map((p) => `- ${p}`).join('\n')}`,
     )
   }
 
@@ -288,11 +262,49 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
 
   if (parts.length === 0) return ''
 
-  return `[Injected context for this expansion pass — use this instead of trying to read me.md / assistant.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
+  return `[Injected context — use this instead of trying to read me.md / assistant.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
+}
+
+export async function buildSurveyContextPrefix(
+  wikiRoot: string,
+  parts: { syncNote?: string; lap: number },
+): Promise<string> {
+  const base = await buildExpansionContextPrefix(wikiRoot, parts.syncNote)
+  const mail = await getOnboardingMailStatus()
+  const ledger = await readWikiSaturationLedger()
+  const gaps = await buildWikiVaultGapContextBlock(wikiRoot, ledger)
+  const last = await readWikiLastLapPlan()
+
+  const mailBlock = [
+    '## Mail index (tenant)',
+    '',
+    `- **configured:** ${mail.configured}`,
+    `- **indexedTotal / ftsReady:** ${Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)}`,
+    `- **backfillRunning:** ${mail.backfillRunning}`,
+    `- **refreshRunning:** ${mail.refreshRunning}`,
+    `- **dateRange:** ${mail.dateRange?.from ?? '?'} → ${mail.dateRange?.to ?? '?'}`,
+    `- **lastSyncedAt:** ${mail.lastSyncedAt ?? '(unknown)'}`,
+    '',
+  ].join('\n')
+
+  const prev = last
+    ? [
+          '## Previous lap plan (reference — do not duplicate if still satisfied)',
+          '',
+          '```json',
+          JSON.stringify(last.plan, null, 2),
+          '```',
+          '',
+        ].join('\n')
+      : ''
+
+  const capNote = `\n## Lap metadata\n\n- **Lap number:** ${parts.lap}\n`
+
+  return `${base}${mailBlock}\n${gaps}\n${prev}${capNote}\n`
 }
 
 export interface AttachRunTrackerNrOptions {
-  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiBootstrap'
+  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiSurvey'
   backgroundRunId: string
   workspaceHandle?: string
   /** When set, must match {@link attachAgentDiagnosticsCollector} so NR and JSONL share one id */
@@ -328,7 +340,7 @@ export function attachWikiBackgroundRunTracker(
   const sseMaxChars = 4000
   const turnLlm: LlmTurnTelemetry = {
     agentTurnId,
-    source: nrOpts.source === 'wikiBootstrap' ? 'wiki_bootstrap' : nrOpts.source,
+    source: nrOpts.source === 'wikiSurvey' ? 'wiki_survey' : nrOpts.source,
     agentKind,
     correlation: {
       backgroundRunId: nrOpts.backgroundRunId,
@@ -508,47 +520,161 @@ export function attachWikiBackgroundRunTracker(
   }
 }
 
-export async function resumeWikiExpansionRun(runId: string, options: { timezone?: string } = {}): Promise<void> {
-  pausedRunIds.delete(runId)
-  void runWikiExpansionJob(runId, WIKI_EXPANSION_CONTINUE_MESSAGE, options).catch((e) => {
-    console.error('[wiki-expansion resume]', runId, e)
-  })
+function surveySessionIdForRun(runId: string): string {
+  return `wiki-survey-${runId}`
 }
 
-export function pauseWikiExpansionRun(runId: string): void {
-  pausedRunIds.add(runId)
-  deleteWikiBuildoutSession(buildoutSessionIdForRun(runId))
+function normWikiRelKey(rel: string): string {
+  return rel.replace(/\\/g, '/').trim().toLowerCase()
 }
 
-/**
- * Run a single enrich (wiki expansion / deepen) invocation. Injects profile, manifest,
- * `wiki-edits.jsonl` tail, thin-page candidates, and merged priority queue (archived OPP-067).
- * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
- * Returns wiki page create/edit counts and the vault-relative paths touched (writes/edits — cleanup anchor export).
- */
-export async function runEnrichInvocation(
+async function wikiByteSnapshot(wikiRoot: string, relPaths: readonly string[]): Promise<Map<string, number>> {
+  const m = new Map<string, number>()
+  for (const rel of relPaths) {
+    const k = normWikiRelKey(rel)
+    try {
+      const buf = await readFile(join(wikiRoot, rel))
+      m.set(k, buf.length)
+    } catch {
+      m.set(k, 0)
+    }
+  }
+  return m
+}
+
+async function wikiByteLength(wikiRoot: string, rel: string): Promise<number> {
+  try {
+    const buf = await readFile(join(wikiRoot, rel))
+    return buf.length
+  } catch {
+    return 0
+  }
+}
+
+async function filterMeaningfulChanged(
+  wikiRoot: string,
+  pre: Map<string, number>,
+  changed: readonly string[],
+  minDelta: number,
+): Promise<{ meaningful: string[]; deltas: Map<string, number> }> {
+  const meaningful: string[] = []
+  const deltas = new Map<string, number>()
+  const seen = new Set<string>()
+  for (const raw of changed) {
+    const k = normWikiRelKey(raw)
+    if (seen.has(k)) continue
+    seen.add(k)
+    const before = pre.get(k) ?? 0
+    const after = await wikiByteLength(wikiRoot, raw)
+    const delta = Math.abs(after - before)
+    deltas.set(k, delta)
+    if (delta >= minDelta) meaningful.push(raw)
+  }
+  return { meaningful, deltas }
+}
+
+export async function runSurveyInvocation(
   runId: string,
   doc: BackgroundRunDoc,
-  options: { message?: string; timezone?: string; syncNote?: string },
+  options: { timezone?: string; syncNote?: string; lap: number },
+): Promise<{ plan: WikiLapPlan | null; error?: string }> {
+  const wikiRoot = wikiDir()
+  await ensureWikiVaultScaffoldForBuildout(wikiRoot)
+  const sessionId = surveySessionIdForRun(runId)
+  const agent = await getOrCreateWikiSurveyAgent(sessionId, { timezone: options.timezone })
+  const contextPrefix = await buildSurveyContextPrefix(wikiRoot, { syncNote: options.syncNote, lap: options.lap })
+  const fullMessage = `${contextPrefix}${WIKI_SURVEY_USER_MESSAGE}`
+
+  touchRun(doc, { detail: 'Surveying wiki for gaps…' })
+  await writeBackgroundRun(doc)
+
+  const ws = tryGetTenantContext()?.workspaceHandle
+  const wikiRunAgentTurnId = randomUUID()
+  const surveyKind = agentKindForWikiSource('wikiSurvey')
+  const unsubscribeDiag = attachAgentDiagnosticsCollector(agent, {
+    agentTurnId: wikiRunAgentTurnId,
+    agentKind: surveyKind,
+    source: 'wiki_enrich',
+    backgroundRunId: runId,
+  })
+
+  let lastMessages: AgentMessage[] | null = null
+  let toolStarts = 0
+  const toolBudgetUnsub = agent.subscribe((ev) => {
+    const e = ev as { type?: string }
+    if (e.type === 'tool_execution_start') {
+      toolStarts++
+      if (toolStarts > WIKI_SURVEY_MAX_TOOL_CALLS) {
+        try {
+          agent.abort()
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (e.type === 'agent_end') {
+      const end = ev as { type: 'agent_end'; messages: AgentMessage[] }
+      lastMessages = end.messages
+    }
+  })
+
+  const { unsubscribe } = attachWikiBackgroundRunTracker(agent, doc, wikiRoot, {
+    source: 'wikiSurvey',
+    backgroundRunId: runId,
+    workspaceHandle: ws,
+    agentTurnId: wikiRunAgentTurnId,
+  })
+
+  try {
+    if (pausedRunIds.has(runId)) return { plan: null, error: 'paused' }
+    await agent.waitForIdle()
+    await agent.prompt(fullMessage)
+  } catch (e: unknown) {
+    if (!(e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message)))) {
+      const msg = e instanceof Error ? e.message : String(e)
+      touchRun(doc, { detail: msg })
+      await writeBackgroundRun(doc)
+      return { plan: null, error: msg }
+    }
+  } finally {
+    toolBudgetUnsub()
+    releaseAllPendingToolCallSegments()
+    unsubscribeDiag()
+    unsubscribe()
+    deleteWikiSurveySession(sessionId)
+  }
+
+  const text = lastAssistantTextFromMessages(lastMessages)
+  const rawPlan = parseWikiLapPlanFromModelText(text)
+  if (!rawPlan) return { plan: null, error: 'Survey did not return valid WikiLapPlan JSON' }
+
+  const validated = validateAndSanitizeWikiLapPlan(rawPlan)
+  if (!validated.ok) return { plan: null, error: validated.error }
+
+  return { plan: validated.plan }
+}
+
+export async function runExecuteInvocation(
+  runId: string,
+  doc: BackgroundRunDoc,
+  options: { timezone?: string; syncNote?: string; plan: WikiLapPlan },
 ): Promise<{ changeCount: number; changedFiles: string[] }> {
   const wikiRoot = wikiDir()
   const sessionId = buildoutSessionIdForRun(runId)
-  // Always ensure vault-root index.md (and people skeleton) before enrich — same as cleanup.
-  // The buildout agent may `edit` index.md on the first turn; without the file, read inside edit → ENOENT.
-  // Previously we only re-ensured when the in-memory session was cached, which missed first-lap races
-  // and any vault that lost index.md while pages remained.
   await ensureWikiVaultScaffoldForBuildout(wikiRoot)
   const isFirstBuildoutRun = await readWikiBuildoutIsFirstRun()
-  const agent = await getOrCreateWikiBuildoutAgent(sessionId, {
+  const allow = [...writeAllowlistFromPlan(options.plan)]
+  const agent = await getOrCreateWikiExecuteAgent(sessionId, {
     timezone: options.timezone,
     isFirstBuildoutRun,
+    wikiWriteAllowlist: allow,
   })
 
   const contextPrefix = await buildExpansionContextPrefix(wikiRoot, options.syncNote)
-  const baseMessage = options.message ?? WIKI_EXPANSION_INITIAL_MESSAGE
-  const fullMessage = contextPrefix ? `${contextPrefix}${baseMessage}` : baseMessage
+  const planBlock = formatPlanForExecutePrompt(options.plan)
+  const fullMessage = `${contextPrefix}${planBlock}\n\n${WIKI_EXECUTE_USER_MESSAGE}`
 
-  touchRun(doc, { label: 'Your Wiki', detail: 'Starting enrichment…' })
+  touchRun(doc, { detail: 'Executing wiki lap plan…' })
   await writeBackgroundRun(doc)
 
   const ws = tryGetTenantContext()?.workspaceHandle
@@ -560,12 +686,29 @@ export async function runEnrichInvocation(
     source: 'wiki_enrich',
     backgroundRunId: runId,
   })
+
+  let toolStarts = 0
+  const toolBudgetUnsub = agent.subscribe((ev) => {
+    const e = ev as { type?: string }
+    if (e.type === 'tool_execution_start') {
+      toolStarts++
+      if (toolStarts > WIKI_EXECUTE_MAX_TOOL_CALLS) {
+        try {
+          agent.abort()
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  })
+
   const { unsubscribe, getChangeCount, getChangedFiles } = attachWikiBackgroundRunTracker(agent, doc, wikiRoot, {
     source: 'wikiExpansion',
     backgroundRunId: runId,
     workspaceHandle: ws,
     agentTurnId: wikiRunAgentTurnId,
   })
+
   try {
     if (pausedRunIds.has(runId)) return { changeCount: 0, changedFiles: [] }
     await agent.waitForIdle()
@@ -578,19 +721,182 @@ export async function runEnrichInvocation(
       await writeBackgroundRun(doc)
     }
   } finally {
+    toolBudgetUnsub()
     releaseAllPendingToolCallSegments()
     unsubscribeDiag()
     unsubscribe()
-    deleteWikiBuildoutSession(sessionId)
+    deleteWikiExecuteSession(sessionId)
   }
   return { changeCount: getChangeCount(), changedFiles: getChangedFiles() }
 }
+
+/** Sub-steps inside {@link runWikiYourLap} (for Hub phase updates). */
+export type WikiLapPipelinePhase = 'survey' | 'execute' | 'cleanup'
+
+export type WikiLapPhaseContext = {
+  lap: number
+  /** Set for `execute` / `cleanup` when a non-idle plan exists. */
+  planWorkCount?: number
+}
+
+export async function runWikiYourLap(
+  runId: string,
+  doc: BackgroundRunDoc,
+  options: {
+    timezone?: string
+    syncNote?: string
+    lap: number
+    onLapPhase?: (phase: WikiLapPipelinePhase, ctx: WikiLapPhaseContext) => void | Promise<void>
+  },
+): Promise<{
+  surveyIdle: boolean
+  plan: WikiLapPlan | null
+  executeChangeCount: number
+  executeChangedFiles: string[]
+  cleanupEditCount: number
+  cleanupEditedPaths: string[]
+  meaningfulPaths: string[]
+  error?: string
+}> {
+  const wikiRoot = wikiDir()
+  await ensureWikiVaultScaffoldForBuildout(wikiRoot)
+
+  await options.onLapPhase?.('survey', { lap: options.lap })
+  const survey = await runSurveyInvocation(runId, doc, options)
+  if (survey.error && !survey.plan) {
+    return {
+      surveyIdle: true,
+      plan: null,
+      executeChangeCount: 0,
+      executeChangedFiles: [],
+      cleanupEditCount: 0,
+      cleanupEditedPaths: [],
+      meaningfulPaths: [],
+      error: survey.error,
+    }
+  }
+
+  const plan = survey.plan!
+  const workCount = plan.newPages.length + plan.deepens.length + plan.refreshes.length
+  if (plan.idle || workCount === 0) {
+    await writeWikiLastLapPlan({
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      lap: options.lap,
+      plan,
+      outcomeSummary: 'idle',
+    }).catch(() => {})
+    return {
+      surveyIdle: true,
+      plan,
+      executeChangeCount: 0,
+      executeChangedFiles: [],
+      cleanupEditCount: 0,
+      cleanupEditedPaths: [],
+      meaningfulPaths: [],
+    }
+  }
+
+  const planTargets = [...collectPlanTargetPaths(plan), 'index.md']
+  const preSnap = await wikiByteSnapshot(wikiRoot, planTargets)
+
+  await options.onLapPhase?.('execute', { lap: options.lap, planWorkCount: workCount })
+  const exec = await runExecuteInvocation(runId, doc, {
+    timezone: options.timezone,
+    syncNote: options.syncNote,
+    plan,
+  })
+
+  await options.onLapPhase?.('cleanup', { lap: options.lap, planWorkCount: workCount })
+  const cleanup = await runCleanupInvocation(runId, doc, {
+    timezone: options.timezone,
+    changedFiles: exec.changedFiles.length > 0 ? exec.changedFiles : [],
+    trigger: exec.changedFiles.length > 0 ? 'supervisor' : 'full_vault',
+    newPagePaths: plan.newPages.map((p) => p.path),
+  })
+
+  const allChanged = [...new Set([...exec.changedFiles, ...cleanup.editedRelativePaths])]
+  const { meaningful, deltas } = await filterMeaningfulChanged(
+    wikiRoot,
+    preSnap,
+    allChanged,
+    WIKI_LAP_MIN_MEANINGFUL_CHARS,
+  )
+
+  const mail = await getOnboardingMailStatus()
+  const indexed = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
+  const evMap = evidenceIdsByPathFromPlan(plan)
+  const evidenceByPath = new Map<string, string[]>()
+  for (const p of meaningful) {
+    const ids = evMap.get(normWikiRelKey(p)) ?? []
+    evidenceByPath.set(p, [...ids])
+  }
+
+  await mergeWikiSaturationFromLap({
+    lap: options.lap,
+    meaningfulPaths: meaningful,
+    pathDeltas: deltas,
+    evidenceByPath,
+    mailIndexedTotal: indexed,
+    lastSyncAt: mail.lastSyncedAt,
+  }).catch((err: unknown) => brainLogger.warn({ err }, 'wiki saturation merge failed'))
+
+  await writeWikiLastLapPlan({
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    lap: options.lap,
+    plan,
+    outcomeSummary: `meaningful:${meaningful.length}`,
+  }).catch(() => {})
+
+  const paths = await listWikiFiles(wikiRoot)
+  touchRun(doc, { pageCount: paths.length })
+  await writeBackgroundRun(doc)
+
+  return {
+    surveyIdle: false,
+    plan,
+    executeChangeCount: exec.changeCount,
+    executeChangedFiles: exec.changedFiles,
+    cleanupEditCount: cleanup.editCount,
+    cleanupEditedPaths: cleanup.editedRelativePaths,
+    meaningfulPaths: meaningful,
+  }
+}
+
+/** @deprecated Use {@link runWikiYourLap}. */
+export async function runEnrichInvocation(
+  runId: string,
+  doc: BackgroundRunDoc,
+  options: { message?: string; timezone?: string; syncNote?: string },
+): Promise<{ changeCount: number; changedFiles: string[] }> {
+  void options.message
+  const lap = doc.lap ?? 1
+  const r = await runWikiYourLap(runId, doc, { timezone: options.timezone, syncNote: options.syncNote, lap })
+  return { changeCount: r.executeChangeCount, changedFiles: r.executeChangedFiles }
+}
+
+export function pauseWikiExpansionRun(runId: string): void {
+  pausedRunIds.add(runId)
+  deleteWikiExecuteSession(buildoutSessionIdForRun(runId))
+  deleteWikiSurveySession(surveySessionIdForRun(runId))
+}
+
+export async function resumeWikiExpansionRun(runId: string, options: { timezone?: string } = {}): Promise<void> {
+  pausedRunIds.delete(runId)
+  void runWikiExpansionJob(runId, { timezone: options.timezone }).catch((e) => {
+    console.error('[wiki-expansion resume]', runId, e)
+  })
+}
+
 
 export interface RunCleanupInvocationOptions {
   timezone?: string
   /** Paths created or edited in the preceding writer phase; anchors the pass (use empty array with trigger `full_vault`). */
   changedFiles: string[]
   trigger: CleanupInvocationTrigger
+  /** New pages from the lap plan — cleanup should link them from index.md. */
+  newPagePaths?: readonly string[]
 }
 
 export interface CleanupInvocationTelemetry {
@@ -633,6 +939,7 @@ export async function runCleanupInvocation(
     contextPrefix,
     changedFiles: changedFilesSorted,
     trigger,
+    newPagePaths: options.newPagePaths,
   })
 
   brainLogger.info(
@@ -708,11 +1015,7 @@ export function pauseCleanupSession(runId: string): void {
   }
 }
 
-async function runWikiExpansionJob(
-  runId: string,
-  message: string,
-  options: { timezone?: string },
-): Promise<void> {
+async function runWikiExpansionJob(runId: string, options: { timezone?: string }): Promise<void> {
   let doc = await readBackgroundRun(runId)
   const now = new Date().toISOString()
   if (!doc) {
@@ -740,11 +1043,21 @@ async function runWikiExpansionJob(
       await writeBackgroundRun(doc)
       return
     }
-    await runEnrichInvocation(runId, doc, { message, timezone: options.timezone })
-    touchRun(doc, {
-      status: pausedRunIds.has(runId) ? 'paused' : 'completed',
-      detail: pausedRunIds.has(runId) ? 'Paused' : 'Finished this pass',
-    })
+    const nextLap = (doc.lap ?? 0) + 1
+    touchRun(doc, { lap: nextLap })
+    await writeBackgroundRun(doc)
+
+    const r = await runWikiYourLap(runId, doc, { timezone: options.timezone, lap: nextLap })
+    if (r.error === 'paused') {
+      touchRun(doc, { status: 'paused', detail: 'Paused' })
+    } else if (r.error) {
+      touchRun(doc, { status: 'error', error: r.error, detail: r.error })
+    } else {
+      touchRun(doc, {
+        status: pausedRunIds.has(runId) ? 'paused' : 'completed',
+        detail: pausedRunIds.has(runId) ? 'Paused' : 'Finished this pass',
+      })
+    }
     await writeBackgroundRun(doc)
   } catch (e: unknown) {
     if (e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message))) {
@@ -763,10 +1076,8 @@ export async function startWikiExpansionRun(options: {
   mode: 'full' | 'continue'
   timezone?: string
 }): Promise<{ runId: string }> {
-  const runId = crypto.randomUUID()
+  const runId = randomUUID()
   const now = new Date().toISOString()
-  const message =
-    options.mode === 'full' ? WIKI_EXPANSION_INITIAL_MESSAGE : WIKI_EXPANSION_CONTINUE_MESSAGE
   const doc: BackgroundRunDoc = {
     id: runId,
     kind: 'wiki-expansion',
@@ -781,7 +1092,7 @@ export async function startWikiExpansionRun(options: {
     updatedAt: now,
   }
   await writeBackgroundRun(doc)
-  void runWikiExpansionJob(runId, message, { timezone: options.timezone }).catch((e) => {
+  void runWikiExpansionJob(runId, { timezone: options.timezone }).catch((e) => {
     console.error('[wiki-expansion]', runId, e)
   })
   return { runId }

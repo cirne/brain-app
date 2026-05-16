@@ -57,6 +57,7 @@
     "resumeLoop": "Resume the wiki loop",
     "phase": {
       "starting": "Starting",
+      "surveying": "Surveying",
       "enriching": "Enriching",
       "cleaning": "Cleaning up",
       "paused": "Paused",

@@ -2,11 +2,11 @@ import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
 import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
 import type { OnboardingMailStatusPayload } from '@server/lib/onboarding/onboardingMailStatus.js'
 import type { OnboardingMachineState } from '@server/lib/onboarding/onboardingState.js'
-import { readWikiBootstrapState } from '@server/lib/onboarding/onboardingState.js'
+import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
 import {
-  ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
-  WIKI_BUILDOUT_MIN_MESSAGES,
-} from '@shared/onboardingProfileThresholds.js'
+  mailIndexMeetsWikiSupervisorHistoryMinimum,
+  wikiSupervisorMailPreflightPasses,
+} from '@shared/wikiMailIndexedHistoryGate.js'
 import { listRecentFailedOrchestratorTasks } from './orchestrator.js'
 
 /** Hub hint while TS Gmail historical lane (`sync_summary` id=2) is active — onboarding uses a single ~1y slice from indexing onward. */
@@ -22,7 +22,7 @@ function wikiRollupStatus(doc: BackgroundRunDoc): BackgroundStatusResponse['wiki
   const ph = doc.phase ?? 'idle'
   if (doc.status === 'error' || ph === 'error') return 'error'
   if (doc.status === 'paused' || ph === 'paused') return 'paused'
-  if (doc.status === 'running' || ph === 'starting' || ph === 'enriching' || ph === 'cleaning') {
+  if (doc.status === 'running' || ph === 'starting' || ph === 'surveying' || ph === 'enriching' || ph === 'cleaning') {
     return 'running'
   }
   if (doc.status === 'queued') return 'queued'
@@ -38,7 +38,6 @@ export async function buildBackgroundStatusPayload(input: {
 }): Promise<BackgroundStatusResponse> {
   const { mail, state, wikiMeExists, wikiDoc, onboardingFlowActive } = input
   const indexed = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
-  const wikiBootstrapDoc = await readWikiBootstrapState()
 
   const interviewReady =
     indexed >= ONBOARDING_PROFILE_INDEX_MANUAL_MIN && mail.configured
@@ -51,15 +50,12 @@ export async function buildBackgroundStatusPayload(input: {
   const phase2Complete =
     state === 'done' && mail.configured && !mail.backfillRunning && indexed > 0
 
-  const wikiBootstrapGatePassed =
-    wikiBootstrapDoc.status === 'completed' || wikiBootstrapDoc.status === 'failed'
+  const indexedHistoryDepthOk = mailIndexMeetsWikiSupervisorHistoryMinimum(mail.dateRange)
+  const wikiSupervisorPreflightOk = wikiSupervisorMailPreflightPasses(mail)
 
   const milestones = {
     interviewReady,
-    wikiReady:
-      state === 'done' &&
-      indexed >= WIKI_BUILDOUT_MIN_MESSAGES &&
-      wikiBootstrapGatePassed,
+    wikiReady: state === 'done' && wikiSupervisorPreflightOk,
     fullySynced:
       state === 'done' &&
       mail.configured &&
@@ -82,6 +78,7 @@ export async function buildBackgroundStatusPayload(input: {
       backfillListedTarget: mail.backfillListedTarget ?? null,
       configured: mail.configured,
       dateRange: mail.dateRange,
+      indexedHistoryDepthOk,
       phase1Complete,
       phase2Complete,
       syncRunning: mail.syncRunning,
@@ -103,17 +100,7 @@ export async function buildBackgroundStatusPayload(input: {
       currentLap: wikiDoc.lap ?? 0,
       detail: wikiDoc.detail ?? '',
       lastRunAt: wikiDoc.updatedAt ?? null,
-      autoStartEligible:
-        mail.configured &&
-        indexed >= WIKI_BUILDOUT_MIN_MESSAGES &&
-        wikiBootstrapGatePassed,
-      bootstrap: {
-        status: wikiBootstrapDoc.status,
-        completedAt: wikiBootstrapDoc.completedAt ?? null,
-        ...(wikiBootstrapDoc.skipped === true ? { skipped: true } : {}),
-        ...(wikiBootstrapDoc.stats ? { stats: wikiBootstrapDoc.stats } : {}),
-        ...(wikiBootstrapDoc.lastError ? { lastError: wikiBootstrapDoc.lastError } : {}),
-      },
+      autoStartEligible: wikiSupervisorPreflightOk,
       lapMailSyncStale: wikiDoc.lapMailSyncIncomplete === true,
       error: wikiDoc.error,
     },

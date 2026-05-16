@@ -13,6 +13,8 @@ export function wikiOverviewTitle(wikiDoc: BackgroundAgentDoc | null): string {
   switch (wikiPhase) {
     case 'starting':
       return wikiText('overview.titleBuildingFirstPages', 'Building your first pages')
+    case 'surveying':
+      return wikiText('overview.titleSurveying', 'Surveying your wiki')
     case 'enriching':
       return wikiText('overview.titleExpanding', 'Expanding your wiki')
     case 'cleaning':
@@ -43,6 +45,8 @@ export function wikiOverviewSubtitle(
   switch (wikiPhase) {
     case 'starting':
       return lastLine ?? wikiText('overview.subtitlePreparing', 'Getting everything ready…')
+    case 'surveying':
+      return lastLine ?? wikiText('overview.subtitleSurveyingGaps', 'Looking for gaps to improve')
     case 'enriching':
       if (lastLine) return lastLine
       if ((wikiDoc.detail ?? '').includes('Sync')) {

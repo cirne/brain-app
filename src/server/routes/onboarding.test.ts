@@ -62,6 +62,7 @@ import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
+import { _resetWikiKickHistoryThrottleForTests } from '@server/lib/backgroundTasks/wikiKickAfterOnboardingDone.js'
 
 /** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
 vi.mock('../agent/wikiExpansionRunner.js', () => ({
@@ -75,6 +76,7 @@ let brainHome: string
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'onboarding-api-'))
   process.env.BRAIN_HOME = brainHome
+  _resetWikiKickHistoryThrottleForTests()
 })
 
 afterEach(async () => {
@@ -369,6 +371,10 @@ describe('onboarding routes', () => {
     indexedTotal: 1500,
     ftsReady: 1500,
     messageAvailableForProgress: 1500,
+    dateRange: {
+      from: '2000-01-01T00:00:00.000Z',
+      to: null as string | null,
+    },
   }
 
   it('POST /finalize runs finalize and marks done', async () => {
@@ -406,14 +412,6 @@ describe('onboarding routes', () => {
     interviewFinalizeMocks.runInterviewFinalize.mockClear()
     yourWikiMocks.ensureYourWikiRunning.mockClear()
     const mailSpy = vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mailPayloadWikiReady)
-    const bootstrapSpy = vi.spyOn(await import('@server/lib/onboarding/onboardingState.js'), 'readWikiBootstrapState')
-    bootstrapSpy.mockResolvedValue({
-      status: 'completed',
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      completedAt: '2026-01-01T00:00:00.000Z',
-      stats: { peopleCreated: 0, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
-    })
     const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
     const sessionId = '550e8400-e29b-41d4-a716-446655440002'
     await setOnboardingState('indexing')
@@ -431,7 +429,6 @@ describe('onboarding routes', () => {
       expect(yourWikiMocks.ensureYourWikiRunning).toHaveBeenCalledTimes(1)
     })
     mailSpy.mockRestore()
-    bootstrapSpy.mockRestore()
   })
 
   it('POST /setup-mail returns 500 when mail setup persistence fails', async () => {

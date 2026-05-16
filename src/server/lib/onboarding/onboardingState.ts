@@ -5,7 +5,6 @@ import { chatDataDir } from '@server/lib/chat/chatStorage.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { wipeBrainHomeContents } from '@server/lib/platform/brainHome.js'
 import { wipeBrainDataRootContents } from '@server/lib/tenant/dataRoot.js'
-import { WIKI_BOOTSTRAP_STATE_VERSION } from '@shared/wikiBootstrap.js'
 
 /** Persisted onboarding machine state (OPP-006 / OPP-054). */
 export type OnboardingMachineState =
@@ -31,129 +30,6 @@ export function onboardingDataDir(): string {
 }
 
 const WIKI_BUILDOUT_STATE = 'wiki-buildout-state.json'
-
-const WIKI_BOOTSTRAP_STATE = 'wiki-bootstrap.json'
-
-/** Persisted wiki first-draft bootstrap progress (OPP-095). */
-export type WikiBootstrapStatus = 'not-started' | 'running' | 'completed' | 'failed'
-
-export type WikiBootstrapStats = {
-  peopleCreated: number
-  projectsCreated: number
-  topicsCreated: number
-  travelCreated: number
-}
-
-export type WikiBootstrapStateDoc = {
-  status: WikiBootstrapStatus
-  /** Matches {@link import('@shared/wikiBootstrap.js').WIKI_BOOTSTRAP_STATE_VERSION}. */
-  version: number
-  updatedAt: string
-  completedAt?: string
-  /** When set, bootstrap was skipped via `WIKI_BOOTSTRAP_SKIP` — maintenance may run immediately. */
-  skipped?: boolean
-  lastError?: string
-  stats?: WikiBootstrapStats
-}
-
-/** Env: skip first-draft bootstrap and allow continuous supervisor immediately (operator / power user). */
-export function wikiBootstrapSkipFromEnv(): boolean {
-  const v = process.env.WIKI_BOOTSTRAP_SKIP?.trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'yes'
-}
-
-export function wikiBootstrapStatePath(): string {
-  return join(onboardingDataDir(), WIKI_BOOTSTRAP_STATE)
-}
-
-export async function readWikiBootstrapState(): Promise<WikiBootstrapStateDoc> {
-  try {
-    const raw = await readFile(wikiBootstrapStatePath(), 'utf-8')
-    const p = JSON.parse(raw) as unknown
-    if (!p || typeof p !== 'object') return defaultWikiBootstrapStateDoc()
-    const o = p as Record<string, unknown>
-    const status = o.status
-    const valid: WikiBootstrapStatus[] = ['not-started', 'running', 'completed', 'failed']
-    if (typeof status === 'string' && (valid as string[]).includes(status)) {
-      return {
-        status: status as WikiBootstrapStatus,
-        version: typeof o.version === 'number' ? o.version : 1,
-        updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : new Date().toISOString(),
-        ...(typeof o.completedAt === 'string' ? { completedAt: o.completedAt } : {}),
-        ...(o.skipped === true ? { skipped: true } : {}),
-        ...(typeof o.lastError === 'string' ? { lastError: o.lastError } : {}),
-        ...(o.stats && typeof o.stats === 'object' ? { stats: o.stats as WikiBootstrapStats } : {}),
-      }
-    }
-  } catch (e: unknown) {
-    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
-    if (code !== 'ENOENT') throw e
-  }
-  return defaultWikiBootstrapStateDoc()
-}
-
-function defaultWikiBootstrapStateDoc(): WikiBootstrapStateDoc {
-  return {
-    status: 'not-started',
-    version: WIKI_BOOTSTRAP_STATE_VERSION,
-    updatedAt: new Date().toISOString(),
-  }
-}
-
-export async function markWikiBootstrapRunning(): Promise<void> {
-  await mkdir(onboardingDataDir(), { recursive: true })
-  const doc: WikiBootstrapStateDoc = {
-    status: 'running',
-    version: WIKI_BOOTSTRAP_STATE_VERSION,
-    updatedAt: new Date().toISOString(),
-  }
-  await writeFile(wikiBootstrapStatePath(), JSON.stringify(doc, null, 2) + '\n', 'utf-8')
-}
-
-export async function markWikiBootstrapComplete(stats: WikiBootstrapStats): Promise<void> {
-  await mkdir(onboardingDataDir(), { recursive: true })
-  const now = new Date().toISOString()
-  const doc: WikiBootstrapStateDoc = {
-    status: 'completed',
-    version: WIKI_BOOTSTRAP_STATE_VERSION,
-    updatedAt: now,
-    completedAt: now,
-    stats,
-  }
-  await writeFile(wikiBootstrapStatePath(), JSON.stringify(doc, null, 2) + '\n', 'utf-8')
-}
-
-/** Persist skip-from-env so subsequent polls do not depend on the env var. */
-export async function markWikiBootstrapSkipped(): Promise<void> {
-  await mkdir(onboardingDataDir(), { recursive: true })
-  const now = new Date().toISOString()
-  const doc: WikiBootstrapStateDoc = {
-    status: 'completed',
-    version: WIKI_BOOTSTRAP_STATE_VERSION,
-    updatedAt: now,
-    completedAt: now,
-    skipped: true,
-    stats: {
-      peopleCreated: 0,
-      projectsCreated: 0,
-      topicsCreated: 0,
-      travelCreated: 0,
-    },
-  }
-  await writeFile(wikiBootstrapStatePath(), JSON.stringify(doc, null, 2) + '\n', 'utf-8')
-}
-
-export async function markWikiBootstrapFailed(message: string): Promise<void> {
-  await mkdir(onboardingDataDir(), { recursive: true })
-  const now = new Date().toISOString()
-  const doc: WikiBootstrapStateDoc = {
-    status: 'failed',
-    version: WIKI_BOOTSTRAP_STATE_VERSION,
-    updatedAt: now,
-    lastError: message.trim().slice(0, 2000) || '(unknown)',
-  }
-  await writeFile(wikiBootstrapStatePath(), JSON.stringify(doc, null, 2) + '\n', 'utf-8')
-}
 
 /** Persisted after the first successful wiki enrich (buildout) pass — later laps omit starter-template prompt copy. */
 export type WikiBuildoutStateDoc = {
@@ -291,7 +167,7 @@ export async function setOnboardingStateForce(next: OnboardingMachineState): Pro
   return doc
 }
 
-/** Remove wiki buildout first-run flag and wiki bootstrap state under `$BRAIN_HOME/chats/onboarding/` (keeps `onboarding.json` in `chats/`). */
+/** Remove wiki buildout first-run flag under `$BRAIN_HOME/chats/onboarding/` (keeps `onboarding.json` in `chats/`). Best-effort deletes legacy `wiki-bootstrap.json` if present. */
 export async function clearOnboardingStaging(): Promise<void> {
   try {
     await unlink(wikiBuildoutStatePath())
@@ -300,7 +176,7 @@ export async function clearOnboardingStaging(): Promise<void> {
     if (code !== 'ENOENT') throw e
   }
   try {
-    await unlink(wikiBootstrapStatePath())
+    await unlink(join(onboardingDataDir(), 'wiki-bootstrap.json'))
   } catch (e: unknown) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
     if (code !== 'ENOENT') throw e

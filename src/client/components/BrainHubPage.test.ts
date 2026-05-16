@@ -15,6 +15,7 @@ function mockBackgroundStatus(overrides: Partial<BackgroundStatusResponse> = {})
       messageAvailableForProgress: null,
       configured: false,
       dateRange: { from: null, to: null },
+      indexedHistoryDepthOk: false,
       phase1Complete: false,
       phase2Complete: false,
       syncRunning: false,
@@ -34,11 +35,6 @@ function mockBackgroundStatus(overrides: Partial<BackgroundStatusResponse> = {})
       detail: 'Not yet started',
       lastRunAt: null,
       autoStartEligible: false,
-      bootstrap: {
-        status: 'completed',
-        completedAt: '2026-01-01T00:00:00.000Z',
-        stats: { peopleCreated: 0, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
-      },
     },
     onboarding: {
       state: 'done',

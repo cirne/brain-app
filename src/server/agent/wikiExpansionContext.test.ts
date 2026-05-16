@@ -26,12 +26,9 @@ afterEach(async () => {
 })
 
 describe('buildExpansionContextPrefix', () => {
-  it('when vault has only deepen idle signal (no me.md), still injects idle deepen guidance', async () => {
+  it('returns empty string when vault has no me/assistant/manifest/sync content', async () => {
     const prefix = await buildExpansionContextPrefix(wikiRoot)
-    expect(prefix).toMatch(/Injected context/i)
-    expect(prefix).toMatch(/Deepen this lap/i)
-    expect(prefix).toMatch(/Idle/i)
-    expect(prefix).not.toContain('Existing wiki pages')
+    expect(prefix).toBe('')
   })
 
   it('injects me.md content when the file exists (BUG-011 fix)', async () => {
@@ -74,8 +71,6 @@ describe('buildExpansionContextPrefix', () => {
     expect(prefix).toContain('people/alice.md')
     expect(prefix).toContain('projects/foo.md')
     expect(prefix).toContain('Existing wiki pages')
-    expect(prefix).toMatch(/Thin pages \(deepen candidates\)/i)
-    expect(prefix).toMatch(/Deepen this lap \(priority\)/i)
   })
 
   it('does not include hidden directories in the manifest', async () => {

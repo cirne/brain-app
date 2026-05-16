@@ -33,7 +33,10 @@
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
-    wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
+    wikiPhase === 'starting' ||
+      wikiPhase === 'surveying' ||
+      wikiPhase === 'enriching' ||
+      wikiPhase === 'cleaning',
   )
   const wikiIsPaused = $derived(wikiPhase === 'paused')
 

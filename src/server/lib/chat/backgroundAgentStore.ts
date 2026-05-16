@@ -8,7 +8,7 @@ export type BackgroundAgentKind = 'wiki-expansion' | 'your-wiki'
 export type BackgroundRunStatus = 'queued' | 'running' | 'paused' | 'completed' | 'error'
 
 /** Supervisor phase for the "Your Wiki" continuous loop. */
-export type YourWikiPhase = 'starting' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
+export type YourWikiPhase = 'starting' | 'surveying' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
 
 /** Structured activity line for UI (paired with optional raw `logLines`). */
 export type LogEntry = { verb: string; detail: string }

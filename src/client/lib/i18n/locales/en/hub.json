@@ -133,6 +133,7 @@
   "brainHubWidget": {
     "phases": {
       "starting": "Starting wiki…",
+      "surveying": "Surveying wiki…",
       "enriching": "Enriching…",
       "cleaning": "Cleaning up…",
       "paused": "Paused"
