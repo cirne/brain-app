@@ -154,7 +154,7 @@ describe('BrainHubPage.svelte (Activity)', () => {
   })
 
   it('shows Activity title and hosted workspace handle', async () => {
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
 
     expect(screen.getByRole('heading', { level: 1, name: /activity/i })).toBeInTheDocument()
 
@@ -163,22 +163,13 @@ describe('BrainHubPage.svelte (Activity)', () => {
     })
   })
 
-  it('hides Tunnels hub section when brainQueryEnabled is false', async () => {
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: false } })
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: /activity/i })).toBeInTheDocument()
-    })
-    expect(screen.queryByText(/^Tunnels$/)).not.toBeInTheDocument()
-  })
-
   it('polls /api/background-status while Hub stays mounted', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       const fetchMock = vi.fn(defaultFetchHandler())
       vi.stubGlobal('fetch', fetchMock)
 
-      render(BrainHubPage, { props: { onHubNavigate: vi.fn(), brainQueryEnabled: true } })
+      render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
 
       await waitFor(() => {
         const n = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/api/background-status')).length

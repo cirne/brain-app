@@ -1,5 +1,4 @@
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
-import { B2B_ENABLED } from '@server/lib/features.js'
 import type { AgentTool } from '@earendil-works/pi-agent-core'
 import { createWikiScopedPiTools, type WikiWriteCreatesPolicy } from './tools/wikiScopedFsTools.js'
 import { createWikiFileManagementTools } from './tools/wikiFileManagementTools.js'
@@ -125,7 +124,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const { listRecentMessagesTool, getMessageThreadTool, searchMessagesTool } = createLocalMessageTools(wikiDir)
 
-  const askCollaboratorTool = B2B_ENABLED ? createAskCollaboratorTool() : null
+  const askCollaboratorTool = createAskCollaboratorTool()
 
   const tools = [
     read,
@@ -150,7 +149,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     editDraft,
     deleteDraft,
     sendDraft,
-    ...(askCollaboratorTool ? [askCollaboratorTool] : []),
+    askCollaboratorTool,
     findPerson,
     calendar,
     webSearch,

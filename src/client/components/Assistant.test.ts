@@ -66,6 +66,7 @@ vi.mock('@client/lib/vaultClient.js', () => ({
 
 vi.mock('@client/lib/hubEvents/hubEventsClient.js', () => ({
   startHubEventsConnection: vi.fn(() => vi.fn()),
+  subscribeTunnelActivity: vi.fn(() => vi.fn()),
 }))
 
 vi.mock('@client/lib/app/debouncedWikiSync.js', () => ({
@@ -512,6 +513,10 @@ describe('Assistant.svelte', () => {
           match: (u: string) => u === '/api/onboarding/status',
           response: () => jsonResponse({ state: 'done' }),
         },
+        {
+          match: (u: string) => u === '/api/chat/b2b/tunnels',
+          response: () => jsonResponse({ tunnels: [] }),
+        },
       ])
       vi.stubGlobal('fetch', fetchMock)
       const finalizeSpy = vi.spyOn(onboardingApi, 'postOnboardingFinalize').mockResolvedValue(undefined)
@@ -523,7 +528,7 @@ describe('Assistant.svelte', () => {
 
       await fireEvent.click(screen.getByTestId('agent-chat-stub-invoke-finish'))
       await vi.waitFor(() => expect(mockReplaceState).toHaveBeenCalled())
-      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
 
       expect(finalizeSpy).not.toHaveBeenCalled()
       finalizeSpy.mockRestore()

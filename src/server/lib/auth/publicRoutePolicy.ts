@@ -23,11 +23,17 @@ export function isVaultPublicRoute(path: string, method: string): boolean {
  * Paths allowed without tenant ALS resolution — must stay aligned with {@link vaultGateMiddleware}
  * bootstrap allowances (OAuth, vault status, onboarding ping, Enron demo).
  */
+/** Slack Events API / interactivity — verified via signing secret, not vault session. */
+export function isSlackWebhookPublicPath(path: string, method: string): boolean {
+  return method === 'POST' && path.startsWith('/api/slack/')
+}
+
 export function isTenantBootstrapPublicPath(path: string, method: string): boolean {
   if (path.startsWith('/api/oauth/google')) return true
   if (isVaultPublicRoute(path, method)) return true
   if (isOnboardingStatusPublicPath(path, method)) return true
   if (isEnronDemoPublicApiPath(path, method)) return true
+  if (isSlackWebhookPublicPath(path, method)) return true
   return false
 }
 

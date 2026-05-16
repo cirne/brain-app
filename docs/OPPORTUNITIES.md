@@ -4,8 +4,8 @@ Improvement ideas and future features discovered through usage. Each entry captu
 
 Active and future work lives in [opportunities/](opportunities/). Shipped and deprioritized work moves to [opportunities/archive/](opportunities/archive/).
 
-<!-- NEXT_OPP_ID: 116 -->
-**Next opportunity id:** **OPP-116**. Allocate new opportunities monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_OPP_ID: 118 -->
+**Next opportunity id:** **OPP-118**. Allocate new opportunities monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 ### Ripmail corpus (CLI + SQLite)
 
@@ -54,6 +54,9 @@ Add an `llmJudge` expect kind to the wiki eval harness so quality properties —
 
 **Open — research.** Periodic ripmail sweep works for small N; **thousands of tenants per container** needs tail-aware scheduling (queues, jitter, isolation). Problem + directions: [scheduled-ripmail-sync-at-scale.md](architecture/scheduled-ripmail-sync-at-scale.md).
 
+### [OPP-117](opportunities/OPP-117-slack-identity-and-messaging-adapter.md): Slack identity link + messaging adapter
+
+**Open.** After [archived OPP-116](opportunities/archive/OPP-116-slack-hello-world-app.md): Slack OAuth (workspace install + per-user link to Braintunnel tenant), minimal Settings/Hub UX, `users:read`, platform-agnostic `MessagingQuery` + Slack adapter (refactor hello-world). Supports “who has Braintunnel?” and `@user` resolution in bot DMs; channel @mention in thread. **No** ambassador agent, policy, or Block Kit approvals. Staging deploy deferred. Parent: [IDEA-slack-personal-ambassador](ideas/IDEA-slack-personal-ambassador.md).
 
 
 
@@ -413,6 +416,10 @@ Operator workflow for **Developer ID Application** signing, **notarization**, **
 ### [OPP-113](opportunities/archive/OPP-113-tunnel-connections-unified-activity-surface.md): Tunnel connections: unified activity surface
 
 **Archived (2026-05-14).** **Checkpoint shipped:** Tunnels primary nav + list/detail, **`/tunnels/:handle`**, B2B activity timeline, Connect, pending via **`GET /api/chat/b2b/review`**; bare **`/tunnels`** / retired **`/review`** normalize to **`/c`**. **Residual:** dual compose refinement, bubble styling/tests—continue in product or new OPPs.
+
+### [OPP-116](opportunities/archive/OPP-116-slack-hello-world-app.md): Slack hello world app (Bolt + Events API)
+
+**Archived (2026-05-16).** **Dev shipped:** `POST /api/slack/events`, signing verification, DM hello-world via named Cloudflare tunnel (`pnpm run dev:tunnel`). **Deferred:** staging Slack app + deploy verification. Parent: [IDEA-slack-personal-ambassador](ideas/IDEA-slack-personal-ambassador.md).
 
 
 

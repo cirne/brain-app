@@ -20,18 +20,12 @@
   import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
-    /** Cross-workspace brain query hub summary; true only when server enables `BRAIN_B2B_ENABLED`. */
-    brainQueryEnabled?: boolean
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** Opens Brain-to-brain policy UI (`/settings/brain-access`). */
     onOpenBrainAccess?: () => void
   }
 
-  let {
-    brainQueryEnabled = false,
-    onHubNavigate,
-    onOpenBrainAccess,
-  }: Props = $props()
+  let { onHubNavigate, onOpenBrainAccess }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -262,13 +256,11 @@
       </div>
     </section>
 
-    {#if brainQueryEnabled}
-      <HubSharingSection
-        onManageBrainAccess={() => {
-          onOpenBrainAccess?.()
-        }}
-      />
-    {/if}
+    <HubSharingSection
+      onManageBrainAccess={() => {
+        onOpenBrainAccess?.()
+      }}
+    />
   </div>
 </div>
 

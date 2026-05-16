@@ -238,7 +238,6 @@
   {:else}
   <FullDiskAccessGate>
     <Assistant
-      brainQueryEnabled={vaultStatus?.brainQueryEnabled ?? false}
       refreshAppOnboardingStatus={refreshVaultAndOnboardingStatus}
       multiTenant={vaultStatus?.multiTenant === true}
     />

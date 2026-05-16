@@ -6,18 +6,14 @@ import {
 
 describe('resolveSettingsPrimaryShell', () => {
   it('routes overlays to shell segments', () => {
-    expect(resolveSettingsPrimaryShell(undefined, true)).toBe('home')
-    expect(resolveSettingsPrimaryShell({ type: 'settings-connections' }, true)).toBe('connections')
-    expect(resolveSettingsPrimaryShell({ type: 'hub-source', id: 's1' }, true)).toBe('connections')
-    expect(resolveSettingsPrimaryShell({ type: 'settings-wiki' }, true)).toBe('wiki')
-    expect(resolveSettingsPrimaryShell({ type: 'brain-access' }, true)).toBe('brain-access-list')
-    expect(resolveSettingsPrimaryShell({ type: 'brain-access-policy', policyId: 'p' }, true)).toBe(
+    expect(resolveSettingsPrimaryShell(undefined)).toBe('home')
+    expect(resolveSettingsPrimaryShell({ type: 'settings-connections' })).toBe('connections')
+    expect(resolveSettingsPrimaryShell({ type: 'hub-source', id: 's1' })).toBe('connections')
+    expect(resolveSettingsPrimaryShell({ type: 'settings-wiki' })).toBe('wiki')
+    expect(resolveSettingsPrimaryShell({ type: 'brain-access' })).toBe('brain-access-list')
+    expect(resolveSettingsPrimaryShell({ type: 'brain-access-policy', policyId: 'p' })).toBe(
       'brain-access-policy',
     )
-  })
-
-  it('hides brain-access when feature off', () => {
-    expect(resolveSettingsPrimaryShell({ type: 'brain-access' }, false)).toBe('home')
   })
 })
 

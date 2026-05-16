@@ -13,7 +13,6 @@ import { loadSession } from '@server/lib/chat/chatStorage.js'
 import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persistedChatToAgentMessages.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { buildRipmailSourcesPromptSection } from '@server/lib/ripmail/ripmailSourcesPromptSection.js'
-import { B2B_ENABLED } from '@server/lib/features.js'
 import { buildDateContext, requireStandardBrainLlm } from './agentFactory.js'
 import { clearAllBootstrapSessions, deleteBootstrapSession } from './initialBootstrapAgent.js'
 
@@ -69,7 +68,6 @@ export function buildBaseSystemPrompt(
     assistantHint: new Handlebars.SafeString(assistantHint),
     includeLocalMessageCapabilities,
     multiTenant,
-    brainCollaborationEnabled: B2B_ENABLED,
   })
 }
 

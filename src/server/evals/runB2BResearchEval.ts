@@ -23,18 +23,14 @@ function assertDemoRipIndexes(): void {
 
 export async function runB2BResearchEvalMain(): Promise<number> {
   const prevEvalNow = process.env.EVAL_ASSISTANT_NOW
-  const prevB2B = process.env.BRAIN_B2B_ENABLED
   const setDefaultEvalNow = !prevEvalNow?.trim()
   if (setDefaultEvalNow) process.env.EVAL_ASSISTANT_NOW = '2002-01-01'
-  process.env.BRAIN_B2B_ENABLED = 'true'
   try {
     assertDemoRipIndexes()
     return await runB2BResearchEvalMainInner()
   } finally {
     if (setDefaultEvalNow) delete process.env.EVAL_ASSISTANT_NOW
     else if (prevEvalNow !== undefined) process.env.EVAL_ASSISTANT_NOW = prevEvalNow
-    if (prevB2B === undefined) delete process.env.BRAIN_B2B_ENABLED
-    else process.env.BRAIN_B2B_ENABLED = prevB2B
   }
 }
 

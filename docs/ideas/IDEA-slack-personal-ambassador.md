@@ -1,7 +1,9 @@
 # Slack personal ambassador — your Brain in your team's Slack
 
-**Status:** Backlog — no OPPs yet; pre-product  
+**Status:** Active — hello-world spike shipped (dev); identity + adapter in progress  
 **Index:** [IDEAS.md](../IDEAS.md)  
+**Shipped spike:** [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md) (Events API hello world, dev only; staging deferred)  
+**Current OPP:** [OPP-117](../opportunities/OPP-117-slack-identity-and-messaging-adapter.md) (workspace + user OAuth link, messaging core, Slack adapter)  
 **Relates to:** [VISION.md](../VISION.md) (context engine), [STRATEGY.md](../STRATEGY.md) (trust moat), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (B2B tunnel model; Slack is a new intake channel for the same draft→review→send flow), **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** (Slack approval notifications appear in the brief queue; same notification substrate), [IDEA-local-bridge-agent](IDEA-local-bridge-agent.md) (desktop idle detection for presence-aware auto-reply toggle)
 
 ---
@@ -28,15 +30,17 @@ From a colleague's perspective, the experience is frictionless: DM `@Braintunnel
 
 ## Why this is differentiated from Slack AI
 
-|  | Slack AI (2026) | Braintunnel ambassador |
-|---|---|---|
-| Knows your private email corpus | ❌ | ✅ Years of indexed mail |
-| Knows your personal wiki | ❌ | ✅ Compounding knowledge graph |
-| Knows your relationships and history with each person | ❌ | ✅ `people/*.md` pages, contact graph |
-| Can answer in your voice | ❌ | ✅ Style learned from wiki + mail |
-| Per-contact response policies | ❌ | ✅ Custom rules per requester |
-| Gets smarter over time | ❌ | ✅ Each interaction feeds the wiki |
-| Represents *you*, not the team | ❌ | ✅ |
+
+|                                                       | Slack AI (2026) | Braintunnel ambassador               |
+| ----------------------------------------------------- | --------------- | ------------------------------------ |
+| Knows your private email corpus                       | ❌               | ✅ Years of indexed mail              |
+| Knows your personal wiki                              | ❌               | ✅ Compounding knowledge graph        |
+| Knows your relationships and history with each person | ❌               | ✅ `people/*.md` pages, contact graph |
+| Can answer in your voice                              | ❌               | ✅ Style learned from wiki + mail     |
+| Per-contact response policies                         | ❌               | ✅ Custom rules per requester         |
+| Gets smarter over time                                | ❌               | ✅ Each interaction feeds the wiki    |
+| Represents *you*, not the team                        | ❌               | ✅                                    |
+
 
 The compounding wiki is the true moat. Every well-handled Slack interaction reinforces the wiki context that generated it. The ambassador that a colleague talks to in year 2 is categorically better than year 1, because the wiki is richer.
 
@@ -83,6 +87,30 @@ Slack's modern Events API has no presence webhooks (the RTM API that supported `
 
 When the ambassador activates, Braintunnel calls the Slack user status API to set the `🧠 Braintunnel active` status (and clears it when deactivated).
 
+### Custom status as routing hint (AFK / busy)
+
+What if the user's Slack **custom status text** (not only emoji) doubled as a CTA when they're away or busy — e.g. *"Ask @Braintunnel for an immediate answer on API migration / Q4 OKRs"* — so anyone who opens their profile or sees the status in a sidebar knows where to go for the answer they'd otherwise ping for?
+
+This is lighter than intercepting human-to-human DMs (still out of scope): the human Slack thread stays untouched; Braintunnel only **advertises** the bot path on the user's own presence surface. Natural pairings:
+
+- **Away-only / scheduled ambassador** — status text updates when the ambassador turns on; clears when off.
+- **Manual busy** — user sets Slack to busy; optional Braintunnel setting: "when I'm busy in Slack, suggest @Braintunnel in my status" (sync or template the user can edit).
+- **Copy templates** — short, user-editable defaults (*"Heads down — ask @Braintunnel in DM or #channel"*) with optional topic hint from recent wiki gaps or calendar (e.g. "on PTO through Friday").
+
+**Open product question — autoresponse vs forward:**
+
+
+| Path                | Behavior                                                                          | Pros                                              | Cons                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Status CTA only** | Status points to @Braintunnel; colleague must DM or @mention the bot              | No DM plumbing; matches bot-as-intermediary model | Colleague may still DM the human out of habit                                                                    |
+| **Autoresponse**    | Slack auto-reply (or bot) on DM to the human: "Sarah's away — ask @Braintunnel …" | Catches habitual DMs                              | Slack auto-reply is user-configured or limited; easy to feel spammy; not true "forward" into ambassador pipeline |
+| **Forward**         | Incoming DM to human triggers ambassador draft / notification                     | Highest capture rate                              | Requires capabilities Slack does not expose cleanly for third-party apps on 1:1 human DMs; blurs trust boundary  |
+
+
+**Working hypothesis:** Status CTA + ambassador on the **bot** surfaces (DM `@Braintunnel`, channel @mention) is the default; treat **autoresponse** as an optional Slack-native snippet the user pastes into Slack's "When in a meeting / away" auto-reply (Braintunnel supplies copy, does not send on the user's behalf). **Forward** of human DMs remains out of scope unless Slack ships a supported delegation hook.
+
+Worth validating in user research: whether status-only is enough, or whether teams expect an automatic first reply when they DM the absent person.
+
 ---
 
 ## Policy system
@@ -98,6 +126,7 @@ Integration policy is configured by the Braintunnel account holder who installed
 This pattern generalizes cleanly: a future Teams workspace installation would have its own integration policy on the same mechanism. The abstraction is "a policy assigned to an integration context," not "a Slack policy."
 
 Examples of integration policy:
+
 - "Constrain all answers to topics relevant to this organization's mission and active projects"
 - "Do not answer personal questions (finance, health, relationships) regardless of what individual users have configured"
 - "All responses require user approval before sending"
@@ -318,9 +347,14 @@ This also provides a path into B2B sales: a champion at a company activates Brai
 
 ## Phased breakdown (for future OPPs)
 
-When ready to implement, this idea should be sliced into roughly these phases:
+**Spike (shipped — [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md)):** hello world bot only (dev). Staging verification deferred.
+
+**Foundation ([OPP-117](../opportunities/OPP-117-slack-identity-and-messaging-adapter.md)):** workspace install + user link, `MessagingQuery` + Slack adapter (hello-world behavior only).
+
+When ready to implement product phases after OPP-117, this idea should be sliced into roughly these phases:
 
 **Phase 1 — Bot + explicit toggle + default policy + DM only + messaging core**
+
 - Team install, per-user OAuth, Slack status sync
 - Explicit "ambassador on/off" toggle in Braintunnel settings
 - Default policy only (no per-contact overrides, no admin policy UI yet)
@@ -331,6 +365,7 @@ When ready to implement, this idea should be sliced into roughly these phases:
 - Platform-agnostic messaging core scaffolded (`MessagingQuery`, `PolicyEvaluator`, `AmbassadorAgent`, `ApprovalRequest`) — Slack adapter as first implementation
 
 **Phase 2 — Policy hierarchy + channel presence + digest polish**
+
 - Admin workspace policy (Layer 1): configuration UI in Braintunnel settings, enforcement in privacy filter
 - Per-contact policy overrides (Layer 3): configuration UI in Braintunnel settings
 - Bot invited to channels; context-scoped disclosure enforced by venue tier
@@ -339,12 +374,14 @@ When ready to implement, this idea should be sliced into roughly these phases:
 - Wiki gap detection from unanswerable questions
 
 **Phase 3 — Presence-aware + wiki feedback loop + AgentExchange**
+
 - Desktop idle detection → auto-enable/disable (via [IDEA-local-bridge-agent](IDEA-local-bridge-agent.md))
 - Wiki feedback loop (mark good/bad answers, surface edit path)
 - Scheduled hours mode
 - AgentExchange listing (Slack's unified agent marketplace)
 
 **Phase 4 — Teams adapter (and beyond)**
+
 - Microsoft Teams adapter using the `MessagingAdapter` interface established in Phase 1
 - Bot Framework / Azure Bot Service integration
 - Adaptive Cards approval UX (structurally identical to Block Kit flow)

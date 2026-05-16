@@ -14,17 +14,12 @@ const LOCAL_OPTIONAL: readonly (typeof ALL_AGENT_TOOL_NAMES)[number][] = [
 ]
 
 describe('createAgentTools registry vs ALL_AGENT_TOOL_NAMES', () => {
-  const prevB2b = process.env.BRAIN_B2B_ENABLED
-
   beforeEach(() => {
-    process.env.BRAIN_B2B_ENABLED = '1'
     vi.resetModules()
   })
 
   afterEach(() => {
     vi.resetModules()
-    if (prevB2b === undefined) delete process.env.BRAIN_B2B_ENABLED
-    else process.env.BRAIN_B2B_ENABLED = prevB2b
   })
 
   it('with includeLocalMessageTools true, every catalog name is registered exactly once', async () => {
@@ -59,13 +54,4 @@ describe('createAgentTools registry vs ALL_AGENT_TOOL_NAMES', () => {
     }
   })
 
-  it('omits ask_collaborator when BRAIN_B2B_ENABLED is off', async () => {
-    process.env.BRAIN_B2B_ENABLED = '0'
-    vi.resetModules()
-    const { createAgentTools } = await import('./tools.js')
-    const dir = await mkdtemp(join(tmpdir(), 'brain-agent-tools-b2boff-'))
-    await writeFile(join(dir, 'stub.md'), '# stub\n', 'utf-8')
-    const tools = createAgentTools(dir, { includeLocalMessageTools: true })
-    expect(namedTools(tools).includes('ask_collaborator')).toBe(false)
-  })
 })

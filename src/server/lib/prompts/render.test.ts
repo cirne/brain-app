@@ -13,6 +13,8 @@ describe('renderPromptTemplate', () => {
     expect(s).toContain('The newest dated source normally wins.')
     expect(s).toContain('travel/archive/')
     expect(s).toContain('list_recent_messages')
+    expect(s).toContain('ask_collaborator')
+    expect(s).toContain('Ask Brain')
   })
 
   it('omits local messages bullet when includeLocalMessageCapabilities is false', () => {
@@ -26,16 +28,4 @@ describe('renderPromptTemplate', () => {
     expect(s).not.toContain('multi-tenant')
   })
 
-  it('includes ask_collaborator bullet when brainCollaborationEnabled', () => {
-    const s = renderPromptTemplate('assistant/base.hbs', {
-      meHint: '',
-      assistantHint: '',
-      includeLocalMessageCapabilities: false,
-      multiTenant: false,
-      brainCollaborationEnabled: true,
-    })
-    expect(s).toContain('ask_collaborator')
-    expect(s).toContain('Ask Brain')
-    expect(s).toContain('@mentions')
-  })
 })

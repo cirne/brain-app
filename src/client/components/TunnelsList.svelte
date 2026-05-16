@@ -13,7 +13,6 @@
     loading,
     tunnelsError,
     reviewError,
-    brainQueryEnabled,
     onPickTunnel,
     onOpenColdTunnelEntry,
     onRefresh,
@@ -23,7 +22,6 @@
     loading: boolean
     tunnelsError: string | null
     reviewError: string | null
-    brainQueryEnabled: boolean
     onPickTunnel: (_handle: string) => void
     onOpenColdTunnelEntry?: (() => void) | undefined
     onRefresh: () => void | Promise<void>
@@ -72,7 +70,7 @@
     <p class="m-0 shrink-0 px-3 py-3 text-muted text-sm md:px-4">{$t('common.status.loading')}</p>
   {:else}
     <div class="min-h-0 flex-1 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
-      {#if brainQueryEnabled && onOpenColdTunnelEntry}
+      {#if onOpenColdTunnelEntry}
         <div class="mb-4 flex shrink-0 justify-end">
           <button
             type="button"

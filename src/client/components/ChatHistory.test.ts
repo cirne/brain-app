@@ -164,7 +164,7 @@ describe('ChatHistory.svelte', () => {
 
     const onOpenPendingTunnel = vi.fn()
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel },
+      props: { ...chatHistoryTestProps(), onOpenPendingTunnel },
     })
 
     const chats = await screen.findByRole('heading', { name: /^chats$/i })
@@ -200,7 +200,7 @@ describe('ChatHistory.svelte', () => {
     })
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel: vi.fn() },
+      props: { ...chatHistoryTestProps(), onOpenPendingTunnel: vi.fn() },
     })
 
     await screen.findByRole('heading', { name: /^chats$/i })
@@ -233,7 +233,6 @@ describe('ChatHistory.svelte', () => {
     render(ChatHistory, {
       props: {
         ...chatHistoryTestProps(),
-        brainQueryEnabled: true,
         onOpenColdTunnelEntry,
       },
     })
@@ -353,7 +352,7 @@ describe('ChatHistory.svelte', () => {
     )
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), onSelectTunnel: vi.fn(), brainQueryEnabled: true },
+      props: { ...chatHistoryTestProps(), onSelectTunnel: vi.fn() },
     })
 
     const tunnelsHeading = await screen.findByRole('heading', { name: /^tunnels$/i })
@@ -485,7 +484,7 @@ describe('ChatHistory.svelte', () => {
     })
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel: vi.fn() },
+      props: { ...chatHistoryTestProps(), onOpenPendingTunnel: vi.fn() },
     })
 
     await screen.findByRole('heading', { name: /^tunnels$/i })
@@ -524,7 +523,7 @@ describe('ChatHistory.svelte', () => {
     })
 
     render(ChatHistory, {
-      props: { ...chatHistoryTestProps(), brainQueryEnabled: true, onOpenPendingTunnel: vi.fn() },
+      props: { ...chatHistoryTestProps(), onOpenPendingTunnel: vi.fn() },
     })
     await screen.findByRole('heading', { name: /^tunnels$/i })
     const tunnelsSection = screen.getByRole('heading', { name: /^tunnels$/i }).closest(

@@ -48,7 +48,6 @@
     onNewChat,
     onOpenAllChats,
     onWikiHome,
-    brainQueryEnabled = false,
     onSelectTunnel,
     onOpenPendingTunnel,
     selectedTunnelHandle = null as string | null,
@@ -61,7 +60,6 @@
     onNewChat: () => void
     onOpenAllChats?: () => void
     onWikiHome?: () => void
-    brainQueryEnabled?: boolean
     /** Navigate to unified Tunnels surface for a collaborator (`/tunnels/:handle`). */
     onSelectTunnel?: (_handle: string) => void
     /** Pending badge: parent fetches first pending row and navigates to `/tunnels/:handle`. */
@@ -621,7 +619,7 @@
           >
             {$t('chat.history.tunnelsHeading')}
           </h2>
-          {#if brainQueryEnabled && tunnelInboundPendingTotal > 0 && onOpenPendingTunnel}
+          {#if tunnelInboundPendingTotal > 0 && onOpenPendingTunnel}
             <button
               type="button"
               class="shrink-0 rounded-full bg-accent px-2 py-[3px] text-center text-[10px] font-semibold tabular-nums leading-none text-white hover:opacity-90 max-md:text-[11px]"
@@ -632,24 +630,22 @@
             </button>
           {/if}
         </div>
-        {#if brainQueryEnabled}
-          <div class="px-2 pb-2">
-            <button
-              type="button"
-              class={cn(
-                chatHistoryRailPrimaryBtn,
-                'w-full justify-center border border-dashed border-border/80 bg-transparent hover:bg-surface-2',
-              )}
-              data-testid="cold-query-open"
-              onclick={() => {
-                onOpenColdTunnelEntry?.()
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} aria-hidden="true" class="shrink-0 opacity-80" />
-              <span>{$t('chat.history.coldQuery.button')}</span>
-            </button>
-          </div>
-        {/if}
+        <div class="px-2 pb-2">
+          <button
+            type="button"
+            class={cn(
+              chatHistoryRailPrimaryBtn,
+              'w-full justify-center border border-dashed border-border/80 bg-transparent hover:bg-surface-2',
+            )}
+            data-testid="cold-query-open"
+            onclick={() => {
+              onOpenColdTunnelEntry?.()
+            }}
+          >
+            <Plus size={14} strokeWidth={2.5} aria-hidden="true" class="shrink-0 opacity-80" />
+            <span>{$t('chat.history.coldQuery.button')}</span>
+          </button>
+        </div>
         {#if tunnelsError}
           <div class="ch-error px-2 pb-1 text-[10px] text-danger max-md:text-xs">{tunnelsError}</div>
         {/if}

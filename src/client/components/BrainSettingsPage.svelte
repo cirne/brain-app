@@ -33,14 +33,12 @@
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
-    brainQueryEnabled?: boolean
     multiTenant?: boolean
   }
 
   let {
     onSettingsNavigate,
     selectedHubSourceId,
-    brainQueryEnabled = false,
     multiTenant = false,
   }: Props = $props()
 
@@ -217,22 +215,20 @@
           <ChevronRight size={16} aria-hidden="true" />
         </button>
 
-        {#if brainQueryEnabled}
-          <button
-            type="button"
-            class={drillRowBase}
-            onclick={() => onSettingsNavigate({ type: 'brain-access' })}
-          >
-            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-              <Brain size={16} aria-hidden="true" />
-              <HubSourceRowBody
-                title={$t('settings.brainSettingsPage.workspace.brainAccess.title')}
-                subtitle={$t('settings.brainSettingsPage.workspace.brainAccess.subtitle')}
-              />
-            </div>
-            <ChevronRight size={16} aria-hidden="true" />
-          </button>
-        {/if}
+        <button
+          type="button"
+          class={drillRowBase}
+          onclick={() => onSettingsNavigate({ type: 'brain-access' })}
+        >
+          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+            <Brain size={16} aria-hidden="true" />
+            <HubSourceRowBody
+              title={$t('settings.brainSettingsPage.workspace.brainAccess.title')}
+              subtitle={$t('settings.brainSettingsPage.workspace.brainAccess.subtitle')}
+            />
+          </div>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
       </div>
     </section>
 

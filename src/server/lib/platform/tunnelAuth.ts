@@ -53,6 +53,11 @@ export function decideNamedTunnelGuidAccess(input: {
   const host = input.hostHeader ?? ''
   if (!host.includes(tunnelGateHostname())) return { action: 'passthrough' }
 
+  // Slack Events API / interactivity — verified via signing secret, not magic GUID.
+  if (input.pathname.startsWith('/api/slack/')) {
+    return { action: 'passthrough' }
+  }
+
   const q = input.queryParamG ?? null
   if (q === input.expectedGuid) {
     const redirect =

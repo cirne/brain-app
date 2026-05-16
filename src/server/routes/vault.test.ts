@@ -4,7 +4,6 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import vaultRoute from './vault.js'
-import { B2B_ENABLED } from '@server/lib/features.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
@@ -41,10 +40,9 @@ describe('/api/vault routes', () => {
     const app = mountMtVault()
     const st = await app.request('http://localhost/api/vault/status')
     expect(st.status).toBe(200)
-    const j = (await st.json()) as { multiTenant?: boolean; unlocked: boolean; brainQueryEnabled?: boolean }
+    const j = (await st.json()) as { multiTenant?: boolean; unlocked: boolean }
     expect(j.multiTenant).toBe(true)
     expect(j.unlocked).toBe(false)
-    expect(j.brainQueryEnabled).toBe(B2B_ENABLED)
 
     await rm(root, { recursive: true, force: true })
   })
@@ -70,12 +68,10 @@ describe('/api/vault routes', () => {
       multiTenant?: boolean
       unlocked: boolean
       workspaceHandle?: string
-      brainQueryEnabled?: boolean
     }
     expect(j.multiTenant).toBe(true)
     expect(j.unlocked).toBe(true)
     expect(j.workspaceHandle).toBe(handle)
-    expect(j.brainQueryEnabled).toBe(B2B_ENABLED)
 
     await rm(root, { recursive: true, force: true })
   })
@@ -125,10 +121,9 @@ describe('/api/vault routes', () => {
       headers: { Cookie: `brain_session=${sid}` },
     })
     expect(del.status).toBe(200)
-    const body = (await del.json()) as { ok?: boolean; unlocked?: boolean; brainQueryEnabled?: boolean }
+    const body = (await del.json()) as { ok?: boolean; unlocked?: boolean }
     expect(body.ok).toBe(true)
     expect(body.unlocked).toBe(false)
-    expect(body.brainQueryEnabled).toBe(B2B_ENABLED)
 
     expect(existsSync(home)).toBe(false)
 

@@ -12,12 +12,10 @@
 
   let {
     routeTunnelHandle = null as string | null,
-    brainQueryEnabled = false,
     onPickTunnelHandle,
     onOpenColdTunnelEntry,
   }: {
     routeTunnelHandle?: string | null
-    brainQueryEnabled?: boolean
     onPickTunnelHandle: (_handle: string | undefined) => void
     onOpenColdTunnelEntry?: (() => void) | undefined
   } = $props()
@@ -153,7 +151,6 @@
       loading={listLoading}
       tunnelsError={tunnelsListError}
       reviewError={reviewListError}
-      brainQueryEnabled={brainQueryEnabled}
       onPickTunnel={pickTunnel}
       onOpenColdTunnelEntry={onOpenColdTunnelEntry}
       onRefresh={() => void refreshTunnelIndex({ background: true })}

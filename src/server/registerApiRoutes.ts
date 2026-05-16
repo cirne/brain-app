@@ -29,8 +29,9 @@ import transcribeRoute from './routes/transcribe.js'
 import devicesRoute from './routes/devices.js'
 import ingestRoute from './routes/ingest.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
-import { B2B_ENABLED } from './lib/features.js'
+import slackRoute from './routes/slack.js'
 import { createDevApiRouter } from './routes/devApi.js'
+import { isSlackEventsConfigured } from './lib/slack/slackHelloWorld.js'
 
 /** Mount all API (and related) routes on the main Hono app — single place for `app.route` prefixes. */
 export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void {
@@ -39,18 +40,14 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/config', appConfigRoute)
   app.route('/api/account', accountRoute)
   app.route('/api/chat', chatRoute)
-  if (B2B_ENABLED) {
-    app.route('/api/chat/b2b', b2bChatRoute)
-  }
+  app.route('/api/chat/b2b', b2bChatRoute)
   app.route('/api/transcribe', transcribeRoute)
   app.route('/api/devices', devicesRoute)
   app.route('/api/ingest', ingestRoute)
   app.route('/api/skills', skillsRoute)
   app.route('/api/issues', issuesRoute)
   app.route('/api/wiki', wikiRoute)
-  if (B2B_ENABLED) {
-    app.route('/api/brain-query', brainQueryRoute)
-  }
+  app.route('/api/brain-query', brainQueryRoute)
   app.route('/api/files', filesRoute)
   app.route('/api/inbox', inboxRoute)
   app.route('/api/ripmail', ripmailRoute)
@@ -68,6 +65,9 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/auth/demo', demoEnronAuthRoute)
   app.route('/api/nav/recents', navRecentsRoute)
   app.route('/api/notifications', notificationsRoute)
+  if (isSlackEventsConfigured()) {
+    app.route('/api/slack', slackRoute)
+  }
   app.route('/oauth/google', oauthGoogleBrowserPages)
   if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
     app.route('/api/debug', debugRipmailChildrenRoute)

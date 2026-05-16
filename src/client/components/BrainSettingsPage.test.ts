@@ -127,7 +127,7 @@ describe('BrainSettingsPage.svelte', () => {
 
   it('shows Settings title and handle', async () => {
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
+      props: { onSettingsNavigate: vi.fn() },
     })
     expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
     await waitFor(() => {
@@ -140,7 +140,7 @@ describe('BrainSettingsPage.svelte', () => {
   it('shows banner and strips add-account query on /settings', async () => {
     window.history.replaceState(null, '', '/settings?addedAccount=second%40example.com')
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
+      props: { onSettingsNavigate: vi.fn() },
     })
     await waitFor(() => {
       expect(screen.getByText(/Added second@example\.com/i)).toBeInTheDocument()
@@ -151,7 +151,7 @@ describe('BrainSettingsPage.svelte', () => {
   it('Tunnels row opens brain-access overlay', async () => {
     const onSettingsNavigate = vi.fn()
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate, brainQueryEnabled: true },
+      props: { onSettingsNavigate },
     })
     await waitFor(() => {
       expect(
@@ -160,18 +160,6 @@ describe('BrainSettingsPage.svelte', () => {
     })
     await fireEvent.click(screen.getByRole('button', { name: /tunnels[\s\S]*reach your assistant/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access' })
-  })
-
-  it('hides Tunnels row when brainQueryEnabled is false', async () => {
-    render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: false },
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument()
-    })
-    expect(
-      screen.queryByRole('button', { name: /tunnels[\s\S]*reach your assistant/i }),
-    ).not.toBeInTheDocument()
   })
 
   it('renders chat tool display preference and persists when toggled', async () => {
@@ -190,7 +178,7 @@ describe('BrainSettingsPage.svelte', () => {
       } as Storage,
     )
     render(BrainSettingsPage, {
-      props: { onSettingsNavigate: vi.fn(), brainQueryEnabled: true },
+      props: { onSettingsNavigate: vi.fn() },
     })
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: 'Chat' })).toBeInTheDocument()

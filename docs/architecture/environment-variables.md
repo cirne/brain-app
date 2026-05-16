@@ -100,7 +100,6 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 
 | Variable | Purpose |
 |----------|---------|
-| **`BRAIN_B2B_ENABLED`** | Brain-to-brain / hub features (`1` / `true`) ([`features.ts`](../../src/server/lib/features.ts)). |
 | **`BRAIN_SUGGEST_REPLY_REPAIR`** | Set to **`0`** to disable suggest-reply repair pass ([`suggestReplyRepair.ts`](../../src/server/lib/chat/suggestReplyRepair.ts)). |
 | **`BRAIN_SUGGEST_REPLY_REPAIR_PROVIDER`** / **`BRAIN_SUGGEST_REPLY_REPAIR_MODEL`** | Override provider/model for repair ([`suggestReplyRepair.ts`](../../src/server/lib/chat/suggestReplyRepair.ts)). |
 | **`ONBOARDING_MAIL_DEBUG`** | Mail onboarding logging: `off` \| `summary` \| `full` ([`onboardingMailStatus.ts`](../../src/server/lib/onboarding/onboardingMailStatus.ts)). |

@@ -36,7 +36,6 @@ describe('Tunnels.svelte', () => {
   })
 
   const baseProps = {
-    brainQueryEnabled: true,
     onPickTunnelHandle: vi.fn(),
     onOpenColdTunnelEntry: vi.fn(),
   }

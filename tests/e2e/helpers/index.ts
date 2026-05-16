@@ -27,7 +27,6 @@ export { CHAT_SMOKE_TIMEOUTS, ENRON_B2B_AGENT_TIMEOUTS, createStepLogger } from 
 export { ENRON_DEMO_HANDLE_KEAN, ENRON_DEMO_HANDLE_LAY } from './brainSharingConstants'
 export {
   dismissUnreadNotificationsViaApi,
-  getBrainQueryEnabledFromServer,
   revokeBrainQueryGrantsForAskerHandleViaApi,
   withdrawAllTunnelsViaApi,
 } from './brainSharingApi'

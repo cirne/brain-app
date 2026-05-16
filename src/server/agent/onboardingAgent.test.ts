@@ -107,20 +107,12 @@ describe('onboarding agent tools', () => {
   })
 
   it('ALL_AGENT_TOOL_NAMES matches every tool when local messages are included', async () => {
-    const prevB2b = process.env.BRAIN_B2B_ENABLED
-    process.env.BRAIN_B2B_ENABLED = '1'
     vi.resetModules()
-    try {
-      const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
-      const names = new Set(tools.map((t: { name?: string }) => t.name))
-      for (const n of ALL_AGENT_TOOL_NAMES) {
-        expect(names.has(n)).toBe(true)
-      }
-    } finally {
-      vi.resetModules()
-      if (prevB2b === undefined) delete process.env.BRAIN_B2B_ENABLED
-      else process.env.BRAIN_B2B_ENABLED = prevB2b
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+    const names = new Set(tools.map((t: { name?: string }) => t.name))
+    for (const n of ALL_AGENT_TOOL_NAMES) {
+      expect(names.has(n)).toBe(true)
     }
   })
 

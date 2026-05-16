@@ -7,16 +7,13 @@ export type SettingsPrimaryShell =
   | 'brain-access-list'
   | 'brain-access-policy'
 
-export function resolveSettingsPrimaryShell(
-  overlay: Overlay | undefined,
-  brainQueryEnabled: boolean,
-): SettingsPrimaryShell {
+export function resolveSettingsPrimaryShell(overlay: Overlay | undefined): SettingsPrimaryShell {
   if (!overlay) return 'home'
   const t = overlay.type
   if (t === 'settings-connections' || t === 'hub-source') return 'connections'
   if (t === 'settings-wiki') return 'wiki'
-  if (brainQueryEnabled && t === 'brain-access') return 'brain-access-list'
-  if (brainQueryEnabled && t === 'brain-access-policy') return 'brain-access-policy'
+  if (t === 'brain-access') return 'brain-access-list'
+  if (t === 'brain-access-policy') return 'brain-access-policy'
   return 'home'
 }
 

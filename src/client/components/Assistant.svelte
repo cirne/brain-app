@@ -128,18 +128,12 @@ import AppShell from '@components/app/AppShell.svelte'
   } from '@lucide/svelte'
 
   type AssistantProps = {
-    /** When false, hide brain-to-brain UI (`BRAIN_B2B_ENABLED` unset vs `1`/`true`). */
-    brainQueryEnabled?: boolean
     /** Refetch vault + onboarding status after bootstrap completes (App passes shared refresher). */
     refreshAppOnboardingStatus?: () => Promise<void>
     /** Hosted vault — forwarded to Hub first-run panel copy. */
     multiTenant?: boolean
   }
-  let {
-    brainQueryEnabled = false,
-    refreshAppOnboardingStatus,
-    multiTenant = false,
-  }: AssistantProps = $props()
+  let { refreshAppOnboardingStatus, multiTenant = false }: AssistantProps = $props()
 
   /**
    * `bind:this` targets — kept separate from shell state so refs stay obvious.
@@ -167,9 +161,7 @@ import AppShell from '@components/app/AppShell.svelte'
   let shell = $state(createAssistantShellState())
 
   const workspaceShowsSplitDetail = $derived(routeShowsWorkspaceSplitDetail(shell.route))
-  const settingsPrimaryShell = $derived(
-    resolveSettingsPrimaryShell(shell.route.overlay, brainQueryEnabled),
-  )
+  const settingsPrimaryShell = $derived(resolveSettingsPrimaryShell(shell.route.overlay))
   /** `bind:this` targets for AgentChat / WorkspaceSplit / slide stack / history list. */
   let refs = $state<AssistantRefsState>({})
 
@@ -267,10 +259,6 @@ import AppShell from '@components/app/AppShell.svelte'
   let b2bReviewPendingCount = $state(0)
 
   async function refreshB2BReviewPendingCount() {
-    if (!brainQueryEnabled) {
-      b2bReviewPendingCount = 0
-      return
-    }
     try {
       const res = await fetch('/api/chat/b2b/tunnels', { credentials: 'include' })
       if (!res.ok) return
@@ -286,7 +274,7 @@ import AppShell from '@components/app/AppShell.svelte'
   }
 
   $effect(() => {
-    if (!brainQueryEnabled || typeof window === 'undefined') return
+    if (typeof window === 'undefined') return
     const onFocus = () => void refreshB2BReviewPendingCount()
     window.addEventListener('focus', onFocus)
     void refreshB2BReviewPendingCount()
@@ -1497,16 +1485,6 @@ import AppShell from '@components/app/AppShell.svelte'
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
-  /** When brain-to-brain is disabled, strip brain-access overlays so `/settings/brain-access` URLs fall back to Settings. */
-  $effect(() => {
-    if (brainQueryEnabled) return
-    const o = shell.route.overlay
-    if (o?.type === 'brain-access' || o?.type === 'brain-access-policy') {
-      navigateShell({ zone: 'settings' })
-      shell.route = parseRoute()
-    }
-  })
-
   function onEditStreaming(p: { id: string; path: string; done: boolean }) {
     if (p.done) {
       if (shell.wikiEditStreaming?.toolId === p.id) shell.wikiEditStreaming = null
@@ -1633,8 +1611,8 @@ import AppShell from '@components/app/AppShell.svelte'
     onWikiHome={() => navigateWikiPrimary()}
     isEmptyChat={topNavNewChatDisabled}
     hostedHandlePill={shell.hostedHandleNav}
-    onOpenSharing={brainQueryEnabled ? openBrainAccessSettings : undefined}
-    reviewPendingCount={brainQueryEnabled ? b2bReviewPendingCount : 0}
+    onOpenSharing={openBrainAccessSettings}
+    reviewPendingCount={b2bReviewPendingCount}
     mobileCenterTitle={appMobileNavCenterTitle}
     mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
     mobileOverflowAlert={appMobileNavCompact && shell.syncErrors.length > 0}
@@ -1672,11 +1650,10 @@ import AppShell from '@components/app/AppShell.svelte'
               onNewChat={historyNewChat}
               onOpenAllChats={openChatHistoryPage}
               onWikiHome={navigateWikiPrimary}
-              brainQueryEnabled={brainQueryEnabled}
               selectedTunnelHandle={shell.route.zone === 'tunnels' ? (shell.route.tunnelHandle ?? null) : null}
-              onSelectTunnel={brainQueryEnabled ? (h) => navigateTunnelRoute(h) : undefined}
-              onOpenPendingTunnel={brainQueryEnabled ? () => void openPendingTunnelFromRail() : undefined}
-              onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
+              onSelectTunnel={(h) => navigateTunnelRoute(h)}
+              onOpenPendingTunnel={() => void openPendingTunnelFromRail()}
+              onOpenColdTunnelEntry={openColdTunnelEntryFromRail}
             />
           </div>
         </div>
@@ -1871,9 +1848,8 @@ import AppShell from '@components/app/AppShell.svelte'
               <div class="hub-scroll flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
                 <Tunnels
                   routeTunnelHandle={shell.route.tunnelHandle ?? null}
-                  brainQueryEnabled={brainQueryEnabled}
                   onPickTunnelHandle={(h) => navigateTunnelRoute(h)}
-                  onOpenColdTunnelEntry={brainQueryEnabled ? openColdTunnelEntryFromRail : undefined}
+                  onOpenColdTunnelEntry={openColdTunnelEntryFromRail}
                 />
               </div>
             </div>
@@ -1881,7 +1857,6 @@ import AppShell from '@components/app/AppShell.svelte'
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
                 <BrainHubPage
-                  brainQueryEnabled={brainQueryEnabled}
                   onHubNavigate={navigateFromHub}
                   onOpenBrainAccess={openBrainAccessSettings}
                 />
@@ -1955,7 +1930,6 @@ import AppShell from '@components/app/AppShell.svelte'
                   />
                 {:else}
                   <BrainSettingsPage
-                    brainQueryEnabled={brainQueryEnabled}
                     multiTenant={multiTenant}
                     onSettingsNavigate={navigateFromSettings}
                     selectedHubSourceId={selectedHubSourceFromOverlay(shell.route.overlay)}
@@ -2046,7 +2020,6 @@ import AppShell from '@components/app/AppShell.svelte'
               onWriteStreaming={onWriteStreaming}
               onEditStreaming={onEditStreaming}
               onHearRepliesChange={(on) => { chatHearReplies = on }}
-              brainQueryEnabled={brainQueryEnabled}
               coldTunnelInlineOpen={coldTunnelInlineOpen}
               onColdTunnelInlineDismiss={closeColdTunnelEntry}
               onColdTunnelSubmitted={(sid, handle) => onColdTunnelSubmitted(sid, handle)}
@@ -2136,22 +2109,20 @@ import AppShell from '@components/app/AppShell.svelte'
   {/snippet}
 </AppShell>
 
-{#if brainQueryEnabled}
-  <BottomSheet
-    open={coldTunnelSheetOpen}
-    title={$t('chat.history.coldQuery.sheetTitle')}
-    titleId="cold-tunnel-sheet-title"
-    onDismiss={closeColdTunnelEntry}
-  >
-    {#snippet children()}
-      <ColdTunnelComposer
-        layout="sheet"
-        onDismiss={closeColdTunnelEntry}
-        onSubmitted={onColdTunnelSubmitted}
-      />
-    {/snippet}
-  </BottomSheet>
-{/if}
+<BottomSheet
+  open={coldTunnelSheetOpen}
+  title={$t('chat.history.coldQuery.sheetTitle')}
+  titleId="cold-tunnel-sheet-title"
+  onDismiss={closeColdTunnelEntry}
+>
+  {#snippet children()}
+    <ColdTunnelComposer
+      layout="sheet"
+      onDismiss={closeColdTunnelEntry}
+      onSubmitted={onColdTunnelSubmitted}
+    />
+  {/snippet}
+</BottomSheet>
 
 <style>
   /* Hub / settings mobile overlays: fill layer and strip slide-over chrome (scoped; do not put

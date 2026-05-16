@@ -98,12 +98,3 @@ export async function dismissUnreadNotificationsViaApi(
   }
 }
 
-export async function getBrainQueryEnabledFromServer(
-  request: APIRequestContext,
-  baseURL: string,
-): Promise<boolean> {
-  const res = await request.get(`${baseURL}/api/vault/status`)
-  if (!res.ok()) return false
-  const j = (await res.json()) as { brainQueryEnabled?: boolean }
-  return j.brainQueryEnabled === true
-}

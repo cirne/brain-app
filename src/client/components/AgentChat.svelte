@@ -183,8 +183,6 @@
     onHearRepliesChange = undefined as ((_on: boolean) => void) | undefined,
     /** When true (default), empty main chat fetches unread notifications for the strip above empty copy. */
     showEmptyChatNotifications = true,
-    /** Hosted brain-to-brain: show cold-tunnel entry UI in the empty transcript (desktop inline). */
-    brainQueryEnabled = false,
     coldTunnelInlineOpen = false,
     onColdTunnelInlineDismiss = undefined as (() => void) | undefined,
     onColdTunnelSubmitted = undefined as
@@ -259,7 +257,6 @@
     autoSendInterviewKickoffHidden?: boolean
     onHearRepliesChange?: (_on: boolean) => void
     showEmptyChatNotifications?: boolean
-    brainQueryEnabled?: boolean
     coldTunnelInlineOpen?: boolean
     onColdTunnelInlineDismiss?: () => void
     onColdTunnelSubmitted?: (_sessionId: string, _peerHandle: string) => void | Promise<void>
@@ -377,10 +374,7 @@
 
   /** Cold-tunnel entry replaces default empty copy and hides the main composer until dismissed or submitted. */
   const coldTunnelReplacesEmpty = $derived(
-    brainQueryEnabled &&
-      coldTunnelInlineOpen &&
-      messages.length === 0 &&
-      !streaming,
+    coldTunnelInlineOpen && messages.length === 0 && !streaming,
   )
 
   const conversationRoleLabels = $derived.by((): ConversationRoleLabels => {
