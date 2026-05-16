@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import QRCode from 'qrcode'
-  import { Smartphone, Wifi, Copy, Check, ExternalLink, ShieldCheck, Globe, Lock, RefreshCw } from 'lucide-svelte'
+  import { Smartphone, Wifi, Copy, Check, ExternalLink, ShieldCheck, Globe, Lock, RefreshCw } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
 

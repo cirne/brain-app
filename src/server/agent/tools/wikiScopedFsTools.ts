@@ -9,14 +9,14 @@ import { existsSync } from 'node:fs'
 import { access } from 'node:fs/promises'
 import { resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { Type } from '@mariozechner/pi-ai'
+import { Type } from '@earendil-works/pi-ai'
 import {
   createReadTool,
   createEditTool,
   createWriteTool,
   createGrepTool,
   createFindTool,
-} from '@mariozechner/pi-coding-agent'
+} from '@earendil-works/pi-coding-agent'
 import { appendWikiEditRecord, coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { sanitizeWikiFilesystemToolError } from '@server/lib/wiki/wikiToolFsErrors.js'

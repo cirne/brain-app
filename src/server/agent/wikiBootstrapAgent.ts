@@ -1,4 +1,4 @@
-import type { Agent } from '@mariozechner/pi-agent-core'
+import type { Agent } from '@earendil-works/pi-agent-core'
 import Handlebars from 'handlebars'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'

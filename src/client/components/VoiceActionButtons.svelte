@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RotateCcw, X } from 'lucide-svelte'
+  import { RotateCcw, X } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
 

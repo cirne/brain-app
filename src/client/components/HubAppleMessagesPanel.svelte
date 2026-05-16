@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { MessageSquare, ChevronDown, ChevronRight, Smartphone, CheckCircle2, AlertTriangle } from 'lucide-svelte'
+  import { MessageSquare, ChevronDown, ChevronRight, Smartphone, CheckCircle2, AlertTriangle } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { FDA_GATE_OPEN_EVENT } from '@client/lib/onboarding/fdaGateKeys.js'

@@ -4,10 +4,10 @@
  * under `$BRAIN_HOME` (or `--home`). Does not connect to New Relic.
  *
  * Usage:
- *   npm run usage:export
- *   npm run usage:export -- --json
- *   npm run usage:export -- --ndjson
- *   npm run usage:export -- --home /path/to/brain/home
+ *   pnpm run usage:brain-home
+ *   pnpm run usage:brain-home -- --json
+ *   pnpm run usage:brain-home -- --ndjson
+ *   pnpm run usage:brain-home -- --home /path/to/brain/home
  *
  * Default home when `BRAIN_HOME` is unset: `./data` (same as single-tenant dev server).
  *

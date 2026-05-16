@@ -3,7 +3,7 @@
    * Shared “pages in vault” affordance: optional pulse (background wiki work) + numeric count.
    * Used in BrainHubWidget and onboarding copy that explains the same indicator.
    */
-  import { BookOpen, LayoutGrid } from 'lucide-svelte'
+  import { BookOpen, LayoutGrid } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
 

@@ -11,6 +11,11 @@ const apiPort = process.env.PORT ?? '3000'
 
 export default defineConfig({
   root: 'src/client',
+  /** Pre-bundle deps that are only loaded via dynamic import so dev never discovers them mid-session,
+   *  re-optimizes `.vite/deps` (hash churn), and races requests against deleted chunk files. */
+  optimizeDeps: {
+    include: ['@tauri-apps/plugin-shell'],
+  },
   resolve: {
     alias: {
       '@client': join(repoRoot, 'src/client'),
@@ -22,7 +27,7 @@ export default defineConfig({
   build: {
     outDir: '../../dist/client',
     emptyOutDir: true,
-    /** Set `BRAIN_CLIENT_SOURCEMAP=1` when building to debug prod bundles in the browser (`npm run build:client:map`). */
+    /** Set `BRAIN_CLIENT_SOURCEMAP=1` when building to debug prod bundles in the browser (`pnpm run build:client:sourcemap`). */
     sourcemap: process.env.BRAIN_CLIENT_SOURCEMAP === '1',
   },
   server: {

@@ -1,5 +1,5 @@
-import { defineTool } from '@mariozechner/pi-coding-agent'
-import { Type } from '@mariozechner/pi-ai'
+import { defineTool } from '@earendil-works/pi-coding-agent'
+import { Type } from '@earendil-works/pi-ai'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { weekdayLongForUtcYmd } from '@server/lib/calendar/calendarCache.js'

@@ -10,7 +10,7 @@
 
 ## Why this exists
 
-Integration evals need a **production-shaped** [`$BRAIN_HOME`](./data-and-sync.md): `ripmail/`, `wiki/`, etc. ([`shared/brain-layout.json`](../../shared/brain-layout.json)). Mail-backed runs use the **Kean** tenant directory under **`BRAIN_DATA_ROOT`** so operators **seed once** (`npm run brain:seed-enron-demo`) for demo + benchmarks.
+Integration evals need a **production-shaped** [`$BRAIN_HOME`](./data-and-sync.md): `ripmail/`, `wiki/`, etc. ([`shared/brain-layout.json`](../../shared/brain-layout.json)). Mail-backed runs use the **Kean** tenant directory under **`BRAIN_DATA_ROOT`** so operators **seed once** (`pnpm run brain:seed-enron-demo`) for demo + benchmarks.
 
 ---
 
@@ -53,17 +53,17 @@ data/
 
 ## Ripmail constraints (critical for corpora)
 
-- **`ripmail rebuild-index`** imports from maildir; date normalization rules in ripmail `ingest_date` / `rebuild_index`.
-- Only **`.eml`** files are indexed as messages (see ripmail `rebuild_index.rs`).
-- Multi-mailbox layout: `<mailbox_id>/maildir/...` under `RIPMAIL_HOME`; SQLite at `ripmail.db`.
+- **Maildir → SQLite** rebuild uses the TypeScript pipeline ([`rebuildFromMaildir.ts`](../../src/server/ripmail/rebuildFromMaildir.ts)); date normalization lives in [`ingestDate`](../../src/server/ripmail/sync/ingestDate.ts) and related ingest helpers — same role as the old `rebuild-index` / maildir import CLI conceptually.
+- Only **`.eml`** files are indexed as messages from maildir trees (see rebuild logic in `rebuildFromMaildir`).
+- Multi-mailbox layout: `<mailbox_id>/maildir/...` under each tenant `ripmail/` home; SQLite at `ripmail.db`.
 
 ---
 
 ## Enron `kean-s` pipeline
 
-**Automation:** **`npm run brain:seed-enron-demo`** runs [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) for **all registry users**, using [`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs) + [`scripts/eval/ensureEnronTarball.mjs`](../../scripts/eval/ensureEnronTarball.mjs). Tarball: **`EVAL_ENRON_TAR`** or download into **`./data/.cache/enron/`** with SHA verify (`ENRON_SOURCE_URL` / `ENRON_SHA256` overrides).
+**Automation:** **`pnpm run brain:seed-enron-demo`** runs [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) for **all registry users**, using [`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs) + [`scripts/eval/ensureEnronTarball.mjs`](../../scripts/eval/ensureEnronTarball.mjs). Tarball: **`EVAL_ENRON_TAR`** or download into **`./data/.cache/enron/`** with SHA verify (`ENRON_SOURCE_URL` / `ENRON_SHA256` overrides).
 
-**Source:** [CMU Enron](https://www.cs.cmu.edu/~enron/). Archive contains **`maildir/<user>/…`**; ingest extracts one user per manifest, flattens to **`cur/*.eml`**, runs **`ripmail rebuild-index`**.
+**Source:** [CMU Enron](https://www.cs.cmu.edu/~enron/). Archive contains **`maildir/<user>/…`**; ingest extracts one user per manifest, flattens to **`cur/*.eml`**, then indexes via the in-repo **`src/server/ripmail/`** maildir import path (same outcome as the legacy standalone **`rebuild-index`** workflow).
 
 **Dates:** late 1990s–early 2000s — use **absolute ranges** or **`EVAL_ASSISTANT_NOW`** / harness defaults in JSONL evals.
 
@@ -71,14 +71,14 @@ data/
 
 ## Idempotency
 
-Re-running **`npm run brain:seed-enron-demo`** skips tenants that already have a non-empty **`ripmail.db`** unless **`--force`** removes and rebuilds.
+Re-running **`pnpm run brain:seed-enron-demo`** skips tenants that already have a non-empty **`ripmail.db`** unless **`--force`** removes and rebuilds.
 
 ---
 
 ## Test harness (Vitest)
 
-- **`vitest.config.ts`** excludes `src/server/evals/**` from default **`npm test`**.
-- **`npm run eval:run`:** Vitest (**`vitest.eval.config.ts`**) then JSONL suites via [`scripts/eval-run.mjs`](../../scripts/eval-run.mjs); sets **`BRAIN_DATA_ROOT=./data`**.
+- **`vitest.config.ts`** excludes `src/server/evals/**` from default **`pnpm run test`**.
+- **`pnpm run eval:run`:** Vitest (**`vitest.eval.config.ts`**) then JSONL suites via [`scripts/eval-run.mjs`](../../scripts/eval-run.mjs); sets **`BRAIN_DATA_ROOT=./data`**.
 
 ---
 
@@ -87,7 +87,7 @@ Re-running **`npm run brain:seed-enron-demo`** skips tenants that already have a
 | Change | Update |
 |--------|--------|
 | New corpus / manifest | [`eval/fixtures/`](../../eval/fixtures/) + this doc + [`eval/README.md`](../../eval/README.md) |
-| Paths / npm scripts | [`package.json`](../../package.json) + [`eval/README.md`](../../eval/README.md) |
+| Paths / pnpm scripts | [`package.json`](../../package.json) + [`eval/README.md`](../../eval/README.md) |
 | Ripmail indexing rules | This doc + ripmail sources if behavior changes |
 | Eval strategy | [`wiki-and-agent-evaluation.md`](../wiki-and-agent-evaluation.md) |
 

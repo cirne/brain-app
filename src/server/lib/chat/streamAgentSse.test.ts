@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
-import type { Agent, AgentEvent } from '@mariozechner/pi-agent-core'
-import type { AssistantMessage } from '@mariozechner/pi-ai'
+import type { Agent, AgentEvent } from '@earendil-works/pi-agent-core'
+import type { AssistantMessage } from '@earendil-works/pi-ai'
 import { streamAgentSseResponse } from './streamAgentSse.js'
 
 function mockAssistant(usage: { in: number; out: number; tot: number; cost: number }): AssistantMessage {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte'
-  import { Sparkles, Pause, Play, RefreshCw } from 'lucide-svelte'
+  import { Sparkles, Pause, Play, RefreshCw } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'

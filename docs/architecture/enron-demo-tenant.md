@@ -18,7 +18,7 @@ Tarball cache when downloading: **`./data/.cache/enron/`** (ignored with `./data
 
 ## Playwright E2E (repo)
 
-Automated browser/API tests live under [`tests/e2e/`](../../tests/e2e/). Run **`npm run dev`** on port **3000** against **`./data`**, run **`npm run brain:seed-enron-demo`** once, then **`npm run test:e2e:playwright`**. See [`tests/e2e/README.md`](../../tests/e2e/README.md).
+Automated browser/API tests live under [`tests/e2e/`](../../tests/e2e/). Run **`pnpm run dev`** on port **3000** against **`./data`**, run **`pnpm run brain:seed-enron-demo`** once, then **`pnpm run e2e:playwright`**. See [`tests/e2e/README.md`](../../tests/e2e/README.md).
 
 ## When it is available
 

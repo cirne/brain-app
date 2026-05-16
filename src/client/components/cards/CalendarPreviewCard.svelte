@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Calendar } from 'lucide-svelte'
+  import { Calendar } from '@lucide/svelte'
   import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
   import { t } from '@client/lib/i18n/index.js'
   import DayEvents from '@components/DayEvents.svelte'

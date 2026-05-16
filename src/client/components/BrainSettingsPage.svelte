@@ -9,7 +9,7 @@
     Link2,
     Brain,
     BookOpen,
-  } from 'lucide-svelte'
+  } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import {

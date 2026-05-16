@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { ExtensionContext } from '@mariozechner/pi-coding-agent'
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { createCalendarTool, parseCalendarEventRef, ripmailRecurrenceCliFlags } from './calendarTools.js'
 
 /** pi-coding-agent tool.execute expects signal / onUpdate / ctx; tests only exercise the first two args. */

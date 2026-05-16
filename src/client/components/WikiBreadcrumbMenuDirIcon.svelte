@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { File } from 'lucide-svelte'
+  import { File } from '@lucide/svelte'
   import { getDirIcon } from '@client/lib/dirIcons.js'
   import type { ComponentType } from 'svelte'
 

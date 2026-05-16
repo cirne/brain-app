@@ -1,17 +1,18 @@
-import type { ComponentType } from 'svelte'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyComponent = ComponentType<any>
+import type { Component } from 'svelte'
 import {
   User, Users, Building2, Lightbulb, Map as MapIcon, Heart, Church, HandHeart,
   Briefcase, Home, Plane, Car, File, Hash, BookOpen, GraduationCap,
   Globe, Code, DollarSign, Star, Tag, Layers, Dumbbell, Camera,
-} from 'lucide-svelte'
+} from '@lucide/svelte'
+
+/** Lucide Svelte icons are functional `Component`s (Svelte 5), not class-based `ComponentType`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyComponent = Component<any>
 
 // Icon used for _ -prefixed system/special files
 export { Hash as SpecialFileIcon }
 
-// Full set of icons the LLM can choose from (PascalCase = lucide-svelte export name)
+// Full set of icons the LLM can choose from (PascalCase = @lucide/svelte export name)
 export const ICON_MAP: Record<string, AnyComponent> = {
   User, Users, Building2, Lightbulb, Map: MapIcon, Heart, Church, HandHeart,
   Briefcase, Home, Plane, Car, File, Hash, BookOpen, GraduationCap,

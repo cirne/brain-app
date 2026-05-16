@@ -1,8 +1,8 @@
-# Pi agent stack (Mario Zechner packages)
+# Pi agent stack (Earendil Works packages)
 
-**Purpose:** High-level reference for `**@mariozechner/pi-agent-core`**, `**@mariozechner/pi-ai`**, and `**@mariozechner/pi-coding-agent**` as used in Braintunnel. For chat wiring and persistence, see [agent-chat.md](./agent-chat.md).
+**Purpose:** High-level reference for `**@earendil-works/pi-agent-core`**, `**@earendil-works/pi-ai`**, and `**@earendil-works/pi-coding-agent**` as used in Braintunnel. For chat wiring and persistence, see [agent-chat.md](./agent-chat.md).
 
-**Authoritative package docs:** `node_modules/@mariozechner/pi-agent-core/README.md` (constructor options, events, steering, tools).
+**Authoritative package docs:** `node_modules/@earendil-works/pi-agent-core/README.md` (constructor options, events, steering, tools).
 
 ## How the pieces fit
 
@@ -16,7 +16,7 @@
 
 ## LLM providers (pi-ai)
 
-The server parses **`BRAIN_LLM`** (and optional **`BRAIN_FAST_LLM`**) into `provider` + `modelId`, then resolves via `resolveModel()` (see [configuration.md](./configuration.md)). For pi-ai backends, the provider must be a `**KnownProvider**` string (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts`). **Brain-only:** `**mlx-local**` — Qwen 3.6 on Apple Silicon via `mlx_lm.server` (OpenAI-compatible HTTP); see `.env.example` and `supported-llm-models.json`.
+The server parses **`BRAIN_LLM`** (and optional **`BRAIN_FAST_LLM`**) into `provider` + `modelId`, then resolves via `resolveModel()` (see [configuration.md](./configuration.md)). For pi-ai backends, the provider must be a `**KnownProvider**` string (see `node_modules/@earendil-works/pi-ai/dist/types.d.ts`). **Brain-only:** `**mlx-local**` — Qwen 3.6 on Apple Silicon via `mlx_lm.server` (OpenAI-compatible HTTP); see `.env.example` and `supported-llm-models.json`.
 
 `**KnownProvider` (union as shipped in the current dependency):** `amazon-bedrock`, `anthropic`, `azure-openai-responses`, `cerebras`, `github-copilot`, `google`, `google-antigravity`, `google-gemini-cli`, `google-vertex`, `groq`, `huggingface`, `kimi-coding`, `minimax`, `minimax-cn`, `mistral`, `openai`, `openai-codex`, `openrouter`, `opencode`, `opencode-go`, `vercel-ai-gateway`, `xai`, `zai`.
 
@@ -33,13 +33,13 @@ The server parses **`BRAIN_LLM`** (and optional **`BRAIN_FAST_LLM`**) into `prov
 
 **Future candidates (Google):** The same `KnownProvider` set includes `google` (Generative AI), `google-vertex`, `google-gemini-cli`, and related entries. We do not yet have project-standard **Google / Gemini** API credentials for the agent (`GEMINI_API_KEY` and related env vars in pi-ai); when they are set, `BRAIN_LLM=google/...` becomes viable alongside the table above.
 
-**Other `KnownProvider` values** (e.g. `openrouter`, `groq`, `mistral`, Bedrock) use the env mappings in pi-ai’s `getEnvApiKey` implementation; some use OAuth or cloud ADC instead of a single API key. Prefer the type definition and `getEnvApiKey` in `node_modules/@mariozechner/pi-ai` for details.
+**Other `KnownProvider` values** (e.g. `openrouter`, `groq`, `mistral`, Bedrock) use the env mappings in pi-ai’s `getEnvApiKey` implementation; some use OAuth or cloud ADC instead of a single API key. Prefer the type definition and `getEnvApiKey` in `node_modules/@earendil-works/pi-ai` for details.
 
 ### LLM model ids and tool compatibility
 
-`@mariozechner/pi-ai` keeps a **large** `MODELS` table (per provider) for costs, API routing, and `getModel(provider, id)`. **That is not the same** as “safe for a multi-turn **tool-calling** agent.” The same stack powers the **pi** coding CLI; the pi-mono **coding-agent** README says that for each built-in provider they maintain a list of **tool-capable** models, refreshed each release: [Providers & Models (upstream)](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md#providers--models).
+`@earendil-works/pi-ai` keeps a **large** `MODELS` table (per provider) for costs, API routing, and `getModel(provider, id)`. **That is not the same** as “safe for a multi-turn **tool-calling** agent.” The same stack powers the **pi** coding CLI; the pi-mono **coding-agent** README says that for each built-in provider they maintain a list of **tool-capable** models, refreshed each release: [Providers & Models (upstream)](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md#providers--models).
 
-In this repo, `convertToLlm` from `@mariozechner/pi-coding-agent` only shapes **message content**; it does not reject models. Failure modes you can see in practice:
+In this repo, `convertToLlm` from `@earendil-works/pi-coding-agent` only shapes **message content**; it does not reject models. Failure modes you can see in practice:
 
 
 | Situation                                                                                                 | What happens                                                                                                                                                                                                                                                                                                |

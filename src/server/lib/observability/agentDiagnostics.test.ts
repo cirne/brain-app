@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { AssistantMessageEvent } from '@mariozechner/pi-ai'
-import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AssistantMessageEvent } from '@earendil-works/pi-ai'
+import type { Agent, AgentEvent, AgentMessage } from '@earendil-works/pi-agent-core'
 
 import {
   AGENT_DIAGNOSTICS_SCHEMA_VERSION,

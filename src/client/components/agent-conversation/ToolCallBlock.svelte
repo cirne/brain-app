@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../../styles/agent-conversation/toolWriteLink.css'
-  import { ChevronRight, Wrench } from 'lucide-svelte'
+  import { ChevronRight, Wrench } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { getToolIcon } from '@client/lib/toolIcons.js'
   import { matchContentPreview, type ContentCardPreview } from '@client/lib/cards/contentCards.js'

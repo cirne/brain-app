@@ -3,7 +3,7 @@
    * Ripmail draft: metadata fields + shared Markdown editor; PATCH saves literal body via draft rewrite.
    */
   import { onDestroy, onMount } from 'svelte'
-  import { Loader2 } from 'lucide-svelte'
+  import { Loader2 } from '@lucide/svelte'
   import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
   import { subscribe, emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'

@@ -1,4 +1,4 @@
-import { completeSimple } from '@mariozechner/pi-ai'
+import { completeSimple } from '@earendil-works/pi-ai'
 import { brainLlmEnvDiagnosticLabel, getStandardBrainLlm, warnDeprecatedLlmEnvIfSet } from './effectiveBrainLlm.js'
 import { resolveLlmApiKey, resolveModel } from './resolveModel.js'
 import { chainLlmOnPayload } from './llmOnPayloadChain.js'

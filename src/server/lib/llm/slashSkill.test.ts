@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { UserMessage } from '@mariozechner/pi-ai'
+import type { UserMessage } from '@earendil-works/pi-ai'
 import {
   applySkillPlaceholders,
   buildSkillPromptMessages,

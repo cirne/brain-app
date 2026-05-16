@@ -3,8 +3,8 @@
   "description": "2026 eval lineup. Brain default when BRAIN_LLM is unset: openai/gpt-5.4-mini (see docs/architecture/configuration.md). Each (provider, id) must resolve via resolveModel() (pi-ai getModel for known providers; Brain catalog for mlx-local). Bare ids in BRAIN_LLM must be unique across providers here or use provider/model. tested=true = regression baseline. costPerMillionTokens matches resolved Model.cost (USD per 1M input/output/cache tokens) for COGS estimates. See docs/architecture/pi-agent-stack.md#llm-model-ids-and-tool-compatibility.",
   "pricing": {
     "currency": "USD",
-    "perMillionTokens": "input, output, cacheRead, cacheWrite — same fields as @mariozechner/pi-ai Model.cost; used to estimate eval spend when API-reported cost is missing.",
-    "alignedWith": "@mariozechner/pi-ai",
+    "perMillionTokens": "input, output, cacheRead, cacheWrite — same fields as @earendil-works/pi-ai Model.cost; used to estimate eval spend when API-reported cost is missing.",
+    "alignedWith": "@earendil-works/pi-ai",
     "piAiVersion": "0.66.1"
   },
   "providers": {

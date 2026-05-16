@@ -1,6 +1,6 @@
-import { Agent } from '@mariozechner/pi-agent-core'
+import { Agent } from '@earendil-works/pi-agent-core'
 import { resolveLlmApiKey } from '@server/lib/llm/resolveModel.js'
-import { convertToLlm } from '@mariozechner/pi-coding-agent'
+import { convertToLlm } from '@earendil-works/pi-coding-agent'
 import Handlebars from 'handlebars'
 import { createAgentTools } from './tools.js'
 import { existsSync, readFileSync } from 'node:fs'

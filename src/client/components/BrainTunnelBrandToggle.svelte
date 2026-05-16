@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BrainCircuit } from 'lucide-svelte'
+  import { BrainCircuit } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import { cn } from '@client/lib/cn.js'
 

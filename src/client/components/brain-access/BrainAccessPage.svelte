@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { ShieldCheck } from 'lucide-svelte'
+  import { ShieldCheck } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import {

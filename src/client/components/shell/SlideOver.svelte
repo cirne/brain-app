@@ -23,7 +23,7 @@
     Search,
     Send,
     X,
-  } from 'lucide-svelte'
+  } from '@lucide/svelte'
   import Wiki from '@components/Wiki.svelte'
   import WikiDirList from '@components/WikiDirList.svelte'
   import FileViewer from '@components/FileViewer.svelte'

@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
 import type { ChatMessage } from './chatTypes.js'
 import { loadSession, listInboundSessionsForGrant } from './chatStorage.js'

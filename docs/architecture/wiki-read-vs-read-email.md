@@ -20,7 +20,7 @@ This split is a reliability contract, not just a tool-routing detail:
 - **Dates resolve conflicts.** When source messages disagree about a current-state fact, the newest relevant dated source normally wins; older messages become historical context unless newer evidence confirms they still apply.
 - **Wiki is always a work in progress.** A wiki hit should shape subsequent lookup, not automatically terminate lookup. For high-stakes or evolving facts (travel times, decisions, commitments, project status, roles), the agent should verify or enrich from `search_index` / `read_mail_message` / `read_indexed_file`.
 
-The codebase could theoretically expose a single “read file” tool with multiple roots or absolute paths. That would reuse `@mariozechner/pi-coding-agent` primitives for everything, but it blurs product semantics and mixes incompatible identifier and I/O models.
+The codebase could theoretically expose a single “read file” tool with multiple roots or absolute paths. That would reuse `@earendil-works/pi-coding-agent` primitives for everything, but it blurs product semantics and mixes incompatible identifier and I/O models.
 
 ---
 
@@ -30,7 +30,7 @@ Keep **two tool families**:
 
 | Surface | Mechanism | Paths / IDs |
 |--------|-----------|-------------|
-| Wiki | `createReadTool` / `createEditTool` / … from `@mariozechner/pi-coding-agent`, scoped to `wikiDir` | Paths **relative to wiki root** (same contract as grep/find) |
+| Wiki | `createReadTool` / `createEditTool` / … from `@earendil-works/pi-coding-agent`, scoped to `wikiDir` | Paths **relative to wiki root** (same contract as grep/find) |
 | Indexed mail & files | `read_mail_message`, `read_indexed_file`, `search_index`, … — **ripmail-backed** (`ripmail read`, `ripmail search`, … or in-process `@server/ripmail` equivalents on hot paths) | **`read_mail_message`:** RFC Message-ID only (mail bodies). **`read_indexed_file`:** indexed Drive/file **`messageId`** or **absolute filesystem path** under tenant allowlist (e.g. `~/…`); JSON from ripmail; local files get **extracted text** (PDF, etc.) as implemented in ripmail, not raw bytes through the wiki reader |
 
 **Remote corpus reads (Drive, future Notion-style sources):** search hits come from **local FTS** on **bounded** synced text + metadata; **`read_doc` / `read_indexed_file`** paths for remote ids should treat the provider as **authoritative** for full body—**fetch on read** with a **short TTL cache** (~10 minutes target), not “SQLite holds the full document forever.” See [external-data-sources.md](./external-data-sources.md).
@@ -52,7 +52,7 @@ The prompt should say **wiki first** as an orientation step, not as a stopping r
 
 ## Security contract (BUG-012)
 
-- **Wiki tools** (`read`, `edit`, `write`, `grep`, `find`): arguments are coerced through [`resolveSafeWikiPath`](../../src/server/lib/wikiEditHistory.ts) / [`coerceWikiToolRelativePath`](../../src/server/lib/wikiEditHistory.ts) before calling `@mariozechner/pi-coding-agent`, so paths stay under `wikiDir` (pi’s own resolver treats absolute paths as host paths).
+- **Wiki tools** (`read`, `edit`, `write`, `grep`, `find`): arguments are coerced through [`resolveSafeWikiPath`](../../src/server/lib/wikiEditHistory.ts) / [`coerceWikiToolRelativePath`](../../src/server/lib/wikiEditHistory.ts) before calling `@earendil-works/pi-coding-agent`, so paths stay under `wikiDir` (pi’s own resolver treats absolute paths as host paths).
 - **`read_indexed_file` filesystem branch:** only paths under the current tenant’s allowlist — `BRAIN_HOME`, ripmail home, wiki content directory, and configured `localDir` / `icsFile` roots from `ripmail sources list` — see [`agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts). Indexed **`messageId`** values resolve via ripmail without treating them as arbitrary disk paths.
 - **`GET /api/files/read`:** same allowlist as `read_indexed_file` for filesystem paths (all deployment modes).
 

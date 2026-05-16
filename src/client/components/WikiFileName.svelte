@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, User } from 'lucide-svelte'
+  import { BookOpen, User } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { getDirIcon, SpecialFileIcon } from '@client/lib/dirIcons.js'
   import { t } from '@client/lib/i18n/index.js'

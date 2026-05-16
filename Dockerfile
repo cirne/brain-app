@@ -2,31 +2,35 @@
 # Multi-stage Node build only: no Rust/Cargo, no standalone `ripmail` ELF — mail is `src/server/ripmail/`
 # compiled into `dist/server`. Hosted layout: docs/opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md
 #
-# Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo` or `BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs` (host) or
+# Enron demo tenant data is **not** baked in. Seed with `pnpm run brain:seed-enron-demo` or `BRAIN_ENRON_DEMO_USER=kean node scripts/brain/seed-enron-demo-tenant.mjs` (host) or
 # `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.
 # syntax=docker/dockerfile:1
 
 # Stage 1: production node_modules only — layer hash is stable across web-app-only changes
-# because it only runs npm ci --omit=dev and is keyed purely on package-lock.json.
+# because it runs `pnpm install --prod --frozen-lockfile` and is keyed on pnpm-lock.yaml.
 FROM node:24-bookworm AS prod-deps
 WORKDIR /app
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
 
 # Stage 2: full dev-dep install + build
 FROM node:24-bookworm AS node-builder
 WORKDIR /app
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run check:npm-malware
-RUN npm run build
+RUN pnpm run check:malware-lockfile
+RUN pnpm run build
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
@@ -36,7 +40,7 @@ RUN apt-get update \
 ENV NODE_ENV=production
 ENV PORT=4000
 COPY newrelic.cjs ./newrelic.cjs
-# node_modules from prod-deps stage: stable registry layer, only changes when package-lock.json changes.
+# node_modules from prod-deps stage: stable registry layer, only changes when lockfile/deps change.
 # Must come before dist so it stays cached when only the web app build changes.
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=node-builder /app/package.json ./package.json

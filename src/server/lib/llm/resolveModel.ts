@@ -1,9 +1,9 @@
-import { getEnvApiKey, getModel, type Api, type KnownProvider, type Model } from '@mariozechner/pi-ai'
+import { getEnvApiKey, getModel, type Api, type KnownProvider, type Model } from '@earendil-works/pi-ai'
 import { getMlxLocalModel, isMlxLocalProvider } from './mlxLocalModel.js'
 
 /**
  * Resolves `BRAIN_LLM` / `BRAIN_FAST_LLM` (parsed to provider + id) to a pi-ai `Model`, including Brain-only
- * providers (e.g. `mlx-local`) that are not in `@mariozechner/pi-ai`'s static registry.
+ * providers (e.g. `mlx-local`) that are not in `@earendil-works/pi-ai`'s static registry.
  */
 export function resolveModel(provider: string, modelId: string): Model<Api> | undefined {
   if (isMlxLocalProvider(provider)) {

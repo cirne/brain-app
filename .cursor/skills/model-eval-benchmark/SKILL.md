@@ -20,10 +20,10 @@ Reports are JSON under `data-eval/eval-runs/` (gitignored).
 
 ## Prerequisites
 
-1. **Node:** from repo root, `nvm use` before any `npm`/`npx` (see [`AGENTS.md`](../../../AGENTS.md)).
-2. **Enron index (Enron + wiki evals):** `npm run brain:seed-enron-demo` once so `./data/usr_enrondemo00000000001/ripmail/ripmail.db` exists ([`eval/README.md`](../../../eval/README.md)).
-3. **API keys:** repo-root `.env` (same as `npm run dev`) with keys for each provider you run (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` for Gemini, etc. — matches [`@mariozechner/pi-ai`](../../../docs/architecture/pi-agent-stack.md) conventions).
-4. **Model IDs:** each **`BRAIN_LLM`** value must resolve via `parseBrainLlmSpec` → `resolveModel()` / `getModel()` from `@mariozechner/pi-ai`. Git-tracked lineup: [`src/server/evals/supported-llm-models.json`](../../../src/server/evals/supported-llm-models.json) (validated by `vitest.eval.config.ts` tests).
+1. **Node:** from repo root, `nvm use` before **`pnpm`** / **`npx`** (see [`AGENTS.md`](../../../AGENTS.md)).
+2. **Enron index (Enron + wiki evals):** **`pnpm run brain:seed-enron-demo`** once so `./data/usr_enrondemo00000000001/ripmail/ripmail.db` exists ([`eval/README.md`](../../../eval/README.md)).
+3. **API keys:** repo-root `.env` (same as **`pnpm run dev`**) with keys for each provider you run (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` for Gemini, etc. — matches [`@earendil-works/pi-ai`](../../../docs/architecture/pi-agent-stack.md) conventions).
+4. **Model IDs:** each **`BRAIN_LLM`** value must resolve via `parseBrainLlmSpec` → `resolveModel()` / `getModel()` from `@earendil-works/pi-ai`. Git-tracked lineup: [`src/server/evals/supported-llm-models.json`](../../../src/server/evals/supported-llm-models.json) (validated by `vitest.eval.config.ts` tests).
 
 ## Commands
 
@@ -31,16 +31,16 @@ Reports are JSON under `data-eval/eval-runs/` (gitignored).
 
 ```sh
 nvm use
-npm run eval:run -- --provider <KnownProvider> --model <model-id>
+pnpm run eval:run -- --provider <KnownProvider> --model <model-id>
 ```
 
-Flags after `--` apply to the **JSONL phase** only. For JSONL help without running Vitest: `npm run eval:run -- --help`.
+Flags after `--` apply to the **JSONL phase** only. For JSONL help without running Vitest: **`pnpm run eval:run -- --help`**.
 
 **JSONL only** (advanced): run `enronV1cli.ts`, `mailComposeV1cli.ts`, or `wikiV1cli.ts` with `npx tsx --tsconfig tsconfig.server.json …` from repo root; see [`eval/README.md`](../../../eval/README.md).
 
 Optional env: `EVAL_MAX_CONCURRENCY`, `EVAL_TASKS`, `EVAL_MAIL_COMPOSE_TASKS`, `EVAL_WIKI_TASKS`, `BRAIN_HOME` (defaults to Kean tenant under `./data` when unset and `BRAIN_DATA_ROOT=./data`).
 
-**Implementation note:** The npm scripts use `tsx --tsconfig tsconfig.server.json` so `@server/...` imports resolve. If you invoke the CLI by hand, include the same `--tsconfig` or imports break.
+**Implementation note:** The **`package.json`** scripts use `tsx --tsconfig tsconfig.server.json` so `@server/...` imports resolve. If you invoke the CLI by hand, include the same `--tsconfig` or imports break.
 
 ## Report files
 
@@ -70,7 +70,7 @@ See `EVAL_RIPMAIL_SEND_DRY_RUN` and `isEvalRipmailSendDryRun` in the server if b
 2. **Pass rate is the primary quality signal** on this harness; failed cases include `failReasons` in the report for postmortems.
 3. **Cost and tokens** come from the agent’s aggregated usage; if a case fails early, its tokens may still be non-zero — interpret `totalCost` as “spend to reach this outcome,” not only “success cost.”
 4. **Model strings:** Use exact pi-ai catalog ids (e.g. `gemini-3-flash-preview` — there is no `gemini-3.1-flash-preview` in the catalog). Wrong ids fail at startup or in registry tests.
-5. **Vitest split:** Main `npm test` **excludes** `src/server/evals/**`. Harness/registry tests run in the first phase of `npm run eval:run`, or alone: `npx vitest run --config vitest.eval.config.ts <path>`.
+5. **Vitest split:** Main **`pnpm run test`** **excludes** `src/server/evals/**`. Harness/registry tests run in the first phase of **`pnpm run eval:run`**, or alone: `npx vitest run --config vitest.eval.config.ts <path>`.
 6. **Do not** treat a single run as proof for production: variance (API, cache, model updates) is normal; rerun or pin dependency versions if you need reproducibility.
 
 ## Quick comparison snippet (manual)

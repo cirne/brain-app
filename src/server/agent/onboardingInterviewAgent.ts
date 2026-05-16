@@ -1,5 +1,5 @@
 import Handlebars from 'handlebars'
-import type { Agent } from '@mariozechner/pi-agent-core'
+import type { Agent } from '@earendil-works/pi-agent-core'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'

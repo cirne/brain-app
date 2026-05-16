@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { ChevronRight } from 'lucide-svelte'
+  import { ChevronRight } from '@lucide/svelte'
   import PaneL2Header from '@components/PaneL2Header.svelte'
   import { t } from '@client/lib/i18n/index.js'
 

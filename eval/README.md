@@ -32,8 +32,8 @@ Braintunnel demo handles (stored slugs; leading `@` is accepted in UI and normal
 
 | Command | What it exercises |
 |---------|-------------------|
-| `npm run test:e2e:enron` | TypeScript maildir → SQLite rebuild + deterministic checks on **`./data/usr_enrondemo00000000001`** (skips if seed not run). Config: [`vitest.enron-e2e.config.ts`](../vitest.enron-e2e.config.ts). |
-| `npm run test:e2e:playwright` | **Demo tenants** in **`./data`** with **`npm run dev`** (**:3000**). Pre-seed with `npm run brain:seed-enron-demo`. See [`tests/e2e/README.md`](../tests/e2e/README.md). |
+| `pnpm run e2e:enron` | TypeScript maildir → SQLite rebuild + deterministic checks on **`./data/usr_enrondemo00000000001`** (skips if seed not run). Config: [`vitest.enron-e2e.config.ts`](../vitest.enron-e2e.config.ts). |
+| `pnpm run e2e:playwright` | **Demo tenants** in **`./data`** with **`pnpm run dev`** (**:3000**). Pre-seed with `pnpm run brain:seed-enron-demo`. See [`tests/e2e/README.md`](../tests/e2e/README.md). |
 
 ## `npm run eval:run`
 
@@ -191,22 +191,25 @@ npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutC
 
 Requires the same Kean ripmail index as mail eval (`./data/usr_enrondemo00000000001/ripmail/ripmail.db`).
 
-## npm scripts
+## pnpm scripts
 
 | Script | Purpose |
 |--------|---------|
-| `brain:seed-enron-demo` | Seeds **all three** Enron demo tenants under `./data` (tarball download/cache + ingest). |
-| `eval:run` | Vitest eval slice + Enron v1 + mail compose + **B2B E2E** + Wiki v1 JSONL (`scripts/eval-run.mjs`). |
+| `pnpm run brain:seed-enron-demo` | Seeds **all three** Enron demo tenants under `./data` (tarball download/cache + ingest). |
+| `pnpm run eval:run` | Vitest eval slice + Enron v1 + mail compose + **B2B E2E** + Wiki v1 JSONL (`scripts/eval-run.mjs`). |
 
-`npm run ripmail:build`; eval prefers `target/release/ripmail`. Reindex example:
+Mail eval uses the **TypeScript** ripmail stack (`src/server/ripmail/`). After `pnpm run build`, the bundled CLI-shaped entry exists at `dist/server/ripmail/rebuildFromMaildirCli.js` — same behavior as dev `npx tsx … src/server/ripmail/rebuildFromMaildirCli.ts` ([`rebuildFromMaildirCli.ts`](../src/server/ripmail/rebuildFromMaildirCli.ts)). Example (adjust `<MAILDIR_ROOT>` to your extracted maildir):
 
 ```bash
-RIPMAIL_HOME=./data/usr_enrondemo00000000001/ripmail BRAIN_HOME=./data/usr_enrondemo00000000001 ./target/release/ripmail rebuild-index
+pnpm run build
+node dist/server/ripmail/rebuildFromMaildirCli.js \
+  ./data/usr_enrondemo00000000001/ripmail \
+  <MAILDIR_ROOT>
 ```
 
-## `ripmail status` and date range
+## Mail index status and date range
 
-Same behavior as product ripmail—see prior sections in this file for Enron date quirks (legacy index vs rebuild normalization).
+Same semantics as production ripmail (SQLite + layout under each tenant `ripmail/`) — see earlier sections in this file for Enron date quirks (legacy index vs rebuild normalization).
 
 ## Time-relative queries
 
@@ -218,8 +221,8 @@ Do not commit raw mail. Large downloads live under ignored `./data/.cache/` and 
 
 ## CI
 
-Cache `./data/.cache/enron/` or pre-seed the tarball; run **`npm run brain:seed-enron-demo`** before **`npm run eval:run`**. `npm test` does not include `src/server/evals/**`.
+Cache `./data/.cache/enron/` or pre-seed the tarball; run **`pnpm run brain:seed-enron-demo`** before **`pnpm run eval:run`**. `pnpm run test` does not include `src/server/evals/**`.
 
 ## Shared state caveat
 
-Running **`eval:run`** while actively using the **Kean** demo workspace in the app mutates the same `./data/usr_enrondemo00000000001` tree. Use **`npm run dev:eval:clean`** to reset wiki/chats/cache for that tenant without removing mail, or re-seed with `--force` for a full rebuild.
+Running **`pnpm run eval:run`** while actively using the **Kean** demo workspace in the app mutates the same `./data/usr_enrondemo00000000001` tree. Use **`pnpm run dev:eval:clean`** to reset wiki/chats/cache for that tenant without removing mail, or re-seed with `--force` for a full rebuild.

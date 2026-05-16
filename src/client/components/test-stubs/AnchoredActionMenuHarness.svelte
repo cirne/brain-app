@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Circle } from 'lucide-svelte'
+  import { Circle } from '@lucide/svelte'
   import AnchoredActionMenu from '../shell/AnchoredActionMenu.svelte'
   import AnchoredMenuRow from '../shell/AnchoredMenuRow.svelte'
 

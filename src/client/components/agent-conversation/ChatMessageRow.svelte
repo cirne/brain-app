@@ -9,7 +9,7 @@
   import { expandPartsForToolDisplay } from '@client/lib/agent-conversation/transcriptToolParts.js'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import { t } from '@client/lib/i18n/index.js'
-  import { Send } from 'lucide-svelte'
+  import { Send } from '@lucide/svelte'
   import { isB2bAwaitingPeerReviewAssistantMessage } from '@shared/b2bTunnelDelivery.js'
   import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
   import StreamingBusyDots from './StreamingBusyDots.svelte'

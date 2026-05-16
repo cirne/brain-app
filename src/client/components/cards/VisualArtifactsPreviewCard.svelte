@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText } from 'lucide-svelte'
+  import { FileText } from '@lucide/svelte'
   import { visualArtifactFetchUrl, type VisualArtifact } from '@shared/visualArtifacts.js'
   import { t } from '@client/lib/i18n/index.js'
 

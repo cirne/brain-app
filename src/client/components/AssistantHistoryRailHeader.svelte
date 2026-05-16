@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X } from 'lucide-svelte'
+  import { X } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import BrainTunnelBrandToggle from '@components/BrainTunnelBrandToggle.svelte'
 

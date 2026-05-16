@@ -80,6 +80,7 @@ How the unified server behaves, how the client is exercised in tests, and enviro
 | Environment variables and config surface                                 | **[architecture/environment-variables.md](architecture/environment-variables.md)** (full inventory; contributor rule) · [architecture/configuration.md](architecture/configuration.md) (narrative + table) |
 | Svelte component tests (Vitest, Testing Library)                         | [component-testing.md](component-testing.md)                               |
 | Client UI: latest-wins async / overlapping `fetch`                       | [architecture/client-async-latest.md](architecture/client-async-latest.md) |
+| **Packaged macOS app (Tauri, experimental)** — DMG, bundled server, embed keys | [architecture/desktop-tauri-experimental.md](architecture/desktop-tauri-experimental.md) · **Logs / FDA / ports:** [.agents/skills/desktop/SKILL.md](../.agents/skills/desktop/SKILL.md) |
 
 
 ---
@@ -156,11 +157,11 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 ## Principles (short)
 
 - **Single user, single process** — no separate API server; sessions are in-memory with chat history persisted in **`var/brain-tenant.sqlite`** per tenant (see [chat-history-sqlite.md](architecture/chat-history-sqlite.md)); **`chats/`** retains onboarding JSON only.
-- **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
+- **Wiki is files** — agent tools from `@earendil-works/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
   - **Bootstrap then maintenance** — after enough indexed mail, a **one-shot wiki bootstrap** may create bounded first-draft stubs ([archived OPP-095](opportunities/archive/OPP-095-wiki-first-draft-bootstrap.md)); the **Your Wiki** supervisor then runs deepen-only laps ([architecture/background-task-orchestration.md](architecture/background-task-orchestration.md)).
-  - **Email and mail index** — **`src/server/ripmail/`** (TypeScript, in-process); on-disk **`ripmail/`** layout under each tenant home ([`brain-layout.json`](../shared/brain-layout.json)). Manual CLI work uses **`npm run ripmail -- <subcommand>`** ([architecture/integrations.md](architecture/integrations.md)).
+  - **Email and mail index** — **`src/server/ripmail/`** (TypeScript, in-process); on-disk **`ripmail/`** layout under each tenant home ([`brain-layout.json`](../shared/brain-layout.json)). See [architecture/integrations.md](architecture/integrations.md).
   - **UI Shell** — Svelte 5 SPA. The top-nav **Brain Hub widget** replaces legacy status bars and sync buttons, providing a single entry point to **Brain Hub** (`/hub`) for administration and system health.
-  - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc). **Local MLX (Qwen on Apple Silicon):** [local-mlx-llm.md](architecture/local-mlx-llm.md).
+  - **LLM** — `@earendil-works/pi-ai`, configured via env (see configuration doc). **Local MLX (Qwen on Apple Silicon):** [local-mlx-llm.md](architecture/local-mlx-llm.md).
 
 ---
 

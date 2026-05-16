@@ -2,7 +2,7 @@
  * Unified initial assistant bootstrap: guided identity + wiki-first proposals/writes + optional calendar,
  * served from `POST /api/chat` while onboarding machine state is `onboarding-agent`.
  */
-import type { Agent } from '@mariozechner/pi-agent-core'
+import type { Agent } from '@earendil-works/pi-agent-core'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import type { OnboardingMailStatusPayload } from '@server/lib/onboarding/onboardingMailStatus.js'

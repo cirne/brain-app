@@ -108,7 +108,7 @@ Keep existing **loopback** URIs for local dev and Braintunnel.app as documented 
 
 ## Local Docker (Phase 1)
 
-Repo root **`Dockerfile`** + **`docker-compose.yml`**: `env_file: .env` supplies secrets; compose sets **`BRAIN_DATA_ROOT`** (multi-tenant volume), **`PORT=4000`** inside the container, and host **`${BRAIN_DOCKER_PORT:-4000}:4000`**. **`npm run docker:up`** builds the image from the **`Dockerfile`** (Node `npm ci` + `npm run build`); mail runs **in-process** — no separate Linux `ripmail` ELF stage. See [OPP-041 Phase 1](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+Repo root **`Dockerfile`** + **`docker-compose.yml`**: `env_file: .env` supplies secrets; compose sets **`BRAIN_DATA_ROOT`** (multi-tenant volume), **`PORT=4000`** inside the container, and host **`${BRAIN_DOCKER_PORT:-4000}:4000`**. **`pnpm run docker:up`** builds the image from the **`Dockerfile`** (Node **`pnpm install --frozen-lockfile`** + **`pnpm run build`**); mail runs **in-process** — no separate Linux `ripmail` ELF stage. See [OPP-041 Phase 1](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
 
 ---
 

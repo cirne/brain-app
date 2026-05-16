@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { t } from '@client/lib/i18n/index.js'
-  import { Loader2, MessageSquare, Search, Trash2 } from 'lucide-svelte'
+  import { Loader2, MessageSquare, Search, Trash2 } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'

@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Archive, Inbox } from 'lucide-svelte'
+  import { Archive, Inbox } from '@lucide/svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import { t } from '@client/lib/i18n/index.js'

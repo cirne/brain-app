@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@mariozechner/pi-ai', () => ({
+vi.mock('@earendil-works/pi-ai', () => ({
   getModel: vi.fn(),
   getEnvApiKey: vi.fn(),
   completeSimple: vi.fn(),
 }))
 
-import { completeSimple, getEnvApiKey, getModel } from '@mariozechner/pi-ai'
+import { completeSimple, getEnvApiKey, getModel } from '@earendil-works/pi-ai'
 import { verifyLlmAtStartup } from './llmStartupSmoke.js'
 
 const mockGetModel = vi.mocked(getModel)

@@ -1,13 +1,13 @@
-import { Agent } from '@mariozechner/pi-agent-core'
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
-import type { Api, Model } from '@mariozechner/pi-ai'
+import { Agent } from '@earendil-works/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
+import type { Api, Model } from '@earendil-works/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import {
   brainLlmEnvDiagnosticLabel,
   getFastBrainLlm,
   getStandardBrainLlm,
 } from '@server/lib/llm/effectiveBrainLlm.js'
-import { convertToLlm } from '@mariozechner/pi-coding-agent'
+import { convertToLlm } from '@earendil-works/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import {
   buildCreateAgentToolsOptions,

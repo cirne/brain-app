@@ -2,8 +2,8 @@
 
 ## Stack
 
-- **Runtime:** `@mariozechner/pi-agent-core` `Agent` with `convertToLlm` from `@mariozechner/pi-coding-agent`. **Package options, events, and metering context:** [pi-agent-stack.md](./pi-agent-stack.md) (usage / cost: [OPP-072](../opportunities/archive/OPP-072-llm-usage-token-metering.md)).
-- **Model:** `@mariozechner/pi-ai` `getModel(provider, modelId)` — `provider` and `modelId` come from **`BRAIN_LLM`** (and optional fast tier for some paths); see [configuration.md](./configuration.md).
+- **Runtime:** `@earendil-works/pi-agent-core` `Agent` with `convertToLlm` from `@earendil-works/pi-coding-agent`. **Package options, events, and metering context:** [pi-agent-stack.md](./pi-agent-stack.md) (usage / cost: [OPP-072](../opportunities/archive/OPP-072-llm-usage-token-metering.md)).
+- **Model:** `@earendil-works/pi-ai` `getModel(provider, modelId)` — `provider` and `modelId` come from **`BRAIN_LLM`** (and optional fast tier for some paths); see [configuration.md](./configuration.md).
 - **Tools:** Built in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts)` — see below.
 
 Session factory: `[src/server/agent/index.ts](../../src/server/agent/index.ts)`.
@@ -59,7 +59,7 @@ Stream implementation: `[streamAgentSse.ts](../../src/server/lib/streamAgentSse.
 Tappable follow-ups use the **`suggest_reply_options`** tool and an optional **repair** completion when the model omits chips. **Main chat** and **guided onboarding interview** share the same pipeline (no separate “suggestions JSON” HTTP API). Details, env toggles, and client behavior: **[chat-suggestions.md](./chat-suggestions.md)**.
 
 
-**Usage (LLM metering):** On each turn, the server handles `agent_end` from `@mariozechner/pi-agent-core` and sums `usage` on every `AssistantMessage` in `event.messages` (one user-visible reply can span multiple tool rounds). That aggregate is stored on the persisted **assistant** row as optional `usage` (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`). **Cached input** in provider terms corresponds to **cache read** in pi-ai (`cacheRead`).
+**Usage (LLM metering):** On each turn, the server handles `agent_end` from `@earendil-works/pi-agent-core` and sums `usage` on every `AssistantMessage` in `event.messages` (one user-visible reply can span multiple tool rounds). That aggregate is stored on the persisted **assistant** row as optional `usage` (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`). **Cached input** in provider terms corresponds to **cache read** in pi-ai (`cacheRead`).
 
 ## Agent tools (summary)
 

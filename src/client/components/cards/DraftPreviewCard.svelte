@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileEdit } from 'lucide-svelte'
+  import { FileEdit } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
 
   let {

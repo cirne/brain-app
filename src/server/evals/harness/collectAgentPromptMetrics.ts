@@ -1,4 +1,4 @@
-import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import type { Agent, AgentEvent, AgentMessage } from '@earendil-works/pi-agent-core'
 import { randomUUID } from 'node:crypto'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { createAssistantTurnState, applyTextDelta } from '@server/lib/chat/chatTranscript.js'

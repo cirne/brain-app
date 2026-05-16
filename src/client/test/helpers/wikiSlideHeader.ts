@@ -48,7 +48,13 @@ type WikiRenderOptions = {
  * `render` with wiki slide header context merged into any existing `context` option.
  * (Testing Library’s `RenderOptions` generics don’t play cleanly with Svelte 5 `Component`; options are typed narrowly here.)
  */
-export function renderWithWikiSlideHeader(component: Component, options: WikiRenderOptions = {}) {
+export function renderWithWikiSlideHeader(
+  component: Component,
+  options: WikiRenderOptions = {},
+): ReturnType<typeof render> & {
+  wikiHeaderCell: WikiSlideHeaderCell
+  wikiHeaderRef: WikiSlideHeaderRef
+} {
   let cell: WikiSlideHeaderCell
   if (options.wikiHeaderCell) {
     cell = options.wikiHeaderCell
@@ -65,9 +71,11 @@ export function renderWithWikiSlideHeader(component: Component, options: WikiRen
   const context =
     extra instanceof Map ? new Map([...wikiCtx, ...extra]) : wikiCtx
 
-  return {
-    ...render(component, { ...rest, context } as Parameters<typeof render>[1]),
-    wikiHeaderCell: cell,
-    wikiHeaderRef: ref,
+  const rendered = render(component, { ...rest, context } as Parameters<typeof render>[1])
+  return Object.assign(rendered, { wikiHeaderCell: cell, wikiHeaderRef: ref }) as unknown as ReturnType<
+    typeof render
+  > & {
+    wikiHeaderCell: WikiSlideHeaderCell
+    wikiHeaderRef: WikiSlideHeaderRef
   }
 }

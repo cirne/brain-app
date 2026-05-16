@@ -1,5 +1,5 @@
-import { completeSimple } from '@mariozechner/pi-ai'
-import type { AssistantMessage, Context } from '@mariozechner/pi-ai'
+import { completeSimple } from '@earendil-works/pi-ai'
+import type { AssistantMessage, Context } from '@earendil-works/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { getFastBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { randomUUID } from 'node:crypto'

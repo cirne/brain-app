@@ -11,7 +11,7 @@
   import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
   import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
   import { subscribeTunnelActivity, type TunnelActivityPayload } from '@client/lib/hubEvents/hubEventsClient.js'
-  import { Archive, Ban, CircleX, ClipboardCheck, MessagesSquare, Send, Zap } from 'lucide-svelte'
+  import { Archive, Ban, CircleX, ClipboardCheck, MessagesSquare, Send, Zap } from '@lucide/svelte'
 
   let {
     row,

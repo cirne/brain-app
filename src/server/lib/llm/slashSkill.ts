@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import matter from 'gray-matter'
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import { bundledUserSkillsDir } from '@server/lib/platform/bundledUserSkillsDir.js'
 import { skillsDir } from '@server/lib/wiki/wikiDir.js'
 

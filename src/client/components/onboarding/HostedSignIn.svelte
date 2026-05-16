@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Lock } from 'lucide-svelte'
+  import { Lock } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
 

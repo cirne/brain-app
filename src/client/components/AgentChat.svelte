@@ -55,7 +55,7 @@
     presentationForNotificationRow,
     type NotificationKickoffHints,
   } from '@shared/notifications/presentation.js'
-  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
+  import { Trash2, Volume2, VolumeX } from '@lucide/svelte'
   import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
   import EmptyChatNotificationsStrip from '@components/agent-conversation/EmptyChatNotificationsStrip.svelte'
   import ComposerContextBar from '@components/agent-conversation/ComposerContextBar.svelte'

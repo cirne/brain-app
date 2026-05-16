@@ -1,4 +1,4 @@
-import { completeSimple, type UserMessage } from '@mariozechner/pi-ai'
+import { completeSimple, type UserMessage } from '@earendil-works/pi-ai'
 import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.js'
 import { parseBrainLlmSpec } from '@server/lib/llm/effectiveBrainLlm.js'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'

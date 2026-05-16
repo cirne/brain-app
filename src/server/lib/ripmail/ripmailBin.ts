@@ -1,10 +1,7 @@
 /**
- * Path to the `ripmail` executable.
- *
- * Server mail runs **in-process** (`@server/ripmail`); this only exists for the few
- * remaining string-builder helpers / tests that interpolate the binary name. The
- * supported way to run the CLI manually is **`npm run ripmail -- <subcommand> …`**
- * (requires `ripmail` on `PATH`).
+ * Literal CLI program name (`ripmail`) used only for **string builders** (agent tool docs / tests)
+ * that mirror historic `ripmail search …` argv shapes. The server does **not** spawn this binary;
+ * mail runs in-process via `@server/ripmail`.
  */
 export function ripmailBin(): string {
   return 'ripmail'

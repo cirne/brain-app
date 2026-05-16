@@ -23,7 +23,7 @@
   import { isOnboardingInitialMailSyncComplete } from '@shared/onboardingMailGate.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '@client/lib/desktop/browserLikeWindow.js'
   import { isTauriRuntime } from '@client/lib/desktop/isTauriRuntime.js'
-  import { ArrowRight } from 'lucide-svelte'
+  import { ArrowRight } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'

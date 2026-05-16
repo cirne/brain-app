@@ -6,7 +6,7 @@
   import { B2B_INBOUND_COLD_QUERY_DRAFTING_TEXT } from '@shared/b2bTunnelDelivery.js'
   import { BRAIN_QUERY_GRANT_POLICY_TEMPLATE_META, type BrainQueryBuiltinPolicyId } from '@client/lib/brainQueryPolicyTemplates.js'
   import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
-  import { CircleX, Send } from 'lucide-svelte'
+  import { CircleX, Send } from '@lucide/svelte'
 
   let {
     row,

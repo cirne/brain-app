@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import newrelic from 'newrelic'
 import { isValidUserId } from '@server/lib/tenant/handleMeta.js'
 import type { LlmAgentKind } from '@server/lib/llm/llmAgentKind.js'

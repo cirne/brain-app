@@ -83,7 +83,7 @@ export function runRebuildIndex({ ripHome, brain, maildirRoot }) {
   } else {
     const tsxCli = resolveTsxCli(repoRoot)
     if (!tsxCli) {
-      console.error('[eval] tsx CLI not found under node_modules; run npm ci from repo root.')
+      console.error('[eval] tsx CLI not found under node_modules; run pnpm install from repo root.')
       process.exit(1)
     }
     execArgv = [tsxCli, '--tsconfig', tsconfig, tsEntry, homeAbs, mdAbs]

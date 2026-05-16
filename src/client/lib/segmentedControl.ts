@@ -1,4 +1,4 @@
-import { AlignCenter, AlignLeft, AlignRight, Type } from 'lucide-svelte'
+import { AlignCenter, AlignLeft, AlignRight, Type } from '@lucide/svelte'
 import type { Component } from 'svelte'
 
 /** One segment in {@link SegmentedControl}. */
@@ -15,7 +15,7 @@ export type SegmentedOption<T = string> = {
 }
 
 /**
- * Built-in Lucide icons for segmented controls. Import components from `lucide-svelte`
+ * Built-in Lucide icons for segmented controls. Import components from `@lucide/svelte`
  * and add entries when you need new ids.
  */
 export const SEGMENTED_CONTROL_ICONS = {

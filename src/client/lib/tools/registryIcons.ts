@@ -22,7 +22,7 @@ import {
   ListChecks,
   CircleCheck,
   Bell,
-} from 'lucide-svelte'
+} from '@lucide/svelte'
 import type { Component } from 'svelte'
 
 export const TOOL_ICONS = {

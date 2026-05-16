@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Mail, ChevronRight, Folder, Calendar, HardDrive, Plus } from 'lucide-svelte'
+  import { Mail, ChevronRight, Folder, Calendar, HardDrive, Plus } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'

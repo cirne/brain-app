@@ -1,5 +1,5 @@
 /**
- * Braintunnel OpenAI **project** Usage + Costs (admin API) for `npm run llm:usage`.
+ * Braintunnel OpenAI **project** Usage + Costs (admin API) for `pnpm run usage:openai-org`.
  * Filters to {@link getBrainOpenAiProjectId} (`BRAIN_OPENAI_PROJECT_ID` or {@link BRAIN_OPENAI_PROJECT_ID_DEFAULT}); no org-wide mode.
  * @see https://platform.openai.com/docs/api-reference/usage/completions
  * @see https://platform.openai.com/docs/api-reference/usage/costs
@@ -11,7 +11,7 @@ import { parseOpenAiJsonText, usageBucketRows } from './openaiOrgUsageParse.js'
 
 const API_BASE = 'https://api.openai.com/v1'
 
-/** Braintunnel OpenAI project — default when `BRAIN_OPENAI_PROJECT_ID` is unset; the only project `llm:usage` reports on. */
+/** Braintunnel OpenAI project — default when `BRAIN_OPENAI_PROJECT_ID` is unset; the only project `usage:openai-org` reports on. */
 export const BRAIN_OPENAI_PROJECT_ID_DEFAULT = 'proj_cuDNhdtS2h6Ek2pt4YSDKFHQ'
 
 /** Resolved OpenAI project id for Usage/Costs CLI (env override for forks/operators). */
@@ -656,7 +656,7 @@ export function parseLlmUsageArgv(argv: string[]): LlmUsageCliOptions {
   return out
 }
 
-const HELP = `Usage: npm run llm:usage -- [options]
+const HELP = `Usage: pnpm run usage:openai-org -- [options]
 
 OpenAI project usage (requires OPENAI_ADMIN_API_KEY in .env or env).
 **Always** reports a single OpenAI project (default ${BRAIN_OPENAI_PROJECT_ID_DEFAULT};

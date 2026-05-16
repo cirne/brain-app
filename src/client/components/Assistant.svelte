@@ -125,7 +125,7 @@ import AppShell from '@components/app/AppShell.svelte'
     Trash2,
     Volume2,
     VolumeX,
-  } from 'lucide-svelte'
+  } from '@lucide/svelte'
 
   type AssistantProps = {
     /** When false, hide brain-to-brain UI (`BRAIN_B2B_ENABLED` unset vs `1`/`true`). */

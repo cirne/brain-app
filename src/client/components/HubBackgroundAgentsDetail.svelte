@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Sparkles } from 'lucide-svelte'
+  import { Sparkles } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'

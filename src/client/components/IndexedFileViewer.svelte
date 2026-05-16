@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ExternalLink } from 'lucide-svelte'
+  import { ExternalLink } from '@lucide/svelte'
   import CsvSpreadsheetView from '@components/CsvSpreadsheetView.svelte'
   import { renderMarkdownBody } from '@client/lib/markdown.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'

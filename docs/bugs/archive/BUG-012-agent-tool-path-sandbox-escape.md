@@ -46,7 +46,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `read_indexed_file` (filesystem branch)              | Documented to accept **indexed file/Drive `messageId`** or “**a file by absolute path (tilde paths OK)**” and passes eligible ids through to `ripmail read` — historically lacked checks that arbitrary paths stay under the current `RIPMAIL_HOME` / `BRAIN_HOME` / configured sources (`src/server/agent/tools.ts`). **Mitigated:** allowlist enforcement in agent path policy.                                         |
 | `manage_sources`                                     | `op=add` / `op=edit` take `**path: absolute path or ~`** — same class of issue for registering or editing folder sources.                                                                                                                                                                                                                                                                                                 |
-| Wiki file tools from `@mariozechner/pi-coding-agent` | `createReadTool`, `createFindTool`, etc. are scoped with a `wikiDir` string. **If** the upstream implementation uses standard path joins (e.g. `path.resolve(wikiDir, userPath)`), a **path argument that is already absolute** can reset the base and escape the wiki root (Node: `path.resolve('/wiki', '/etc/passwd')` → `/etc/passwd`). **Confirm upstream behavior;** if unguarded, this is a direct sandbox escape. |
+| Wiki file tools from `@earendil-works/pi-coding-agent` | `createReadTool`, `createFindTool`, etc. are scoped with a `wikiDir` string. **If** the upstream implementation uses standard path joins (e.g. `path.resolve(wikiDir, userPath)`), a **path argument that is already absolute** can reset the base and escape the wiki root (Node: `path.resolve('/wiki', '/etc/passwd')` → `/etc/passwd`). **Confirm upstream behavior;** if unguarded, this is a direct sandbox escape. |
 | Custom tools using `resolveSafeWikiPath`             | `move_file` / `delete_file` and wiki edit history use `**resolveSafeWikiPath`** in `src/server/lib/wikiEditHistory.ts`, which **rejects** traversals outside `wikiDir` — **good pattern** to generalize.                                                                                                                                                                                                                  |
 
 
@@ -54,7 +54,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 
 - The agent **must not** read, list, or exfiltrate data outside a defined **allowlist of roots** for the current session (at minimum: current tenant’s `BRAIN_HOME`, resolved `BRAIN_WIKI_ROOT` / wiki, `RIPMAIL_HOME`, and explicit configured source paths — **not** arbitrary siblings under `BRAIN_DATA_ROOT`).
 - Attackers: malicious local user, mistyped or social-engineered paths, or **untrusted content** in prompts.
-- The **pi coding agent** stack (`@mariozechner/pi-coding-agent`) is optimized for single-project coding assistants; it does not, by itself, provide **multi-tenant OS-level isolation**. Treating it as a security boundary without additional enforcement is **unsafe**.
+- The **pi coding agent** stack (`@earendil-works/pi-coding-agent`) is optimized for single-project coding assistants; it does not, by itself, provide **multi-tenant OS-level isolation**. Treating it as a security boundary without additional enforcement is **unsafe**.
 
 ## Fix directions to consider (design space)
 
@@ -96,7 +96,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 1. **Inventory** all tools in `src/server/agent/tools.ts` and upstream pi tools for any `path`, `id`, or shell argument that reaches `fs`, `child_process`, or `ripmail`.
 2. **Centralize** a `assertPathUnderRoots(candidate: string, roots: string[]): string` (or equivalent) and unit tests (symlinks, `..`, absolute inputs, Windows paths if applicable).
 3. **Align** with `resolveSafeWikiPath` semantics where appropriate; consider exporting a shared module used by wiki tools, `read_mail_message` / `read_indexed_file`, and ripmail source management.
-4. **Upstream:** confirm `@mariozechner/pi-coding-agent` read/write/find/grep behavior for absolute `path` parameters; if unguarded, **wrap** or **patch** to enforce roots before `execute`.
+4. **Upstream:** confirm `@earendil-works/pi-coding-agent` read/write/find/grep behavior for absolute `path` parameters; if unguarded, **wrap** or **patch** to enforce roots before `execute`.
 5. **Add regression tests** that simulate a prompt requesting another tenant’s base path and expect **refusal** or **empty** result.
 
 ## Related docs

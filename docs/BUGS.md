@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 059 -->
-**Next bug id:** **BUG-059**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 060 -->
+**Next bug id:** **BUG-060**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -15,6 +15,10 @@ User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039
 
 ## Active
 
+
+### [BUG-059](bugs/BUG-059-gmail-api-queries-per-minute-backfill-refresh-overlap.md): Gmail REST sync — per-user query quota during backfill (overlapping lanes + **`messages.get`** volume)
+
+**Open.** **`Queries per minute per user`** from **`gmail.googleapis.com`** during large/historical pulls; logs show **`backfill`** and **`refresh`** **`message-fetch-error`** interleaved → likely **concurrent sync runs** doubling burst against the same Gmail user quota alongside **one `messages.get` per listed message**. **Desired:** keep **REST** and **high parallelism for recent mail**; **slow/throttled lane** for deep history + fairness (mutex/defer/backoff/chunked backfill). See [bugs/BUG-059-gmail-api-queries-per-minute-backfill-refresh-overlap.md](bugs/BUG-059-gmail-api-queries-per-minute-backfill-refresh-overlap.md).
 
 ### [BUG-033](bugs/BUG-033-eval-judge-rejects-fixture-dates.md): Eval judge rejects fixture dates as “future” (`ask` evals)
 

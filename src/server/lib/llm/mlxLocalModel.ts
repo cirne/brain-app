@@ -1,4 +1,4 @@
-import type { Model, OpenAICompletionsCompat } from '@mariozechner/pi-ai'
+import type { Model, OpenAICompletionsCompat } from '@earendil-works/pi-ai'
 
 /** Brain-app-only provider id for Apple Silicon MLX LM server (OpenAI-compatible). */
 export const MLX_LOCAL_PROVIDER = 'mlx-local'

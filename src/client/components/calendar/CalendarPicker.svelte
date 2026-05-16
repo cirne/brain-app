@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, RefreshCw } from 'lucide-svelte'
+  import { Check, RefreshCw } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
 
   import type {

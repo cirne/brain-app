@@ -1,4 +1,4 @@
-import type { Api, Model } from '@mariozechner/pi-ai'
+import type { Api, Model } from '@earendil-works/pi-ai'
 import { MLX_LOCAL_PROVIDER } from './mlxLocalModel.js'
 
 function mlxLocalThinkingEnabledFromEnv(): boolean {

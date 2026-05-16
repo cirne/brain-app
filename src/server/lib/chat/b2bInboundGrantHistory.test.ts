@@ -10,7 +10,7 @@ import { createBrainQueryGrant } from '@server/lib/brainQuery/brainQueryGrantsRe
 import { createBrainQueryCustomPolicy } from '@server/lib/brainQuery/brainQueryCustomPoliciesRepo.js'
 import { appendTurn, ensureSessionStub } from './chatStorage.js'
 import { B2B_GRANT_HISTORY_MAX_MESSAGES, loadB2BInboundGrantHistoryAgentMessages, trimAgentMessagesByTotalChars } from './b2bInboundGrantHistory.js'
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 
 describe('b2bInboundGrantHistory', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT

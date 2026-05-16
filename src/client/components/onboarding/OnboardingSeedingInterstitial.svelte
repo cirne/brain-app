@@ -6,7 +6,7 @@
    * Mobile: single column with a sticky status strip at the bottom showing the most recent activity.
    */
   import { onMount } from 'svelte'
-  import { ArrowRight } from 'lucide-svelte'
+  import { ArrowRight } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'

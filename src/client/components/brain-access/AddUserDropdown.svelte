@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown, UserPlus } from 'lucide-svelte'
+  import { ChevronDown, UserPlus } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import {
     fetchWorkspaceHandleSuggestions,

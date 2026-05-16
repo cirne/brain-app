@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick, untrack } from 'svelte'
-  import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
+  import { Archive, Forward, Reply, Search, Sparkles } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { navigate, parseRoute, readTailFromCache, type Overlay, type SurfaceContext } from '@client/router.js'

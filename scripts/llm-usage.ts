@@ -1,5 +1,5 @@
 /**
- * CLI: `npm run llm:usage -- [options]`
+ * CLI: `pnpm run usage:openai-org -- [options]`
  * Implementation: `src/server/lib/llm/openaiOrgUsage.ts`
  */
 import { runLlmUsageCli } from '../src/server/lib/llm/openaiOrgUsage.js'

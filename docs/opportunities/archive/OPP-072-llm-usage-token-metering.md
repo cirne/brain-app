@@ -31,7 +31,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 | Background wiki agents | For each **enrich** and **cleanup** invocation (and each supervisor lap), record **aggregated usage** for that `agent.prompt()` run. Surface it on the **same Brain Hub / background run** UI that already shows progress ([`HubBackgroundAgentsDetail.svelte`](../../../src/client/lib/HubBackgroundAgentsDetail.svelte)) into **per-tenant totals** with chat. |
 | Per user / tenant | Totals live under **that tenant’s home** (`brainHome()` → tenant context when `BRAIN_DATA_ROOT` is set; see [`dataRoot.ts`](../../../src/server/lib/dataRoot.ts), [`brainHome.ts`](../../../src/server/lib/brainHome.ts)). |
 | Token buckets | **Input**, **cached input** (prompt cache read), **output**; optionally **cache write** where providers expose it. |
-| Cost | Surface **estimated USD** when the model registry supports it (`calculateCost` in `@mariozechner/pi-ai`). |
+| Cost | Surface **estimated USD** when the model registry supports it (`calculateCost` in `@earendil-works/pi-ai`). |
 
 ## Non-goals (initially)
 
@@ -43,8 +43,8 @@ Give users **visibility into model consumption**: token counts (input, cached in
 
 ### Where the data comes from
 
-- **`@mariozechner/pi-ai`** attaches a `usage` object to each **`AssistantMessage`**: `input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, and `cost` (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts`).
-- **`@mariozechner/pi-agent-core`** runs a loop: each model HTTP completion is one assistant message with its own `usage`. **`turn_end`** carries that round’s message; **`agent_end`** includes the full list of messages for the run.
+- **`@earendil-works/pi-ai`** attaches a `usage` object to each **`AssistantMessage`**: `input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, and `cost` (see `node_modules/@earendil-works/pi-ai/dist/types.d.ts`).
+- **`@earendil-works/pi-agent-core`** runs a loop: each model HTTP completion is one assistant message with its own `usage`. **`turn_end`** carries that round’s message; **`agent_end`** includes the full list of messages for the run.
 - **User-facing “one reply”** = **sum** of `usage` across every assistant completion in that **`agent.prompt()`** run (not the last partial only).
 
 ### Where to hook in brain-app

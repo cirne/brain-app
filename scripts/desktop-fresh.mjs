@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * 1. `desktop:clean-data`
- * 2. `npm run desktop:build`
+ * 1. `desktop:clean-data -- --yes`
+ * 2. `pnpm run desktop:build`
  * 3. macOS: open newest `.dmg` (mode `dmg`) or `Braintunnel.app` under `target/**/release/bundle/macos/` (mode `app`)
  *
  * Usage:
- *   npm run desktop:fresh              # default — DMG for drag-to-Applications
- *   npm run desktop:fresh -- app       # open built .app
+ *   pnpm run desktop:fresh              # default — DMG for drag-to-Applications
+ *   pnpm run desktop:fresh -- app       # open built .app
  *   node scripts/desktop-fresh.mjs dmg|app
  */
 import { execFileSync, execSync } from 'node:child_process'
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 const mode = (process.argv[2] || 'dmg').toLowerCase()
 if (mode !== 'dmg' && mode !== 'app') {
-  console.error('[desktop:fresh] usage: npm run desktop:fresh [-- dmg|app]')
+  console.error('[desktop:fresh] usage: pnpm run desktop:fresh [-- dmg|app]')
   process.exit(1)
 }
 
@@ -71,14 +71,14 @@ function findBraintunnelApp() {
   return null
 }
 
-execSync('npm run desktop:clean-data', { cwd: root, stdio: 'inherit' })
-execSync('npm run desktop:build', { cwd: root, stdio: 'inherit' })
+execSync('pnpm run desktop:clean-data -- --yes', { cwd: root, stdio: 'inherit' })
+execSync('pnpm run desktop:build', { cwd: root, stdio: 'inherit' })
 
 if (mode === 'dmg') {
   const dmg = findNewestDmg()
   if (!dmg) {
     console.error(
-      '[desktop:fresh] no .dmg found under target/**/release/bundle (build a macOS bundle with dmg target, or open the .app via npm run desktop:fresh -- app)',
+      '[desktop:fresh] no .dmg found under target/**/release/bundle (build a macOS bundle with dmg target, or open the .app via pnpm run desktop:fresh -- app)',
     )
     process.exit(1)
   }

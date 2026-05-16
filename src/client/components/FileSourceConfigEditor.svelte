@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronRight, FolderPlus, Trash2 } from 'lucide-svelte'
+  import { ChevronRight, FolderPlus, Trash2 } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
 

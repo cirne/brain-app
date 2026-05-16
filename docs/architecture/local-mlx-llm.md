@@ -1,6 +1,6 @@
 # Local MLX LLM (Apple Silicon)
 
-Braintunnel can drive the chat agent against **Qwen 3.6 27B** (and the same wiring pattern for other MLX Community weights) using **`mlx-lm`**’s built-in OpenAI-compatible HTTP server. This is a **Brain-only** provider (`mlx-local`): it is **not** a `KnownProvider` in `@mariozechner/pi-ai`, but the app builds a `Model` row and resolves it via [`resolveModel()`](../../src/server/lib/llm/resolveModel.ts) (see [pi-agent-stack.md](./pi-agent-stack.md)).
+Braintunnel can drive the chat agent against **Qwen 3.6 27B** (and the same wiring pattern for other MLX Community weights) using **`mlx-lm`**’s built-in OpenAI-compatible HTTP server. This is a **Brain-only** provider (`mlx-local`): it is **not** a `KnownProvider` in `@earendil-works/pi-ai`, but the app builds a `Model` row and resolves it via [`resolveModel()`](../../src/server/lib/llm/resolveModel.ts) (see [pi-agent-stack.md](./pi-agent-stack.md)).
 
 **Scope:** macOS **Apple Silicon**, local process, no cloud LLM API key for chat. **TTS / STT / other features** that still call OpenAI or other hosts need their own keys if you use them.
 

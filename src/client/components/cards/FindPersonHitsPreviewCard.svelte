@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { User } from 'lucide-svelte'
+  import { User } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
 
   const PREVIEW_ROWS = 3

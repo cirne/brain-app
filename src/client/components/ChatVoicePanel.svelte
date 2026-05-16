@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte'
-  import { Keyboard, Loader2 } from 'lucide-svelte'
+  import { Keyboard, Loader2 } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
   import { formatRecordingDuration } from '@client/lib/voicePanelFormat.js'

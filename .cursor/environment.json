@@ -1,5 +1,5 @@
 {
   "$schema": "https://www.cursor.com/schemas/environment.schema.json",
   "name": "brain-app-cloud-node24",
-  "install": "bash ./scripts/cloud-agent/setup-node.sh && npm install"
+  "install": "bash ./scripts/cloud-agent/setup-node.sh && corepack enable && pnpm install --frozen-lockfile"
 }

@@ -7,7 +7,7 @@
   import { formatRelativeDate } from '@client/lib/hub/hubRipmailSource.js'
   import { parseB2BReviewListResponse, type B2BReviewRowApi } from '@client/lib/b2bReviewTypes.js'
   import ReviewDetail from '@components/ReviewDetail.svelte'
-  import { ChevronLeft, ChevronRight, ListChecks, MousePointerClick } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight, ListChecks, MousePointerClick } from '@lucide/svelte'
 
   /** Inset width below this uses single-pane + queue header (mobile / rail-open squeeze). */
   const REVIEW_SPLIT_MIN_PX = 720

@@ -1,13 +1,13 @@
 # Playwright E2E (Enron demo tenant)
 
-Tests hit your **normal local dev setup**: `./data`, port **3000**, `npm run dev`. Enron fixtures use **three tenant dirs** (`usr_enrondemo00000000001` Kean, `…02` Lay, `…03` Skilling — see `eval/fixtures/enron-demo-registry.json`); only auth is special (Bearer + `/demo`). Pre-seed with **`npm run brain:seed-enron-demo`**. LLM evals use the same **Kean** tree for mail — see [eval/README.md](../eval/README.md) and [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
+Tests hit your **normal local dev setup**: `./data`, port **3000**, `pnpm run dev`. Enron fixtures use **three tenant dirs** (`usr_enrondemo00000000001` Kean, `…02` Lay, `…03` Skilling — see `eval/fixtures/enron-demo-registry.json`); only auth is special (Bearer + `/demo`). Pre-seed with **`pnpm run brain:seed-enron-demo`**. LLM evals use the same **Kean** tree for mail — see [eval/README.md](../eval/README.md) and [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
 
 ## One-time seed (recommended)
 
 Uses the **same tree** dev already serves:
 
 ```sh
-npm run brain:seed-enron-demo
+pnpm run brain:seed-enron-demo
 ```
 
 (`BRAIN_DATA_ROOT=./data` — matches [`scripts/run-dev.mjs`](../scripts/run-dev.mjs)); seeds **Kean, Lay, and Skilling** (`--all`). First run downloads the corpus if needed.
@@ -15,25 +15,25 @@ npm run brain:seed-enron-demo
 ## Prerequisites
 
 1. **Repo `.env`** — non-empty `BRAIN_ENRON_DEMO_SECRET` (matches what the server sees after [`loadDotEnv`](../src/server/lib/platform/loadDotEnv.ts)). Playwright merges `.env` in `playwright.config.ts`; no shell export required.
-2. **Build** — `npm run build` so `dist/server/ripmail/rebuildFromMaildirCli.js` exists for seed/eval (tsx fallback in dev).
+2. **Build** — `pnpm run build` so `dist/server/ripmail/rebuildFromMaildirCli.js` exists for seed/eval (tsx fallback in dev).
 
 ## Run
 
 Terminal A:
 
 ```sh
-npm run dev
+pnpm run dev
 ```
 
 Terminal B (after seeding the demo tenant, if needed):
 
 ```sh
-npm run test:e2e:playwright
+pnpm run e2e:playwright
 ```
 
 Uses `http://127.0.0.1:3000` unless you set `PLAYWRIGHT_BASE_URL`.
 
-By default Playwright runs with **8 workers** (`fullyParallel`). Override only via CLI, e.g. `npm run test:e2e:playwright -- --workers=2` (CI uses `--workers=1` against the shared dev server).
+By default Playwright runs with **8 workers** (`fullyParallel`). Override only via CLI, e.g. `pnpm run e2e:playwright -- --workers=2` (CI uses `--workers=1` against the shared dev server).
 
 Tests **skip** if `BRAIN_ENRON_DEMO_SECRET` is still missing after loading `.env`.
 
@@ -43,5 +43,5 @@ Tests **skip** if `BRAIN_ENRON_DEMO_SECRET` is still missing after loading `.env
 
 ## Related
 
-- `npm run test:e2e:enron` — Vitest + ripmail CLI against **`./data/usr_enrondemo00000000001`** ([eval/README.md](../eval/README.md)).
+- `pnpm run e2e:enron` — Vitest + ripmail CLI against **`./data/usr_enrondemo00000000001`** ([eval/README.md](../eval/README.md)).
 - Helper: [`helpers/mintEnronDemoSession.ts`](./helpers/mintEnronDemoSession.ts).

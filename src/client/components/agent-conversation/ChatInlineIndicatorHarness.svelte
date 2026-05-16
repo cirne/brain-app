@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText } from 'lucide-svelte'
+  import { FileText } from '@lucide/svelte'
   import ChatInlineIndicator from './ChatInlineIndicator.svelte'
 
   let {

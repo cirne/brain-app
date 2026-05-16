@@ -25,7 +25,7 @@
     Plus,
     Quote,
     Strikethrough,
-  } from 'lucide-svelte'
+  } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from '@client/lib/markdown.js'
   import { wikiLinkRefFromAnchor } from '@client/lib/wikiPageHtml.js'
@@ -530,6 +530,7 @@
       bind:this={bubbleMenuEl}
       class="tiptap-surface-menu tiptap-bubble-menu flex items-center gap-0.5 rounded-lg border border-border bg-surface-2 p-1 shadow-lg"
       role="toolbar"
+      tabindex="-1"
       aria-label="Formatting"
       onmousedown={menuMouseDown}
     >
@@ -580,6 +581,7 @@
         mobileBlockMenuOpen && !floatingBlockMenuEnabled && 'tiptap-mobile-block-menu-open',
       )}
       role="menu"
+      tabindex="-1"
       aria-label="Turn into"
       onmousedown={menuMouseDown}
       style:left={mobileBlockMenuOpen && !floatingBlockMenuEnabled

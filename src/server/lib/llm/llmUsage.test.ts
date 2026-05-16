@@ -7,7 +7,7 @@ import {
   sumUsageFromMessages,
   type LlmUsageSnapshot,
 } from './llmUsage.js'
-import type { AssistantMessage } from '@mariozechner/pi-ai'
+import type { AssistantMessage } from '@earendil-works/pi-ai'
 
 function mockAssistant(usage: {
   input: number

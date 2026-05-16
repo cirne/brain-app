@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { Component } from 'svelte'
-  import { Mail, FileText, Table2, File, X, Search } from 'lucide-svelte'
+  import { Mail, FileText, Table2, File, X, Search } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'
   import { formatDate } from '@client/lib/formatDate.js'

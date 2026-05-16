@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { RefreshCw, ChevronRight, BookOpen } from 'lucide-svelte'
+  import { RefreshCw, ChevronRight, BookOpen } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'

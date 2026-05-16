@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { History, RefreshCw } from 'lucide-svelte'
+  import { History, RefreshCw } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import {
     formatDay,

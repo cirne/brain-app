@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AtSign } from 'lucide-svelte'
+  import { AtSign } from '@lucide/svelte'
   import { parseUserMessageSegments } from '@client/lib/userMessageMentions.js'
   import WikiFileName from '@components/WikiFileName.svelte'
 

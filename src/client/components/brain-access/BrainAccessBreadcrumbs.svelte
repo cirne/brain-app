@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronRight } from 'lucide-svelte'
+  import { ChevronRight } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
 
   type Props = {

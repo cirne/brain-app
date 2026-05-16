@@ -1,6 +1,6 @@
 <script lang="ts">
   import HubSourceRowBody from '../HubSourceRowBody.svelte'
-  import { Folder } from 'lucide-svelte'
+  import { Folder } from '@lucide/svelte'
 </script>
 
 <HubSourceRowBody title="Documents" subtitle="~/Library/Mail">

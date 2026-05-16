@@ -30,7 +30,7 @@
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import type { TunnelTimelineEntryApi } from '@shared/tunnelTimeline.js'
   import type { SegmentedOption } from '@client/lib/segmentedControl.js'
-  import { SlidersHorizontal, Settings } from 'lucide-svelte'
+  import { SlidersHorizontal, Settings } from '@lucide/svelte'
 
   let {
     tunnelHandle,

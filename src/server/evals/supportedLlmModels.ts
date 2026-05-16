@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-/** USD per 1M tokens; mirrors `@mariozechner/pi-ai` `Model.cost` (used for eval COGS estimates). */
+/** USD per 1M tokens; mirrors `@earendil-works/pi-ai` `Model.cost` (used for eval COGS estimates). */
 export type CostPerMillionTokens = {
   input: number
   output: number

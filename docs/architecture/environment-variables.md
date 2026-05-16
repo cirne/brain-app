@@ -75,7 +75,7 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 | **`LLM_SKIP_STARTUP_SMOKE`** | Set to **`true`** to skip startup LLM probe ([`llmStartupSmoke.ts`](../../src/server/lib/llm/llmStartupSmoke.ts)). |
 | **`ANTHROPIC_API_KEY`** | Anthropic API (agent + draft extraction) ([`draftExtract.ts`](../../src/server/lib/llm/draftExtract.ts)). |
 | **`OPENAI_API_KEY`** | OpenAI (default tier, TTS, STT, ripmail validation) ([`openAiTts.ts`](../../src/server/lib/llm/openAiTts.ts), [`openAiStt.ts`](../../src/server/lib/llm/openAiStt.ts)). |
-| **`OPENAI_ADMIN_API_KEY`** | OpenAI org Usage/Cost APIs (`npm run llm:usage`) ([`openaiOrgUsage.ts`](../../src/server/lib/llm/openaiOrgUsage.ts)). |
+| **`OPENAI_ADMIN_API_KEY`** | OpenAI org Usage/Cost APIs (`pnpm run usage:openai-org`) ([`openaiOrgUsage.ts`](../../src/server/lib/llm/openaiOrgUsage.ts)). |
 | **`BRAIN_OPENAI_PROJECT_ID`** | Optional project filter for usage CLI ([`openaiOrgUsage.ts`](../../src/server/lib/llm/openaiOrgUsage.ts)). |
 | **`XAI_API_KEY`** | xAI / Grok when `BRAIN_LLM` uses xAI ([`.env.example`](../../.env.example)). |
 | **`MLX_LOCAL_BASE_URL`** | MLX OpenAI-compatible server base URL (default `http://localhost:11444/v1`) ([`mlxLocalModel.ts`](../../src/server/lib/llm/mlxLocalModel.ts)). |

@@ -2,7 +2,7 @@
   /**
    * Wiki seeding onboarding: progress rows + wiki chips; shares scroll behavior with profiling view.
    */
-  import { Check, Mail } from 'lucide-svelte'
+  import { Check, Mail } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import type {
     AgentConversationViewProps,

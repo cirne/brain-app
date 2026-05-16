@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, File, FolderOpen, Users } from 'lucide-svelte'
+  import { BookOpen, File, FolderOpen, Users } from '@lucide/svelte'
   import WikiBreadcrumbMenuDirIcon from '@components/WikiBreadcrumbMenuDirIcon.svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'

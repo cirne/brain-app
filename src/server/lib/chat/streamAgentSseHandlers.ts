@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AssistantTurnState } from './chatTypes.js'

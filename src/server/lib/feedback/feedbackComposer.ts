@@ -1,4 +1,4 @@
-import { completeSimple } from '@mariozechner/pi-ai'
+import { completeSimple } from '@earendil-works/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { getStandardBrainLlm } from '@server/lib/llm/effectiveBrainLlm.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'

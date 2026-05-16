@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, Mail } from 'lucide-svelte'
+  import { FileText, Mail } from '@lucide/svelte'
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCardShared.js'
   import { searchHitPrimarySubtitle, searchHitSnippetLine } from '@client/lib/cards/searchHitRowMeta.js'
   import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'

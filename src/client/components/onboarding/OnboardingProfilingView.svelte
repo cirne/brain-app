@@ -2,7 +2,7 @@
   /**
    * Onboarding profile build: activity + referenced paths/mail; streamed `me.md` at bottom as assistant message.
    */
-  import { Mail, User } from 'lucide-svelte'
+  import { Mail, User } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import type {
     AgentConversationViewProps,

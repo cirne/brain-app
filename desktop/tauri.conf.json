@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "https://staging.braintunnel.ai",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev:server",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "pnpm --dir .. run dev",
+    "beforeBuildCommand": "pnpm --dir .. run build && pnpm --dir .. run desktop:bundle-server"
   },
   "plugins": {
     "updater": {

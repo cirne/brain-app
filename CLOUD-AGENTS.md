@@ -16,7 +16,7 @@ Ensure you have environment variables before setup. If they are not present, exi
 This repo now defines a cloud-agent environment at [`.cursor/environment.json`](./.cursor/environment.json). On agent boot, Cursor runs:
 
 ```sh
-bash ./scripts/cloud-agent/setup-node.sh && npm install
+bash ./scripts/cloud-agent/setup-node.sh && corepack enable && pnpm install --frozen-lockfile
 ```
 
 That setup script:
@@ -29,14 +29,15 @@ After startup, verify once:
 
 ```sh
 node --version
-npm --version
+pnpm --version
 ```
 
 If you are on an older cloud environment that does not yet apply `.cursor/environment.json`, run this once manually:
 
 ```sh
 bash ./scripts/cloud-agent/setup-node.sh
-npm install
+corepack enable
+pnpm install
 ```
 
 ## Historical: Rust `ripmail` Linux binary (pre–TypeScript `main`)
@@ -61,8 +62,8 @@ npm run dev      # Hono + Vite on :3000
 ## What NOT to do
 
 - **Do NOT assume `nvm` exists** in Cursor Cloud. `AGENTS.md` remains correct for local/dev machines with `nvm`, but cloud images commonly use the `fnm` setup above; verify with `node --version` before running Node commands.
-- **Do NOT run `cargo build`** or any Rust commands unless you explicitly need the Tauri desktop crate (`desktop/`).
-- **Do NOT run `npm run desktop:*`** commands—they require macOS + Xcode/Rust for native builds.
+- **Do NOT run `cargo build`** or any Rust commands unless you are doing **experimental** work on the packaged macOS app — see **[docs/architecture/desktop-tauri-experimental.md](./docs/architecture/desktop-tauri-experimental.md)**.
+- **Do NOT run `npm run desktop:*`** — they require macOS + Xcode/Rust; same doc for when that is intentional.
 
 ## Cloud-safe commands
 
@@ -81,4 +82,4 @@ Cloud agents usually run **single-tenant** `npm run dev` without `BRAIN_DATA_ROO
 
 ## Full documentation
 
-For the complete development guide (including native macOS app and Rust desktop shell), see **[AGENTS.md](./AGENTS.md)**; its agent behavior section also applies in cloud environments. **Onboarding states and first-time mail sync:** [docs/architecture/onboarding-state-machine.md](./docs/architecture/onboarding-state-machine.md).
+For **web** repo conventions and agent-behavior rules, see **[AGENTS.md](./AGENTS.md)** (it applies in cloud too). **Packaged macOS app (experimental):** [docs/architecture/desktop-tauri-experimental.md](./docs/architecture/desktop-tauri-experimental.md). **Onboarding states and first-time mail sync:** [docs/architecture/onboarding-state-machine.md](./docs/architecture/onboarding-state-machine.md).

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, Sparkles } from 'lucide-svelte'
+  import { ArrowRight, Sparkles } from '@lucide/svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'

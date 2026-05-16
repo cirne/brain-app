@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown } from 'lucide-svelte'
+  import { ChevronDown } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
 

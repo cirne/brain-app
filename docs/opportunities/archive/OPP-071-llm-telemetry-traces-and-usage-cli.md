@@ -120,7 +120,7 @@ flowchart TB
 
 **Output:** `--json` (one blob), `--ndjson` (per line), or **human** table; `--help` documents paths ([data-and-sync.md](../../architecture/data-and-sync.md)).
 
-**Deliverable shape:** e.g. `node scripts/brain-usage.mjs` + `npm run usage:export` in root [`package.json`](../../package.json) (exact name TBD in implementation).
+**Deliverable shape:** e.g. `node scripts/brain-usage.mjs` + `pnpm run usage:brain-home` in root [`package.json`](../../package.json) (exact name TBD in implementation).
 
 **Non-goal:** Publishing to the public npm registry as a separate package in v1.
 

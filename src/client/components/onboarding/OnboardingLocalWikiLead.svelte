@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Lock } from 'lucide-svelte'
+  import { Lock } from '@lucide/svelte'
   import type { OnboardingLeadBlock } from '@client/lib/onboarding/onboardingLeadCopy.js'
 
   let { title, lead, hideTitle = false }: OnboardingLeadBlock & { hideTitle?: boolean } = $props()

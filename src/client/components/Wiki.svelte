@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { Loader2 } from 'lucide-svelte'
+  import { Loader2 } from '@lucide/svelte'
   import { mount, unmount } from 'svelte'
   import { cn } from '@client/lib/cn.js'
   import WikiFileName from '@components/WikiFileName.svelte'

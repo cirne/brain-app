@@ -10,13 +10,13 @@
 
 ## What the error means
 
-[`@mariozechner/pi-agent-core`](https://www.npmjs.com/package/@mariozechner/pi-agent-core)’s `Agent` allows **at most one active run** at a time (`activeRun` in `dist/agent.js`). Calling `prompt()` while a run is still in progress throws this error.
+[`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)’s `Agent` allows **at most one active run** at a time (`activeRun` in `dist/agent.js`). Calling `prompt()` while a run is still in progress throws this error.
 
 Brain wires each persisted `sessionId` to a **single in-memory** `Agent` (`getOrCreateSession` in `src/server/agent/index.ts`). Each `POST /api/chat` calls `agent.prompt(...)` in `streamAgentSseResponse` (`src/server/lib/streamAgentSse.ts`). There is **no per-session lock or queue**: two overlapping requests for the same session hit the same `Agent` and the second `prompt()` throws.
 
 ## What `steer()` and `followUp()` are (pi-agent-core)
 
-These are **not** Brain-specific APIs; they come from pi-agent-core’s `Agent` class (see `node_modules/@mariozechner/pi-agent-core/dist/agent.js`).
+These are **not** Brain-specific APIs; they come from pi-agent-core’s `Agent` class (see `node_modules/@earendil-works/pi-agent-core/dist/agent.js`).
 
 | Method | Role |
 | ------ | ---- |
@@ -44,7 +44,7 @@ Brain’s chat path **does not** use `steer()` / `followUp()` today: it always u
 - `src/server/routes/chat.ts` — `POST /api/chat` → `streamAgentSseResponse`
 - `src/server/routes/onboarding.ts` — same pattern: `getOrCreateProfilingAgent(sessionId)` + `streamAgentSseResponse` (separate `Agent` map in `onboardingAgent.ts`, but **same concurrency bug** if two requests share one onboarding `sessionId`)
 - `src/server/lib/streamAgentSse.ts` — `await agent.prompt(...)` (single choke point for wrapping / serializing)
-- `@mariozechner/pi-agent-core/dist/agent.js` — `prompt`, `steer`, `followUp`, `activeRun`
+- `@earendil-works/pi-agent-core/dist/agent.js` — `prompt`, `steer`, `followUp`, `activeRun`
 
 ## For implementers (later)
 

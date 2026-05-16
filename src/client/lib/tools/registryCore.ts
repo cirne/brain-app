@@ -1,6 +1,6 @@
 /**
  * Icon-free tool UI registry (chat, previews, onboarding). Safe to import from Node tests
- * without loading `lucide-svelte`. Icons: {@link registryIcons.TOOL_ICONS} or {@link getToolDefinition}.
+ * without loading `@lucide/svelte`. Icons: {@link registryIcons.TOOL_ICONS} or {@link getToolDefinition}.
  */
 import type { ToolCall } from '../agentUtils.js'
 import { get } from 'svelte/store'

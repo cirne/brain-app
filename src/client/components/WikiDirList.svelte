@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { ChevronRight, FileText, Folder } from 'lucide-svelte'
+  import { ChevronRight, FileText, Folder } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { SurfaceContext } from '@client/router.js'
   import {

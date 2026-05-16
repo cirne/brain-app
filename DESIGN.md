@@ -170,6 +170,7 @@ Primary actions: `primary` fill with `on-primary`. Prefer shared `.bt-btn` varia
 - Do use semantic Tailwind utilities from `@theme` before raw hex.
 - Do **not** define `--spacing-*` keys in `@theme` to match YAML spacing; use prefixed `:root` spacing variables (see **Tailwind v4 — custom spacing** above).
 - Do treat **dark mode as first-class** (system); light is the default ledger, not an afterthought.
-- Do not paste raw SVG icons; use Lucide per project guidance.
+- Do not paste raw SVG icons; import **`@lucide/svelte`** and register tool-side icons in [`src/client/lib/tools/registryIcons.ts`](src/client/lib/tools/registryIcons.ts) (`getToolIcon` / `toolIcons.js`); generic fallback (e.g. `Wrench` in `ToolCallBlock`) for unregistered tool names.
+- For **icon + label in one row**, use `inline-flex` (or `flex`) with **`items-center`**, stable **`line-height`** on the label if needed, and expect occasional **0–1px** optical nudge on the icon wrapper at small sizes; avoid `items-start` for icon+title chips unless intentional.
 - Do not add extra brand colors for ordinary states.
 - Do not replace `src/client/style.css` with generated output unless the export workflow is explicitly adopted.

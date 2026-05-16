@@ -5,7 +5,7 @@
   import type { B2BTunnelListRowApi } from '@client/lib/b2bTunnelTypes.js'
   import type { TunnelTimelinePendingReviewApi } from '@shared/tunnelTimeline.js'
   import TunnelPendingMessage from '@components/TunnelPendingMessage.svelte'
-  import { Link2, Plus } from 'lucide-svelte'
+  import { Link2, Plus } from '@lucide/svelte'
 
   let {
     tunnels,

@@ -10,10 +10,10 @@ Pino application logs are not forwarded to New Relic Logs with APM entity contex
 
 ## Root cause
 
-The NR Node.js agent requires the **ESM loader** (`--import newrelic/esm-loader.mjs`) to instrument Pino in ESM applications. However, the ESM loader uses `import-in-the-middle` which breaks `@mariozechner/pi-*` imports:
+The NR Node.js agent requires the **ESM loader** (`--import newrelic/esm-loader.mjs`) to instrument Pino in ESM applications. However, the ESM loader uses `import-in-the-middle` which breaks **`@earendil-works/pi-*`** imports:
 
 ```
-SyntaxError: The requested module '@mariozechner/pi-ai' does not provide an export named 'getEnvApiKey'
+SyntaxError: The requested module '@earendil-works/pi-ai' does not provide an export named 'getEnvApiKey'
     at #asyncInstantiate (node:internal/modules/esm/module_job:326:21)
 ```
 
@@ -45,7 +45,7 @@ Without the ESM loader, Pino is not instrumented and logs go to container stdout
 
 1. **Wait for NR fix:** Monitor [newrelic/node-newrelic](https://github.com/newrelic/node-newrelic) issues for `import-in-the-middle` compatibility improvements.
 
-2. **Custom ESM loader with exclusions:** The NR ESM loader has an `exclusions` array. Could fork/patch to exclude `@mariozechner/*` packages, but requires maintaining a patched loader.
+2. **Custom ESM loader with exclusions:** The NR ESM loader has an `exclusions` array. Could fork/patch to exclude **`@earendil-works/*`** packages, but requires maintaining a patched loader.
 
 3. **Use `@newrelic/pino-enricher`:** Manually enrich logs with trace context, then use external log shipping. Adds complexity but decouples from ESM loader issues.
 

@@ -1,5 +1,5 @@
-import { defineTool } from '@mariozechner/pi-coding-agent'
-import { Type } from '@mariozechner/pi-ai'
+import { defineTool } from '@earendil-works/pi-coding-agent'
+import { Type } from '@earendil-works/pi-ai'
 import { Exa } from 'exa-js'
 
 export function createWebAgentTools() {

@@ -10,9 +10,9 @@
 
 ## Ripmail (TypeScript module)
 
-Mail index **status**, **search**, **read**, **inbox**, **refresh/backfill**, and related routes call **`@server/ripmail`** in-process on the tenant **`ripmail/`** directory. **`GET /api/onboarding/mail`** uses **`ripmailStatusParsed`** (SQLite — no `ripmail status` subprocess).
+Mail index **status**, **search**, **read**, **inbox**, **refresh/backfill**, and related routes call **`@server/ripmail`** in-process on the tenant **`ripmail/`** directory. **`GET /api/onboarding/mail`** uses **`ripmailStatusParsed`** (SQLite — no external mail subprocess).
 
-**Manual CLI:** **`npm run ripmail -- <subcommand>`** (requires the `ripmail` binary on `PATH`). Used only for ad-hoc operator work — not by onboarding, Hub polling, or agent mail tools.
+**Debugging / operators:** There is **no** required `ripmail` shell binary on `PATH`. Use the running server (Hub refresh, APIs), or add or run Vitest under [`src/server/ripmail/`](../../src/server/ripmail/). A **child Node process** may run the TS helper [`repopulateRipmailMaildirsCli`](../../src/server/ripmail/repopulateRipmailMaildirsCli.ts) after schema mismatch maildir rebuild — still this codebase, not a Rust ripmail ELF.
 
 ## Unified search (`GET /api/search`)
 

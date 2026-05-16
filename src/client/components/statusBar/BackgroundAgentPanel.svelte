@@ -10,7 +10,7 @@
   } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { ToolCall } from '@client/lib/agentUtils.js'
   import ToolCallBlock from '@components/agent-conversation/ToolCallBlock.svelte'
-  import { ChevronDown, Play } from 'lucide-svelte'
+  import { ChevronDown, Play } from '@lucide/svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
   import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'

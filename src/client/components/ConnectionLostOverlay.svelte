@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { WifiOff } from 'lucide-svelte'
+  import { WifiOff } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import { probeConnectionImmediately } from '@client/lib/connectionStatus.js'
 

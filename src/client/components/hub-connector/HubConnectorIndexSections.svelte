@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RefreshCw } from 'lucide-svelte'
+  import { RefreshCw } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import FileSourceConfigEditor from '@components/FileSourceConfigEditor.svelte'
   import HubConnectorCalendarSection from '@components/hub-connector/HubConnectorCalendarSection.svelte'

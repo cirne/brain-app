@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Mail } from 'lucide-svelte'
+  import { Mail } from '@lucide/svelte'
   import { t } from '@client/lib/i18n/index.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
 

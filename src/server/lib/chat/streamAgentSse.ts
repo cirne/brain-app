@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto'
-import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
+import type { Agent, AgentMessage } from '@earendil-works/pi-agent-core'
 import type { Context } from 'hono'
 import type { ChatMessage } from './chatTypes.js'
 import { isZeroUsage, addLlmUsage } from '@server/lib/llm/llmUsage.js'

@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import type { AgentMessage } from '@earendil-works/pi-agent-core'
 
 /** JSON-safe usage for chat sessions and background run docs. Keep in sync with client `LlmUsageSnapshot` in `agentUtils.ts`. */
 export type LlmUsageSnapshot = {

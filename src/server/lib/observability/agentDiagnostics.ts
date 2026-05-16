@@ -10,7 +10,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import type { Agent, AgentEvent, AgentMessage } from '@earendil-works/pi-agent-core'
 import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 import {
   countAssistantCompletionsWithUsage,

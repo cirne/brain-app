@@ -3,7 +3,7 @@
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { t } from '@client/lib/i18n/index.js'
   import { apiFetch } from '@client/lib/apiFetch.js'
-  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2 } from 'lucide-svelte'
+  import { BookOpen, Loader2, MessageSquare, Trash2, Plus, Link2 } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'

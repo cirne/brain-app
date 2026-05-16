@@ -1,4 +1,4 @@
-import type { AgentToolResult } from '@mariozechner/pi-agent-core'
+import type { AgentToolResult } from '@earendil-works/pi-agent-core'
 
 export function toolResultFirstText(result: AgentToolResult<unknown>): string {
   const c = result.content[0]

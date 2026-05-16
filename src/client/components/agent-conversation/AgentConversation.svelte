@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { fly } from 'svelte/transition'
-  import { ChevronDown } from 'lucide-svelte'
+  import { ChevronDown } from '@lucide/svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
   import { cn } from '@client/lib/cn.js'
   import { t } from '@client/lib/i18n/index.js'

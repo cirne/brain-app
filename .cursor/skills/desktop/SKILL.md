@@ -45,7 +45,7 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 
 - **GUI apps do not inherit shell env** (`~/.zshrc`, etc.). Keys that “work in Terminal” may be missing for **Braintunnel.app** unless embedded at build (`BRAIN_EMBED_MASTER_KEY` + allowlisted secrets) or set another documented way.
 - **Iteration:** Prefer **`npm run desktop:dev`** or **`npm run dev`** for API/UI; reserve **`npm run desktop:build`** / **`tauri build`** for release-style verification. Changing spawn/env/logging: often **`cargo`** in `desktop/` without a full product bundle.
-- **Before any Node command:** **`nvm use`** at repo root (see **[AGENTS.md](../../../AGENTS.md)**) — wrong Node breaks native addons and server-bundle contents.
+- **Before any Node command:** **`nvm use`** at repo root (see **[AGENTS.md](../../../AGENTS.md)**) — wrong Node breaks native addons and **server-bundle** contents.
 
 ### BUG-009 ([docs/bugs/archive/BUG-009-desktop-webview-wrong-port.md](../../../docs/bugs/archive/BUG-009-desktop-webview-wrong-port.md)) — archived
 
@@ -72,11 +72,12 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 
 ## Embedded API keys (release builds)
 
-- See **[AGENTS.md](../../../AGENTS.md)** — `BRAIN_EMBED_MASTER_KEY`, allowlisted keys, ciphertext in Rust; without that, bundled app may ship **without** embedded keys.
+- See **[docs/architecture/desktop-tauri-experimental.md](../../../docs/architecture/desktop-tauri-experimental.md)** — `BRAIN_EMBED_MASTER_KEY`, allowlisted keys, ciphertext in Rust; without that, bundled app may ship **without** embedded keys.
 
 ## Related repo docs
 
-- **[AGENTS.md](../../../AGENTS.md)** — `desktop:*` commands, `nvm`, `BRAIN_HOME`, `RIPMAIL_HOME`, `desktop:clean-data`
+- **[docs/architecture/desktop-tauri-experimental.md](../../../docs/architecture/desktop-tauri-experimental.md)** — `pnpm` `desktop:*` scripts, `nvm`, embed keys, `desktop:clean-data`
+- **[AGENTS.md](../../../AGENTS.md)** — repo-wide pnpm / dev workflow (no packaged-app detail)
 - **[docs/bugs/archive/BUG-003-native-mac-app-ship-blockers.md](../../../docs/bugs/archive/BUG-003-native-mac-app-ship-blockers.md)** — ship blockers + DX (archived)
 - **[docs/architecture/runtime-and-routes.md](../../../docs/architecture/runtime-and-routes.md)** — bundled port range, `BRAIN_BUNDLED_NATIVE`, Tailscale note
 

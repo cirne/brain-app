@@ -36,7 +36,7 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 
 Manual testing of **`gpt-5.4-mini`** has been strong for **simple** chat and tool use. **Staging** (`https://staging.braintunnel.ai` and the DigitalOcean stack) is moving to that model to control cost; **it is the server default** when `BRAIN_LLM` is unset (`openai/gpt-5.4-mini`). Treat this as **temporary** while we watch quality on harder workflows—override per environment or return to a larger model (e.g. `gpt-5.4` or Anthropic) when needed. Keys: set **`OPENAI_API_KEY`** (see table above).
 
-Provider API keys follow `PROVIDER_API_KEY` conventions expected by `@mariozechner/pi-ai` / the agent.
+Provider API keys follow `PROVIDER_API_KEY` conventions expected by `@earendil-works/pi-ai` / the agent.
 
 ---
 
