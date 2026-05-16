@@ -80,6 +80,26 @@ describe('scheduledRipmailSync sweep', () => {
     expect(h.syncInbox).not.toHaveBeenCalled()
   })
 
+  it('skips when historical backfill is running', async () => {
+    h.mailStatus.mockResolvedValue({
+      configured: true,
+      staleMailSyncLock: false,
+      backfillRunning: true,
+    })
+    await __runScheduledRipmailSweepOnceForTests()
+    expect(h.syncInbox).not.toHaveBeenCalled()
+  })
+
+  it('calls syncInboxRipmail when backfill is not running', async () => {
+    h.mailStatus.mockResolvedValue({
+      configured: true,
+      staleMailSyncLock: false,
+      backfillRunning: false,
+    })
+    await __runScheduledRipmailSweepOnceForTests()
+    expect(h.syncInbox).toHaveBeenCalledTimes(1)
+  })
+
   it('defers when wiki supervisor is mid-lap for this tenant', async () => {
     h.getDefer.mockReturnValue({
       loopRunning: true,

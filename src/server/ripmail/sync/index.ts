@@ -18,6 +18,7 @@ import {
 import type { RipmailConfig, SourceConfig } from './config.js'
 import { syncImapSource } from './imap.js'
 import { syncGmailSource } from './gmail.js'
+import { withGmailSourceFlight } from './gmailSyncLock.js'
 import { syncGoogleCalendarSource } from './googleCalendar.js'
 import { getGoogleDriveSources, syncGoogleDriveSource } from './googleDriveSync.js'
 import type { RefreshOptions, RefreshResult, RefreshSourceResult } from '../types.js'
@@ -68,14 +69,16 @@ function buildRefreshTasks(params: {
             brainLogger.warn({ sourceId: source.id }, 'ripmail:refresh:gmail-no-oauth-file')
             return { ok: false, messagesAdded: 0, messagesUpdated: 0, error }
           }
-          const result = await syncGmailSource(
-            db,
-            ripmailHome,
-            source.id,
-            source.email ?? '',
-            oauthTokens,
-            { historicalSince: opts?.historicalSince },
+          const lane = opts?.historicalSince ? 'backfill' : 'refresh'
+          const flight = await withGmailSourceFlight(source.id, lane, () =>
+            syncGmailSource(db, ripmailHome, source.id, source.email ?? '', oauthTokens, {
+              historicalSince: opts?.historicalSince,
+            }),
           )
+          if (!flight.ran) {
+            return { ok: true, messagesAdded: 0, messagesUpdated: 0 }
+          }
+          const result = flight.value
           if (result.error) {
             brainLogger.warn({ sourceId: source.id, err: result.error }, 'ripmail:refresh:gmail-error')
             if (errorMessageIndicatesInvalidGoogleGrant(result.error)) {

@@ -25,6 +25,7 @@ To avoid writing identical archives, scheduled or lap-bound wiki snapshots shoul
 
 ## Related documents
 
+- [your-wiki-background-pipeline.md](./your-wiki-background-pipeline.md) — supervisor lap cadence (planned snapshot hook: end of successful lap).
 - [OPP-034: Wiki snapshots & point-in-time restore](../opportunities/OPP-034-wiki-snapshots-and-point-in-time-restore.md) — Hub UX, triggers, ZIP baseline.
 - [PRODUCTIZATION.md § Wiki backing store](../PRODUCTIZATION.md#2-wiki-backing-store-git-friction) — Git vs object storage; backup direction complements “likely answer” there.
 - [OPP-050: Hosted wiki backup](../opportunities/archive/OPP-050-hosted-wiki-backup.md) — historical wiki-only-to-Spaces sketch; **full-tenant** S3 archives supersede “wiki-only DR” for migration/DR while **wiki-only local history** stays the light rollback path.

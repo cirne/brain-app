@@ -9,7 +9,7 @@
 
 ### OPP-094: Holistic Onboarding & Background Task Orchestration
 
-**Status:** In progress — core integration landed (`GET /api/background-status`, auto wiki kick, Hub activity section, orchestrator queue). See **[background-task-orchestration.md](../../architecture/background-task-orchestration.md)**.
+**Status:** Archived — core integration landed (`GET /api/background-status`, auto wiki kick, Hub activity section, orchestrator queue). **Engineering:** [background-task-orchestration.md](../../architecture/background-task-orchestration.md) (HTTP, troubleshooting); **Your Wiki pipeline:** [your-wiki-background-pipeline.md](../../architecture/your-wiki-background-pipeline.md).
 
 **Related:** [OPP-093 (archived)](./OPP-093-phased-onboarding-sync.md) (phased backfill — superseded by this holistic view), [OPP-067 (archived)](./OPP-067-wiki-buildout-agent-no-new-pages.md) (wiki deepen-only spec — **planning** continues in [OPP-095](./OPP-095-wiki-first-draft-bootstrap.md)), [OPP-054](./OPP-054-guided-onboarding-agent.md) (guided onboarding), [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md), [yourWikiSupervisor.ts](../../../src/server/agent/yourWikiSupervisor.ts)
 

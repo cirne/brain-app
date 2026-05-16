@@ -46,6 +46,10 @@ async function runScheduledRipmailForTenant(params: {
     const mail = await getOnboardingMailStatus()
     if (!mail.configured) return
     if (mail.staleMailSyncLock) return
+    if (mail.backfillRunning) {
+      brainLogger.debug({ tenantUserId }, '[scheduled-mail] defer — historical backfill in progress')
+      return
+    }
 
     const wikiRaw = await readBackgroundRun(YOUR_WIKI_DOC_ID)
     const wikiSlice: ScheduledMailWikiDocSlice = {

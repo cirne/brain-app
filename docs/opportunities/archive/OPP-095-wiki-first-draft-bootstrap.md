@@ -10,7 +10,7 @@
 ### OPP-095: Wiki first-draft bootstrap — mail-informed skeleton, then maintenance loop
 
 **Status:** Planned  
-**Related:** [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md) (implemented deepen-only enrich; **narrowed** by this OPP — bootstrap may `write`), [OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md) (orchestration + wiki kick timing), [OPP-054](./OPP-054-guided-onboarding-agent.md) (`me.md` / interview), [OPP-068](./OPP-068-wiki-template-user-profiles.md) (vault presets), [OPP-077](./OPP-077-who-smart-address-book.md) (address book / identity signals — optional inputs), [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md)
+**Related:** [your-wiki-background-pipeline.md](../../architecture/your-wiki-background-pipeline.md) (bootstrap phase + supervisor), [archived OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md) (deepen-only enrich after bootstrap), [OPP-094](./OPP-094-holistic-onboarding-background-task-orchestration.md) (orchestration + wiki kick timing), [OPP-054](./OPP-054-guided-onboarding-agent.md) (`me.md` / interview), [OPP-068](./OPP-068-wiki-template-user-profiles.md) (vault presets), [OPP-077](./OPP-077-who-smart-address-book.md) (address book / identity signals — optional inputs), [onboarding-state-machine.md](../../architecture/onboarding-state-machine.md)
 
 ---
 

@@ -1,5 +1,7 @@
 # OPP-033: Wiki compounding loop and Karpathy alignment
 
+> **Implementation architecture (canonical):** [your-wiki-background-pipeline.md](../architecture/your-wiki-background-pipeline.md) — bootstrap, supervisor laps, enrich/cleanup agents, limits, APIs. This OPP remains the **product / vision** umbrella; avoid duplicating lap-level detail here.
+
 ## Why this exists
 
 Several threads converge on the same risk: **ripmail is rich ground truth**, but the **wiki’s reason to exist** is **amortized synthesis** (cross-links, stable entity pages, explicit contradictions, compounding over time)—not a second copy of mail. Andrej Karpathy’s **[LLM Wiki](../karpathy-llm-wiki-post.md)** pattern ([gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)) stresses **ingest → query → lint**, a **persistent compounding artifact**, and **bookkeeping at scale** (many files per pass). Brain’s [VISION.md](../VISION.md) cites that inspiration; [the-wiki-question.md](../the-wiki-question.md) poses open questions about **when** the wiki pays off vs **re-querying mail**.
@@ -9,15 +11,15 @@ This opportunity is the **product/engineering umbrella** for closing the gap: **
 ## How existing agents fit (expansion vs maintenance)
 
 
-| Agent / flow (today or specified)                                                                                                                        | Karpathy-ish role                                                                                                | When it runs                                                                                                                       |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Wiki expansion** (`[wikiExpansionRunner](../../src/server/agent/wikiExpansionRunner.ts)` + seeding agent)                                              | **Batch “ingest” into the wiki** — turn indexed mail (+ web, etc.) into many linked pages in one or a few passes | After **accept-profile**, **Brain Hub “Full expansion”**, **Continue** — user- or setup-initiated, **not** per message             |
-| **Maintenance** ([OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)) | **Lint** — link health, drift, safe fixes, coalesced hygiene                                                     | **Periodic** (cron) or **event-threshold** (e.g. changelog size, **mail index completion** as a batch event—not one job per email) |
-| **Discovery / reviewed expansion** ([OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md))                                                            | **Supervised ingest** — structured suggestions, user excludes privacy before writes                              | User opens the flow; execution may call the **same** expansion/maintenance stack                                                   |
-| **Main chat assistant**                                                                                                                                  | **Query** + optional **file-back** (wiki tools when useful); **ripmail** always available for evidence           | Every session                                                                                                                      |
+| Agent / flow (shipped) | Karpathy-ish role | When it runs |
+| ---------------------- | ----------------- | ------------ |
+| **Wiki bootstrap** ([`wikiBootstrapRunner`](../../src/server/agent/wikiBootstrapRunner.ts)) | **Bounded first ingest** — `write` stubs for people/projects/topics/travel | Once after indexed gate; before supervisor ([pipeline doc](../architecture/your-wiki-background-pipeline.md)) |
+| **Your Wiki enrich** ([`runEnrichInvocation`](../../src/server/agent/wikiExpansionRunner.ts) + buildout agent) | **Deepen** existing pages from mail + queue | Every supervisor lap |
+| **Your Wiki cleanup** ([`runCleanupInvocation`](../../src/server/agent/wikiExpansionRunner.ts)) | **Lint** — links, orphans, index | End of each supervisor lap |
+| **Legacy `wiki-expansion` runs** | Same enrich agent, UUID run id | Hub / API one-off; **not** the continuous loop |
+| **Main chat assistant** | **Query** + optional wiki **write** for new pages | Every session |
 
-
-So **expansion** is the heavy **initial / explicit** wiki buildout; **maintenance** is the **ongoing gardener**; **chat** is the default **query** surface. [OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md) is where background work surfaces without blocking the main UI.
+**Chat** creates new pages; **bootstrap** seeds the vault once; **supervisor** deepens and lints in laps. [OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md) surfaces activity in Hub.
 
 ## Ingest cadence: Brain vs Karpathy (important distinction)
 
@@ -38,7 +40,7 @@ Instead of exposing **separate** “expansion” vs “maintenance cron” menta
 2. **Lint** — tighten what exists: links, orphans, safe fixes, light hygiene (aligned with [OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)).
 3. **Repeat** — next lap starts with an **updated manifest** (paths in vault) + `me.md` + optional run notes.
 
-**User controls:** **Pause / resume** at any time (hard stop on cost and churn). **Not** “unbounded”: each **lap** and the **overall run** still use **budgets** (turns, tool calls, wall time, token ceilings) and optional **diminishing-returns** heuristics (if a lap adds almost nothing, back off or require user nudge). This is **continuous orchestration** of **bounded chunks**, not one infinite LLM context.
+**User controls:** **Pause / resume** at any time (hard stop on cost and churn). **Diminishing-returns** heuristics are **implemented** (no-op lap counter, inter-lap backoff, idle after 3 empty laps — see [pipeline doc](../architecture/your-wiki-background-pipeline.md)). **Aspirational** per-invocation caps (max tool calls, wall time, token ceilings) are **not** enforced in code yet.
 
 **Relation to cron:** Cron or “when index sync completes” can remain **implementation triggers** or **fallback when the app was closed**; the **default story** for users is: **one pipeline**, not a calendar of unrelated tasks.
 
@@ -111,14 +113,16 @@ Product and engineering should converge on **one inspectable background process*
 ## Synthesis of gaps (discussion + code review)
 
 
-| Theme             | Gap                                                                                                                                                                                          | Notes                                                                                                                                                                                                                                                                                           |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Initial build** | Background wiki expansion reuses the **seeding** agent but the kickoff message says “anchor on `me.md`” while the model **does not receive** `me.md` in context (unlike the main assistant). | Treat as **BUG** until fixed: [BUG-011](../bugs/BUG-011-wiki-expansion-missing-me-md-context.md).                                                                                                                                                                                               |
-| **Tooling**       | Seeding/expansion **omit** wiki `read` / `grep` / `find` so the agent cannot do Karpathy-style **cross-page maintenance** during bootstrap.                                                  | Either **inject** must-read content (profile, skeleton paths) and/or **narrowly allow** vault read for maintenance passes.                                                                                                                                                                      |
-| **Onboarding UX** | The old **wait until N wiki pages** wizard step was **removed**; accept-profile goes **straight to `done`** while expansion runs in the background.                                          | Throughput ↑, **felt** “wiki is ready” ↓; optional **gate or progress** is a product choice, not nostalgia.                                                                                                                                                                                     |
-| **Operations**    | Karpathy: **index + log**, **lint**, **file good answers back** from chat.                                                                                                                   | Partially covered by [OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md), [OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md)—but **not** wired as one coherent “compounding loop” narrative or metric. |
-| **Schema**        | Karpathy co-evolves a **single maintainer constitution** (e.g. `AGENTS.md`-style).                                                                                                           | Brain splits rules across **seeding**, **profiling**, **main assistant** prompts—works, but **consistency** across agent kinds is weaker.                                                                                                                                                       |
-| **Eval**          | Small local wikis (10–20 pages) **under-test** network effects.                                                                                                                              | Deliberate **larger-vault** tests or benchmarks (see [the-wiki-question.md](../the-wiki-question.md)) before big UX investment.                                                                                                                                                                 |
+| Theme | Gap | Notes |
+| ----- | --- | ----- |
+| **Cleanup anchors** | Chat-only `wiki-edits.jsonl` paths may wait until enrich touches the same file before lap cleanup runs. | **Open:** merge recent log paths into `runCleanupInvocation` anchors ([Lint inputs](#lint-inputs-and-cadence-2026) below). |
+| **Per-lap budgets** | No hard max tool calls / wall time per enrich or cleanup invocation. | **Open:** optional ceilings in supervisor or pi-agent config. |
+| **Onboarding UX** | No wizard “wait until N wiki pages”; background work runs while user is in app. | Product choice: progress / gates vs throughput. |
+| **Operations** | Karpathy: **index + log**, **lint**, **file good answers back** from chat. | Supervisor loop + `wiki-edits.jsonl` shipped; metrics / discovery UI still [OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md). |
+| **Schema** | Single maintainer constitution vs split prompts. | Brain splits buildout / cleanup / chat / bootstrap prompts. |
+| **Eval** | Small wikis under-test compounding. | See [the-wiki-question.md](../the-wiki-question.md), [wiki-and-agent-evaluation.md](../wiki-and-agent-evaluation.md). |
+
+**Resolved (do not reopen here):** `me.md` / manifest injection for enrich ([archived BUG-011](../bugs/archive/BUG-011-wiki-expansion-missing-me-md-context.md)); buildout has `read` / `grep` / `find`; bootstrap is a separate agent with bounded `write`.
 
 
 ## Relationship to existing work
@@ -136,7 +140,7 @@ Product and engineering should converge on **one inspectable background process*
 
 ## Proposal (phased)
 
-### Phase 0 — Unblock correctness (ties to BUG-011)
+### Phase 0 — Unblock correctness (historical; BUG-011 archived)
 
 - Inject `**me.md`** (and any other must-have context) into **background wiki expansion** and, if needed, **interactive seeding**—reuse the same pattern as `meProfilePromptSection` in `[assistantAgent.ts](../../src/server/agent/assistantAgent.ts)` or prepend to the first user turn in `[wikiExpansionRunner.ts](../../src/server/agent/wikiExpansionRunner.ts)`.
 - **Acceptance:** expansion run produces pages **consistent with accepted profile** without relying on lucky mail search.

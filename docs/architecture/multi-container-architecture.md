@@ -76,7 +76,7 @@ This document **does not duplicate** detailed designs; it lists **what must be t
 ## 5. Other multi-instance hazards (non-exhaustive)
 
 - **In-memory agent session maps** — chat continuity when requests hit different replicas before sticky routing is bulletproof: **[agent-session-store.md](./agent-session-store.md)**.
-- **Wiki supervisor / Your Wiki** — single-slot-per-process model and multi-tenant caveats: **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**.
+- **Wiki supervisor / Your Wiki** — lap pipeline: **[your-wiki-background-pipeline.md](./your-wiki-background-pipeline.md)**; scaling: **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**.
 - **Global metadata** (e.g. `brain_query_grants`) — remains **logically global**; placement (single global DB vs replicated store) is orthogonal to **per-tenant chat SQLite** locality — see **[braintunnel-b2b-chat.md](./braintunnel-b2b-chat.md)** data placement.
 
 ---

@@ -46,7 +46,7 @@ Under Brain Hub (or Settings): **“Data & recovery”** / **“Advanced”** �
 - **Remove:** All other markdown and directories under the wiki vault (respecting `.git` if present), plus **wiki edit history** (`wiki-edits` / truncation as today).
 - **Abort** in-flight seeding sessions so disk and memory agree.
 
-**Aftercare:** The seeding agent does **not** need to magically restart by itself. **Recommended default:** offer a checkbox **“Start a full wiki expansion after clearing”** that calls the same path as **Full expansion** — `POST /api/background/wiki-expansion/start` with `mode: full` ([`wikiExpansionRunner.ts`](../../../src/server/agent/wikiExpansionRunner.ts))) — so the user gets one coherent flow. Alternatively, deep-link them to the existing **Full expansion** button with a toast (“Wiki cleared — start a full pass when ready”).
+**Aftercare:** The seeding agent does **not** need to magically restart by itself. **Recommended default:** resume the **Your Wiki** supervisor (`ensureYourWikiRunning` / Hub resume) — see [your-wiki-background-pipeline.md](../../architecture/your-wiki-background-pipeline.md). Legacy one-shot enrich: `POST /api/background/wiki-expansion/start` with `mode: full` ([`wikiExpansionRunner.ts`](../../../src/server/agent/wikiExpansionRunner.ts)).
 
 **Note:** `POST /api/onboarding/prepare-seed` only sets onboarding state and categories; it does **not** run the agent. The expansion runner is the right “automatic rebuild” hook for Hub UX.
 

@@ -1,6 +1,6 @@
 # Background mail sync and Your Wiki supervisor — process model & scaling
 
-How **incremental mail index refresh** and the **Your Wiki** supervisor relate to HTTP requests, browser presence, and **multi-tenant** deployments. Complements **[background-task-orchestration.md](./background-task-orchestration.md)** (routes, orchestrator, bootstrap) and **[data-and-sync.md](./data-and-sync.md)** (storage layout).
+How **incremental mail index refresh** and the **Your Wiki** supervisor relate to HTTP requests, browser presence, and **multi-tenant** deployments. Complements **[background-task-orchestration.md](./background-task-orchestration.md)** (routes, orchestrator) and **[your-wiki-background-pipeline.md](./your-wiki-background-pipeline.md)** (bootstrap, laps, agents). Storage layout: **[data-and-sync.md](./data-and-sync.md)**.
 
 ---
 
@@ -37,12 +37,15 @@ Implementation detail: handlers await **`ripmailRefresh`** via **`syncInboxRipma
 
 ## Your Wiki supervisor: timing and mail
 
-Design intent is documented in the module header of **`yourWikiSupervisor.ts`**: **one in-process loop, no cron.**
+**Lap algorithm, enrich/cleanup agents, injection limits, pause/resume contract:** **[your-wiki-background-pipeline.md](./your-wiki-background-pipeline.md)**.
 
-- Between laps: **`INTER_LAP_DELAY_MS`** (5s) when the last lap produced work, else **no-op backoff** steps (**2m → 10m → 30m**). After sustained no-ops, the loop can sit in **idle** until a **timeout** or a **wake** (`requestLapNow`, resume, etc.).
-- **Mail**: every lap **after the first** awaits **`refreshMailAndWait`** so the enrich agent sees a fresher index when refresh succeeds.
+Scaling-relevant facts only:
 
-Failure handling and **`lapMailSyncIncomplete`** are covered in **[background-task-orchestration.md](./background-task-orchestration.md)**.
+- **One in-process loop, no cron** (`yourWikiSupervisor.ts`).
+- **Pre-lap mail refresh** on laps **2+** only (`refreshMailAndWait`, ~**90s** cap); lap 1 skips refresh.
+- **Inter-lap timing:** 5s after productive laps; no-op backoff **2m → 10m → 30m**; idle after **3** consecutive no-op laps.
+
+Failure handling and **`lapMailSyncIncomplete`**: **[background-task-orchestration.md](./background-task-orchestration.md)**.
 
 ---
 
@@ -87,7 +90,8 @@ Related: in-memory **agent session Map** limits for multi-instance chat — **[a
 
 | Doc | Relevance |
 |-----|------------|
-| **[background-task-orchestration.md](./background-task-orchestration.md)** | **`/api/background-status`**, bootstrap vs supervisor, orchestrator queue, lap mail failures |
+| **[your-wiki-background-pipeline.md](./your-wiki-background-pipeline.md)** | Bootstrap, lap steps, agents, limits, `/api/your-wiki` |
+| **[background-task-orchestration.md](./background-task-orchestration.md)** | **`/api/background-status`**, orchestrator queue, troubleshooting index |
 | **[runtime-and-routes.md](./runtime-and-routes.md)** | Server listen, route map, auth; background sync notes defer here; periodic mail sweep is `scheduledRipmailSync` (not `runFullSync`) |
 | **[onboarding-state-machine.md](./onboarding-state-machine.md)** | Phased mail, **`GET /api/onboarding/mail`** poll, refresh vs backfill |
 | **[data-and-sync.md](./data-and-sync.md)** | `$BRAIN_HOME`, ripmail layout, **`runFullSync`** semantics |

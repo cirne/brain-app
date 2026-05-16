@@ -4,8 +4,11 @@
 
 import pLimit from 'p-limit'
 
-/** Max concurrent `users.messages.get` calls during Gmail sync. */
+/** Max concurrent `users.messages.get` calls during Gmail refresh / incremental sync. */
 export const GMAIL_MESSAGES_GET_CONCURRENCY = 8
+
+/** Max concurrent `users.messages.get` during historical backfill (quota-safe lane). */
+export const GMAIL_BACKFILL_MESSAGES_GET_CONCURRENCY = 3
 
 /** Max concurrent Drive file ingest (download + extract) during bootstrap / incremental. */
 export const DRIVE_INGEST_CONCURRENCY = 6
