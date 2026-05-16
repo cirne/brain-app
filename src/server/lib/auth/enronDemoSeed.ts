@@ -6,10 +6,11 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -135,15 +136,51 @@ async function sha256File(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
-/** Same basename + cache dirs as `scripts/eval/ensureEnronTarball.mjs` (CLI / `npm run brain:seed-enron-demo`). */
+/** Same basename + cache dirs as `scripts/eval/enronTarballCache.mjs`. */
 export const ENRON_MAIL_TARBALL_BASENAME = 'enron_mail_20150507.tar.gz'
 
+export function enronTarballPrimaryPath(repoRoot: string): string {
+  return join(repoRoot, '.cache', 'enron', ENRON_MAIL_TARBALL_BASENAME)
+}
+
+/** Primary + legacy locations (legacy migrated into primary on use). */
 export function enronSharedTarballCachePathCandidates(repoRoot: string): string[] {
   const e = ENRON_MAIL_TARBALL_BASENAME
   return [
-    join(repoRoot, 'data', '.cache', 'enron', e),
+    enronTarballPrimaryPath(repoRoot),
     join(repoRoot, 'data-eval', '.cache', 'enron', e),
+    join(repoRoot, 'data', '.cache', 'enron', e),
   ]
+}
+
+async function migrateEnronTarballToPrimary(
+  repoRoot: string,
+  expectedSha: string,
+): Promise<string | null> {
+  const primary = enronTarballPrimaryPath(repoRoot)
+  if (existsSync(primary)) {
+    const sha = await sha256File(primary)
+    if (sha === expectedSha) return primary
+  }
+
+  const legacyPaths = enronSharedTarballCachePathCandidates(repoRoot).slice(1)
+  for (const legacy of legacyPaths) {
+    if (!existsSync(legacy)) continue
+    const sha = await sha256File(legacy)
+    if (sha !== expectedSha) continue
+    mkdirSync(join(repoRoot, '.cache', 'enron'), { recursive: true })
+    if (existsSync(primary)) {
+      try {
+        rmSync(primary)
+      } catch {
+        /* */
+      }
+    }
+    renameSync(legacy, primary)
+    return primary
+  }
+
+  return null
 }
 
 async function ensureTarball(repoRoot: string): Promise<string> {
@@ -161,37 +198,25 @@ async function ensureTarball(repoRoot: string): Promise<string> {
     throw new Error('Missing Enron tarball URL or SHA (manifest or ENRON_SOURCE_URL / ENRON_SHA256).')
   }
 
-  for (const sharedCache of enronSharedTarballCachePathCandidates(repoRoot)) {
-    if (!existsSync(sharedCache)) continue
-    const sha = await sha256File(sharedCache)
-    if (sha === expectedSha) {
-      return sharedCache
-    }
+  const migrated = await migrateEnronTarballToPrimary(repoRoot, expectedSha)
+  if (migrated) {
+    return migrated
   }
 
-  const cacheDir = join(tmpdir(), 'brain-enron-tar-cache')
-  mkdirSync(cacheDir, { recursive: true })
-  const cachePath = join(cacheDir, `${expectedSha.slice(0, 16)}_enron_mail.tar.gz`)
-
-  if (existsSync(cachePath)) {
-    const sha = await sha256File(cachePath)
-    if (sha !== expectedSha) {
-      throw new Error('Cached Enron tarball SHA mismatch; delete cache file and retry.')
-    }
-    return cachePath
-  }
+  const primary = enronTarballPrimaryPath(repoRoot)
+  mkdirSync(join(repoRoot, '.cache', 'enron'), { recursive: true })
 
   const res = await fetch(url)
   if (!res.ok || !res.body) {
     throw new Error(`Enron download failed: HTTP ${res.status}`)
   }
-  await pipeline(Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]), createWriteStream(cachePath))
+  await pipeline(Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]), createWriteStream(primary))
 
-  const sha = await sha256File(cachePath)
+  const sha = await sha256File(primary)
   if (sha !== expectedSha) {
     throw new Error('Downloaded Enron tarball SHA mismatch.')
   }
-  return cachePath
+  return primary
 }
 
 function runSeedScript(

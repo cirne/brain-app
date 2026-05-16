@@ -13,6 +13,8 @@ dist/
 /data/
 # Legacy name; same contents as `data/` until you rename/remove the folder
 /data-multitenant/
+# Repo-local caches (Enron tarball, etc.) — survives ./data wipes
+.cache/
 # Eval home + zip cache (see eval/README.md)
 data-eval/
 # Per-case wiki vaults from wiki JSONL evals (see eval/README.md)

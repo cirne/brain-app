@@ -14,7 +14,7 @@
  * Seed **all** registry demo tenants:
  *   node scripts/brain/seed-enron-demo-tenant.mjs --all
  *
- * Tarball: `EVAL_ENRON_TAR` or stable cache under `<repo>/data/.cache/enron/`.
+ * Tarball: `EVAL_ENRON_TAR` or stable cache under `<repo>/.cache/enron/` (migrates from data-eval/data).
  *
  * Flags:
  *   --force — remove existing tenant dir(s) and rebuild from tarball

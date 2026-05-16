@@ -3,22 +3,21 @@
  *
  * Resolution order:
  * 1. `EVAL_ENRON_TAR` — if set and the file exists, SHA must match the manifest (or `ENRON_SHA256` override).
- * 2. Stable caches (SHA match); see `enronSharedTarballCachePathCandidates` in `enronDemoSeed.ts` — same order:
- *    `<repoRoot>/data/.cache/enron/`, then legacy `<repoRoot>/data-eval/.cache/enron/`.
- * 3. Download from `ENRON_SOURCE_URL` or `manifest.sourceUrl` into the primary cache path (with `.part` + rename), then verify SHA.
+ * 2. `<repoRoot>/.cache/enron/` — use if present; else move from legacy `data-eval` / `data` caches (SHA match).
+ * 3. Download from `ENRON_SOURCE_URL` or `manifest.sourceUrl` into primary cache (`.part` + rename), then verify SHA.
  *
- * Download: prefers **`curl`** (HTTP/1.1, retries, **resume** via `-C -`) — much faster and more reliable on large
- * files than Node `fetch` streaming. Set `EVAL_ENRON_USE_NODE_FETCH=1` to force the old path. Partial `.part` files
- * are kept for resume (do not delete before re-running).
- *
- * Aligns tarball resolution with `enronDemoSeed` / CLI ingest, but persists under `data/.cache/`
- * so local downloads survive reboots without re-downloading.
+ * Download: prefers **`curl`** (HTTP/1.1, retries, **resume** via `-C -`). Set `EVAL_ENRON_USE_NODE_FETCH=1` for Node fetch.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, renameSync, rmSync, unlinkSync, createWriteStream } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync, renameSync, unlinkSync, createWriteStream } from 'node:fs'
+import { resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import {
+  enronTarballPrimaryDir,
+  enronTarballPrimaryPath,
+  resolveOrMigrateEnronTarball,
+} from './enronTarballCache.mjs'
 import { sha256File } from './evalBrainCommon.mjs'
 
 function curlUsable() {
@@ -83,7 +82,7 @@ async function downloadWithNodeFetch(url, partPath) {
 /**
  * @param {object} opts
  * @param {{ expectedSha256: string, sourceUrl?: string }} opts.manifest from enron-kean-manifest.json
- * @param {string} opts.repoRoot brain-app repo root (contains eval/fixtures and data/.cache/enron/)
+ * @param {string} opts.repoRoot brain-app repo root
  * @returns {Promise<string>} absolute path to tarball
  */
 export async function ensureEnronTarballPath({ manifest, repoRoot }) {
@@ -109,32 +108,14 @@ export async function ensureEnronTarballPath({ manifest, repoRoot }) {
     return p
   }
 
-  const cacheDir = join(repoRoot, 'data', '.cache', 'enron')
-  const baseName = 'enron_mail_20150507.tar.gz'
-  const cacheCandidates = [
-    join(cacheDir, baseName),
-    join(repoRoot, 'data-eval', '.cache', 'enron', baseName),
-  ]
-
-  for (const cached of cacheCandidates) {
-    if (!existsSync(cached)) continue
-    const got = sha256File(cached)
-    if (got === expectedSha) {
-      console.error('[eval:enron-tar] Using cached tarball:', cached)
-      return cached
-    }
-    console.error('[eval:enron-tar] Tarball SHA mismatch at', cached, '(trying other locations or re-download)')
+  const cached = resolveOrMigrateEnronTarball(repoRoot, expectedSha)
+  if (cached) {
+    console.error('[eval:enron-tar] Using cached tarball:', cached)
+    return cached
   }
 
-  mkdirSync(cacheDir, { recursive: true })
-  const cached = join(cacheDir, baseName)
-  if (existsSync(cached)) {
-    try {
-      rmSync(cached)
-    } catch {
-      /* */
-    }
-  }
+  mkdirSync(enronTarballPrimaryDir(repoRoot), { recursive: true })
+  const primary = enronTarballPrimaryPath(repoRoot)
 
   const url = process.env.ENRON_SOURCE_URL?.trim() || manifest.sourceUrl || ''
   if (!url) {
@@ -144,8 +125,8 @@ export async function ensureEnronTarballPath({ manifest, repoRoot }) {
     process.exit(1)
   }
 
-  console.error('[eval:enron-tar] Target:', cached)
-  const part = `${cached}.part`
+  console.error('[eval:enron-tar] Target:', primary)
+  const part = `${primary}.part`
 
   try {
     if (curlUsable()) {
@@ -169,7 +150,7 @@ export async function ensureEnronTarballPath({ manifest, repoRoot }) {
     process.exit(1)
   }
 
-  renameSync(part, cached)
-  console.error('[eval:enron-tar] Verified and saved:', cached)
-  return cached
+  renameSync(part, primary)
+  console.error('[eval:enron-tar] Verified and saved:', primary)
+  return primary
 }

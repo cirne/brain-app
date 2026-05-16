@@ -68,7 +68,7 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: data/.cache/enron
+          path: .cache/enron
           key: enron-cmu-tar-${{ hashFiles('eval/fixtures/enron-*.json') }}
 
       - name: Seed all Enron demo tenants under ./data (same layout as npm run dev)
