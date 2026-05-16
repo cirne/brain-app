@@ -1,6 +1,6 @@
 # Slack personal ambassador — your Brain in your team's Slack
 
-**Status:** Active — foundation shipped (OPP-116/117 dev); ambassador Phase 1 in progress (OPP-118)  
+**Status:** Active — foundation + Phase 1 shipped (OPP-116/117/118 dev + staging); Phase 2 next  
 **Index:** [IDEAS.md](../IDEAS.md)  
 **Shipped spike:** [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md) (Events API hello world, dev only; staging deferred)  
 **Current OPP:** [OPP-118](../opportunities/OPP-118-slack-ambassador-dm-phase-1.md) (Slack DM delegated **assistant** replies + Block Kit approval; UI: assistant/tunnel, not “ambassador”)  
@@ -347,9 +347,11 @@ This also provides a path into B2B sales: a champion at a company activates Brai
 
 ## Phased breakdown (for future OPPs)
 
-**Spike (shipped — [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md)):** hello world bot only (dev). Staging verification deferred.
+**Spike (shipped — [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md)):** hello world bot only (dev). Staging app `A0B46M5G46R` deployed and verified 2026-05-16.
 
 **Foundation ([archived OPP-117](../opportunities/archive/OPP-117-slack-identity-and-messaging-adapter.md)):** workspace install + user link, `MessagingQuery` + Slack adapter (hello-world behavior only).
+
+**Phase 1 ([archived OPP-118](../opportunities/archive/OPP-118-slack-ambassador-dm-phase-1.md)):** DM → integrationAgent → Block Kit approval → attributed reply. Verified dev + staging (Gamaliel workspace, 2026-05-16).
 
 When ready to implement product phases after OPP-118, this idea should be sliced into roughly these phases:
 

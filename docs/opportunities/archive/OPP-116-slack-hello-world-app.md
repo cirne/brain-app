@@ -19,9 +19,9 @@
 
 **Dev verified:** Slack app `A0B47A43Z7G`, Request URL `https://brain.chatdnd.io/api/slack/events`, DM → `Hello from Braintunnel! (hello-world)`.
 
-**Not done (explicit deferral):** staging deploy checklist (§9 below); `.env.example` / [environment-variables.md](../../architecture/environment-variables.md) inventory (add with next Slack OPP or staging pass).
+**Not done (explicit deferral):** `.env.example` / [environment-variables.md](../../architecture/environment-variables.md) inventory (add with next Slack OPP or staging pass).
 
-**Follow-on:** [archived OPP-117](OPP-117-slack-identity-and-messaging-adapter.md) (workspace + user OAuth link, messaging adapter); [OPP-118](../OPP-118-slack-ambassador-dm-phase-1.md) (ambassador DM + approval). Staging verification still deferred until deploy.
+**Follow-on:** [archived OPP-117](OPP-117-slack-identity-and-messaging-adapter.md) (workspace + user OAuth link, messaging adapter); [archived OPP-118](OPP-118-slack-ambassador-dm-phase-1.md) (ambassador DM + approval). **Staging verified 2026-05-16** — full DM → integrationAgent → Block Kit → approve → threaded reply with attribution footer working on Gamaliel workspace.
 
 **Slack app operator notes (dev app `A0B47A43Z7G`, OPP-117):** Add bot scope `users:read`; user scopes `openid`, `email`; redirect URL `http://127.0.0.1:3000/api/slack/oauth/callback`; reinstall after scope changes. Events API still requires `pnpm run dev:tunnel` (Slack cannot POST to loopback).
 
@@ -35,7 +35,18 @@
 | **Client ID** | `9631143389799.11143344135254` |
 | **Dashboard** | [api.slack.com/apps/A0B47A43Z7G](https://api.slack.com/apps/A0B47A43Z7G) |
 
-**Staging:** separate Slack app + Request URL `https://staging.braintunnel.ai/api/slack/events` when ready to deploy.
+**Staging app (deployed 2026-05-16):**
+
+| Field | Value |
+| ----- | ----- |
+| **App ID** | `A0B46M5G46R` |
+| **Client ID** | `9631143389799.11142719548229` |
+| **Dashboard** | [api.slack.com/apps/A0B46M5G46R](https://api.slack.com/apps/A0B46M5G46R) |
+| **Events URL** | `https://staging.braintunnel.ai/api/slack/events` |
+| **Interactions URL** | `https://staging.braintunnel.ai/api/slack/interactions` |
+| **OAuth redirect** | `https://staging.braintunnel.ai/api/slack/oauth/callback` |
+
+Staging env vars: `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` set on the droplet.
 
 ---
 

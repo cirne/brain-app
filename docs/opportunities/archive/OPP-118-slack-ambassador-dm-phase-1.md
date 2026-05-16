@@ -1,6 +1,6 @@
 # OPP-118: Slack DM — delegated assistant replies and approval (Phase 1)
 
-**Status: Archived (2026-05-16).** **Dev shipped** — integrationAgent + Block Kit approval flow, `b2b_inbound` session with `slackDelivery` metadata, Slack mention→identity resolution, email-mismatch confirm link UX, `POST /api/slack/interactions` route, `eval:slack-integration` JSONL harness. Verified on Gamaliel workspace: DM → Block Kit → Approve → threaded reply with attribution footer. **Deferred:** channel @mention LLM, admin policy UI, per-contact overrides, auto-send, staging Slack app deploy.
+**Status: Archived (2026-05-16).** **Dev + staging shipped** — integrationAgent + Block Kit approval flow, `b2b_inbound` session with `slackDelivery` metadata, Slack mention→identity resolution, email-mismatch confirm link UX, `POST /api/slack/interactions` route, `eval:slack-integration` JSONL harness. Verified on Gamaliel workspace (dev and staging): DM → Block Kit → Approve → threaded reply with attribution footer. Staging app `A0B46M5G46R` deployed 2026-05-16 (see [OPP-116](OPP-116-slack-hello-world-app.md) for credentials). **Deferred:** channel @mention LLM, admin policy UI, per-contact overrides, auto-send.
 
 **Parent idea:** [IDEA-slack-personal-ambassador](../ideas/IDEA-slack-personal-ambassador.md) *(strategy doc name; product copy uses **assistant** and **tunnel**, not “ambassador”)*
 
