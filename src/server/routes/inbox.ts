@@ -1,7 +1,4 @@
 import { Hono } from 'hono'
-import { extractDraftEdits } from '@server/lib/llm/draftExtract.js'
-import type { DraftEditExtraction } from '@server/lib/llm/draftExtract.js'
-import { rewriteDraftBody } from '@server/lib/llm/draftBodyRewrite.js'
 import { syncInboxRipmail, syncInboxRipmailOnboarding } from '@server/lib/platform/syncAll.js'
 import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
 import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
@@ -19,24 +16,9 @@ import {
   ripmailArchive,
   ripmailResolveEntryJson,
 } from '@server/ripmail/index.js'
-import { DraftSourceMessageNotFoundError, type EditDraftOptions } from '@server/ripmail/draft.js'
+import { DraftSourceMessageNotFoundError } from '@server/ripmail/draft.js'
 
 const inbox = new Hono()
-
-function extractionToRipmailEdit(extracted: DraftEditExtraction): EditDraftOptions {
-  const o: EditDraftOptions = {}
-  if (extracted.subject !== undefined) o.subject = extracted.subject
-  if (extracted.to !== undefined) o.to = extracted.to
-  if (extracted.cc !== undefined) o.cc = extracted.cc
-  if (extracted.bcc !== undefined) o.bcc = extracted.bcc
-  if (extracted.add_to?.length) o.addTo = extracted.add_to
-  if (extracted.add_cc?.length) o.addCc = extracted.add_cc
-  if (extracted.add_bcc?.length) o.addBcc = extracted.add_bcc
-  if (extracted.remove_to?.length) o.removeTo = extracted.remove_to
-  if (extracted.remove_cc?.length) o.removeCc = extracted.remove_cc
-  if (extracted.remove_bcc?.length) o.removeBcc = extracted.remove_bcc
-  return o
-}
 
 function draftCreateErrorResponse(err: unknown): { error: string; status: 404 | 500 } {
   if (err instanceof DraftSourceMessageNotFoundError) {
@@ -175,47 +157,6 @@ inbox.patch('/draft/:draftId', async (c) => {
     })
     return c.json(draft)
   } catch (err) {
-    return c.json({ error: String(err) }, 500)
-  }
-})
-
-// POST /api/inbox/draft/:draftId/edit — structured extraction + optional body rewrite (LLM)
-inbox.post('/draft/:draftId/edit', async (c) => {
-  const draftId = c.req.param('draftId')
-  let raw: unknown
-  try {
-    raw = await c.req.json()
-  } catch {
-    return c.json({ error: 'invalid json' }, 400)
-  }
-  const instruction =
-    raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).instruction === 'string'
-      ? (raw as Record<string, string>).instruction
-      : ''
-  const home = ripmailHomeForBrain()
-  try {
-    const current = ripmailDraftView(home, draftId)
-    if (!current) return c.json({ error: 'Draft not found' }, 404)
-
-    const extracted = await extractDraftEdits(instruction)
-    const opts = extractionToRipmailEdit(extracted)
-    const bodyInstr = extracted.body_instruction?.trim()
-    if (bodyInstr) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        return c.json({ error: 'draft_body_rewrite_requires_llm' }, 503)
-      }
-      opts.body = await rewriteDraftBody(current.body, bodyInstr)
-    }
-
-    if (Object.keys(opts).length === 0) {
-      return c.json(current)
-    }
-
-    ripmailDraftEdit(home, draftId, opts)
-    const viewed = ripmailDraftView(home, draftId)
-    return c.json(viewed ?? current)
-  } catch (err) {
-    brainLogger.error({ err }, '[inbox] draft refine failed')
     return c.json({ error: String(err) }, 500)
   }
 })

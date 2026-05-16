@@ -1,0 +1,24 @@
+# pnpm v11+ settings (non-auth settings moved from .npmrc / package.json pnpm field)
+
+# --- Supply-chain security ---
+# blockExoticSubdeps is true by default in pnpm v11; explicit here for clarity.
+blockExoticSubdeps: true
+
+# xlsx is referenced via a CDN tarball URL inside @earendil-works/pi-web-ui.
+# The override below redirects it to the registry version, which makes it a
+# trusted source and satisfies blockExoticSubdeps.
+overrides:
+  xlsx: "0.18.5"
+
+# --- Build permissions (pnpm v11: strictDepBuilds=true by default) ---
+# Packages whose postinstall/build scripts must run.
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  cloudflared: true
+  koffi: true
+  protobufjs: true
+  "@datadog/pprof": true
+  "@google/genai": true
+  "@newrelic/fn-inspect": true
+  "@newrelic/native-metrics": true

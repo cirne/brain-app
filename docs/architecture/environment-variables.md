@@ -73,7 +73,7 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 | **`BRAIN_FAST_LLM`** | Optional faster/cheaper tier; when unset, fast-tier call sites use **`BRAIN_LLM`** ([`effectiveBrainLlm.ts`](../../src/server/lib/llm/effectiveBrainLlm.ts)). Used for B2B tunnel preflight, suggest-reply repair, hub Drive suggestions. |
 | **`LLM_PROVIDER`** / **`LLM_MODEL`** | Deprecated split; startup warns if set ([`effectiveBrainLlm.ts`](../../src/server/lib/llm/effectiveBrainLlm.ts)). |
 | **`LLM_SKIP_STARTUP_SMOKE`** | Set to **`true`** to skip startup LLM probe ([`llmStartupSmoke.ts`](../../src/server/lib/llm/llmStartupSmoke.ts)). |
-| **`ANTHROPIC_API_KEY`** | Anthropic API (agent + draft extraction) ([`draftExtract.ts`](../../src/server/lib/llm/draftExtract.ts)). |
+| **`ANTHROPIC_API_KEY`** | Anthropic API (Pi agent; optional wiki dir-icon fallback in [`wiki.ts`](../../src/server/routes/wiki.ts)). |
 | **`OPENAI_API_KEY`** | OpenAI (default tier, TTS, STT, ripmail validation) ([`openAiTts.ts`](../../src/server/lib/llm/openAiTts.ts), [`openAiStt.ts`](../../src/server/lib/llm/openAiStt.ts)). |
 | **`OPENAI_ADMIN_API_KEY`** | OpenAI org Usage/Cost APIs (`pnpm run usage:openai-org`) ([`openaiOrgUsage.ts`](../../src/server/lib/llm/openaiOrgUsage.ts)). |
 | **`BRAIN_OPENAI_PROJECT_ID`** | Optional project filter for usage CLI ([`openaiOrgUsage.ts`](../../src/server/lib/llm/openaiOrgUsage.ts)). |

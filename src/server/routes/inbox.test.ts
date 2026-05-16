@@ -1,15 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 
-// Mock draftExtract so we control what the LLM extraction returns
-const extractDraftEditsMock = vi.fn()
-vi.mock('@server/lib/llm/draftExtract.js', () => ({ extractDraftEdits: extractDraftEditsMock }))
-
-const rewriteDraftBodyMock = vi.hoisted(() => vi.fn())
-vi.mock('@server/lib/llm/draftBodyRewrite.js', () => ({
-  rewriteDraftBody: rewriteDraftBodyMock,
-}))
-
 const ripmailInboxMock = vi.fn()
 const ripmailWhoMock = vi.fn()
 const ripmailReadMailMock = vi.fn()
@@ -87,11 +78,6 @@ beforeEach(async () => {
   ripmailDraftForwardMock.mockResolvedValue({ id: 'draft-3', subject: 'Fwd: Hello', body: '', to: ['charlie@example.com'], createdAt: '', updatedAt: '' })
   ripmailSendMock.mockResolvedValue({ ok: true, draftId: 'draft-1', dryRun: false })
   ripmailArchiveMock.mockResolvedValue({ results: [{ messageId: 'msg-1', local: { ok: true } }] })
-  extractDraftEditsMock.mockResolvedValue({ body_instruction: '' })
-  rewriteDraftBodyMock.mockReset()
-  rewriteDraftBodyMock.mockResolvedValue('Rewritten body')
-
-  process.env.ANTHROPIC_API_KEY = 'test-key-inbox-draft-refine'
 
   vi.resetModules()
   const { default: inboxRoute } = await import('./inbox.js')
@@ -101,7 +87,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.resetAllMocks()
-  delete process.env.ANTHROPIC_API_KEY
 })
 
 // ---- GET /api/inbox ---------------------------------------------------------
@@ -346,125 +331,6 @@ describe('PATCH /api/inbox/draft/:draftId', () => {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ body: 'only body' }),
-    })
-    expect(res.status).toBe(500)
-  })
-})
-
-// ---- POST /api/inbox/draft/:draftId/edit ------------------------------------
-
-describe('POST /api/inbox/draft/:draftId/edit', () => {
-  it('rewrites body and persists via draft edit when body_instruction is present', async () => {
-    extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
-    ripmailDraftViewMock
-      .mockReturnValueOnce({
-        id: 'draft-1',
-        body: 'Original paragraph',
-        subject: 'Hi',
-        to: [],
-        createdAt: '',
-        updatedAt: '',
-      })
-      .mockReturnValue({
-        id: 'draft-1',
-        body: 'Rewritten body',
-        subject: 'Hi',
-        to: [],
-        createdAt: '',
-        updatedAt: '',
-      })
-    const res = await app.request('/api/inbox/draft/draft-1/edit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction: 'make it shorter' }),
-    })
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ body: 'Rewritten body' })
-    expect(extractDraftEditsMock).toHaveBeenCalledWith('make it shorter')
-    expect(rewriteDraftBodyMock).toHaveBeenCalledWith('Original paragraph', 'make it shorter')
-    expect(ripmailDraftEditMock).toHaveBeenCalledWith(
-      expect.any(String),
-      'draft-1',
-      expect.objectContaining({ body: 'Rewritten body' }),
-    )
-  })
-
-  it('maps extracted recipient metadata and rewritten body together', async () => {
-    extractDraftEditsMock.mockResolvedValue({
-      add_cc: ['bob@example.com'],
-      subject: 'New Subject',
-      body_instruction: 'make it shorter',
-    })
-    ripmailDraftViewMock
-      .mockReturnValueOnce({ id: 'draft-1', body: 'Old', subject: 'Old Sub', to: [], createdAt: '', updatedAt: '' })
-      .mockReturnValue({
-        id: 'draft-1',
-        body: 'Rewritten body',
-        subject: 'New Subject',
-        cc: ['bob@example.com'],
-        to: [],
-        createdAt: '',
-        updatedAt: '',
-      })
-    const res = await app.request('/api/inbox/draft/draft-1/edit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction: 'cc bob, change subject, make it shorter' }),
-    })
-    expect(res.status).toBe(200)
-    const j = await res.json()
-    expect(j).toMatchObject({ subject: 'New Subject' })
-    expect(ripmailDraftEditMock).toHaveBeenCalledWith(
-      expect.any(String),
-      'draft-1',
-      expect.objectContaining({
-        subject: 'New Subject',
-        addCc: ['bob@example.com'],
-        body: 'Rewritten body',
-      }),
-    )
-  })
-
-  it('returns 503 when rewrite is needed but ANTHROPIC_API_KEY is unset', async () => {
-    const prev = process.env.ANTHROPIC_API_KEY
-    delete process.env.ANTHROPIC_API_KEY
-    extractDraftEditsMock.mockResolvedValue({ body_instruction: 'shorter' })
-    try {
-      const res = await app.request('/api/inbox/draft/draft-1/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction: 'make it shorter' }),
-      })
-      expect(res.status).toBe(503)
-      expect(await res.json()).toMatchObject({ error: 'draft_body_rewrite_requires_llm' })
-      expect(rewriteDraftBodyMock).not.toHaveBeenCalled()
-      expect(ripmailDraftEditMock).not.toHaveBeenCalled()
-    } finally {
-      if (prev !== undefined) process.env.ANTHROPIC_API_KEY = prev
-      else delete process.env.ANTHROPIC_API_KEY
-    }
-  })
-
-  it('returns current draft when extraction yields nothing to apply', async () => {
-    extractDraftEditsMock.mockResolvedValue({})
-    ripmailDraftViewMock.mockReturnValue({ id: 'draft-1', body: 'X', subject: 'S', to: [], createdAt: '', updatedAt: '' })
-    const res = await app.request('/api/inbox/draft/draft-1/edit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction: '' }),
-    })
-    expect(res.status).toBe(200)
-    expect(ripmailDraftEditMock).not.toHaveBeenCalled()
-    expect(rewriteDraftBodyMock).not.toHaveBeenCalled()
-  })
-
-  it('returns 500 when edit throws', async () => {
-    extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
-    ripmailDraftEditMock.mockImplementation(() => { throw new Error('edit failed') })
-    const res = await app.request('/api/inbox/draft/draft-1/edit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction: 'make it shorter' }),
     })
     expect(res.status).toBe(500)
   })
