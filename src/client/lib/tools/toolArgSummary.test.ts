@@ -67,6 +67,28 @@ describe('toolSummaryPartsFromArgs', () => {
       expect(r.text.endsWith('…')).toBe(true)
     }
   })
+
+  it('find_person formats query line like preview', () => {
+    expect(toolSummaryPartsFromArgs('find_person', { query: 'Geof Morin' })).toEqual({
+      mode: 'text',
+      text: 'Query: Geof Morin',
+    })
+    expect(toolSummaryPartsFromArgs('find_person', {})).toEqual({
+      mode: 'text',
+      text: 'Top contacts (by email frequency)',
+    })
+  })
+
+  it('web_search and fetch_page expose query or url', () => {
+    expect(toolSummaryPartsFromArgs('web_search', { query: 'svelte' })).toEqual({
+      mode: 'text',
+      text: 'svelte',
+    })
+    expect(toolSummaryPartsFromArgs('fetch_page', { url: 'https://example.com' })).toEqual({
+      mode: 'text',
+      text: 'https://example.com',
+    })
+  })
 })
 
 describe('toolCallCollapsedSummaryParts', () => {

@@ -42,13 +42,10 @@ describe('WikiFileName.svelte', () => {
     expect(container.querySelector('.opacity-90')).toBeTruthy()
   })
 
-  it('applies strip-align classes for transcript tool rows', () => {
-    const { container } = render(WikiFileName, {
-      props: { path: 'me.md', stripAlign: true },
-    })
+  it('uses wfn-title-row chrome (font inherits from parent)', () => {
+    const { container } = render(WikiFileName, { props: { path: 'notes/todo.md' } })
     const row = container.querySelector('.wfn-title-row')
     expect(row).toBeTruthy()
-    expect(row).toHaveClass('min-h-0')
-    expect(row?.className).toContain('[&_.wfn-name]:leading-inherit')
+    expect(row).not.toHaveClass('font-mono')
   })
 })

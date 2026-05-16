@@ -3,24 +3,21 @@ import { render, screen } from '@client/test/render.js'
 import ChatInlineIndicatorHarness from './ChatInlineIndicatorHarness.svelte'
 
 describe('ChatInlineIndicator.svelte', () => {
-  it('renders root marker, icon slot, and label', () => {
+  it('renders root marker, icon slot, and label inside tool-call-row', () => {
     render(ChatInlineIndicatorHarness)
 
+    expect(document.querySelector('.tool-call-row')).toBeTruthy()
     const root = document.querySelector('[data-chat-inline-indicator]')
     expect(root).toBeTruthy()
-    expect(root).toHaveClass('min-h-6')
     expect(screen.getByText('Read file')).toBeInTheDocument()
     const iconSlot = document.querySelector('.tool-transcript-icon')
     expect(iconSlot).toBeTruthy()
     expect(iconSlot?.querySelector('svg')).toBeTruthy()
   })
 
-  it('labelOnly omits icon slot but keeps min-height band', () => {
+  it('labelOnly omits icon slot', () => {
     render(ChatInlineIndicatorHarness, { props: { labelOnly: true } })
 
-    const root = document.querySelector('[data-chat-inline-indicator]')
-    expect(root).toBeTruthy()
-    expect(root).toHaveClass('min-h-6')
     expect(document.querySelector('.tool-transcript-icon')).toBeNull()
     expect(screen.getByText('Read file')).toBeInTheDocument()
   })
@@ -29,16 +26,5 @@ describe('ChatInlineIndicator.svelte', () => {
     render(ChatInlineIndicatorHarness, { props: { variant: 'error', iconBang: true } })
 
     expect(document.querySelector('[data-chat-inline-indicator]')).toHaveClass('text-danger')
-  })
-
-  it('inlineMetrics inherit drops the transcript band and uses inherited typography tokens', () => {
-    render(ChatInlineIndicatorHarness, { props: { inlineMetrics: 'inherit' } })
-
-    const root = document.querySelector('[data-chat-inline-indicator]')
-    expect(root).toBeTruthy()
-    expect(root).toHaveClass('min-h-0')
-    expect(root).toHaveClass('text-inherit')
-    expect(root).toHaveClass('leading-inherit')
-    expect(root).not.toHaveClass('min-h-6')
   })
 })

@@ -109,6 +109,33 @@ describe('ToolCallBlock.svelte', () => {
       expect(screen.getByText(/\*\.md/)).toBeInTheDocument()
     })
 
+    it('renders pending find_person with query summary aligned to label', () => {
+      const toolCall = makeToolCall({
+        name: 'find_person',
+        args: { query: 'Geof Morin' },
+        done: false,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      expect(screen.getByText(/Find contact…/)).toBeInTheDocument()
+      expect(screen.getByText('Query: Geof Morin')).toBeInTheDocument()
+      expect(container.querySelector('.tool-call-row')).toBeTruthy()
+      expect(container.querySelectorAll('[data-chat-inline-indicator]').length).toBe(2)
+    })
+
+    it('pending grep segments sit under tool-call-row typography', () => {
+      const toolCall = makeToolCall({
+        name: 'grep',
+        args: { pattern: 'TODO', path: 'notes/' },
+        done: false,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      const row = container.querySelector('.tool-call-row')
+      expect(row).toBeTruthy()
+      expect(row?.querySelectorAll('[data-chat-inline-indicator]').length).toBe(2)
+    })
+
     it('clicking pending write link calls onOpenWiki', async () => {
       const onOpenWiki = vi.fn()
       const toolCall = makeToolCall({
@@ -306,8 +333,22 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      expect(container.querySelectorAll('[data-chat-inline-indicator]').length).toBe(2)
+      expect(container.querySelector('.tool-call-row')?.querySelectorAll('[data-chat-inline-indicator]').length).toBe(2)
       expect(container.querySelector('.wfn-title-row')).toBeTruthy()
+    })
+
+    it('compact find_person wraps query in tool-summary-text', () => {
+      const toolCall = makeToolCall({
+        name: 'find_person',
+        args: { query: 'Geof Morin' },
+        result: JSON.stringify({ people: [] }),
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall } })
+
+      expect(screen.getByText('Query: Geof Morin')).toBeInTheDocument()
+      expect(container.querySelector('.tool-summary-text')).toBeTruthy()
+      expect(container.querySelector('.tool-call-row')).toBeTruthy()
     })
 
     it('renders move_file with from and to paths', () => {
@@ -412,7 +453,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       render(ToolCallBlock, { props: { toolCall } })
 
-      expect(screen.getByText('Loading Ripmail……')).toBeInTheDocument()
+      expect(screen.getByText('Loading Ripmail…')).toBeInTheDocument()
     })
 
     it('shows Loaded label when complete', () => {

@@ -1,0 +1,71 @@
+/**
+ * Agent chat tool-call transcript rows — typography and alignment live on `.tool-call-row`;
+ * segments (inline indicators, wiki paths, query text) inherit via :is() below.
+ */
+@layer components {
+  .tool-call-row {
+    @apply flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden text-[13px] font-normal leading-[1.45] text-muted;
+  }
+
+  /* Inherit size/family from the row; avoid `font: inherit` (buttons can pass UA bold). */
+  .tool-call-row :is(
+      [data-chat-inline-indicator],
+      .tool-name,
+      .tool-summary-text,
+      .wfn-title-row,
+      .wfn-name,
+      .wfn-folder
+    ) {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  .tool-call-row [data-chat-inline-indicator] {
+    @apply inline-flex min-h-0 min-w-0 max-w-full items-center gap-1.5;
+  }
+
+  .tool-summary-body {
+    @apply flex min-w-0 flex-1 gap-x-2 text-inherit;
+  }
+
+  .tool-summary-body:not(.tool-summary-body--truncate) {
+    @apply flex-wrap items-center gap-y-[0.35em];
+  }
+
+  .tool-summary-body--truncate {
+    @apply items-center overflow-hidden;
+  }
+
+  .tool-summary-text {
+    @apply min-w-0 max-w-[min(100%,28rem)] truncate;
+  }
+
+  .tool-summary-move {
+    @apply inline-flex min-w-0 flex-1 flex-wrap items-center gap-1;
+  }
+
+  .tool-summary-body--truncate .tool-summary-move {
+    @apply overflow-hidden;
+  }
+
+  .tool-pending-label {
+    animation: tool-pending-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes tool-pending-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .tool-call.error .tool-call-row {
+    @apply text-danger;
+  }
+}

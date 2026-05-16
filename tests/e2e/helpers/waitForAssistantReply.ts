@@ -51,14 +51,9 @@ export function formatAssistantReplyDiagnostics(
 }
 
 async function readSummaryLine(toolRow: Locator): Promise<string | undefined> {
-  const plain = toolRow.locator('.tool-summary-plain').first()
-  if ((await plain.count()) > 0) {
-    const t = (await plain.textContent())?.trim()
-    if (t) return t
-  }
-  const pendingPlain = toolRow.locator('.tool-pending-plain').first()
-  if ((await pendingPlain.count()) > 0) {
-    const t = (await pendingPlain.textContent())?.trim()
+  const summaryText = toolRow.locator('.tool-summary-text, .tool-summary-plain').first()
+  if ((await summaryText.count()) > 0) {
+    const t = (await summaryText.textContent())?.trim()
     if (t) return t
   }
   return undefined

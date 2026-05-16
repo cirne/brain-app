@@ -11,9 +11,7 @@
     /** When set (e.g. markdown link text), shown instead of deriving a label from `path`. */
     preferredName,
     unsaved = false,
-    /** Tool transcript rows: inherit parent line-height (compact agent tool rows). */
-    stripAlign = false,
-  }: { path: string; preferredName?: string | null; unsaved?: boolean; stripAlign?: boolean } = $props()
+  }: { path: string; preferredName?: string | null; unsaved?: boolean } = $props()
 
   const { folder, name } = $derived.by(() => {
     const clean = path.replace(/\.md$/, '')
@@ -42,13 +40,7 @@
   })
 </script>
 
-<span
-  class={cn(
-    'wfn-title-row inline-flex min-w-0 items-center gap-1.5 overflow-hidden [font:inherit]',
-    unsaved && 'opacity-90',
-    stripAlign && 'min-h-0 [&_.wfn-name]:leading-inherit',
-  )}
->
+<span class={cn('wfn-title-row', unsaved && 'opacity-90')}>
   {#if isUserProfileMe}
     <span class="wfn-lead-icon text-accent opacity-85" title={$t('wiki.fileName.profileTitle')}>
       <User size={12} />
@@ -67,9 +59,7 @@
         <IconComponent size={12} />
       </span>
     {:else}
-      <span
-        class="wfn-folder min-w-0 shrink overflow-hidden text-[0.9em] text-ellipsis text-muted/65 [white-space:nowrap]"
-      >{folder}</span>
+      <span class="wfn-folder min-w-0 shrink overflow-hidden text-ellipsis text-muted/65 whitespace-nowrap">{folder}</span>
     {/if}
   {/if}<span class="wfn-name shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
 </span>

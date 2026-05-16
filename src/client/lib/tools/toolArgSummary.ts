@@ -93,9 +93,36 @@ export function toolSummaryPartsFromArgs(name: string, args: unknown): ToolSumma
       const raw = typeof a.id === 'string' ? a.id.trim() : ''
       return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
     }
+    case 'find_person': {
+      const q = typeof a.query === 'string' ? a.query.trim() : ''
+      return {
+        mode: 'text',
+        text: q ? `Query: ${truncateEnd(q, MAX_PATTERN)}` : 'Top contacts (by email frequency)',
+      }
+    }
+    case 'web_search':
+    case 'youtube_search': {
+      const raw = typeof a.query === 'string' ? a.query.trim() : ''
+      return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
+    }
+    case 'fetch_page': {
+      const raw = typeof a.url === 'string' ? a.url.trim() : ''
+      return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
+    }
     default:
       return null
   }
+}
+
+/**
+ * Summary segments for chat transcript rows (pending and done).
+ * Preview-first when the tool completed successfully; otherwise args-based lines.
+ */
+export function toolCallTranscriptSummaryParts(
+  tc: ToolCall,
+  preview: ContentCardPreview | null,
+): ToolSummaryParts | null {
+  return toolCallCollapsedSummaryParts(tc, preview)
 }
 
 /**
