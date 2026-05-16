@@ -192,6 +192,34 @@ describe('calendar tool', () => {
     expect(getCalendarEventsFromRipmail).toHaveBeenCalledWith({ start: '2026-04-20', end: '2026-04-20', calendarIds: ['cal1'] })
   })
 
+  it('op=events empty with explicit calendar_ids tells model not to claim the day is free', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+      events: [],
+      meta: {
+        sourcesConfigured: true,
+        ripmail: '2026-04-19T12:00:00Z',
+        availableCalendars: [{ id: 'lew@gmail.com', name: 'Personal', sourceId: 'src1' }],
+      },
+    })
+
+    const result = await tool.execute('c-empty-filter', {
+      op: 'events',
+      start: '2026-05-18',
+      end: '2026-05-18',
+      calendar_ids: ['primary'],
+    })
+    const text = toolResultFirstText(result)
+    expect(text).toContain('calendar_id(s)')
+    expect(text).toContain('primary')
+    expect(text).toContain('Do not tell the user their day is free')
+    expect(text).toContain('omit `calendar_ids`')
+    expect((result.details as { queriedCalendarIds?: string[] }).queriedCalendarIds).toEqual(['primary'])
+  })
+
   it('op=update_event forwards compound event_id and title to ripmail', async () => {
     const { ripmailCalendarUpdateEvent } = await import('@server/ripmail/index.js')
     const { runRipmailRefreshInBackground } = await import('@server/lib/ripmail/runRipmailRefreshBackground.js')

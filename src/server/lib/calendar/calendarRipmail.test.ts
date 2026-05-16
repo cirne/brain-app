@@ -6,6 +6,8 @@ import {
   calendarUidLooksLikeExpandedRecurrence,
   calendarEventsFromRipmailRangeJsonStdout,
   flattenRipmailListCalendarsJson,
+  normalizeRangeCalendarIdsRequest,
+  resolveRipmailRangeCalendarFilter,
   type RipmailCalendarEventJson,
 } from './calendarRipmail.js'
 
@@ -305,6 +307,46 @@ describe('getCalendarEventsFromRipmail deduplication', () => {
     expect(result.events[0].organizer).toBe('lewiscirne@gmail.com')
     expect(result.meta.sourcesConfigured).toBe(true)
     expect(result.meta.availableCalendars).toEqual([{ id: 'primary', sourceId: 'src-meta' }])
+  })
+})
+
+describe('resolveRipmailRangeCalendarFilter primary-only normalization', () => {
+  let loadSpy: ReturnType<typeof vi.spyOn>
+  const home = '/tmp/cal-filter-home'
+
+  beforeEach(() => {
+    loadSpy = vi.spyOn(ripCfg, 'loadRipmailConfig').mockReturnValue({ sources: [] })
+  })
+
+  afterEach(() => {
+    loadSpy.mockRestore()
+  })
+
+  it('normalizeRangeCalendarIdsRequest drops lone primary when Hub defaults differ', () => {
+    loadSpy.mockReturnValue({
+      sources: [
+        {
+          id: 'g',
+          kind: 'googleCalendar',
+          calendarIds: ['lew@gmail.com', 'primary'],
+          defaultCalendars: ['lew@gmail.com'],
+        },
+      ],
+    })
+    expect(normalizeRangeCalendarIdsRequest(home, ['primary'])).toBeUndefined()
+    expect(resolveRipmailRangeCalendarFilter(home, ['primary'])).toEqual({
+      restrictGoogleCalendarIds: ['lew@gmail.com'],
+    })
+  })
+
+  it('keeps explicit primary when it is the only Hub default', () => {
+    loadSpy.mockReturnValue({
+      sources: [{ id: 'g', kind: 'googleCalendar', defaultCalendars: ['primary'] }],
+    })
+    expect(normalizeRangeCalendarIdsRequest(home, ['primary'])).toEqual(['primary'])
+    expect(resolveRipmailRangeCalendarFilter(home, ['primary'])).toEqual({
+      calendarIds: ['primary'],
+    })
   })
 })
 

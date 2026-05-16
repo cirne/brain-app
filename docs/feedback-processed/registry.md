@@ -22,3 +22,4 @@ When you finish triaging a feedback item, **append a row** (or edit this table) 
 | 16 | 2026-05-09T16:17:29.175Z | [BUG-028 archived](../bugs/archive/BUG-028-agent-email-draft-wrong-recipient-and-signature.md) + [BUG-050](../bugs/BUG-050-agent-wiki-read-enoent-during-compose.md) (compose + wiki **ENOENT**) | 2026-05-11 |
 | 17 | 2026-05-09T16:55:13.237Z | [BUG-049 archived](../bugs/archive/BUG-049-archive-emails-tool-reported-success-when-ripmail-local-failed.md) — **fixed** (`archive_emails` counts `local.ok` only; shipped **2026-05-09**) | 2026-05-11 |
 | 18 | 2026-05-14T22:01:24.138Z | [BUG-056 archived](../bugs/archive/BUG-056-agent-late-contact-resolution-introduced-me-queries.md) | 2026-05-14 |
+| 21 | 2026-05-16T22:20:26.339Z | [BUG-062 archived](../bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md) — **fixed** (Hub default calendar mapping + tool/prompt guidance) | 2026-05-16 |

@@ -4,8 +4,8 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 060 -->
-**Next bug id:** **BUG-060**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 063 -->
+**Next bug id:** **BUG-063**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 **Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
 
@@ -56,6 +56,10 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 
 ## Fixed (archived)
 
+
+### [BUG-062](bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md): Calendar day query — `primary`-only lookup, empty result stated as no events
+
+**Fixed (2026-05-16).** `normalizeRangeCalendarIdsRequest` maps lone `primary` to Hub defaults; clearer empty-range tool text + assistant prompt. User feedback **#21**. See [bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md](bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md).
 
 ### [BUG-058](bugs/archive/BUG-058-brain-query-privacy-templates-filter-not-relevance.md): Brain Query privacy presets were framed as relevance/detail, not outbound filters
 

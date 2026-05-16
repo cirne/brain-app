@@ -226,6 +226,24 @@ export type RipmailCalendarRangeFilterOpts = {
 }
 
 /**
+ * Agents often pass `calendar_ids: ["primary"]` for day checks; Hub day-view may use a
+ * different default (e.g. the user's Gmail calendar id). Treat lone `primary` like omitted
+ * when configured defaults differ.
+ */
+export function normalizeRangeCalendarIdsRequest(
+  ripmailHome: string,
+  requested?: string[],
+): string[] | undefined {
+  const trimmed = requested?.map((id) => id.trim()).filter(Boolean) ?? []
+  if (trimmed.length !== 1 || trimmed[0]!.toLowerCase() !== 'primary') return trimmed.length > 0 ? trimmed : undefined
+  const defaults = collectGoogleCalendarDefaultCalendarIds(loadRipmailConfig(ripmailHome))
+  const defaultIsOnlyPrimary =
+    defaults.length === 1 && defaults[0]!.toLowerCase() === 'primary'
+  if (defaults.length > 0 && !defaultIsOnlyPrimary) return undefined
+  return trimmed
+}
+
+/**
  * When tools/API omit `calendar_ids`, restrict indexed **Google** rows to Hub `defaultCalendars`
  * (or the sole synced calendar id). Non-`googleCalendar` rows stay visible.
  */
@@ -233,7 +251,7 @@ export function resolveRipmailRangeCalendarFilter(
   ripmailHome: string,
   requested?: string[],
 ): RipmailCalendarRangeFilterOpts | undefined {
-  const trimmedRequested = requested?.map((id) => id.trim()).filter(Boolean) ?? []
+  const trimmedRequested = normalizeRangeCalendarIdsRequest(ripmailHome, requested) ?? []
   if (trimmedRequested.length > 0) return { calendarIds: trimmedRequested }
   const defaults = collectGoogleCalendarDefaultCalendarIds(loadRipmailConfig(ripmailHome))
   if (defaults.length > 0) return { restrictGoogleCalendarIds: defaults }

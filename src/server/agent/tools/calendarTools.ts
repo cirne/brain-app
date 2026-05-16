@@ -25,6 +25,7 @@ import {
   loadGoogleOAuthTokens,
   googleOAuthTokenSourceId,
 } from '@server/ripmail/index.js'
+import { collectGoogleCalendarDefaultCalendarIds } from '@server/ripmail/sync/config.js'
 import { updateHubRipmailCalendarIds } from '@server/lib/hub/hubRipmailSources.js'
 
 function runCalendarRefreshAgent(sourceId?: string): { ok: true } {
@@ -143,7 +144,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
     name: 'calendar',
     label: 'Calendar',
     description:
-      'All calendar operations. **Range reads:** use **`op=events`** with `start`+`end` (YYYY-MM-DD). **`op=search`** is an alias for keyword search — same as `op=events` but requires non-empty **`search`**; do not invent a separate `op` value. **Adaptive tiers** for wide windows: >30 days = landmarks; 10–30 days = overview; <10 days = full detail. **`calendar_ids`** filters Google calendars. **Keyword:** `search` on `events`/`search` returns compact hints (~40) + **totalMatchCount**. **Writes:** `create_event`, `update_event`, `cancel_event`, `delete_event` — **`event_id`** = compound `sourceId:uid` from reads/search. **`scope`:** cancel `this`|`all` (**`future`** not supported); delete `this`|`all`. Requires `calendar.events` OAuth. For external scheduling help, forward to howie@howie.ai.',
+      'All calendar operations. **Range reads:** use **`op=events`** with `start`+`end` (YYYY-MM-DD). For “what’s on Monday / my day” **omit `calendar_ids`** so Hub default day-view calendars apply — do not assume Google `primary` unless the user named it. **`op=search`** is an alias for keyword search — same as `op=events` but requires non-empty **`search`**. **Adaptive tiers** for wide windows: >30 days = landmarks; 10–30 days = overview; <10 days = full detail. **`calendar_ids`** filters Google calendars when the user names one. **Keyword:** `search` on `events`/`search` returns compact hints (~40) + **totalMatchCount**. **Writes:** `create_event`, `update_event`, `cancel_event`, `delete_event` — **`event_id`** = compound `sourceId:uid` from reads/search. **`scope`:** cancel `this`|`all` (**`future`** not supported); delete `this`|`all`. Requires `calendar.events` OAuth. For external scheduling help, forward to howie@howie.ai.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('events'),
@@ -170,7 +171,10 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         }),
       ),
       calendar_ids: Type.Optional(
-        Type.Array(Type.String(), { description: 'events / search / configure_source: calendar ids to filter or configure' }),
+        Type.Array(Type.String(), {
+          description:
+            'events / search / configure_source: filter to these Google calendar ids when the user names a calendar. Omit for day-view / “what’s on …” so Hub default calendars apply.',
+        }),
       ),
       default_calendar_ids: Type.Optional(
         Type.Array(Type.String(), {
@@ -357,11 +361,16 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
           }
         }
 
+        const explicitCalendarIds =
+          params.calendar_ids?.map((id) => id.trim()).filter(Boolean) ?? []
         const { events, fetchedAt, sourcesConfigured, availableCalendars } = await getCalendarEvents({
           start: params.start,
           end: params.end,
           calendarIds: params.calendar_ids,
         })
+        const hubDefaultCalendarIds = collectGoogleCalendarDefaultCalendarIds(
+          loadRipmailConfig(ripmailHomeForBrain()),
+        )
 
         const windowDays = windowDaysFromYmd(params.start, params.end)
         const tier = selectResolutionTier(windowDays)
@@ -372,7 +381,9 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         let text = capped.rows.length
           ? JSON.stringify(capped.rows)
           : sourcesConfigured
-            ? `No events found between ${params.start} and ${params.end}. Last indexed query: ${fetchedAt.ripmail || 'never'}. If events exist in Google Calendar, run inbox/calendar sync and wait for ripmail to finish indexing.`
+            ? explicitCalendarIds.length > 0
+              ? `No events found on calendar_id(s) ${JSON.stringify(explicitCalendarIds)} between ${params.start} and ${params.end}. Last indexed query: ${fetchedAt.ripmail || 'never'}. Do not tell the user their day is free unless you also checked Hub default calendars or all relevant ids. If events exist in Google Calendar, run inbox/calendar sync and wait for ripmail to finish indexing.`
+              : `No events found between ${params.start} and ${params.end} on Hub default calendar(s)${hubDefaultCalendarIds.length ? ` (${hubDefaultCalendarIds.join(', ')})` : ''}. Last indexed query: ${fetchedAt.ripmail || 'never'}. If events exist in Google Calendar, run inbox/calendar sync and wait for ripmail to finish indexing.`
             : 'No calendar sources in the local ripmail config (nothing to index). Gmail accounts need a `googleCalendar` source beside IMAP — the app adds this when you connect Google; reconnect Gmail or run a sync after upgrading. Last indexed query: never.'
 
         if (tier !== 'full') {
@@ -389,7 +400,11 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         // If no events found and we have sources, add a hint to check available calendars
         if (!capped.rows.length && sourcesConfigured && availableCalendars?.length) {
           const list = availableCalendars.map(c => `- ${c.name || c.id} (id: ${c.id})`).join('\n')
-          text += `\n\n**HINT**: Queries use Hub default Google calendars unless you pass \`calendar_ids\`. To search another calendar, pass its id:\n${list}`
+          const defaultLine =
+            hubDefaultCalendarIds.length > 0
+              ? ` Hub default day-view ids: ${hubDefaultCalendarIds.join(', ')}.`
+              : ''
+          text += `\n\n**HINT**: For “what’s on …” omit \`calendar_ids\` (do not default to \`primary\` alone).${defaultLine} To query a specific calendar, pass its id. Other synced calendars:\n${list}`
         }
 
         const payload: Record<string, unknown> = {
@@ -398,6 +413,8 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
           start: params.start,
           end: params.end,
         }
+        if (explicitCalendarIds.length > 0) payload.queriedCalendarIds = explicitCalendarIds
+        if (hubDefaultCalendarIds.length > 0) payload.hubDefaultCalendarIds = hubDefaultCalendarIds
         if (tier !== 'full') {
           payload.resolutionMeta = {
             tier,
