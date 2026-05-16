@@ -6,8 +6,7 @@ Redirect URIs must match **Google Cloud Console** and the URL the **browser** lo
 
 | Mode | Redirect URI |
 |------|--------------|
-| **`pnpm run dev`** (portless, default) | `https://braintunnel.localhost:1355/api/oauth/google/callback` (worktree: `https://<branch>.braintunnel.localhost:1355/...`; register each origin you use) |
-| **`pnpm run dev:direct`** / non-bundled `node dist/server` (loopback) | `http://127.0.0.1:<PORT>/api/oauth/google/callback` (`PORT` default `3000`) |
+| **`pnpm run dev`** / non-bundled `node dist/server` (loopback) | `http://127.0.0.1:<PORT>/api/oauth/google/callback` (`PORT` default `3000`) |
 | **Same, with `PUBLIC_WEB_ORIGIN`** | `<PUBLIC_WEB_ORIGIN>/api/oauth/google/callback` — use when the SPA is opened at **`localhost`** so OAuth returns to the same host as cookies (e.g. Docker: `http://localhost:4000`) |
 | **`docker compose`** | Compose sets `PUBLIC_WEB_ORIGIN` default `http://localhost:4000` — register **`http://localhost:4000/api/oauth/google/callback`**. If you change host port, set `PUBLIC_WEB_ORIGIN` to match. |
 | **Braintunnel.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `https://127.0.0.1:<bound-port>/api/oauth/google/callback` (TLS, OPP-023); ignores `PUBLIC_WEB_ORIGIN` |
@@ -44,8 +43,7 @@ See [multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-archite
 1. Open [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials) for your project.
 2. Open your **OAuth 2.0 Client ID** (type *Web application*).
 3. Under **Authorized redirect URIs**, add **all** of the following:
-   - `https://braintunnel.localhost:1355/api/oauth/google/callback` (`pnpm run dev` / portless — add `https://<branch>.braintunnel.localhost:1355/...` per worktree you sign into)
-   - `http://127.0.0.1:3000/api/oauth/google/callback` (`pnpm run dev:direct`)
+   - `http://127.0.0.1:3000/api/oauth/google/callback` (`pnpm run dev`; add `http://127.0.0.1:<PORT>/...` if you override `PORT`)
    - `http://localhost:4000/api/oauth/google/callback` (Docker Compose default — `PUBLIC_WEB_ORIGIN`; use the same host/port you open in the browser)
    - `http://127.0.0.1:4000/api/oauth/google/callback` (only if you unset `PUBLIC_WEB_ORIGIN` and use 127.0.0.1 in the browser)
    - `https://127.0.0.1:18473/api/oauth/google/callback` (Braintunnel.app, TLS)

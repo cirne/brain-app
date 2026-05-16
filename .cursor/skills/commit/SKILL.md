@@ -151,7 +151,7 @@ Use **`git merge`** (not rebase) onto `main` when the feature branch was already
 
 ## Worktrees (Git)
 
-Full workflow (portless URLs, bootstrap, OAuth): **[`../worktree/SKILL.md`](../worktree/SKILL.md)** (`/worktree`).
+Full workflow (bootstrap, shared data, OAuth): **[`../worktree/SKILL.md`](../worktree/SKILL.md)** (`/worktree`).
 
 - **`git worktree list`** shows path → branch bindings. **`git rev-parse --show-toplevel`** is the checkout root—run `nvm use` **there**. By default **`./data` is symlinked to the primary clone** ([`../worktree/SKILL.md`](../worktree/SKILL.md)); use **`--own-data`** only when the user wants an isolated data tree.
 - A second worktree checks out **another branch** in parallel; **`git push` pushes whatever branch that worktree has checked out**.

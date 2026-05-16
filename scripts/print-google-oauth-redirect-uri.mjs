@@ -30,11 +30,7 @@ const path = '/api/oauth/google/callback'
 const devPort = devDefault ?? 3000
 const nativePort = bundled ?? 18473
 
-console.log(`Dev / pnpm run dev:direct (default PORT): http://127.0.0.1:${devPort}${path}`)
-console.log(
-  `Dev / pnpm run dev (portless):         \${PUBLIC_WEB_ORIGIN or PORTLESS_URL}/api/oauth/google/callback`,
-)
-console.log(`  e.g. https://braintunnel.localhost:1355${path} (register in Google Console)`)
+console.log(`Dev / pnpm run dev (default PORT):     http://127.0.0.1:${devPort}${path}`)
 console.log(
   `With PUBLIC_WEB_ORIGIN (e.g. Docker):  \${PUBLIC_WEB_ORIGIN}/api/oauth/google/callback`,
 )

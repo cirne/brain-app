@@ -1,25 +1,16 @@
 ---
 name: worktree
 description: >-
-  Create and run parallel git worktrees for brain-app with portless (stable
-  .localhost URLs per branch), shared ./data + .env via symlink, and Cursor one-window-per-checkout.
-  Use when the user invokes /worktree, asks to add a worktree, run parallel features, or avoid port conflicts.
+  Create and run parallel git worktrees for brain-app with shared ./data + .env
+  via symlink, and Cursor one-window-per-checkout. Use when the user invokes
+  /worktree, asks to add a worktree, or run parallel features.
 ---
 
-# Worktree + portless (brain-app)
+# Worktree (brain-app)
 
-Run **multiple branches in parallel** without fighting for port 3000. Each checkout is a separate directory; **`.env`, `.cache/enron` (Enron tarball), and `./data` symlink to the primary clone** by default (never copy). **`pnpm run dev`** uses **portless** so each worktree gets a stable HTTPS URL.
+Run **multiple branches in parallel** in separate directories. **`.env`, `.cache/enron` (Enron tarball), and `./data` symlink to the primary clone** by default (never copy).
 
-## URLs (portless)
-
-| Checkout | Typical URL |
-|----------|-------------|
-| Primary clone on `main` | `https://braintunnel.localhost:1355` |
-| Worktree on branch `feat/tool-ui` | `https://feat-tool-ui.braintunnel.localhost:1355` |
-
-Proxy listens on **1355** (no sudo). App port is auto-assigned (4000–4999). Portless sets **`PORT`** and **`PORTLESS_URL`**; `scripts/run-dev.mjs` maps **`PORTLESS_URL` → `PUBLIC_WEB_ORIGIN`** for Gmail OAuth.
-
-**Loopback escape hatch:** `pnpm run dev:direct` → `http://127.0.0.1:3000` (single instance; classic OAuth redirect).
+**Dev URL (primary clone):** `http://127.0.0.1:3000` (`pnpm run dev`). Parallel worktrees on the same machine need a **different `PORT`** in `.env.local` (e.g. `PORT=3001`) — port strategy for worktrees is not automated yet.
 
 ## Quick: add a worktree
 
@@ -51,19 +42,16 @@ nvm use && pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-## OAuth per worktree
+## OAuth
 
-1. After `pnpm run dev`, run **`pnpm exec portless get braintunnel`** in that checkout and note the HTTPS origin.
-2. Register **`{origin}/api/oauth/google/callback`** in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (see [docs/google-oauth.md](../../../docs/google-oauth.md)).
-3. Or on **secondary** worktrees use **Enron demo** (`BRAIN_ENRON_DEMO_SECRET` + `pnpm run brain:seed-enron-demo`) and skip Google on that tree.
-
-**Primary clone** should stay the “real sign-in” instance when possible.
+- **Primary clone:** Google sign-in at `http://127.0.0.1:3000` — redirect URI `http://127.0.0.1:3000/api/oauth/google/callback` ([docs/google-oauth.md](../../../docs/google-oauth.md)).
+- **Secondary worktrees:** use **Enron demo** (`BRAIN_ENRON_DEMO_SECRET` + `pnpm run brain:seed-enron-demo`) or run only one tree with Google at a time on port 3000.
 
 ## Shared cache + `./data` (default)
 
 Bootstrap **`scripts/worktree-bootstrap.mjs`** symlinks:
 
-- **`.cache/enron` → primary** — reuses the verified Enron tarball (~1.7 GiB); worktrees must not re-download.
+- **`.cache/enron` → primary** — reuses the verified Enron tarball (~1.7 GiB); worktrees must not re-download.
 - **`./data` → primary** — shared tenants, mail index, and sessions for typical feature work.
 
 - **Do not copy `./data` or the tarball** into worktrees unless the user explicitly asks (use **`--own-data`** for an isolated `./data` only; tarball cache stays shared).
@@ -111,15 +99,12 @@ Git refuses two worktrees on the **same branch** — use different branch names.
 
 | Issue | Fix |
 |-------|-----|
-| `Proxy is not running` / sudo prompt | Use **`pnpm run dev`** (sets `PORTLESS_PORT=1355`) or once: **`pnpm run dev:proxy`** |
-| `already registered by a running process` | Stop other dev in that tree: **`pnpm exec portless prune`**, or kill the PID from **`pnpm exec portless list`** |
-| OAuth redirect mismatch | Set **`PUBLIC_WEB_ORIGIN`** to match browser URL, or rely on auto **`PORTLESS_URL`** from portless |
-| Need plain port 3000 | **`pnpm run dev:direct`** in **one** checkout only |
-| TLS warnings | Once per machine: **`pnpm exec portless trust`** |
+| Port already in use | Set **`PORT=3001`** (or free 3000 with **`pnpm run dev:kill`**) in `.env.local` for the second checkout |
+| OAuth redirect mismatch | Open the same host as redirect URI (`127.0.0.1:3000`); or set **`PUBLIC_WEB_ORIGIN`** to match the browser URL |
+| Two trees, one Google session | Prefer Google on **primary** only; Enron demo on side trees |
 
 ## Related
 
 - [AGENTS.md](../../../AGENTS.md) — dev commands
 - [docs/google-oauth.md](../../../docs/google-oauth.md)
-- [portless.json](../../../portless.json)
 - [`../commit/SKILL.md`](../commit/SKILL.md)
