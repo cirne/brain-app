@@ -5,7 +5,7 @@ description: Guides pre-commit verification, scoped lint/tests per package (Node
 
 # Commit workflow (brain-app)
 
-Single-maintainer, early development: **`/commit` ends with `git fetch` + `git push`** for the current branch once checks pass and the commit succeeds—unless there is no `origin`, push fails, or fast-forward is impossible (see §4). In a **worktree** you are often on a **feature branch**; push that branch after rebasing onto `origin/main` as needed; merging to `main` may still be a separate step (PR or local merge in another checkout).
+Single-maintainer, early development: **`/commit` ends with `git fetch` + `git push`** for the current branch once checks pass and the commit succeeds—unless there is no `origin`, push fails, or fast-forward is impossible (see §4). **No pull requests** — land feature work by merging into **`main`** from the **primary** clone (see §5), then remove the worktree and delete the feature branch.
 
 ## Node.js — `nvm use` first
 
@@ -115,10 +115,7 @@ git rebase origin/main   # resolve any conflicts here; alternative: git merge or
   Use the integration branch name your team tracks if it is not `main` (e.g. `develop`).
 
 - **Publish the branch**: `git push -u origin HEAD` (first time) or `git push` (if upstream is already set).
-
-- **Land the work** on `main` according to repo habit (after the branch is pushed):
-  - **PR / review**: open or update a PR from that branch and merge via hosting (typical when others might review).
-  - **Local-first / maintainer solo**: merge from the checkout that has **`main`** checked out (`git checkout main && git merge <feature>` or `git merge --ff-only` after updating `main`), then **`git fetch origin && git pull --ff-only && git push origin main`** (same “commit then sync/push” habit). You can merge from whichever machine has **`main`** (often the **primary** worktree path, not the feature worktree)—Git does not require merging from the feature worktree directory itself.
+- **Stop after push** unless the user asked to **land on `main`** in the same turn — then run **§5** from the **primary** clone.
 
 **When not to push**
 
@@ -128,9 +125,35 @@ git rebase origin/main   # resolve any conflicts here; alternative: git merge or
 
 Do not commit secrets or large generated artifacts; match existing `.gitignore` conventions.
 
+## 5. Land on `main` (solo — no PR)
+
+After **`/commit`** on a **feature branch** (usually in a worktree), merge into **`main`** from the **primary** clone (the repo path that has `main` checked out — not the feature worktree). Do **not** open a GitHub PR unless the user explicitly asks.
+
+```sh
+# From primary clone (not the feature worktree)
+cd /path/to/brain-app
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+git merge --ff-only <feature-branch>    # e.g. feat/email-draft-forward
+git push origin main
+```
+
+Then **retire the worktree** (see **[`../worktree/SKILL.md`](../worktree/SKILL.md)** — Finish):
+
+```sh
+git worktree remove /path/to/brain-app-wt-NAME
+git branch -d <feature-branch>
+git push origin --delete <feature-branch>
+```
+
+Use **`git merge`** (not rebase) onto `main` when the feature branch was already pushed. Prefer **`--ff-only`** when `main` is a direct ancestor of the feature tip. If merge is not fast-forward, use a normal merge commit or ask the user before `--force`.
+
 ## Worktrees (Git)
 
-- **`git worktree list`** shows path → branch bindings. **`git rev-parse --show-toplevel`** is the checkout root—run `nvm use` **there** (`./data`/`BRAIN_HOME` etc. paths are clone-specific; do not merge local data across worktrees blindly).
+Full workflow (portless URLs, bootstrap, OAuth): **[`../worktree/SKILL.md`](../worktree/SKILL.md)** (`/worktree`).
+
+- **`git worktree list`** shows path → branch bindings. **`git rev-parse --show-toplevel`** is the checkout root—run `nvm use` **there**. By default **`./data` is symlinked to the primary clone** ([`../worktree/SKILL.md`](../worktree/SKILL.md)); use **`--own-data`** only when the user wants an isolated data tree.
 - A second worktree checks out **another branch** in parallel; **`git push` pushes whatever branch that worktree has checked out**.
 - Git **refuses two worktrees checking out the same branch** until you detach or swap—respect that constraint.
 - **Removing a finished worktree** is done from **any** clone of the repo, usually **after** the branch is merged and no longer needed:
@@ -150,4 +173,5 @@ git worktree remove /path/to/worktree   # or: git worktree remove --force ... if
 - [ ] UI changes: i18n keys in `src/client/lib/i18n/locales/en/*.json`, copy matches `docs/COPY_STYLE_GUIDE.md`
 - [ ] Scoped lint/tests (or full ci) all green
 - [ ] Commit message; **`git fetch origin`**, reconcile if needed (`pull --ff-only` on `main`, or `rebase origin/main` on a feature branch), then **`git push`** (see §4)
+- [ ] If landing: **§5** from primary — merge to `main`, push `main`, remove worktree, delete feature branch (no PR)
 ```
