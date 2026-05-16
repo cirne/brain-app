@@ -4,10 +4,10 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-<!-- NEXT_BUG_ID: 063 -->
-**Next bug id:** **BUG-063**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+<!-- NEXT_BUG_ID: 064 -->
+**Next bug id:** **BUG-064**. Allocate new bugs monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
-**Unified index:** The sections below mix **brain-app / desktop** regressions **and** mail-index defects. Canonical specs live here under **`bugs/`**. Older cross-repo **`BUG-*`** numbering may appear in archived notes — Rust-era mail bugs are recoverable from git tag **`ripmail-rust-before-typescript-port`** ([architecture/ripmail-rust-snapshot.md](architecture/ripmail-rust-snapshot.md)).
+> **Agent rule — ALWAYS read this file before allocating a bug ID.** Never guess or infer the next ID from the filesystem or git history. The canonical next ID is the number on the `NEXT_BUG_ID` line above. Read `docs/BUGS.md` first, use that number, then increment it here and in the new `bugs/BUG-NNN-*.md` filename in the same edit.
 
 User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039](bugs/archive/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md)**.
 
@@ -56,6 +56,9 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 
 ## Fixed (archived)
 
+### [BUG-063](bugs/archive/BUG-063-email-viewer-wrong-attachments-shown.md): Email viewer shows image attachments from a different, unrelated email
+
+**Fixed (2026-05-16).** Attachment files collided when two messages in different IMAP folders shared the same UID and filename; fixed by writing attachments into per-message subdirectories keyed on `messageId`. See [bugs/archive/BUG-063-email-viewer-wrong-attachments-shown.md](bugs/archive/BUG-063-email-viewer-wrong-attachments-shown.md).
 
 ### [BUG-061](bugs/archive/BUG-061-voice-composer-flow-missing-rounded-shell.md): Voice composer loses rounded input shell while mic is on
 

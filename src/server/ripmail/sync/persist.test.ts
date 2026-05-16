@@ -139,6 +139,51 @@ describe('persistMessage conflict updates', () => {
   })
 })
 
+describe('attachment path collision between messages with same UID', () => {
+  let db: RipmailDb
+  let home: string
+
+  beforeEach(() => {
+    db = openMemoryRipmailDb()
+    home = mkdtempSync(join(tmpdir(), 'ripmail-collision-'))
+  })
+
+  afterEach(() => {
+    db.close()
+    rmSync(home, { recursive: true, force: true })
+  })
+
+  it('two messages with same UID and same attachment filename store separate files', () => {
+    const content1 = Buffer.from('golf photo bytes')
+    const content2 = Buffer.from('medical document bytes')
+
+    const msg1 = parsedMessage({
+      messageId: 'golf@thread',
+      uid: 42,
+      folder: 'INBOX',
+      sourceId: 'src',
+      attachments: [{ filename: 'image.jpeg', mimeType: 'image/jpeg', size: content1.length, storedPath: '', content: content1 }],
+    })
+    const msg2 = parsedMessage({
+      messageId: 'medical@thread',
+      uid: 42,
+      folder: '[Gmail]/All Mail',
+      sourceId: 'src',
+      attachments: [{ filename: 'image.jpeg', mimeType: 'image/jpeg', size: content2.length, storedPath: '', content: content2 }],
+    })
+
+    persistMessage(db, msg1, home)
+    persistMessage(db, msg2, home)
+
+    const row1 = db.prepare(`SELECT stored_path FROM attachments WHERE message_id = '<golf@thread>'`).get() as { stored_path: string }
+    const row2 = db.prepare(`SELECT stored_path FROM attachments WHERE message_id = '<medical@thread>'`).get() as { stored_path: string }
+
+    expect(row1.stored_path).not.toBe(row2.stored_path)
+    expect(readFileSync(row1.stored_path)).toEqual(content1)
+    expect(readFileSync(row2.stored_path)).toEqual(content2)
+  })
+})
+
 describe('clearImapFolderMaildirAndMessages', () => {
   let db: RipmailDb
   let home: string

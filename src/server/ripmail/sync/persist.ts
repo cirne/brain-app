@@ -107,9 +107,10 @@ export function persistMessage(db: RipmailDb, msg: ParsedMessage, ripmailHome: s
     // Store attachment content if provided
     let storedPath = att.storedPath
     if (att.content && att.content.length > 0 && !storedPath) {
-      const attDir = join(ripmailHome, msg.sourceId, 'attachments')
+      const msgSlug = msg.messageId.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64)
+      const attDir = join(ripmailHome, msg.sourceId, 'attachments', msgSlug)
       mkdirSync(attDir, { recursive: true })
-      storedPath = join(attDir, `${msg.uid}-${att.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`)
+      storedPath = join(attDir, att.filename.replace(/[^a-zA-Z0-9._-]/g, '_'))
       writeFileSync(storedPath, att.content)
     }
     if (!storedPath?.trim()) continue
