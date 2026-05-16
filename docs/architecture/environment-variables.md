@@ -65,6 +65,15 @@ Grouped by area. Unless noted, omission means defaults or the feature is off.
 | **`RIPMAIL_LLM_PROVIDER`** | Optional ripmail-side LLM provider string; Brain may derive from `BRAIN_LLM` when unset ([`brainHome.ts`](../../src/server/lib/platform/brainHome.ts)). |
 | **`RIPMAIL_HOME`** | **Not a Brain knob for paths** — Brain derives tenant mail directories from layout ([`brain-layout.json`](../../shared/brain-layout.json)). If present in the host env, it is ignored for layout (warned in startup diagnostics). Only subprocess / external-CLI scenarios consult `RIPMAIL_HOME` via [`ripmailProcessEnv`](../../src/server/lib/platform/brainHome.ts). |
 
+### Slack (OPP-116 / OPP-117)
+
+| Variable | Purpose |
+|----------|---------|
+| **`SLACK_SIGNING_SECRET`** | Events API request verification; enables `POST /api/slack/events` ([`verifySlackSignature.ts`](../../src/server/lib/slack/verifySlackSignature.ts)). |
+| **`SLACK_BOT_TOKEN`** | Bot `chat.postMessage` fallback until workspace install stores a per-team token in global SQLite ([`slackConnectionsRepo.ts`](../../src/server/lib/slack/slackConnectionsRepo.ts)). |
+| **`SLACK_CLIENT_ID`** / **`SLACK_CLIENT_SECRET`** | Workspace install + user link OAuth ([`slackOAuth.ts`](../../src/server/routes/slackOAuth.ts)). Redirect: `http://127.0.0.1:PORT/api/slack/oauth/callback` (register in Slack app; use **`PUBLIC_WEB_ORIGIN`** when the browser origin differs). |
+| **`CLOUDFLARE_TUNNEL_TOKEN`** | Named dev tunnel (`brain.chatdnd.io`) so Slack can reach `/api/slack/events` during local dev ([OPP-116 runbook](../opportunities/archive/OPP-116-slack-hello-world-app.md)). |
+
 ### LLM and agent tiers
 
 | Variable | Purpose |

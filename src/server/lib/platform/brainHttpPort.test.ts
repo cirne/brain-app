@@ -3,8 +3,10 @@ import { Hono } from 'hono'
 import {
   BRAIN_DEFAULT_HTTP_PORT,
   GOOGLE_OAUTH_CALLBACK_PATH,
+  SLACK_OAUTH_CALLBACK_PATH,
   googleOAuthRedirectUri,
   oauthRedirectListenPort,
+  slackOAuthRedirectUri,
 } from './brainHttpPort.js'
 
 describe('brainHttpPort', () => {
@@ -31,6 +33,13 @@ describe('brainHttpPort', () => {
 
   it('default listen port is 3000', () => {
     expect(BRAIN_DEFAULT_HTTP_PORT).toBe(3000)
+  })
+
+  it('Slack OAuth redirect follows PORT (or 3000)', () => {
+    expect(slackOAuthRedirectUri()).toBe(`http://127.0.0.1:3000${SLACK_OAUTH_CALLBACK_PATH}`)
+    process.env.PORT = '4001'
+    expect(slackOAuthRedirectUri()).toBe(`http://127.0.0.1:4001${SLACK_OAUTH_CALLBACK_PATH}`)
+    delete process.env.PORT
   })
 
   it('OAuth redirect follows PORT (or 3000)', () => {

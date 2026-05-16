@@ -1,19 +1,18 @@
 import { Hono } from 'hono'
-import {
-  isSlackEventsConfigured,
-  scheduleSlackHelloWorldEvent,
-} from '@server/lib/slack/slackHelloWorld.js'
+import { isSlackEventsConfigured } from '@server/lib/slack/slackHelloWorld.js'
 import { verifySlackSignature } from '@server/lib/slack/verifySlackSignature.js'
+import { scheduleSlackMessagingEvent } from '@server/lib/messaging/adapters/slack.js'
 
 type SlackEnvelope = {
   type?: string
   challenge?: string
   event?: unknown
+  team_id?: string
 }
 
 const slack = new Hono()
 
-/** Slack Events API — POST /api/slack/events (OPP-116 hello world). */
+/** Slack Events API — POST /api/slack/events (OPP-117 adapter). */
 slack.post('/events', async (c) => {
   if (!isSlackEventsConfigured()) {
     return c.text('slack_not_configured', 503)
@@ -45,7 +44,7 @@ slack.post('/events', async (c) => {
   }
 
   if (envelope.type === 'event_callback' && envelope.event) {
-    scheduleSlackHelloWorldEvent(envelope.event)
+    scheduleSlackMessagingEvent(envelope.event, envelope.team_id)
   }
 
   return c.body(null, 200)

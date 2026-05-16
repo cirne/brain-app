@@ -12,6 +12,7 @@
   } from '@client/lib/hub/hubRipmailSource.js'
   import { sortHubRipmailSources } from '@client/lib/hub/hubSourceOrdering.js'
   import { t } from '@client/lib/i18n/index.js'
+  import SettingsSlackConnection from '@components/settings/SettingsSlackConnection.svelte'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -163,6 +164,7 @@
         </button>
       {/each}
     {/if}
+    <SettingsSlackConnection />
     <button type="button" class={cn(linkItemBase, 'hub-source-row')} onclick={startAddAnotherGmail}>
       <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
         <HubSourceRowBody

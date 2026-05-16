@@ -1,9 +1,9 @@
 # Slack personal ambassador — your Brain in your team's Slack
 
-**Status:** Active — hello-world spike shipped (dev); identity + adapter in progress  
+**Status:** Active — foundation shipped (OPP-116/117 dev); ambassador Phase 1 in progress (OPP-118)  
 **Index:** [IDEAS.md](../IDEAS.md)  
 **Shipped spike:** [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md) (Events API hello world, dev only; staging deferred)  
-**Current OPP:** [OPP-117](../opportunities/OPP-117-slack-identity-and-messaging-adapter.md) (workspace + user OAuth link, messaging core, Slack adapter)  
+**Current OPP:** [OPP-118](../opportunities/OPP-118-slack-ambassador-dm-phase-1.md) (Slack DM delegated **assistant** replies + Block Kit approval; UI: assistant/tunnel, not “ambassador”)  
 **Relates to:** [VISION.md](../VISION.md) (context engine), [STRATEGY.md](../STRATEGY.md) (trust moat), **[IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)** (B2B tunnel model; Slack is a new intake channel for the same draft→review→send flow), **[IDEA-anticipatory-assistant-brief](IDEA-anticipatory-assistant-brief.md)** (Slack approval notifications appear in the brief queue; same notification substrate), [IDEA-local-bridge-agent](IDEA-local-bridge-agent.md) (desktop idle detection for presence-aware auto-reply toggle)
 
 ---
@@ -349,9 +349,9 @@ This also provides a path into B2B sales: a champion at a company activates Brai
 
 **Spike (shipped — [archived OPP-116](../opportunities/archive/OPP-116-slack-hello-world-app.md)):** hello world bot only (dev). Staging verification deferred.
 
-**Foundation ([OPP-117](../opportunities/OPP-117-slack-identity-and-messaging-adapter.md)):** workspace install + user link, `MessagingQuery` + Slack adapter (hello-world behavior only).
+**Foundation ([archived OPP-117](../opportunities/archive/OPP-117-slack-identity-and-messaging-adapter.md)):** workspace install + user link, `MessagingQuery` + Slack adapter (hello-world behavior only).
 
-When ready to implement product phases after OPP-117, this idea should be sliced into roughly these phases:
+When ready to implement product phases after OPP-118, this idea should be sliced into roughly these phases:
 
 **Phase 1 — Bot + explicit toggle + default policy + DM only + messaging core**
 

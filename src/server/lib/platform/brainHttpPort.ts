@@ -11,6 +11,9 @@ export const BRAIN_DEFAULT_HTTP_PORT = 3000
 /** Path segment for Gmail OAuth callback (mounted under `/api/oauth/google` in Hono). */
 export const GOOGLE_OAUTH_CALLBACK_PATH = '/api/oauth/google/callback'
 
+/** Slack OAuth callback (mounted under `/api/slack/oauth` in Hono). */
+export const SLACK_OAUTH_CALLBACK_PATH = '/api/slack/oauth/callback'
+
 /**
  * Port embedded in the Google OAuth redirect URI. Must match the URL the browser uses after consent.
  */
@@ -60,4 +63,19 @@ export function googleOAuthRedirectUri(c?: Context): string {
   }
   const scheme = NON_BUNDLED_EMBEDDED_SERVER_SCHEME
   return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`
+}
+
+function slackOAuthOrigin(c?: Context): string {
+  const publicOrigin = process.env.PUBLIC_WEB_ORIGIN?.trim().replace(/\/$/, '')
+  if (publicOrigin) return publicOrigin
+  if (c) {
+    const inferred = inferPublicOriginFromForwardedHeaders(c)
+    if (inferred) return inferred
+  }
+  const scheme = NON_BUNDLED_EMBEDDED_SERVER_SCHEME
+  return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}`
+}
+
+export function slackOAuthRedirectUri(c?: Context): string {
+  return `${slackOAuthOrigin(c)}${SLACK_OAUTH_CALLBACK_PATH}`
 }

@@ -7,8 +7,9 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
  * Bump when `brain-global.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  * Version 9: `brain_query_custom_policies` + grants use XOR `preset_policy_key` | `custom_policy_id`; file recreated.
  * Version 10: `brain_query_custom_policies.label` → `title` (display title for custom policies); file recreated.
+ * Version 11: Slack workspace install + per-user Slack identity links (OPP-117).
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 10
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 11
 
 /**
  * Cross-tenant metadata (brain-query delegation grants; tenant-registry migration later).
@@ -74,6 +75,25 @@ CREATE TABLE cold_query_rate_limits (
   sent_at_ms       INTEGER NOT NULL,
   PRIMARY KEY (sender_handle, receiver_handle)
 );
+
+CREATE TABLE slack_workspaces (
+  slack_team_id              TEXT PRIMARY KEY,
+  team_name                  TEXT NOT NULL,
+  installer_tenant_user_id   TEXT NOT NULL,
+  bot_token                  TEXT NOT NULL,
+  installed_at_ms            INTEGER NOT NULL
+);
+
+CREATE TABLE slack_user_links (
+  slack_team_id    TEXT NOT NULL,
+  slack_user_id    TEXT NOT NULL,
+  tenant_user_id   TEXT NOT NULL,
+  slack_email      TEXT,
+  linked_at_ms     INTEGER NOT NULL,
+  PRIMARY KEY (slack_team_id, slack_user_id)
+);
+CREATE INDEX idx_slack_user_links_tenant ON slack_user_links(tenant_user_id);
+CREATE INDEX idx_slack_user_links_team ON slack_user_links(slack_team_id);
 `)
   })()
 }

@@ -30,8 +30,11 @@ import devicesRoute from './routes/devices.js'
 import ingestRoute from './routes/ingest.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
 import slackRoute from './routes/slack.js'
+import slackOAuthRoute from './routes/slackOAuth.js'
+import slackConnectionRoute from './routes/slackConnection.js'
 import { createDevApiRouter } from './routes/devApi.js'
 import { isSlackEventsConfigured } from './lib/slack/slackHelloWorld.js'
+import { isSlackOAuthConfigured } from './lib/slack/slackConnectionsRepo.js'
 
 /** Mount all API (and related) routes on the main Hono app — single place for `app.route` prefixes. */
 export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void {
@@ -68,6 +71,10 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   if (isSlackEventsConfigured()) {
     app.route('/api/slack', slackRoute)
   }
+  if (isSlackOAuthConfigured()) {
+    app.route('/api/slack/oauth', slackOAuthRoute)
+  }
+  app.route('/api/slack', slackConnectionRoute)
   app.route('/oauth/google', oauthGoogleBrowserPages)
   if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
     app.route('/api/debug', debugRipmailChildrenRoute)

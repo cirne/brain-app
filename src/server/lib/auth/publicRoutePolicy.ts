@@ -30,6 +30,7 @@ export function isSlackWebhookPublicPath(path: string, method: string): boolean 
 
 export function isTenantBootstrapPublicPath(path: string, method: string): boolean {
   if (path.startsWith('/api/oauth/google')) return true
+  if (path.startsWith('/api/slack/oauth/callback')) return true
   if (isVaultPublicRoute(path, method)) return true
   if (isOnboardingStatusPublicPath(path, method)) return true
   if (isEnronDemoPublicApiPath(path, method)) return true
