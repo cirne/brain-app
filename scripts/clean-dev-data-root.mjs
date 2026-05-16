@@ -7,8 +7,8 @@
  * Usage: npm run dev:clean
  * Optional: BRAIN_DATA_ROOT=/custom/path npm run dev:clean
  */
-import { existsSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
+import { existsSync, lstatSync } from 'node:fs'
+import { rm, unlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -16,15 +16,26 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(__dirname, '..')
 
 const envRoot = process.env.BRAIN_DATA_ROOT?.trim()
-const dataRoot = envRoot ? resolve(repoRoot, envRoot) : resolve(repoRoot, 'data')
+const dataPath = envRoot ? resolve(repoRoot, envRoot) : join(repoRoot, 'data')
 
 async function main() {
-  if (!existsSync(dataRoot)) {
-    console.log(`[dev:clean] nothing to remove (no ${dataRoot}).`)
+  if (!existsSync(dataPath)) {
+    console.log(`[dev:clean] nothing to remove (no ${dataPath}).`)
     return
   }
-  console.log(`[dev:clean] removing ${dataRoot}`)
-  await rm(dataRoot, { recursive: true, force: true })
+
+  const stat = lstatSync(dataPath)
+  if (stat.isSymbolicLink()) {
+    console.log(
+      `[dev:clean] ./data is a symlink (shared worktree data) — removing link only: ${dataPath}`,
+    )
+    await unlink(dataPath)
+    console.log('[dev:clean] done (primary data tree unchanged).')
+    return
+  }
+
+  console.log(`[dev:clean] removing ${dataPath}`)
+  await rm(dataPath, { recursive: true, force: true })
   console.log('[dev:clean] done.')
 }
 

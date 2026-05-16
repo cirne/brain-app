@@ -53,7 +53,8 @@ Wrong Node version breaks native addons (e.g. `better-sqlite3` during `pnpm inst
 nvm use
 corepack enable
 pnpm install
-pnpm run dev           # BRAIN_DATA_ROOT=./data; Hono + Vite on one port (see docs/google-oauth.md)
+pnpm run dev           # portless → https://braintunnel.localhost:1355 (worktree: https://<branch>.braintunnel.localhost:1355); sets PORT + PUBLIC_WEB_ORIGIN via PORTLESS_URL
+pnpm run dev:direct    # loopback only http://127.0.0.1:3000 (no portless; see docs/google-oauth.md)
 pnpm run dev:clean     # delete ./data (all tenants + .global/) — full wipe
 ```
 

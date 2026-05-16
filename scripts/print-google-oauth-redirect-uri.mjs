@@ -20,14 +20,21 @@ function readPortFromFile(relPath, constName) {
   return null
 }
 
-const devDefault = readPortFromFile('src/server/lib/brainHttpPort.ts', 'BRAIN_DEFAULT_HTTP_PORT')
-const bundled = readPortFromFile('src/server/lib/nativeAppPort.ts', 'NATIVE_APP_PORT_START')
+const devDefault = readPortFromFile(
+  'src/server/lib/platform/brainHttpPort.ts',
+  'BRAIN_DEFAULT_HTTP_PORT',
+)
+const bundled = readPortFromFile('src/server/lib/apple/nativeAppPort.ts', 'NATIVE_APP_PORT_START')
 const path = '/api/oauth/google/callback'
 
 const devPort = devDefault ?? 3000
 const nativePort = bundled ?? 18473
 
-console.log(`Dev / npm run dev (default PORT): http://127.0.0.1:${devPort}${path}`)
+console.log(`Dev / pnpm run dev:direct (default PORT): http://127.0.0.1:${devPort}${path}`)
+console.log(
+  `Dev / pnpm run dev (portless):         \${PUBLIC_WEB_ORIGIN or PORTLESS_URL}/api/oauth/google/callback`,
+)
+console.log(`  e.g. https://braintunnel.localhost:1355${path} (register in Google Console)`)
 console.log(
   `With PUBLIC_WEB_ORIGIN (e.g. Docker):  \${PUBLIC_WEB_ORIGIN}/api/oauth/google/callback`,
 )

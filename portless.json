@@ -1,0 +1,4 @@
+{
+  "name": "braintunnel",
+  "script": "dev:server"
+}
