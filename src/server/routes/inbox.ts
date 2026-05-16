@@ -17,12 +17,16 @@ import {
   ripmailResolveEntryJson,
 } from '@server/ripmail/index.js'
 import { DraftSourceMessageNotFoundError } from '@server/ripmail/draft.js'
+import { DraftRecipientResolutionError } from '@server/ripmail/draftRecipient.js'
 
 const inbox = new Hono()
 
-function draftCreateErrorResponse(err: unknown): { error: string; status: 404 | 500 } {
+function draftCreateErrorResponse(err: unknown): { error: string; status: 400 | 404 | 500 } {
   if (err instanceof DraftSourceMessageNotFoundError) {
     return { error: err.message, status: 404 }
+  }
+  if (err instanceof DraftRecipientResolutionError) {
+    return { error: err.message, status: 400 }
   }
   return { error: err instanceof Error ? err.message : String(err), status: 500 }
 }
@@ -148,7 +152,7 @@ inbox.patch('/draft/:draftId', async (c) => {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 400)
   }
   try {
-    const draft = ripmailDraftEdit(ripmailHomeForBrain(), draftId, {
+    const draft = await ripmailDraftEdit(ripmailHomeForBrain(), draftId, {
       body: rec.body,
       subject: subjectArg,
       to: toArg,
@@ -157,6 +161,10 @@ inbox.patch('/draft/:draftId', async (c) => {
     })
     return c.json(draft)
   } catch (err) {
+    if (err instanceof DraftRecipientResolutionError) {
+      const { error, status } = draftCreateErrorResponse(err)
+      return c.json({ error }, status)
+    }
     return c.json({ error: String(err) }, 500)
   }
 })

@@ -21,4 +21,21 @@ describe('checkExpect', () => {
     expect(failed.ok).toBe(false)
     expect(failed.reasons[0]).toContain('forbidden substring')
   })
+
+  it('supports toolResultExcludes on concatenated tool output', async () => {
+    const ok = await checkExpect(
+      { kind: 'toolResultExcludes', substring: 'To: team_macrum_eval_nope', caseInsensitive: true },
+      '',
+      'Draft id: abc\nTo: janet.butler@enron.com',
+    )
+    expect(ok.ok).toBe(true)
+
+    const failed = await checkExpect(
+      { kind: 'toolResultExcludes', substring: 'To: team_macrum_eval_nope', caseInsensitive: true },
+      '',
+      'To: team_macrum_eval_nope',
+    )
+    expect(failed.ok).toBe(false)
+    expect(failed.reasons[0]).toContain('forbidden substring')
+  })
 })

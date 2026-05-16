@@ -1143,7 +1143,7 @@ describe('draft', () => {
 
   it('edits subject and recipient', () => {
     const d = draftNew(db, tmpHome, { to: 'bob@example.com', subject: 'Hi', body: 'Say hello.' })
-    const edited = draftEdit(tmpHome, d.id, { subject: 'Custom subject', addCc: ['cc@example.com'] })
+    const edited = draftEdit(db, tmpHome, d.id, { subject: 'Custom subject', addCc: ['cc@example.com'] })
     expect(edited.subject).toBe('Custom subject')
     expect(edited.cc).toContain('cc@example.com')
   })

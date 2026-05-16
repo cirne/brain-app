@@ -421,8 +421,13 @@ export async function ripmailDraftForward(ripmailHome: string, opts: import('./d
 }
 
 /** Edit draft. */
-export function ripmailDraftEdit(ripmailHome: string, draftId: string, opts: import('./draft.js').EditDraftOptions) {
-  return draftEdit(ripmailHome, draftId, opts)
+export async function ripmailDraftEdit(
+  ripmailHome: string,
+  draftId: string,
+  opts: import('./draft.js').EditDraftOptions,
+) {
+  const db = await prepareRipmailDb(ripmailHome)
+  return draftEdit(db, ripmailHome, draftId, opts)
 }
 
 /** Delete draft file on disk. */

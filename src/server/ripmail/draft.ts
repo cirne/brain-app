@@ -13,6 +13,7 @@ import { ensureBraintunnelCollaboratorSubject } from '@shared/braintunnelMailMar
 import type { Draft, ReadMailResult } from './types.js'
 import type { RipmailDb } from './db.js'
 import { listMessageIdsInThreadThrough, readMail } from './mailRead.js'
+import { resolveDraftRecipient, resolveDraftRecipients } from './draftRecipient.js'
 import { getImapSources, loadRipmailConfig } from './sync/config.js'
 
 type DraftSourceAction = 'reply' | 'forward'
@@ -162,6 +163,58 @@ function resolveQuotedBodyText(original: ReadMailResult): string {
  * Builds reply body: new text, then for each indexed message in the thread (oldest → replied-to),
  * a standard "On … wrote:" line and `>`-quoted plaintext. Exported for tests.
  */
+function formatForwardDateLine(dateIso: string): string {
+  const dt = new Date(dateIso)
+  if (Number.isNaN(dt.getTime())) return dateIso.trim()
+  return dt.toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function formatForwardFromLine(original: ReadMailResult): string {
+  const email = original.fromAddress.trim()
+  const name = original.fromName?.trim()
+  return name ? `${name} <${email}>` : email
+}
+
+function formatAddressList(addrs: string[]): string {
+  return addrs.map((a) => a.trim()).filter(Boolean).join(', ')
+}
+
+/**
+ * Builds forward body: new text, then a standard forwarded-message block from the index.
+ * Exported for tests.
+ */
+export function buildForwardDraftBodyWithQuotedMessage(
+  db: RipmailDb,
+  newMessageBody: string,
+  messageId: string,
+): string {
+  const top = newMessageBody.trimEnd()
+  const msg = readMail(db, messageId, { includeAttachments: false, includeHtml: true })
+  if (!msg) return top
+
+  const body = resolveQuotedBodyText(msg)
+  const toLine = formatAddressList(msg.toAddresses)
+  const ccLine = formatAddressList(msg.ccAddresses)
+  const headerLines = [
+    '---------- Forwarded message ---------',
+    `From: ${formatForwardFromLine(msg)}`,
+    `Date: ${formatForwardDateLine(msg.date)}`,
+    `Subject: ${msg.subject.trim()}`,
+  ]
+  if (toLine) headerLines.push(`To: ${toLine}`)
+  if (ccLine) headerLines.push(`Cc: ${ccLine}`)
+  const forwardedBlock = `${headerLines.join('\n')}\n\n${body.length > 0 ? body : '(no text in original message)'}`
+  return `${top}\n\n${forwardedBlock}`
+}
+
 export function buildReplyDraftBodyWithQuotedThread(
   db: RipmailDb,
   newMessageBody: string,
@@ -206,15 +259,16 @@ function resolveMailboxOwnerAddress(
 /**
  * Create a new draft from explicit RFC-style fields.
  */
-export function draftNew(_db: RipmailDb, ripmailHome: string, opts: NewDraftOptions): Draft {
+export function draftNew(db: RipmailDb, ripmailHome: string, opts: NewDraftOptions): Draft {
   const now = new Date().toISOString()
   const subject =
     opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(opts.subject) : opts.subject
+  const toResolved = resolveDraftRecipient(db, opts.to)
   const draft: Draft = {
     id: randomUUID(),
     subject,
     body: opts.body,
-    to: [opts.to],
+    to: [toResolved],
     sourceId: opts.sourceId,
     createdAt: now,
     updatedAt: now,
@@ -283,7 +337,7 @@ export function draftReply(db: RipmailDb, ripmailHome: string, opts: ReplyDraftO
  */
 export function draftForward(db: RipmailDb, ripmailHome: string, opts: ForwardDraftOptions): Draft {
   const messageId = opts.messageId.trim()
-  const original = readMail(db, messageId, { plainBody: false, includeAttachments: false })
+  const original = readMail(db, messageId, { includeAttachments: false, includeHtml: true })
   if (!original) throw new DraftSourceMessageNotFoundError('forward', messageId)
 
   const now = new Date().toISOString()
@@ -291,11 +345,13 @@ export function draftForward(db: RipmailDb, ripmailHome: string, opts: ForwardDr
   const rawSubject = opts.subject ?? defaultSubject
   const subject =
     opts.braintunnelCollaborator === true ? ensureBraintunnelCollaboratorSubject(rawSubject) : rawSubject
+  const toResolved = resolveDraftRecipient(db, opts.to)
+  const fullBody = buildForwardDraftBodyWithQuotedMessage(db, opts.body, original.messageId)
   const draft: Draft = {
     id: randomUUID(),
     subject,
-    body: opts.body,
-    to: [opts.to],
+    body: fullBody,
+    to: [toResolved],
     forwardMessageId: original.messageId,
     sourceId: opts.sourceId,
     createdAt: now,
@@ -308,7 +364,7 @@ export function draftForward(db: RipmailDb, ripmailHome: string, opts: ForwardDr
 /**
  * Edit an existing draft.
  */
-export function draftEdit(ripmailHome: string, draftId: string, opts: EditDraftOptions): Draft {
+export function draftEdit(db: RipmailDb, ripmailHome: string, draftId: string, opts: EditDraftOptions): Draft {
   const draft = loadDraft(ripmailHome, draftId)
   if (!draft) throw new Error(`Draft not found: ${draftId}`)
   const now = new Date().toISOString()
@@ -328,12 +384,21 @@ export function draftEdit(ripmailHome: string, draftId: string, opts: EditDraftO
     return result.length > 0 ? result : undefined
   }
 
+  function resolveList(list: string[] | undefined): string[] | undefined {
+    if (!list?.length) return undefined
+    return resolveDraftRecipients(db, list)
+  }
+
+  const toNext = applyRecipientEdits(draft.to, opts.to, opts.addTo, opts.removeTo)
+  const ccNext = applyRecipientEdits(draft.cc, opts.cc, opts.addCc, opts.removeCc)
+  const bccNext = applyRecipientEdits(draft.bcc, opts.bcc, opts.addBcc, opts.removeBcc)
+
   const updated: Draft = {
     ...draft,
     subject: opts.subject ?? draft.subject,
-    to: applyRecipientEdits(draft.to, opts.to, opts.addTo, opts.removeTo),
-    cc: applyRecipientEdits(draft.cc, opts.cc, opts.addCc, opts.removeCc),
-    bcc: applyRecipientEdits(draft.bcc, opts.bcc, opts.addBcc, opts.removeBcc),
+    to: resolveList(toNext),
+    cc: resolveList(ccNext),
+    bcc: resolveList(bccNext),
     body: opts.body !== undefined ? opts.body : draft.body,
     updatedAt: now,
   }

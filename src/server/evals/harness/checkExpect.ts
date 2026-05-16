@@ -66,6 +66,16 @@ async function checkExpectInner(
       }
       return true
     }
+    case 'toolResultExcludes': {
+      const ins = expect.caseInsensitive === true
+      const need = norm(expect.substring, ins)
+      const hay = norm(toolTextConcat, ins)
+      if (hay.includes(need)) {
+        reasons.push(`tool result includes forbidden substring: ${JSON.stringify(expect.substring)}`)
+        return false
+      }
+      return true
+    }
     case 'finalTextIncludes': {
       const ins = expect.caseInsensitive === true
       const need = norm(expect.substring, ins)

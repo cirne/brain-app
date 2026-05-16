@@ -20,6 +20,11 @@ export type EvalExpect =
       caseInsensitive?: boolean
     }
   | {
+      kind: 'toolResultExcludes'
+      substring: string
+      caseInsensitive?: boolean
+    }
+  | {
       kind: 'finalTextIncludes'
       substring: string
       caseInsensitive?: boolean

@@ -242,10 +242,14 @@ describe('ripmail draft reply/forward source validation', () => {
     expect(draftList(ripmailHome)).toEqual([])
   })
 
-  it('creates a forward draft from the indexed source message', () => {
+  it('creates a forward draft with cover note and forwarded original from the index', () => {
     insertMessage({
       messageId: '<msg-2>',
+      fromAddress: 'sender@example.com',
+      fromName: 'Sender',
       subject: 'Travel receipt',
+      bodyText: 'Receipt attached.',
+      toAddresses: ['me@example.com'],
     })
 
     const draft = draftForward(db, ripmailHome, {
@@ -256,10 +260,14 @@ describe('ripmail draft reply/forward source validation', () => {
 
     expect(draft).toMatchObject({
       subject: 'Fwd: Travel receipt',
-      body: 'FYI.',
       to: ['charlie@example.com'],
       forwardMessageId: 'msg-2',
     })
+    expect(draft.body).toContain('FYI.')
+    expect(draft.body).toContain('---------- Forwarded message ---------')
+    expect(draft.body).toContain('From: Sender <sender@example.com>')
+    expect(draft.body).toContain('Subject: Travel receipt')
+    expect(draft.body).toContain('Receipt attached.')
   })
 
   it('defaults replies to reply-all recipients while excluding sender duplicates and my mailbox', () => {

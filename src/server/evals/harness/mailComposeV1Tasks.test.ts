@@ -15,7 +15,7 @@ describe('mail-compose-v1 task file', () => {
 
   it('loads cases with compose- ids', async () => {
     const tasks = await loadEnronV1TasksFromFile(taskFile)
-    expect(tasks.length).toBeGreaterThanOrEqual(4)
+    expect(tasks.length).toBeGreaterThanOrEqual(6)
     for (const t of tasks) {
       expect(t.id).toMatch(/^compose-/)
       expect(t.userMessage.length).toBeGreaterThan(20)
@@ -54,5 +54,46 @@ describe('mail-compose-v1 task file', () => {
       'suggest_reply_options',
     ])
     expect(r.ok, r.reasons.join('; ')).toBe(true)
+  })
+
+  it('compose-005: forward PR2 mail to Janet passes tightened expects', async () => {
+    const tasks = await loadEnronV1TasksFromFile(taskFile)
+    const t = tasks.find((x) => x.id === 'compose-005-forward-pr2-to-janet')
+    expect(t).toBeDefined()
+    const haystack = [
+      '{"messageId":"21182718.1075849864368.JavaMail.evans@thyme"}',
+      'Draft is saved in the app.',
+      'Draft id: draft-forward-eval',
+      'Subject: Fwd: PR2 Access',
+      'To: janet.butler@enron.com',
+    ].join('\n')
+    const r = await checkExpect(t!.expect, 'Forward draft saved.', haystack, [
+      'search_index',
+      'read_mail_message',
+      'draft_email',
+    ])
+    expect(r.ok, r.reasons.join('; ')).toBe(true)
+  })
+
+  it('compose-006: unresolved forward recipient must not appear on To line', async () => {
+    const tasks = await loadEnronV1TasksFromFile(taskFile)
+    const t = tasks.find((x) => x.id === 'compose-006-forward-unresolved-recipient')
+    expect(t).toBeDefined()
+    const haystack = [
+      'No email address found for "team_macrum_eval_nope".',
+      'Use the find_person tool',
+    ].join('\n')
+    const r = await checkExpect(t!.expect, 'Use find_person to resolve the address.', haystack, [
+      'search_index',
+      'draft_email',
+    ])
+    expect(r.ok, r.reasons.join('; ')).toBe(true)
+    const badTo = await checkExpect(
+      { kind: 'toolResultExcludes', substring: 'To: team_macrum_eval_nope', caseInsensitive: true },
+      '',
+      'Draft id: x\nTo: team_macrum_eval_nope',
+      [],
+    )
+    expect(badTo.ok).toBe(false)
   })
 })

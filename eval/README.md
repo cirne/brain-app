@@ -160,7 +160,7 @@ After the trace matches intent:
 
 ## Mail compose v1 (`draft_email`)
 
-Single-turn tasks in [`tasks/mail-compose-v1.jsonl`](tasks/mail-compose-v1.jsonl) exercise **search/read → `draft_email`** (reply or new) on the **Steve Kean** default tenant (`usr_enrondemo00000000001` / `kean-s`), same as Enron v1. Prompts ask for **draft only** (no send). Real sends stay **dry-run** via default `EVAL_RIPMAIL_SEND_DRY_RUN=1`.
+Single-turn tasks in [`tasks/mail-compose-v1.jsonl`](tasks/mail-compose-v1.jsonl) exercise **search/read → `draft_email`** (reply, new, or forward) on the **Steve Kean** default tenant (`usr_enrondemo00000000001` / `kean-s`), same as Enron v1. Prompts ask for **draft only** (no send). Real sends stay **dry-run** via default `EVAL_RIPMAIL_SEND_DRY_RUN=1`. Cases **compose-005** / **compose-006** cover forward metadata and unresolved-recipient handling (`toolResultExcludes` for invalid `To:` lines).
 
 | Env | Purpose |
 |-----|---------|

@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import nodemailer from 'nodemailer'
 import type { Draft } from './types.js'
+import { assertDraftRecipientsValid } from './draftRecipient.js'
 import { loadRipmailConfig, getImapSources, loadImapPassword, loadGoogleOAuthTokens } from './sync/config.js'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 
@@ -165,6 +166,7 @@ async function sendViaGmailApi(
 export async function send(ripmailHome: string, draftId: string, opts?: SendOptions): Promise<SendResult> {
   const draft = loadDraft(ripmailHome, draftId)
   if (!draft) throw new Error(`Draft not found: ${draftId}`)
+  assertDraftRecipientsValid(draft)
 
   if (opts?.dryRun) {
     return {
