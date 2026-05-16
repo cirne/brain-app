@@ -4,7 +4,11 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { upsertSlackUserLink, upsertSlackWorkspace } from '@server/lib/slack/slackConnectionsRepo.js'
-import { dispatchHelloResponse, isWhoHasBraintunnelQuery } from './helloDispatcher.js'
+import {
+  dispatchHelloResponse,
+  isWhoHasBraintunnelQuery,
+  resolveOwnerFromSlackMentions,
+} from './helloDispatcher.js'
 import type { MessagingQuery } from './types.js'
 import { parseFirstSlackUserMention } from './parseSlackMention.js'
 
@@ -74,13 +78,61 @@ describe('helloDispatcher', () => {
     if (r.kind === 'text') expect(r.text).toContain('has not linked')
   })
 
-  it('channel mention returns hello text', async () => {
-    const r = await dispatchHelloResponse({
-      ...dmQuery(''),
-      venue: 'public_channel',
+  it('ignores bot @mention and routes to self when requester is the subject', () => {
+    upsertSlackUserLink({
+      slackTeamId: 'T1',
+      slackUserId: 'U_REQ',
+      tenantUserId: 'usr_req',
     })
-    expect(r.kind).toBe('text')
-    if (r.kind === 'text') expect(r.text).toContain('hello-world')
+    const r = resolveOwnerFromSlackMentions({
+      text: '<@UBOT> is <@U_REQ> available to meet tuesday?',
+      slackTeamId: 'T1',
+      requesterSlackUserId: 'U_REQ',
+      botSlackUserId: 'UBOT',
+    })
+    expect(r).toBeNull()
+  })
+
+  it('channel invoke with only bot mention falls through to self via dispatch', async () => {
+    upsertSlackUserLink({
+      slackTeamId: 'T1',
+      slackUserId: 'U_REQ',
+      tenantUserId: 'usr_req',
+    })
+    const r = await dispatchHelloResponse(
+      {
+        ...dmQuery('<@UBOT> is <@U_REQ> available to meet tuesday?'),
+        venue: 'private_group',
+        channelId: 'G1',
+      },
+      { botSlackUserId: 'UBOT' },
+    )
+    expect(r.kind).toBe('agentRun')
+    if (r.kind === 'agentRun') {
+      expect(r.ownerSlackUserId).toBe('U_REQ')
+      expect(r.ownerTenantUserId).toBe('usr_req')
+    }
+  })
+
+  it('channel @mention with linked target returns agentRun (skips leading bot mention)', async () => {
+    upsertSlackUserLink({
+      slackTeamId: 'T1',
+      slackUserId: 'UOWNER1',
+      tenantUserId: 'usr_owner',
+    })
+    const r = await dispatchHelloResponse(
+      {
+        ...dmQuery('<@UBOT> summarize <@UOWNER1> zoom meetings from last week'),
+        venue: 'private_group',
+        channelId: 'G_PRIVATE',
+      },
+      { botSlackUserId: 'UBOT' },
+    )
+    expect(r.kind).toBe('agentRun')
+    if (r.kind === 'agentRun') {
+      expect(r.ownerSlackUserId).toBe('UOWNER1')
+      expect(r.ownerTenantUserId).toBe('usr_owner')
+    }
   })
 
   it('linked mention target returns agentRun with ownerTenantUserId', async () => {

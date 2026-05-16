@@ -58,6 +58,8 @@ export type SlackSessionDelivery = {
   requesterSlackUserId: string
   requesterChannelId: string
   requesterThreadTs?: string
+  /** dm | private_group | public_channel */
+  requesterVenue?: 'dm' | 'private_group' | 'public_channel'
   ownerSlackUserId: string
   ownerApprovalChannelId: string
   /** message_ts of the Block Kit — set after sendApprovalRequest. */

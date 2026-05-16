@@ -13,8 +13,7 @@ export type IntegrationAgentOptions = {
   channel: 'slack'
   ownerDisplayName: string
   ownerHandle?: string | null
-  /** 'dm' only for Phase 1 — channel @mention is Phase 2. */
-  venue: 'dm'
+  venue: 'dm' | 'channel'
   workspaceName?: string
   requesterDisplayHint?: string
   timezone?: string

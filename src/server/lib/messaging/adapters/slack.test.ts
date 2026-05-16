@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseSlackEvent, parseSlackInteraction, buildApprovalBlocks } from './slack.js'
+import {
+  parseSlackEvent,
+  parseSlackInteraction,
+  buildApprovalBlocks,
+  slackVenueForChannelId,
+} from './slack.js'
 import type { ApprovalDraft } from '../types.js'
 
 describe('parseSlackEvent', () => {
@@ -18,6 +23,26 @@ describe('parseSlackEvent', () => {
     expect(q?.slackTeamId).toBe('T_TEAM')
     expect(q?.threadTs).toBe('111.222')
     expect(q?.channelId).toBe('C1')
+  })
+
+  it('maps private channel app_mention to private_group venue', () => {
+    const q = parseSlackEvent(
+      {
+        type: 'app_mention',
+        user: 'U1',
+        channel: 'G_PRIVATE',
+        text: '<@B1> hi',
+        ts: '111.222',
+      },
+      'T_TEAM',
+    )
+    expect(q?.venue).toBe('private_group')
+  })
+
+  it('slackVenueForChannelId uses G/C/D prefixes', () => {
+    expect(slackVenueForChannelId('G123')).toBe('private_group')
+    expect(slackVenueForChannelId('C123')).toBe('public_channel')
+    expect(slackVenueForChannelId('D123')).toBe('dm')
   })
 
   it('maps DM message.im with threadTs for threaded replies', () => {

@@ -18,6 +18,20 @@ function tokenForTeam(slackTeamId: string): string | null {
   return getWorkspaceBotToken(slackTeamId)
 }
 
+/** Slack channel id prefix → venue (G = private channel, C = public, D = DM). */
+export function slackVenueForChannelId(channelId: string): MessagingQuery['venue'] {
+  if (channelId.startsWith('G')) return 'private_group'
+  if (channelId.startsWith('D')) return 'dm'
+  return 'public_channel'
+}
+
+function slackApprovalVenueLabel(venue?: MessagingQuery['venue']): string {
+  if (venue === 'dm') return 'Slack DM'
+  if (venue === 'private_group') return 'Slack private channel'
+  if (venue === 'public_channel') return 'Slack channel'
+  return 'Slack'
+}
+
 export function parseSlackEvent(event: unknown, teamId?: string): MessagingQuery | null {
   if (!event || typeof event !== 'object') return null
   const ev = event as { type?: string; team?: string }
@@ -33,7 +47,7 @@ export function parseSlackEvent(event: unknown, teamId?: string): MessagingQuery
     return {
       slackTeamId,
       requesterSlackUserId: mention.user,
-      venue: 'public_channel',
+      venue: slackVenueForChannelId(mention.channel),
       text: mention.text ?? '',
       rawEventRef: event,
       channelId: mention.channel,
@@ -117,7 +131,7 @@ export function buildApprovalBlocks(draft: ApprovalDraft): webApi.KnownBlock[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*From:* ${requesterHint} (Slack DM)\n*Question:*\n>${draft.originalQuestion.replace(/\n/g, '\n>')}`,
+        text: `*From:* ${requesterHint} (${slackApprovalVenueLabel(draft.slackDelivery.requesterVenue)})\n*Question:*\n>${draft.originalQuestion.replace(/\n/g, '\n>')}`,
       },
     },
     { type: 'divider' },

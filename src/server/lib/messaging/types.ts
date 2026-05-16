@@ -23,6 +23,8 @@ export type SlackDelivery = {
   requesterSlackUserId: string
   requesterChannelId: string
   requesterThreadTs?: string
+  /** Where the question was asked (DM vs channel). */
+  requesterVenue?: MessagingVenue
   ownerSlackUserId: string
   /** Bot's DM channel with the owner — populated before sendApprovalRequest. */
   ownerApprovalChannelId: string
