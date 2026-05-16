@@ -46,25 +46,30 @@ The compounding wiki is the true moat. Every well-handled Slack interaction rein
 
 ### Team install + per-user enrollment
 
-1. A workspace admin installs the Braintunnel Slack app (one install per workspace).
+**Prerequisite:** The workspace admin who installs the Braintunnel Slack app must have a Braintunnel account. This is a hard requirement — Braintunnel is the owner of all policy and identity state, so there must be at least one enrolled account to anchor the workspace installation.
+
+1. A Braintunnel account holder (the workspace admin) installs the app into a Slack workspace.
 2. The Braintunnel bot DMs every user: *"Your team uses Braintunnel. Connect your account to enable your personal assistant."*
 3. Each user clicks through a short OAuth flow. If their Slack email matches a Braintunnel account, it's auto-suggested.
 4. Non-Braintunnel users on the team never need to install anything — they interact with enrolled users' ambassadors through the shared bot.
 
+A single Braintunnel account can connect to multiple Slack workspaces. Each workspace installation is a separate connection, with its own integration-scoped policy (see below).
+
+**The bot is a single shared Braintunnel bot**, not a per-user bot. Replies are posted as the Braintunnel bot with the target user's name in the text or attribution line, not as a custom bot per person. This keeps the Slack app manifest simple and avoids distribution constraints that per-user bot apps impose.
+
 ### How a Slack user reaches someone's ambassador
 
-There are three entry points:
+There are two interaction surfaces:
 
 **A. DM with the Braintunnel bot**
 `@Braintunnel: I need Alex to weigh in on the API migration scope before Friday.`
-Braintunnel identifies the target (Alex), searches his wiki and mail for API migration context, drafts a response, then sends Alex an approval notification (see below) before posting.
+Braintunnel identifies the target (Alex), searches his wiki and mail for API migration context, drafts a response, then sends Alex an approval notification before posting.
 
 **B. @mention in a channel**
 `@Braintunnel what does Sarah think about the Q4 OKR framing?`
-Braintunnel queries Sarah's wiki and mail for Q4 OKR context, applies her default channel policy, and responds in the thread — with attribution.
+Braintunnel queries Sarah's wiki and mail for Q4 OKR context, applies her policy (within the workspace integration policy), and responds in the thread with attribution.
 
-**C. Via Slack status signal**
-When Alex has ambassador mode active, his Slack status reads: `🧠 Braintunnel active — try @Braintunnel`. Colleagues who see this know how to engage, without needing to know the exact DM pattern.
+**Out of scope:** Intercepting or auto-replying to 1:1 DMs between two humans. Slack's API does not support this without per-user workflow automation, and the friction of setup is not worth it. The bot-as-intermediary model (DM the bot, or @mention it) is the clean path and requires no per-user plumbing.
 
 ### Presence-aware toggle
 
@@ -82,20 +87,76 @@ When the ambassador activates, Braintunnel calls the Slack user status API to se
 
 ## Policy system
 
-Every enrolled user gets a **default response policy** and can layer **per-contact overrides** on top.
+There are three layers of policy, forming a strict hierarchy: each lower layer can make behavior *more* restrictive than the one above it, never less.
 
-**Default policy fields:**
+### Layer 1 — Integration-scoped policy (the context floor)
+
+Each Slack workspace installation has its own **integration policy** — a policy record attached to that specific connection, not to any individual user. This is the right level to answer questions like: "This Slack workspace is for Acme Corp's engineering team — the Braintunnel bot should only answer questions relevant to Acme's projects and mission, and should decline personal questions."
+
+Integration policy is configured by the Braintunnel account holder who installed the app (the workspace anchor user). It reuses the same policy mechanism already in Braintunnel's core — it is simply a policy record scoped to a connection rather than a person. No Slack-specific policy code is needed; the platform-agnostic `PolicyEvaluator` applies it at evaluation time the same way it applies any other policy.
+
+This pattern generalizes cleanly: a future Teams workspace installation would have its own integration policy on the same mechanism. The abstraction is "a policy assigned to an integration context," not "a Slack policy."
+
+Examples of integration policy:
+- "Constrain all answers to topics relevant to this organization's mission and active projects"
+- "Do not answer personal questions (finance, health, relationships) regardless of what individual users have configured"
+- "All responses require user approval before sending"
+- "Never surface raw email content"
+
+### Layer 2 — User default policy
+
+Each enrolled user's general settings for their own ambassador. Operates entirely within the space the integration policy allows.
+
 - Mode: `off` / `always` / `away-only` / `scheduled`
 - Response style: concise / full context / triage-only (just ping me)
-- Auto-send vs. always-review (see below)
+- Auto-send vs. always-review (when integration policy permits auto-send)
 - Out-of-scope handling: "If you can't answer from the wiki, say so and offer to flag me"
+- Data sources permitted: wiki only / wiki + filtered email
 
-**Per-contact overrides (keyed by Slack user ID or email):**
-- Override mode (e.g. "for my manager, always-on")
-- Override style (e.g. "for cold/unknown senders, triage-only and do not reveal details")
-- Trust level: auto-send allowed vs. always require my approval regardless of policy
+Where possible, this reuses existing Braintunnel policy infrastructure rather than inventing Slack-specific settings. A small amount of integration-specific configuration is appropriate (enough to cover the "what topics are relevant to this workspace" use case), but the goal is to extend existing patterns rather than build parallel ones.
 
-Policy lives in Braintunnel settings, not in Slack. Slack App Home surfaces a read-only status view and a button to open Braintunnel settings.
+### Layer 3 — Per-contact overrides
+
+User-defined rules keyed to a specific Slack user ID or email. Can make behavior more restrictive for some contacts (e.g. unknown senders: triage-only, no details) or more permissive for trusted ones (e.g. a close colleague: full wiki context, auto-send allowed).
+
+- Override mode (e.g. "for my manager: always-on")
+- Override style (e.g. "for cold/unknown senders: triage-only, reveal nothing")
+- Trust level: auto-send / always-review (within what integration policy and user default permit)
+
+### Where configuration lives
+
+**Integration policy** → Braintunnel settings → Connections / Slack workspace section (anchor user).  
+**User policy + per-contact** → Braintunnel settings → Slack section (each user).  
+
+Slack App Home surfaces a read-only status view and a single "Configure in Braintunnel →" deep link. Braintunnel is the canonical source of truth for all policy; no policy state lives in Slack.
+
+---
+
+## Context-scoped disclosure
+
+Beyond the three policy layers, every response must also account for **where** it's being sent. The venue is a hard constraint that sits above even admin policy — you cannot override it by user preference because the ambassador has no control over who else can see a public channel.
+
+**Effective disclosure = most restrictive of: admin policy × user policy × per-contact policy × venue**
+
+### Venue tiers
+
+**Public channel** — most restrictive, no exceptions.  
+The ambassador does not know who will read the response (channel membership can include guests, future members, Slack Connect partners). Default: wiki-only content, no email-derived inferences, no relational specifics. If the question cannot be answered at this level, the ambassador declines and suggests DM-ing directly.
+
+**Private channel** — marginally less restrictive.  
+Membership is bounded. The Slack API can return the member list, which the ambassador can check against enrolled/known users. Slightly more context may be appropriate, but still conservative — channel membership changes without notice.
+
+**DM to the Braintunnel bot (1:1)** — most permissive of the public surfaces.  
+The ambassador knows exactly who is asking. This is where per-contact policy is meaningful: if the requester is an enrolled Braintunnel user with a grant, they can get deeper wiki context or policy-filtered email synthesis. If the requester is unknown, the "public stranger" baseline applies (same as public channel).
+
+**Group DM** — treated as private channel: medium restrictive, check membership before answering.
+
+### The key asymmetry
+
+In a DM, the requester identity is known → per-contact policy is actionable → the response can be more useful.  
+In a public channel, the audience is anonymous → per-contact policy is irrelevant → only the strictest baseline applies, no matter who sent the message.
+
+This means the same question — "What does Alex think about the API migration?" — can get a meaningfully richer answer in a DM than in a public channel. That asymmetry should be surfaced to users clearly: "I can answer this in more detail if you DM me directly."
 
 ---
 
@@ -191,6 +252,60 @@ The Slack integration does not require a new agent pipeline — it reuses B2B tu
 
 ---
 
+## Monorepo home
+
+There is no reason this cannot live entirely within the existing brain-app monorepo, and good reasons to keep it there.
+
+The Braintunnel server is a Hono/Node.js TypeScript application. Slack's Bolt SDK (Node.js) can run as HTTP middleware alongside Hono, with event handlers registered at `src/server/routes/slack.ts` and utilities under `src/server/lib/slack/`. This is the same pattern as ripmail living in-process under `src/server/ripmail/`. The Slack integration shares all existing infrastructure directly — wiki search, email search, agent pipeline, policy engine, B2B tunnel code — without any network hops or separate service.
+
+**Dev setup consideration:** Slack's Events API requires a public HTTPS endpoint to deliver webhooks. Local development will need a tunnel (ngrok or similar). A `pnpm run dev:slack` convenience script that starts both the dev server and a tunnel would streamline this.
+
+**When to extract:** Only if the adapter grows large enough to warrant its own package under a `packages/` workspace. For Phase 1, in-process is simpler and faster to iterate on.
+
+---
+
+## Multi-platform architecture
+
+Slack is the first messaging platform; Microsoft Teams is the natural next one (enterprise footprint, Adaptive Cards are structurally analogous to Block Kit). The right architecture ensures adding Teams — or future adapters (Telegram, WhatsApp Business, etc.) — is incremental rather than a rewrite.
+
+### The abstraction
+
+A **platform-agnostic messaging core** (`src/server/lib/messaging/`) owns all business logic. Platform adapters are pure I/O translation layers with no business logic of their own.
+
+**Core types and services (platform-agnostic):**
+
+```
+MessagingQuery       — who asked, who was addressed, venue type, content
+MessagingVenue       — 'dm' | 'private_group' | 'public_channel'
+PolicyEvaluator      — (query, venue, requester, target) → PolicyResult
+AmbassadorAgent      — runs wiki/email search and draft synthesis within PolicyResult constraints
+ApprovalRequest      — pending-approval record stored in brain-tenant.sqlite
+```
+
+**Platform adapter interface:**
+
+```
+resolveUserIdentity(platformUserId: string): Promise<string | null>  // → email
+handleEvent(rawEvent: unknown): Promise<MessagingQuery | null>
+sendResponse(channelId: string, text: string, attribution: string): Promise<void>
+sendApprovalRequest(userId: string, draft: ApprovalRequest): Promise<void>
+handleInteraction(rawInteraction: unknown): Promise<ApprovalDecision>  // button/modal response
+```
+
+**Slack adapter** (`src/server/lib/messaging/adapters/slack.ts`): Bolt integration. Translates Slack Events → `MessagingQuery`; `ApprovalRequest` → Block Kit with Send/Edit/Decline buttons; Block Kit interactions → `ApprovalDecision`.
+
+**Teams adapter** (`src/server/lib/messaging/adapters/teams.ts`, future): Bot Framework / Azure Bot Service integration. Translates Teams Activity events → `MessagingQuery`; `ApprovalRequest` → Adaptive Cards with action buttons; Adaptive Card submissions → `ApprovalDecision`. User identity resolved via Microsoft Graph API (`/users/{id}` → UPN/email).
+
+### What never changes across platforms
+
+The policy evaluation, agent execution (wiki/email search, LLM synthesis, privacy filter), approval lifecycle, notification/brief queue entries, and wiki feedback loop are all in the platform-agnostic core. Adding Teams is: write the adapter, register it, test the identity resolution and message format. No changes to the agent or policy engine.
+
+### Teams-specific notes
+
+Teams uses the Azure Bot Service for event delivery (no ngrok needed in dev — uses ngrok or Azure Dev Tunnels). App manifests go in the Teams Developer Portal for distribution. Adaptive Cards support the same button → modal → submit pattern as Block Kit, so the approval UX maps cleanly. Microsoft Graph API's organization directory makes user identity resolution (Slack user → email → Braintunnel account) potentially more reliable in enterprise deployments than Slack's workspace-scoped user list.
+
+---
+
 ## Acquisition flywheel
 
 The non-Braintunnel user who receives a well-crafted Slack reply from their colleague's ambassador and sees the attribution footer is the highest-quality lead in the product's funnel: they've seen the product work, on a real use case, for someone they know. The "Get your own →" link in every footer is a warm, contextual CTA.
@@ -205,41 +320,54 @@ This also provides a path into B2B sales: a champion at a company activates Brai
 
 When ready to implement, this idea should be sliced into roughly these phases:
 
-**Phase 1 — Bot + explicit toggle + default policy + DM only**
+**Phase 1 — Bot + explicit toggle + default policy + DM only + messaging core**
 - Team install, per-user OAuth, Slack status sync
 - Explicit "ambassador on/off" toggle in Braintunnel settings
-- Default policy only (no per-contact overrides)
+- Default policy only (no per-contact overrides, no admin policy UI yet)
 - DM-to-bot only (no channel presence)
 - Full approval flow in Slack (Block Kit approve/edit/decline)
 - Brain Hub "Slack handled" card (basic, list only)
 - Attribution footer
+- Platform-agnostic messaging core scaffolded (`MessagingQuery`, `PolicyEvaluator`, `AmbassadorAgent`, `ApprovalRequest`) — Slack adapter as first implementation
 
-**Phase 2 — Per-contact policies + channel presence + digest polish**
-- Per-contact policy overrides (UI in settings)
-- Bot invited to channels, channel-safe defaults
+**Phase 2 — Policy hierarchy + channel presence + digest polish**
+- Admin workspace policy (Layer 1): configuration UI in Braintunnel settings, enforcement in privacy filter
+- Per-contact policy overrides (Layer 3): configuration UI in Braintunnel settings
+- Bot invited to channels; context-scoped disclosure enforced by venue tier
+- "DM me for more detail" nudge when channel policy limits the response
 - Richer Brain Hub digest (conversation view, follow-up actions)
 - Wiki gap detection from unanswerable questions
 
 **Phase 3 — Presence-aware + wiki feedback loop + AgentExchange**
 - Desktop idle detection → auto-enable/disable (via [IDEA-local-bridge-agent](IDEA-local-bridge-agent.md))
 - Wiki feedback loop (mark good/bad answers, surface edit path)
-- AgentExchange listing (Slack's unified agent marketplace, launched April 2026)
 - Scheduled hours mode
+- AgentExchange listing (Slack's unified agent marketplace)
+
+**Phase 4 — Teams adapter (and beyond)**
+- Microsoft Teams adapter using the `MessagingAdapter` interface established in Phase 1
+- Bot Framework / Azure Bot Service integration
+- Adaptive Cards approval UX (structurally identical to Block Kit flow)
+- Microsoft Graph API for identity resolution
 
 ---
 
-## Open questions
+## Decisions
 
-1. **Slack API scope for bot-as-user:** Slack's API allows bots to post with a custom name/avatar but they are never fully indistinguishable from human users (by design). Does the ambassador reply come from a generic "Braintunnel" bot or from a per-user bot app? Per-user bot apps require Slack paid plan workspace-level app distribution — this may limit early testing.
+**Bot identity:** Single shared Braintunnel bot for all replies, not per-user bots. Keeps the Slack app manifest simple and avoids distribution constraints.
 
-2. **DM auto-reply access:** Slack's API explicitly does not allow third-party apps to read or respond to 1:1 DMs between two humans unless the app is invited. The ambassador model sidesteps this by routing *through* the bot (the human DMs the bot), but this requires a behavior change from the requester. Is that friction acceptable, or do we need a workflow automation that "forwards" DMs to the bot when the user is away? Workflow Builder can do this but it requires per-user setup.
+**Auto-reply to human DMs:** Out of scope. Slack's API does not allow intercepting 1:1 human-to-human DMs without per-user Workflow Builder setup. Not worth the friction; the bot-as-intermediary model is the clean path.
 
-3. **Policy UI placement:** Settings or App Home? Settings is more powerful; App Home is where Slack users expect to configure Slack apps. Probably settings-canonical, App Home as a status view + deep link.
+**Policy enforcement architecture:** Reuse existing Braintunnel policy infrastructure. Integration-scoped policy (Layer 1) is a policy record attached to the connection — not Slack-specific code. The `PolicyEvaluator` applies it the same way it applies any policy. A small amount of integration-specific configuration (topic constraints, data source limits) is appropriate at the connection level; the goal is to extend existing patterns.
 
-4. **Privacy defaults for channel context:** How does the ambassador decide what is safe to share in a public channel? "Wiki only, not email" is a reasonable default, but needs formal policy shape.
+**Prerequisite for workspace install:** The Slack workspace admin must have a Braintunnel account. No anonymous installs.
 
-5. **Multi-workspace support:** A user on two Slack workspaces should have one Braintunnel account driving both ambassadors. Is this a meaningful use case early enough to plan for, or defer?
+**Venue policy for private channels:** Simplest option for Phase 1 — treat private channels the same as public channels (maximum restrictiveness). Channel membership checks add latency and API scope; add finer-grained venue tiers only if the market asks.
 
-6. **Latency:** Ambassador replies need to feel fast (< 5s ideally). Wiki + email search + LLM synthesis can be slow. Streaming to a Slack message (update-in-place) may be the UX answer, but Block Kit message updates have rate limits.
+**Multi-workspace:** Architecture must support a single Braintunnel account connected to multiple Slack workspaces. Each workspace is a separate connection with its own integration policy. Not a constraint.
 
-7. **AgentExchange eligibility:** As of 2026, AgentExchange requires Salesforce/Agentforce integration scaffolding for full listing. A standard Slack App Marketplace listing may be the more accessible early target, with AgentExchange as a Phase 3 distribution upgrade.
+**Latency UX:** Needs design attention. The goal is never leaving the user staring at silence. Posting an immediate "Thinking…" acknowledgment and updating in-place (`chat.update`) is the likely answer for Slack. How Slack's API rate limits interact with streaming-style updates needs validation when implementation starts. This may not be Phase 1 but should be planned for, not retrofitted.
+
+**Microsoft Teams:** Lower priority, later effort. The platform-agnostic messaging core established in Phase 1 makes it an incremental adapter — no duplicate policy logic, no agent changes. Build it when the opportunity is clear, not as infrastructure speculation.
+
+**AgentExchange:** Not a near-term priority. Standard Slack App Marketplace listing is the distribution target.
