@@ -61,13 +61,17 @@ describe('helloDispatcher', () => {
       tenantUserId: 'usr_a',
     })
     const r = await dispatchHelloResponse(dmQuery('who has braintunnel'))
-    expect(r.text).toContain('People linked to Braintunnel')
-    expect(r.text).toContain('U1')
+    expect(r.kind).toBe('text')
+    if (r.kind === 'text') {
+      expect(r.text).toContain('People linked to Braintunnel')
+      expect(r.text).toContain('U1')
+    }
   })
 
   it('returns not linked message for unlinked mention target', async () => {
     const r = await dispatchHelloResponse(dmQuery('ask <@U0OTHER99> about stuff'))
-    expect(r.text).toContain('has not linked')
+    expect(r.kind).toBe('text')
+    if (r.kind === 'text') expect(r.text).toContain('has not linked')
   })
 
   it('channel mention returns hello text', async () => {
@@ -75,6 +79,41 @@ describe('helloDispatcher', () => {
       ...dmQuery(''),
       venue: 'public_channel',
     })
-    expect(r.text).toContain('hello-world')
+    expect(r.kind).toBe('text')
+    if (r.kind === 'text') expect(r.text).toContain('hello-world')
+  })
+
+  it('linked mention target returns agentRun with ownerTenantUserId', async () => {
+    upsertSlackUserLink({
+      slackTeamId: 'T1',
+      slackUserId: 'UOWNER1',
+      tenantUserId: 'usr_owner',
+    })
+    const r = await dispatchHelloResponse(dmQuery('what does <@UOWNER1> think about X?'))
+    expect(r.kind).toBe('agentRun')
+    if (r.kind === 'agentRun') {
+      expect(r.ownerSlackUserId).toBe('UOWNER1')
+      expect(r.ownerTenantUserId).toBe('usr_owner')
+    }
+  })
+
+  it('self-DM with linked requester returns agentRun targeting self', async () => {
+    upsertSlackUserLink({
+      slackTeamId: 'T1',
+      slackUserId: 'U_REQ',  // U_REQ is used as requesterSlackUserId in dmQuery
+      tenantUserId: 'usr_req',
+    })
+    const r = await dispatchHelloResponse(dmQuery('what is my schedule today?'))
+    expect(r.kind).toBe('agentRun')
+    if (r.kind === 'agentRun') {
+      expect(r.ownerTenantUserId).toBe('usr_req')
+    }
+  })
+
+  it('no "ambassador" in any response text', async () => {
+    const r = await dispatchHelloResponse(dmQuery('hello'))
+    if (r.kind === 'text') {
+      expect(r.text.toLowerCase()).not.toContain('ambassador')
+    }
   })
 })

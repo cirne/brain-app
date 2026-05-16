@@ -23,6 +23,14 @@
   let oauthConfigured = $state(false)
   let workspaces = $state<SlackWorkspaceStatus[]>([])
 
+  let linkConfirmPending = $state(false)
+  let confirmEmail = $state('')
+  let confirmState = $state('')
+  let confirmTeamId = $state('')
+  let confirmSlackUserId = $state('')
+  let confirmError = $state('')
+  let confirmLoading = $state(false)
+
   const linkItemBase =
     'link-item flex cursor-pointer items-center justify-between border border-transparent border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent p-2 text-left text-foreground transition-[padding,color,background,border-color] duration-150 focus-visible:!border-accent focus-visible:bg-accent-dim focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55'
 
@@ -42,6 +50,67 @@
       workspaces = []
     } finally {
       loading = false
+    }
+  }
+
+  function checkLinkConfirmParams() {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('slackLinkConfirm') === '1') {
+      confirmEmail = params.get('slackEmail') ?? ''
+      confirmTeamId = params.get('slackTeamId') ?? ''
+      confirmSlackUserId = params.get('slackUserId') ?? ''
+      confirmState = params.get('confirmState') ?? ''
+      linkConfirmPending = true
+    }
+  }
+
+  async function submitLinkConfirm() {
+    confirmLoading = true
+    confirmError = ''
+    try {
+      const res = await fetch('/api/slack/oauth/link-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmState,
+          slackTeamId: confirmTeamId,
+          slackUserId: confirmSlackUserId,
+        }),
+      })
+      if (!res.ok) {
+        confirmError = 'Link failed. Please try again.'
+        return
+      }
+      linkConfirmPending = false
+      window.history.replaceState({}, '', '/settings')
+      await fetchSlackStatus()
+    } catch {
+      confirmError = 'Link failed. Please try again.'
+    } finally {
+      confirmLoading = false
+    }
+  }
+
+  function cancelLinkConfirm() {
+    linkConfirmPending = false
+    confirmEmail = ''
+    confirmState = ''
+    confirmTeamId = ''
+    confirmSlackUserId = ''
+    confirmError = ''
+    window.history.replaceState({}, '', '/settings')
+  }
+
+  async function disconnectSlack() {
+    if (!primaryWorkspace) return
+    try {
+      await fetch('/api/slack/link', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slackTeamId: primaryWorkspace.slackTeamId }),
+      })
+    } finally {
+      await fetchSlackStatus()
     }
   }
 
@@ -76,6 +145,7 @@
   }
 
   onMount(() => {
+    checkLinkConfirmParams()
     void fetchSlackStatus()
   })
 </script>
@@ -103,6 +173,34 @@
       </div>
       <ChevronRight size={16} aria-hidden="true" />
     </button>
+    {#if linkConfirmPending}
+      <div class="flex flex-col gap-2 rounded border border-[color-mix(in_srgb,var(--border)_60%,transparent)] p-3 text-[0.9375rem]">
+        <p class="m-0">
+          {$t('settings.settingsConnectionsPage.slack.linkConfirmBody', { slackEmail: confirmEmail })}
+        </p>
+        {#if confirmError}
+          <p class="m-0 text-sm text-destructive">{confirmError}</p>
+        {/if}
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="btn btn-primary text-sm"
+            disabled={confirmLoading}
+            onclick={submitLinkConfirm}
+          >
+            {$t('settings.settingsConnectionsPage.slack.linkAnyway')}
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary text-sm"
+            disabled={confirmLoading}
+            onclick={cancelLinkConfirm}
+          >
+            {$t('settings.settingsConnectionsPage.slack.cancel')}
+          </button>
+        </div>
+      </div>
+    {/if}
     {#if !loading && !primaryWorkspace?.workspaceConnected}
       <button type="button" class="btn btn-secondary w-fit text-sm" onclick={startInstall}>
         {$t('settings.settingsConnectionsPage.slack.connectWorkspace')}
@@ -110,6 +208,14 @@
     {:else if !loading && primaryWorkspace?.workspaceConnected && !primaryWorkspace.userLinked}
       <button type="button" class="btn btn-secondary w-fit text-sm" onclick={startLink}>
         {$t('settings.settingsConnectionsPage.slack.linkAccount')}
+      </button>
+    {:else if !loading && primaryWorkspace?.userLinked}
+      <button
+        type="button"
+        class="w-fit bg-transparent p-0 text-sm text-muted underline-offset-2 hover:underline"
+        onclick={disconnectSlack}
+      >
+        {$t('settings.settingsConnectionsPage.slack.disconnect')}
       </button>
     {/if}
   {:else}

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 
 const TTL_MS = 10 * 60 * 1000
 
-export type SlackOAuthSessionMode = 'install' | 'link'
+export type SlackOAuthSessionMode = 'install' | 'link' | 'link-confirm'
 
 type StoreEntry = {
   tenantUserId: string

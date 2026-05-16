@@ -81,9 +81,16 @@
       "notConfigured": "Slack is not set up on this server.",
       "workspaceNotConnected": "Connect your team’s Slack workspace to Braintunnel.",
       "workspaceConnectedLinkYou": "Workspace {{team}} is connected — link your Slack account.",
-      "userLinked": "Linked to {{team}} on Slack.",
+      "userLinked": "Your assistant is active in {{team}} on Slack.",
       "connectWorkspace": "Connect workspace",
-      "linkAccount": "Link my Slack account"
+      "linkAccount": "Link my Slack account",
+      "linkConfirmTitle": "Confirm Slack account link",
+      "linkConfirmBody": "Your Slack email ({{slackEmail}}) doesn't match a linked mailbox. Link anyway to enable your assistant in Slack.",
+      "linkConfirmButton": "Link anyway",
+      "linkConfirmCancel": "Cancel",
+      "linkConfirmSuccess": "Slack account linked.",
+      "linkConfirmError": "Could not confirm link. Try again.",
+      "disconnect": "Disconnect"
     }
   },
   "settingsWikiPage": {

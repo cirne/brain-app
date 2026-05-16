@@ -2,10 +2,20 @@ import { type types, webApi } from '@slack/bolt'
 import { brainLogger } from '@server/lib/observability/brainLogger.js'
 import { getWorkspaceBotToken } from '@server/lib/slack/slackConnectionsRepo.js'
 import { dispatchHelloResponse } from '@server/lib/messaging/helloDispatcher.js'
-import type { MessagingAdapter, MessagingQuery } from '@server/lib/messaging/types.js'
+import { scheduleSlackIntegrationTurn } from '@server/lib/messaging/runSlackIntegrationTurn.js'
+import type {
+  ApprovalDecision,
+  ApprovalDraft,
+  MessagingAdapter,
+  MessagingQuery,
+} from '@server/lib/messaging/types.js'
 
 function webClient(token: string): webApi.WebClient {
   return new webApi.WebClient(token)
+}
+
+function tokenForTeam(slackTeamId: string): string | null {
+  return getWorkspaceBotToken(slackTeamId)
 }
 
 export function parseSlackEvent(event: unknown, teamId?: string): MessagingQuery | null {
@@ -46,6 +56,7 @@ export function parseSlackEvent(event: unknown, teamId?: string): MessagingQuery
       text: msg.text ?? '',
       rawEventRef: event,
       channelId: msg.channel,
+      threadTs: msg.ts, // thread replies under the original DM message
     }
   }
 
@@ -77,13 +88,179 @@ export async function sendSlackMessagingResponse(
   query: MessagingQuery,
   text: string,
 ): Promise<void> {
-  const token = getWorkspaceBotToken(query.slackTeamId)
+  const token = tokenForTeam(query.slackTeamId)
   if (!token) return
   const client = webClient(token)
   await client.chat.postMessage({
     channel: query.channelId,
     text,
     thread_ts: query.threadTs,
+  })
+}
+
+/** Build Block Kit blocks for owner approval request. */
+export function buildApprovalBlocks(draft: ApprovalDraft): webApi.KnownBlock[] {
+  const actionValue = JSON.stringify({
+    ownerTenantUserId: draft.ownerTenantUserId,
+    sessionId: draft.sessionId,
+  })
+  const requesterHint =
+    draft.slackDelivery.requesterDisplayHint ||
+    `<@${draft.slackDelivery.requesterSlackUserId}>`
+
+  return [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: 'Review reply from your assistant', emoji: true },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*From:* ${requesterHint} (Slack DM)\n*Question:*\n>${draft.originalQuestion.replace(/\n/g, '\n>')}`,
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Draft reply:*\n${draft.draftText}`,
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `Will be sent as: _Answered on behalf of ${draft.slackDelivery.ownerDisplayName} · via Braintunnel_`,
+        },
+      ],
+    },
+    {
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Approve', emoji: true },
+          style: 'primary',
+          action_id: 'slack_approve',
+          value: actionValue,
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Decline', emoji: true },
+          style: 'danger',
+          action_id: 'slack_decline',
+          value: actionValue,
+        },
+      ],
+    },
+  ]
+}
+
+export async function sendApprovalRequest(
+  draft: ApprovalDraft,
+): Promise<{ approvalMessageTs: string; approvalChannelId: string }> {
+  const { slackDelivery } = draft
+  const token = tokenForTeam(slackDelivery.slackTeamId)
+  if (!token) throw new Error(`No bot token for team ${slackDelivery.slackTeamId}`)
+  const client = webClient(token)
+
+  // Open a DM with the owner if we don't already have the channel id
+  let channelId = slackDelivery.ownerApprovalChannelId
+  if (!channelId) {
+    const dm = await client.conversations.open({ users: slackDelivery.ownerSlackUserId })
+    channelId = (dm.channel as { id?: string })?.id ?? ''
+    if (!channelId) throw new Error('Could not open DM with owner')
+  }
+
+  const blocks = buildApprovalBlocks(draft)
+  const res = await client.chat.postMessage({
+    channel: channelId,
+    text: `Review reply from your assistant (question from ${slackDelivery.requesterDisplayHint || slackDelivery.requesterSlackUserId})`,
+    blocks,
+  })
+  return {
+    approvalMessageTs: (res.ts as string) ?? '',
+    approvalChannelId: channelId,
+  }
+}
+
+/** Parse a Slack interactions callback payload (JSON string from form-encoded body). */
+export function parseSlackInteraction(rawPayload: unknown): ApprovalDecision | null {
+  if (typeof rawPayload !== 'string') return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawPayload)
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object') return null
+  const p = parsed as Record<string, unknown>
+  if (p.type !== 'block_actions') return null
+  const actions = Array.isArray(p.actions) ? (p.actions as unknown[]) : []
+  const action = actions[0]
+  if (!action || typeof action !== 'object') return null
+  const a = action as Record<string, unknown>
+  const actionId = typeof a.action_id === 'string' ? a.action_id : ''
+  const rawValue = typeof a.value === 'string' ? a.value : ''
+  let decoded: { ownerTenantUserId?: unknown; sessionId?: unknown } = {}
+  try {
+    decoded = JSON.parse(rawValue) as typeof decoded
+  } catch {
+    return null
+  }
+  const ownerTenantUserId = typeof decoded.ownerTenantUserId === 'string' ? decoded.ownerTenantUserId : ''
+  const sessionId = typeof decoded.sessionId === 'string' ? decoded.sessionId : ''
+  if (!ownerTenantUserId || !sessionId) return null
+
+  if (actionId === 'slack_approve') {
+    return { kind: 'approve', ownerTenantUserId, sessionId }
+  }
+  if (actionId === 'slack_decline') {
+    return { kind: 'decline', ownerTenantUserId, sessionId }
+  }
+  return null
+}
+
+export async function postFinalReply(
+  target: { channelId: string; threadTs?: string; slackTeamId: string },
+  text: string,
+  attribution: string,
+): Promise<void> {
+  const token = tokenForTeam(target.slackTeamId)
+  if (!token) return
+  const client = webClient(token)
+  await client.chat.postMessage({
+    channel: target.channelId,
+    thread_ts: target.threadTs,
+    text: `${text}\n\n${attribution}`,
+    mrkdwn: true,
+  })
+}
+
+export async function updateApprovalMessage(
+  ts: string,
+  channelId: string,
+  slackTeamId: string,
+  status: 'approved' | 'declined',
+): Promise<void> {
+  const token = tokenForTeam(slackTeamId)
+  if (!token) return
+  const client = webClient(token)
+  const statusText = status === 'approved' ? '✓ Sent' : '✗ Declined'
+  await client.chat.update({
+    channel: channelId,
+    ts,
+    text: `Reply ${statusText}.`,
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `Reply _${statusText}_.` },
+      },
+    ],
   })
 }
 
@@ -94,7 +271,7 @@ export async function handleSlackMessagingEvent(
   const query = parseSlackEvent(event, teamId)
   if (!query) return
 
-  const token = getWorkspaceBotToken(query.slackTeamId)
+  const token = tokenForTeam(query.slackTeamId)
   if (!token) return
   const client = webClient(token)
 
@@ -102,7 +279,19 @@ export async function handleSlackMessagingEvent(
     formatLinkedNames: (links) => resolveDisplayNames(client, links.map((l) => l.slackUserId)),
   })
 
-  await sendSlackMessagingResponse(query, result.text)
+  if (result.kind === 'text') {
+    await sendSlackMessagingResponse(query, result.text)
+    return
+  }
+
+  if (result.kind === 'agentRun') {
+    scheduleSlackIntegrationTurn({
+      query,
+      ownerSlackUserId: result.ownerSlackUserId,
+      ownerTenantUserId: result.ownerTenantUserId,
+      adapter: slackMessagingAdapter,
+    })
+  }
 }
 
 export function scheduleSlackMessagingEvent(event: unknown, teamId?: string): void {
@@ -114,4 +303,8 @@ export function scheduleSlackMessagingEvent(event: unknown, teamId?: string): vo
 export const slackMessagingAdapter: MessagingAdapter = {
   parseEvent: parseSlackEvent,
   sendResponse: sendSlackMessagingResponse,
+  sendApprovalRequest,
+  parseInteraction: parseSlackInteraction,
+  postFinalReply,
+  updateApprovalMessage,
 }

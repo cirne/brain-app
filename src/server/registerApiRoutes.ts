@@ -32,6 +32,7 @@ import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
 import slackRoute from './routes/slack.js'
 import slackOAuthRoute from './routes/slackOAuth.js'
 import slackConnectionRoute from './routes/slackConnection.js'
+import slackInteractionsRoute from './routes/slackInteractions.js'
 import { createDevApiRouter } from './routes/devApi.js'
 import { isSlackEventsConfigured } from './lib/slack/slackHelloWorld.js'
 import { isSlackOAuthConfigured } from './lib/slack/slackConnectionsRepo.js'
@@ -70,6 +71,7 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/notifications', notificationsRoute)
   if (isSlackEventsConfigured()) {
     app.route('/api/slack', slackRoute)
+    app.route('/api/slack', slackInteractionsRoute)
   }
   if (isSlackOAuthConfigured()) {
     app.route('/api/slack/oauth', slackOAuthRoute)

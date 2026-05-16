@@ -5,7 +5,7 @@ Improvement ideas and future features discovered through usage. Each entry captu
 Active and future work lives in [opportunities/](opportunities/). Shipped and deprioritized work moves to [opportunities/archive/](opportunities/archive/).
 
 <!-- NEXT_OPP_ID: 119 -->
-**Next opportunity id:** **OPP-118**. Allocate new opportunities monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
+**Next opportunity id:** **OPP-119**. Allocate new opportunities monotonically from this value, then increment this line in the same change. Do not fill historical gaps.
 
 ### Ripmail corpus (CLI + SQLite)
 

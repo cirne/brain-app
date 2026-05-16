@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { deleteSession } from '@server/agent/index.js'
-import type { ApprovalState, ChatMessage, ChatSessionDocV1, ChatSessionType } from './chatTypes.js'
+import type { ApprovalState, ChatMessage, ChatSessionDocV1, ChatSessionType, SlackSessionDelivery } from './chatTypes.js'
 import { chatDataDirResolved } from '@server/lib/platform/brainHome.js'
 import { getTenantDb } from '@server/lib/tenant/tenantSqlite.js'
 import { getBrainQueryGrantById } from '@server/lib/brainQuery/brainQueryGrantsRepo.js'
@@ -75,7 +75,8 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
   const sess = db
     .prepare(
       `SELECT session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-        approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
+        approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id,
+        slack_delivery_json, created_at_ms, updated_at_ms
        FROM chat_sessions WHERE lower(session_id) = lower(?)`,
     )
     .get(sessionId) as ChatSessionRow | undefined
@@ -87,6 +88,14 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
     .all(sess.session_id) as { seq: number; role: string; content_json: string; created_at_ms: number }[]
   const messages = parseMessages(msgRows)
   const isCold = sess.is_cold_query === 1
+  let slackDelivery: SlackSessionDelivery | undefined
+  if (sess.slack_delivery_json) {
+    try {
+      slackDelivery = JSON.parse(sess.slack_delivery_json) as SlackSessionDelivery
+    } catch {
+      /* ignore corrupt json */
+    }
+  }
   return {
     version: 1,
     sessionId: sess.session_id,
@@ -105,6 +114,7 @@ export async function loadSession(sessionId: string): Promise<ChatSessionDocV1 |
           coldLinkedSessionId: sess.cold_linked_session_id,
         }
       : {}),
+    ...(slackDelivery ? { slackDelivery } : {}),
     expectsResponse: sessionExpectsResponseFromRow(sess),
     messages,
   }
@@ -136,6 +146,7 @@ type ChatSessionRow = {
   is_cold_query: number
   cold_peer_user_id: string | null
   cold_linked_session_id: string | null
+  slack_delivery_json: string | null
   created_at_ms: number
   updated_at_ms: number
 }
@@ -152,6 +163,8 @@ export type EnsureSessionStubOptions = {
   coldLinkedSessionId?: string | null
   /** B2B inbound: false when preflight says peer message is FYI (default true). */
   expectsResponse?: boolean
+  /** Slack integration (OPP-118): return address for Slack-sourced inbound drafts. Allows remoteGrantId null. */
+  slackDelivery?: SlackSessionDelivery
 }
 
 function sessionExpectsResponseFromRow(r: { expects_response?: number }): boolean {
@@ -256,7 +269,8 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
   const remoteGrantId = options.remoteGrantId?.trim() || null
   const isCold = options.isColdQuery === true
   const coldPeer = options.coldPeerUserId?.trim() || null
-  if (sessionType !== 'own' && remoteGrantId === null && !(isCold && coldPeer)) {
+  const slackDeliveryJson = options.slackDelivery ? JSON.stringify(options.slackDelivery) : null
+  if (sessionType !== 'own' && remoteGrantId === null && !(isCold && coldPeer) && !slackDeliveryJson) {
     throw new Error('remote_grant_id_required_for_b2b_session')
   }
   const coldLink = options.coldLinkedSessionId?.trim() || null
@@ -265,8 +279,9 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
   db.prepare(
     `INSERT INTO chat_sessions (
        session_id, title, preview, session_type, remote_grant_id, remote_handle, remote_display_name,
-       approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id, created_at_ms, updated_at_ms
-     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       approval_state, expects_response, is_cold_query, cold_peer_user_id, cold_linked_session_id,
+       slack_delivery_json, created_at_ms, updated_at_ms
+     ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     sessionId,
     sessionType,
@@ -278,9 +293,34 @@ export async function ensureSessionStub(sessionId: string, options: EnsureSessio
     coldFlag,
     coldPeer,
     coldLink,
+    slackDeliveryJson,
     now,
     now,
   )
+}
+
+/**
+ * Update the slack_delivery_json field on a session once the Block Kit approval message ts is known.
+ * Called after adapter.sendApprovalRequest returns.
+ */
+export function attachSlackApprovalMessageTs(sessionId: string, ts: string, channelId: string): void {
+  const db = getTenantDb()
+  const now = Date.now()
+  const row = db
+    .prepare(`SELECT slack_delivery_json FROM chat_sessions WHERE lower(session_id) = lower(?)`)
+    .get(sessionId) as { slack_delivery_json: string | null } | undefined
+  if (!row?.slack_delivery_json) return
+  let delivery: SlackSessionDelivery
+  try {
+    delivery = JSON.parse(row.slack_delivery_json) as SlackSessionDelivery
+  } catch {
+    return
+  }
+  delivery.ownerApprovalMessageTs = ts
+  if (channelId) delivery.ownerApprovalChannelId = channelId
+  db.prepare(
+    `UPDATE chat_sessions SET slack_delivery_json = ?, updated_at_ms = ? WHERE lower(session_id) = lower(?)`,
+  ).run(JSON.stringify(delivery), now, sessionId)
 }
 
 export async function findB2BSession(

@@ -161,6 +161,17 @@ export function getWorkspaceBotToken(slackTeamId: string): string | null {
   return env && env.length > 0 ? env : null
 }
 
+export function deleteSlackUserLink(params: {
+  slackTeamId: string
+  tenantUserId: string
+}): void {
+  getBrainGlobalDb()
+    .prepare(
+      `DELETE FROM slack_user_links WHERE slack_team_id = ? AND tenant_user_id = ?`,
+    )
+    .run(params.slackTeamId, params.tenantUserId)
+}
+
 export function isSlackOAuthConfigured(): boolean {
   const id = process.env.SLACK_CLIENT_ID?.trim()
   const secret = process.env.SLACK_CLIENT_SECRET?.trim()

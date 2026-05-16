@@ -60,6 +60,7 @@ import {
   promptB2BAgentForText,
   runB2BPreflight,
 } from '@server/agent/b2bAgent.js'
+import { approveInboundSession, declineInboundSession } from '@server/lib/chat/inboundApproval.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
 import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
@@ -1323,11 +1324,12 @@ b2bChat.post('/approve', async (c) => {
     return c.json({ ok: true, grantId: grant.id })
   }
 
-  if (!session.remoteGrantId) return c.json({ error: 'not_found' }, 404)
-  const grant = getBrainQueryGrantById(session.remoteGrantId)
-  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
-  await updateApprovalState(sessionId, 'approved')
-  await appendAssistantToAsker(grant, draft, sessionId)
+  // Non-cold B2B path: delegate to shared helper (also handles slackDelivery if somehow reached via Brain UI)
+  const approveResult = await approveInboundSession(sessionId, ctx.tenantUserId, {
+    editedText: edited,
+    appendAssistantToAsker: (grant, draftText, traceId) => appendAssistantToAsker(grant as Parameters<typeof appendAssistantToAsker>[0], draftText, traceId),
+  })
+  if (!('ok' in approveResult)) return c.json({ error: approveResult.error }, approveResult.status)
   return c.json({ ok: true })
 })
 
@@ -1367,11 +1369,11 @@ b2bChat.post('/decline', async (c) => {
     return c.json({ ok: true })
   }
 
-  if (!session.remoteGrantId) return c.json({ error: 'not_found' }, 404)
-  const grant = getBrainQueryGrantById(session.remoteGrantId)
-  if (!grant || grant.owner_id !== ctx.tenantUserId) return c.json({ error: 'not_found' }, 404)
-  await updateApprovalState(sessionId, 'declined')
-  await appendAssistantToAsker(grant, declineText, sessionId)
+  // Non-cold path: delegate to shared helper
+  const declineResult = await declineInboundSession(sessionId, ctx.tenantUserId, {
+    appendAssistantToAsker: (grant, draftText, traceId) => appendAssistantToAsker(grant as Parameters<typeof appendAssistantToAsker>[0], draftText, traceId),
+  })
+  if (!('ok' in declineResult)) return c.json({ error: declineResult.error }, declineResult.status)
   return c.json({ ok: true })
 })
 

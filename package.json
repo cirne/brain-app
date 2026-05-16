@@ -53,6 +53,7 @@
     "eval:b2b:filter": "BRAIN_DATA_ROOT=./data tsx --tsconfig tsconfig.server.json src/server/evals/b2bFilterCli.ts",
     "eval:b2b:e2e": "BRAIN_DATA_ROOT=./data tsx --tsconfig tsconfig.server.json src/server/evals/b2bE2eCli.ts",
     "eval:b2b:research": "BRAIN_DATA_ROOT=./data tsx --tsconfig tsconfig.server.json src/server/evals/b2bResearchCli.ts",
+    "eval:slack-integration": "BRAIN_DATA_ROOT=./data tsx --tsconfig tsconfig.server.json src/server/evals/slackIntegrationCli.ts",
     "issues:list": "node scripts/issues-http.mjs list",
     "issues:fetch": "node scripts/issues-http.mjs fetch"
   },

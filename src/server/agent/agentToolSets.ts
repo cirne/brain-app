@@ -224,6 +224,22 @@ export const B2B_QUERY_ONLY: readonly AgentToolName[] = [
   'calendar',
 ]
 
+/**
+ * Tool allowlist for the integration agent (Slack inbound, Teams inbound, …).
+ * Intentionally kept as a separate constant from {@link B2B_QUERY_ONLY} so a future
+ * B2B expansion cannot silently widen the external channel blast radius.
+ */
+export const INTEGRATION_QUERY_TOOLS: readonly AgentToolName[] = [
+  'read',
+  'grep',
+  'find',
+  'search_index',
+  'read_mail_message',
+  'read_indexed_file',
+  'find_person',
+  'calendar',
+]
+
 function omitForOnboardingVariant(variant: OnboardingAgentToolVariant): readonly string[] {
   if (variant === 'profiling') {
     return mergeOmitToolNames(ONBOARDING_BASE_OMIT, ONBOARDING_PROFILING_EXTRA_OMIT)

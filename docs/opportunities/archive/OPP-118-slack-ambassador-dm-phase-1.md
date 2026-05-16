@@ -1,6 +1,6 @@
 # OPP-118: Slack DM — delegated assistant replies and approval (Phase 1)
 
-**Status:** Open
+**Status: Archived (2026-05-16).** **Dev shipped** — integrationAgent + Block Kit approval flow, `b2b_inbound` session with `slackDelivery` metadata, Slack mention→identity resolution, email-mismatch confirm link UX, `POST /api/slack/interactions` route, `eval:slack-integration` JSONL harness. Verified on Gamaliel workspace: DM → Block Kit → Approve → threaded reply with attribution footer. **Deferred:** channel @mention LLM, admin policy UI, per-contact overrides, auto-send, staging Slack app deploy.
 
 **Parent idea:** [IDEA-slack-personal-ambassador](../ideas/IDEA-slack-personal-ambassador.md) *(strategy doc name; product copy uses **assistant** and **tunnel**, not “ambassador”)*
 
@@ -188,13 +188,13 @@ Follow existing JSONL harness patterns ([`eval/README.md`](../../eval/README.md)
 
 | Step | Dev |
 | ---- | --- |
-| DM question → draft → owner approval message | ☐ |
-| Approve → answer in requester DM + footer | ☐ |
-| Decline → polite refusal | ☐ |
-| Unlinked @user → no LLM | ☐ |
-| Email-mismatch link → confirm path works | ☐ |
-| `slack-integration-v1` JSONL (or extended B2B suite) passes | ☐ |
-| Shared agent/tool edits: B2B research/filter regressions clean | ☐ |
+| DM question → draft → owner approval message | ☑ |
+| Approve → answer in requester DM + footer | ☑ |
+| Decline → polite refusal | ☑ |
+| Unlinked @user → no LLM | ☑ |
+| Email-mismatch link → confirm path works | ☑ |
+| `slack-integration-v1` JSONL (or extended B2B suite) passes | ☑ |
+| Shared agent/tool edits: B2B research/filter regressions clean | ☑ |
 
 ---
 

@@ -6,8 +6,9 @@ import { brainLayoutTenantSqlitePath } from '@server/lib/platform/brainLayout.js
 
 /**
  * Bump when `brain-tenant.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
+ * Version 7: add slack_delivery_json column to chat_sessions for Slack-sourced inbound drafts (OPP-118).
  */
-export const TENANT_SCHEMA_VERSION = 6
+export const TENANT_SCHEMA_VERSION = 7
 
 /**
  * Per-tenant Brain app SQLite (chat, notifications). Ripmail keeps its own DB under `ripmail/` until OPP-108 merges schemas.
@@ -54,12 +55,14 @@ CREATE TABLE chat_sessions (
   is_cold_query INTEGER NOT NULL DEFAULT 0 CHECK (is_cold_query IN (0, 1)),
   cold_peer_user_id TEXT,
   cold_linked_session_id TEXT,
+  slack_delivery_json TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   CHECK (
     session_type = 'own'
     OR remote_grant_id IS NOT NULL
     OR (is_cold_query = 1 AND cold_peer_user_id IS NOT NULL)
+    OR slack_delivery_json IS NOT NULL
   )
 );
 CREATE INDEX idx_chat_sessions_updated ON chat_sessions(updated_at_ms DESC);

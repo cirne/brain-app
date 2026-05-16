@@ -22,11 +22,20 @@ export function isWhoHasBraintunnelQuery(text: string): boolean {
   return /\bwho\b/.test(norm) && (/\bwho\b.*\b(braintunnel|brain tunnel)\b/.test(norm) || /\b(access|linked|enrolled)\b/.test(norm))
 }
 
-export type HelloDispatchResult = {
-  text: string
-  /** When set, caller resolves display names (e.g. via Slack users.info). */
-  linkedUserIds?: string[]
-}
+export type HelloDispatchResult =
+  | {
+      kind: 'text'
+      text: string
+      /** When set, caller resolves display names (e.g. via Slack users.info). */
+      linkedUserIds?: string[]
+    }
+  | {
+      kind: 'agentRun'
+      /** Slack user id of the owner whose corpus should be queried. */
+      ownerSlackUserId: string
+      /** Tenant user id of the owner (resolved from slack_user_links). */
+      ownerTenantUserId: string
+    }
 
 export async function dispatchHelloResponse(
   query: MessagingQuery,
@@ -35,13 +44,14 @@ export async function dispatchHelloResponse(
   },
 ): Promise<HelloDispatchResult> {
   if (query.venue === 'public_channel') {
-    return { text: SLACK_HELLO_WORLD_TEXT }
+    return { kind: 'text', text: SLACK_HELLO_WORLD_TEXT }
   }
 
   if (isWhoHasBraintunnelQuery(query.text)) {
     const links = listLinkedUsersInWorkspace(query.slackTeamId)
     if (links.length === 0) {
       return {
+        kind: 'text',
         text: 'No one has linked Braintunnel in this workspace yet. Connect in Braintunnel Settings → Connections.',
       }
     }
@@ -49,24 +59,42 @@ export async function dispatchHelloResponse(
       const formatted = await opts.formatLinkedNames(
         links.map((l) => ({ slackUserId: l.slack_user_id })),
       )
-      return { text: `People linked to Braintunnel here: ${formatted}` }
+      return { kind: 'text', text: `People linked to Braintunnel here: ${formatted}` }
     }
     const ids = links.map((l) => `<@${l.slack_user_id}>`).join(', ')
-    return { text: `People linked to Braintunnel here: ${ids}`, linkedUserIds: links.map((l) => l.slack_user_id) }
+    return {
+      kind: 'text',
+      text: `People linked to Braintunnel here: ${ids}`,
+      linkedUserIds: links.map((l) => l.slack_user_id),
+    }
   }
 
+  // Explicit @mention of another user
   const mentionId = parseFirstSlackUserMention(query.text)
   if (mentionId && mentionId !== query.requesterSlackUserId) {
     const linked = resolveLinkedTenant(query.slackTeamId, mentionId)
     if (linked) {
       return {
-        text: `${SLACK_HELLO_WORLD_TEXT} (asking about <@${mentionId}> — your assistant can answer this after the next update.)`,
+        kind: 'agentRun',
+        ownerSlackUserId: mentionId,
+        ownerTenantUserId: linked.tenant_user_id,
       }
     }
     return {
+      kind: 'text',
       text: `<@${mentionId}> has not linked Braintunnel yet. They can link in Braintunnel Settings → Connections.`,
     }
   }
 
-  return { text: SLACK_HELLO_WORLD_TEXT }
+  // Self-directed DM (no mention, or requester mentions themselves): route to their own corpus if linked
+  const selfLinked = resolveLinkedTenant(query.slackTeamId, query.requesterSlackUserId)
+  if (selfLinked) {
+    return {
+      kind: 'agentRun',
+      ownerSlackUserId: query.requesterSlackUserId,
+      ownerTenantUserId: selfLinked.tenant_user_id,
+    }
+  }
+
+  return { kind: 'text', text: SLACK_HELLO_WORLD_TEXT }
 }

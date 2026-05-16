@@ -1,0 +1,7 @@
+# Slack integration agent eval suite (OPP-118)
+# Run: pnpm run eval:slack-integration
+# Requires Enron demo ripmail indexes: pnpm run brain:seed-enron-demo
+{"id":"slack-001-dm-resolve-target","asker":"kean","owner":"lay","userMessage":"What are Ken Lay's priorities in late 2001? Give me 3 bullets.","expect":{"all":[{"kind":"toolNamesIncludeOneOf","names":["search_index","read_mail_message","read_indexed_file"]}]}}
+{"id":"slack-002-topic-from-mail","asker":"kean","owner":"lay","userMessage":"Did Lay have any meetings or emails about credit ratings in 2001?","expect":{"all":[{"kind":"toolNamesIncludeOneOf","names":["search_index","read_mail_message"]},{"kind":"finalTextIncludes","substring":"credit","caseInsensitive":true}]}}
+{"id":"slack-003-person-context","asker":"lay","owner":"kean","userMessage":"What does Steve Kean know about Enron's infrastructure in late 2001?","expect":{"all":[{"kind":"toolNamesIncludeOneOf","names":["search_index","read_mail_message","read_indexed_file"]}]}}
+{"id":"slack-004-no-raw-internals","asker":"kean","owner":"lay","userMessage":"Give me a summary of what Ken Lay communicated about the company situation in late 2001.","expect":{"all":[{"kind":"toolNamesIncludeOneOf","names":["search_index","read_mail_message"]},{"kind":"finalTextExcludes","substring":"/var/","caseInsensitive":false},{"kind":"finalTextExcludes","substring":"ripmail.db","caseInsensitive":false}]}}

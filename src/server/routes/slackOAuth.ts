@@ -11,7 +11,6 @@ import {
   newSlackOAuthState,
   putSlackOAuthSession,
   takeSlackOAuthSession,
-  type SlackOAuthSessionMode,
 } from '@server/lib/platform/slackOAuthState.js'
 import {
   getSlackWorkspace,
@@ -53,7 +52,7 @@ async function tenantEmailsForMatch(tenantUserId: string): Promise<Set<string>> 
   return emails
 }
 
-function parseMode(raw: string | undefined): SlackOAuthSessionMode | null {
+function parseMode(raw: string | undefined): 'install' | 'link' | null {
   if (raw === 'install' || raw === 'link') return raw
   return null
 }
@@ -178,10 +177,17 @@ app.get('/callback', async (c) => {
   if (slackEmail) {
     const allowed = await tenantEmailsForMatch(session.tenantUserId)
     if (!allowed.has(slackEmail)) {
-      return redirectSlackError(
-        c,
-        `Slack email (${slackEmail}) does not match your Braintunnel account. Sign in with the matching Google account or use the same email.`,
-      )
+      // Email mismatch — offer a confirm step instead of hard-rejecting
+      const confirmState = newSlackOAuthState()
+      putSlackOAuthSession(confirmState, session.tenantUserId, 'link-confirm')
+      const confirmParams = new URLSearchParams({
+        slackLinkConfirm: '1',
+        slackEmail,
+        slackTeamId: parsed.teamId,
+        slackUserId: parsed.slackUserId,
+        confirmState,
+      })
+      return c.redirect(`/settings?${confirmParams.toString()}`, 302)
     }
   }
 
@@ -192,6 +198,55 @@ app.get('/callback', async (c) => {
     slackEmail,
   })
   return redirectSlackSuccess(c, 'slackLinked')
+})
+
+/**
+ * POST /api/slack/oauth/link-confirm
+ *
+ * Vault-gated: consumes the one-time confirm state token produced when
+ * the Slack email doesn't match a linked Braintunnel mailbox, and writes
+ * the user link with a null email (explicitly confirmed by the user).
+ */
+app.post('/link-confirm', async (c) => {
+  if (!isSlackOAuthConfigured()) {
+    return c.json({ error: 'slack_not_configured' }, 503)
+  }
+  let body: { confirmState?: unknown; slackTeamId?: unknown; slackUserId?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const confirmState = typeof body.confirmState === 'string' ? body.confirmState.trim() : ''
+  const slackTeamId = typeof body.slackTeamId === 'string' ? body.slackTeamId.trim() : ''
+  const slackUserId = typeof body.slackUserId === 'string' ? body.slackUserId.trim() : ''
+  if (!confirmState || !slackTeamId || !slackUserId) {
+    return c.json({ error: 'missing_fields' }, 400)
+  }
+
+  const oauthSession = takeSlackOAuthSession(confirmState)
+  if (!oauthSession || oauthSession.mode !== 'link-confirm') {
+    return c.json({ error: 'confirm_state_invalid_or_expired' }, 400)
+  }
+
+  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+  const activeTenant = await lookupTenantBySession(sid)
+  if (!activeTenant || activeTenant !== oauthSession.tenantUserId) {
+    return c.json({ error: 'session_mismatch' }, 403)
+  }
+
+  const workspace = getSlackWorkspace(slackTeamId)
+  if (!workspace) {
+    return c.json({ error: 'workspace_not_found' }, 404)
+  }
+
+  upsertSlackUserLink({
+    slackTeamId,
+    slackUserId,
+    tenantUserId: oauthSession.tenantUserId,
+    slackEmail: null,
+  })
+  return c.json({ ok: true })
 })
 
 export default app

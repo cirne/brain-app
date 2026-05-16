@@ -48,6 +48,24 @@ export type AssistantTurnState = {
   parts: MessagePart[]
 }
 
+/**
+ * Slack return-address metadata on a b2b_inbound session (OPP-118).
+ * Stored alongside the session so both the Brain review UI and Slack Block Kit
+ * buttons can route the approved reply back to the original Slack requester.
+ */
+export type SlackSessionDelivery = {
+  slackTeamId: string
+  requesterSlackUserId: string
+  requesterChannelId: string
+  requesterThreadTs?: string
+  ownerSlackUserId: string
+  ownerApprovalChannelId: string
+  /** message_ts of the Block Kit — set after sendApprovalRequest. */
+  ownerApprovalMessageTs?: string
+  requesterDisplayHint?: string
+  ownerDisplayName: string
+}
+
 export type ChatSessionDocV1 = {
   version: 1
   sessionId: string
@@ -65,5 +83,7 @@ export type ChatSessionDocV1 = {
   coldLinkedSessionId?: string | null
   /** Inbound B2B: false when preflight classified the peer message as FYI (no draft/review). */
   expectsResponse?: boolean
+  /** Slack integration (OPP-118): set when the inbound query arrived from Slack. */
+  slackDelivery?: SlackSessionDelivery
   messages: ChatMessage[]
 }

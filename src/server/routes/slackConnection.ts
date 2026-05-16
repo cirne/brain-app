@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import {
+  deleteSlackUserLink,
   getSlackWorkspace,
   isSlackOAuthConfigured,
   listSlackUserLinksForTenant,
@@ -47,6 +48,24 @@ app.get('/connection', (c) => {
     oauthConfigured: isSlackOAuthConfigured(),
     workspaces,
   })
+})
+
+/** DELETE /api/slack/link — remove the user's Slack account link for a given workspace. */
+app.delete('/link', async (c) => {
+  const ctx = tryGetTenantContext()
+  if (!ctx) {
+    return c.json({ ok: false, error: 'no_tenant' }, 401)
+  }
+  let body: { slackTeamId?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid_json' }, 400)
+  }
+  const slackTeamId = typeof body.slackTeamId === 'string' ? body.slackTeamId.trim() : ''
+  if (!slackTeamId) return c.json({ error: 'slackTeamId_required' }, 400)
+  deleteSlackUserLink({ slackTeamId, tenantUserId: ctx.tenantUserId })
+  return c.json({ ok: true })
 })
 
 export default app
