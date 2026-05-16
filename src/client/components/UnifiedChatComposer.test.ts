@@ -11,6 +11,7 @@ describe('UnifiedChatComposer', () => {
     expect(src).toContain('<AgentInput')
     expect(src).toContain('<ChatVoicePanel')
     expect(src).toContain('layout="composer-flow"')
+    expect(src).toContain('class="input-shell flex flex-1 min-w-0 flex-col overflow-hidden rounded-md border border-border bg-surface focus-within:border-accent"')
     expect(src).toContain('autoStartRecording={true}')
     expect(src).toContain('{hearReplies}')
     expect(src).not.toContain('ChatComposerAudio')

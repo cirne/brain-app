@@ -31,10 +31,10 @@ describe('ChatVoicePanel', () => {
     expect(src).toContain('chat-voice-panel--composer-flow')
     /* Composer-flow: inner row is flex-row alongside voice-actions :global overrides */
     expect(src).toContain('chat-voice-panel-inner')
-    expect(src).toContain("layout === 'composer-flow' && 'flex-row'")
-    expect(src).toContain('.chat-voice-panel--composer-flow :global(.voice-actions)')
-    expect(src).toContain('voice-waveform-placeholder')
+    expect(src).toContain('input-composer flex min-h-[48px]')
+    expect(src).toContain('send-actions flex shrink-0 flex-row items-stretch self-stretch')
     expect(src).toContain('voice-exit-keyboard')
+    expect(src).toContain('lead-actions flex shrink-0 flex-row items-stretch self-stretch')
     expect(src).toContain('autoStartRecording')
     expect(src).toContain('chat.voice.transcribing')
 

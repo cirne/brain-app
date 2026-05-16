@@ -57,6 +57,14 @@ Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-thread
 ## Fixed (archived)
 
 
+### [BUG-061](bugs/archive/BUG-061-voice-composer-flow-missing-rounded-shell.md): Voice composer loses rounded input shell while mic is on
+
+**Fixed (2026-05-16).** Voice mode shares `input-shell` + `input-composer` / `lead-actions` / `send-actions` with keyboard mode; waveform in center; send rail flush right. User feedback **#20**. See [bugs/archive/BUG-061-voice-composer-flow-missing-rounded-shell.md](bugs/archive/BUG-061-voice-composer-flow-missing-rounded-shell.md).
+
+### [BUG-060](bugs/archive/BUG-060-read-mail-message-empty-bodytext-html-only-mail.md): `read_mail_message` empty `bodyText` for HTML-only mail
+
+**Fixed (2026-05-15).** Derive agent text from stored `body_html` via `htmlToAgentMarkdown` when `body_text` is empty (**`2522c87`**). User feedback **#19**. See [bugs/archive/BUG-060-read-mail-message-empty-bodytext-html-only-mail.md](bugs/archive/BUG-060-read-mail-message-empty-bodytext-html-only-mail.md).
+
 ### [BUG-062](bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md): Calendar day query — `primary`-only lookup, empty result stated as no events
 
 **Fixed (2026-05-16).** `normalizeRangeCalendarIdsRequest` maps lone `primary` to Hub defaults; clearer empty-range tool text + assistant prompt. User feedback **#21**. See [bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md](bugs/archive/BUG-062-calendar-day-query-default-only-empty-misleading.md).

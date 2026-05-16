@@ -99,15 +99,19 @@
   <div class="composer-input-row flex w-full min-w-0 box-border shrink-0 flex-row items-start pb-0.5">
     <div class="composer-input-shell flex-1 min-w-0">
       {#if voiceEligible && composerMode === 'voice'}
-        <ChatVoicePanel
-          layout="composer-flow"
-          disabled={streaming}
-          holdGated={holdGated}
-          {hearReplies}
-          autoStartRecording={true}
-          onTranscribe={onTranscribe}
-          onExitVoiceMode={exitVoiceMode}
-        />
+        <div
+          class="input-shell flex flex-1 min-w-0 flex-col overflow-hidden rounded-md border border-border bg-surface focus-within:border-accent"
+        >
+          <ChatVoicePanel
+            layout="composer-flow"
+            disabled={streaming}
+            holdGated={holdGated}
+            {hearReplies}
+            autoStartRecording={true}
+            onTranscribe={onTranscribe}
+            onExitVoiceMode={exitVoiceMode}
+          />
+        </div>
       {:else}
         <AgentInput
           bind:this={inputRef}
