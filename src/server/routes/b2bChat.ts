@@ -61,6 +61,7 @@ import {
   runB2BPreflight,
 } from '@server/agent/b2bAgent.js'
 import { approveInboundSession, declineInboundSession } from '@server/lib/chat/inboundApproval.js'
+import { slackMessagingAdapter } from '@server/lib/messaging/adapters/slack.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
 import { createNotificationForTenant } from '@server/lib/notifications/createNotificationForTenant.js'
@@ -1324,9 +1325,11 @@ b2bChat.post('/approve', async (c) => {
     return c.json({ ok: true, grantId: grant.id })
   }
 
-  // Non-cold B2B path: delegate to shared helper (also handles slackDelivery if somehow reached via Brain UI)
+  // Non-cold path: passes slackAdapter so Slack-sourced sessions also post to Slack
+  // and update the Block Kit when approved from the Brain UI.
   const approveResult = await approveInboundSession(sessionId, ctx.tenantUserId, {
     editedText: edited,
+    slackAdapter: slackMessagingAdapter,
     appendAssistantToAsker: (grant, draftText, traceId) => appendAssistantToAsker(grant as Parameters<typeof appendAssistantToAsker>[0], draftText, traceId),
   })
   if (!('ok' in approveResult)) return c.json({ error: approveResult.error }, approveResult.status)
@@ -1369,8 +1372,10 @@ b2bChat.post('/decline', async (c) => {
     return c.json({ ok: true })
   }
 
-  // Non-cold path: delegate to shared helper
+  // Non-cold path: passes slackAdapter so Slack-sourced sessions post the refusal
+  // to Slack and update the Block Kit when declined from the Brain UI.
   const declineResult = await declineInboundSession(sessionId, ctx.tenantUserId, {
+    slackAdapter: slackMessagingAdapter,
     appendAssistantToAsker: (grant, draftText, traceId) => appendAssistantToAsker(grant as Parameters<typeof appendAssistantToAsker>[0], draftText, traceId),
   })
   if (!('ok' in declineResult)) return c.json({ error: declineResult.error }, declineResult.status)

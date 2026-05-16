@@ -54,11 +54,7 @@ Add an `llmJudge` expect kind to the wiki eval harness so quality properties —
 
 **Open — research.** Periodic ripmail sweep works for small N; **thousands of tenants per container** needs tail-aware scheduling (queues, jitter, isolation). Problem + directions: [scheduled-ripmail-sync-at-scale.md](architecture/scheduled-ripmail-sync-at-scale.md).
 
-### [OPP-118](opportunities/OPP-118-slack-ambassador-dm-phase-1.md): Slack DM — delegated assistant replies and approval (Phase 1)
-
-**Open.** After [archived OPP-117](opportunities/archive/OPP-117-slack-identity-and-messaging-adapter.md): DM delegated-assistant loop via new **`integrationAgent`** (corpus tool reuse + Slack routing tools; Teams-ready adapter boundary), Block Kit approve/decline, `source: slack`. UI: **assistant** / **tunnel**, not “ambassador.” Reuse B2B research/filter patterns, not `b2bAgent` routes. **Eval:** JSONL suite for integration agent + B2B regression when shared tools change. Link confirm when Slack email ≠ Braintunnel mailbox. Parent: [IDEA-slack-personal-ambassador](ideas/IDEA-slack-personal-ambassador.md).
-
-
+**Archived (2026-05-16) — [OPP-118](opportunities/archive/OPP-118-slack-ambassador-dm-phase-1.md): Slack DM — delegated assistant replies and approval (Phase 1).** Dev shipped: `integrationAgent` + Block Kit approval, `b2b_inbound` session with `slackDelivery`, Slack mention→identity resolution (Slack ID → linked mailboxes), email-mismatch confirm, `POST /api/slack/interactions`, threaded DM replies, Brain UI approve/decline syncs to Slack, `eval:slack-integration` JSONL harness. Verified on Gamaliel workspace. Parent: [IDEA-slack-personal-ambassador](ideas/IDEA-slack-personal-ambassador.md).
 
 ---
 
@@ -423,7 +419,7 @@ Operator workflow for **Developer ID Application** signing, **notarization**, **
 
 ### [OPP-117](opportunities/archive/OPP-117-slack-identity-and-messaging-adapter.md): Slack identity link + messaging adapter
 
-**Archived (2026-05-16).** **Dev shipped:** Slack OAuth install + user link, global SQLite, Settings Connections card, `MessagingQuery` + adapter (hello, who-has, linked/unlinked @user). **Follow-on:** [OPP-118](opportunities/OPP-118-slack-ambassador-dm-phase-1.md). Parent: [IDEA-slack-personal-ambassador](ideas/IDEA-slack-personal-ambassador.md).
+**Archived (2026-05-16).** **Dev shipped:** Slack OAuth install + user link, global SQLite, Settings Connections card, `MessagingQuery` + adapter (hello, who-has, linked/unlinked @user). **Follow-on:** [OPP-118](opportunities/archive/OPP-118-slack-ambassador-dm-phase-1.md). Parent: [IDEA-slack-personal-ambassador](ideas/IDEA-slack-personal-ambassador.md).
 
 
 
