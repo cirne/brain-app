@@ -110,7 +110,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     expect(cell.current?.onRefresh).toBe(refreshRef)
   })
 
-  it('renders the two preference toggles for IMAP sources only', async () => {
+  it('renders default-send preference toggle for IMAP sources only', async () => {
     let prefsState: {
       defaultSendSource: string | null
       mailboxes: { id: string; email: string; includeInDefault: boolean }[]
@@ -138,66 +138,13 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('checkbox', { name: /Search this mailbox by default/i }),
+        screen.getByRole('checkbox', { name: /Send from this mailbox by default/i }),
       ).toBeInTheDocument()
     })
     expect(
-      screen.getByRole('checkbox', { name: /Send from this mailbox by default/i }),
-    ).toBeInTheDocument()
+      screen.queryByRole('checkbox', { name: /Search this mailbox by default/i }),
+    ).not.toBeInTheDocument()
     void prefsState
-  })
-
-  it('toggling search visibility posts include-in-default and reflects the new value', async () => {
-    let prefsState = {
-      defaultSendSource: null as string | null,
-      mailboxes: [{ id: 'work_x', email: 'work@example.com', includeInDefault: true }],
-    }
-    const seenPosts: { url: string; body: string }[] = []
-    vi.stubGlobal(
-      'fetch',
-      makeFetch(async (url, init) => {
-        const u = String(url)
-        if (init?.method === 'POST' && u.includes('/api/hub/sources/include-in-default')) {
-          const body = init.body as string
-          seenPosts.push({ url: u, body })
-          const parsed = JSON.parse(body) as { id: string; included: boolean }
-          prefsState.mailboxes = prefsState.mailboxes.map((m) =>
-            m.id === parsed.id ? { ...m, includeInDefault: parsed.included } : m,
-          )
-          return new Response(
-            JSON.stringify({ ok: true, id: parsed.id, includeInDefault: parsed.included }),
-            { status: 200 },
-          )
-        }
-        if (u.endsWith('/api/hub/sources') || u.includes('/api/hub/sources?')) {
-          return sourcesResponse()
-        }
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return new Response(JSON.stringify({ ok: true, ...prefsState }), { status: 200 })
-        }
-        const r = commonGet(u)
-        if (r) return r
-        return new Response('not found', { status: 404 })
-      }),
-    )
-
-    render(HubConnectorSourcePanel, { props: { sourceId: 'work_x', onClose: () => {} } })
-
-    const checkbox = await screen.findByRole('checkbox', {
-      name: /Search this mailbox by default/i,
-    })
-    await waitFor(() => {
-      expect(checkbox).not.toBeDisabled()
-    })
-    expect(checkbox).toBeChecked()
-
-    await fireEvent.click(checkbox)
-
-    await waitFor(() => {
-      expect(seenPosts.length).toBe(1)
-    })
-    const sent = JSON.parse(seenPosts[0].body) as { id: string; included: boolean }
-    expect(sent).toEqual({ id: 'work_x', included: false })
   })
 
   it('toggling default send posts the source id, then clears it on a second click', async () => {

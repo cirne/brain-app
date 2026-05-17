@@ -215,7 +215,7 @@ describe('Assistant.svelte', () => {
       expect(screen.getByTestId('chat-history-stub')).toBeInTheDocument()
     })
 
-    it('starts with sidebar closed on mobile', async () => {
+    it('starts with sidebar hidden (but mounted) on mobile', async () => {
       const mq = {
         matches: true,
         media: '(max-width: 767px)',
@@ -231,7 +231,9 @@ describe('Assistant.svelte', () => {
       render(Assistant)
       await tick()
 
-      expect(screen.queryByTestId('chat-history-stub')).not.toBeInTheDocument()
+      // ChatHistory stays mounted on mobile (pre-fetches data) but its <aside> is hidden via CSS.
+      expect(screen.getByTestId('chat-history-stub')).toBeInTheDocument()
+      expect(screen.getByTestId('chat-history-stub').closest('aside')).toHaveClass('-translate-x-full')
     })
   })
 

@@ -67,6 +67,7 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailCalendarCancelEvent: vi.fn(async () => {}),
   ripmailCalendarDeleteEvent: vi.fn(async () => {}),
   ripmailRefresh: vi.fn(async () => ({ ok: true, messagesAdded: 0, messagesUpdated: 0 })),
+  loadRipmailConfig: vi.fn(() => ({})),
 }))
 import {
   applyInboxResolution,

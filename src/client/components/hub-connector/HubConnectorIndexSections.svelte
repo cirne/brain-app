@@ -19,6 +19,8 @@
     showInlineRefresh: boolean
     onRefresh: () => void
     onReloadDetail: () => void
+    /** When true, calendar picker omits its section heading/border (unified account panel). */
+    calendarPickerCompact?: boolean
   }
 
   let {
@@ -30,6 +32,7 @@
     showInlineRefresh,
     onRefresh,
     onReloadDetail,
+    calendarPickerCompact = false,
   }: Props = $props()
 
   const isGoogleCalendar = $derived(sourceDetail?.kind === 'googleCalendar')
@@ -66,6 +69,7 @@
     <HubConnectorCalendarSection
       sourceId={sourceDetail.id}
       configuredIds={sourceDetail.calendarIds}
+      compact={calendarPickerCompact}
       onSaved={onReloadDetail}
     />
   {/if}

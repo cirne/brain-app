@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Mail, ChevronRight, Folder, Calendar, HardDrive, Plus } from '@lucide/svelte'
+  import { Mail, ChevronRight, Folder, Calendar, HardDrive, Plus, Globe } from '@lucide/svelte'
   import { cn } from '@client/lib/cn.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
@@ -10,16 +10,17 @@
     sourceKindLabel,
     type HubRipmailSourceRow,
   } from '@client/lib/hub/hubRipmailSource.js'
-  import { sortHubRipmailSources } from '@client/lib/hub/hubSourceOrdering.js'
+  import { buildSettingsConnectionListEntries } from '@client/lib/hub/hubGoogleAccountConnections.js'
   import { t } from '@client/lib/i18n/index.js'
   import SettingsSlackConnection from '@components/settings/SettingsSlackConnection.svelte'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
+    selectedGoogleAccountEmail?: string
   }
 
-  let { onSettingsNavigate, selectedHubSourceId }: Props = $props()
+  let { onSettingsNavigate, selectedHubSourceId, selectedGoogleAccountEmail }: Props = $props()
 
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
@@ -33,7 +34,19 @@
     return k
   }
 
-  const orderedHubSources = $derived(sortHubRipmailSources(hubSources))
+  const connectionEntries = $derived(buildSettingsConnectionListEntries(hubSources))
+
+  function googleRowSubtitle(sources: HubRipmailSourceRow[]): string {
+    const parts: string[] = []
+    if (sources.some((x) => x.kind === 'imap')) parts.push($t('hub.ripmailSource.sourceKind.imap'))
+    if (sources.some((x) => x.kind === 'googleCalendar')) {
+      parts.push($t('hub.ripmailSource.sourceKind.googleCalendar'))
+    }
+    if (sources.some((x) => x.kind === 'googleDrive')) {
+      parts.push($t('hub.ripmailSource.sourceKind.googleDrive'))
+    }
+    return parts.join(' · ')
+  }
 
   async function fetchData() {
     try {
@@ -91,6 +104,8 @@
     'link-item flex cursor-pointer items-center justify-between border border-transparent border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent p-2 text-left text-foreground transition-[padding,color,background,border-color] duration-150 focus-visible:!border-accent focus-visible:bg-accent-dim focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55'
   const linkItemSelected =
     'link-item--selected !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-accent-dim focus-visible:!border-accent'
+
+  const selG = $derived(selectedGoogleAccountEmail?.trim().toLowerCase() ?? '')
 </script>
 
 <div class="settings-connections-list flex flex-col gap-6">
@@ -105,7 +120,7 @@
       >
         {$t('settings.settingsConnectionsPage.errors.loadSources')}
       </p>
-    {:else if orderedHubSources.length === 0}
+    {:else if connectionEntries.length === 0}
       <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">
         {#if multiTenant}
           {$t('settings.settingsConnectionsPage.empty.multiTenant')}
@@ -114,54 +129,97 @@
         {/if}
       </p>
     {:else}
-      {#each orderedHubSources as s (s.id)}
-        {@const isMail = s.kind === 'imap' || s.kind === 'applemail'}
-        {@const isDefaultSend = isMail && defaultSendSourceId === s.id}
-        {@const isHidden = isMail && mailHiddenFromDefault.has(s.id)}
-        <button
-          type="button"
-          class={cn(linkItemBase, 'hub-source-row', selectedHubSourceId === s.id && linkItemSelected)}
-          aria-current={selectedHubSourceId === s.id ? 'true' : undefined}
-          onclick={() => onSettingsNavigate({ type: 'hub-source', id: s.id })}
-        >
-          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-            <HubSourceRowBody title={s.displayName} subtitle={sourceRowSecondary(s)}>
-              {#snippet icon()}
-                {#if s.kind === 'localDir'}
-                  <Folder size={16} />
-                {:else if s.kind === 'googleDrive'}
-                  <HardDrive size={16} />
-                {:else if s.kind === 'imap' || s.kind === 'applemail'}
-                  <Mail size={16} />
-                {:else}
-                  <Calendar size={16} />
-                {/if}
-              {/snippet}
-            </HubSourceRowBody>
-          </div>
-          <div
-            class="hub-source-row-flags mr-2 inline-flex shrink-0 items-center gap-1.5"
-            aria-hidden={!isMail}
+      {#each connectionEntries as entry (entry.type === 'single' ? entry.source.id : `ga:${entry.panelEmail}`)}
+        {#if entry.type === 'single'}
+          {@const s = entry.source}
+          {@const isMail = s.kind === 'imap' || s.kind === 'applemail'}
+          {@const isDefaultSend = isMail && defaultSendSourceId === s.id}
+          {@const isHidden = isMail && mailHiddenFromDefault.has(s.id)}
+          <button
+            type="button"
+            class={cn(linkItemBase, 'hub-source-row', selectedHubSourceId === s.id && linkItemSelected)}
+            aria-current={selectedHubSourceId === s.id ? 'true' : undefined}
+            onclick={() => onSettingsNavigate({ type: 'hub-source', id: s.id })}
           >
-            {#if isDefaultSend}
-              <span
-                class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
-                title={$t('settings.settingsConnectionsPage.badges.defaultSendTitle')}
-              >
-                {$t('settings.settingsConnectionsPage.badges.defaultSendLabel')}
-              </span>
-            {/if}
-            {#if isHidden}
-              <span
-                class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
-                title={$t('settings.settingsConnectionsPage.badges.hiddenFromSearchTitle')}
-              >
-                {$t('settings.settingsConnectionsPage.badges.hiddenFromSearchLabel')}
-              </span>
-            {/if}
-          </div>
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
+            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+              <HubSourceRowBody title={s.displayName} subtitle={sourceRowSecondary(s)}>
+                {#snippet icon()}
+                  {#if s.kind === 'localDir'}
+                    <Folder size={16} />
+                  {:else if s.kind === 'googleDrive'}
+                    <HardDrive size={16} />
+                  {:else if s.kind === 'imap' || s.kind === 'applemail'}
+                    <Mail size={16} />
+                  {:else}
+                    <Calendar size={16} />
+                  {/if}
+                {/snippet}
+              </HubSourceRowBody>
+            </div>
+            <div
+              class="hub-source-row-flags mr-2 inline-flex shrink-0 items-center gap-1.5"
+              aria-hidden={!isMail}
+            >
+              {#if isDefaultSend}
+                <span
+                  class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
+                  title={$t('settings.settingsConnectionsPage.badges.defaultSendTitle')}
+                >
+                  {$t('settings.settingsConnectionsPage.badges.defaultSendLabel')}
+                </span>
+              {/if}
+              {#if isHidden}
+                <span
+                  class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
+                  title={$t('settings.settingsConnectionsPage.badges.hiddenFromSearchTitle')}
+                >
+                  {$t('settings.settingsConnectionsPage.badges.hiddenFromSearchLabel')}
+                </span>
+              {/if}
+            </div>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        {:else}
+          {@const mailPart = entry.sources.find((x) => x.kind === 'imap')}
+          {@const isDefaultSend = mailPart != null && defaultSendSourceId === mailPart.id}
+          {@const isHidden =
+            mailPart != null && mailHiddenFromDefault.has(mailPart.id)}
+          {@const rowSelected = selG !== '' && selG === entry.panelEmail.trim().toLowerCase()}
+          <button
+            type="button"
+            class={cn(linkItemBase, 'hub-source-row', rowSelected && linkItemSelected)}
+            aria-current={rowSelected ? 'true' : undefined}
+            onclick={() =>
+              onSettingsNavigate({ type: 'google-account', email: entry.panelEmail.trim() })}
+          >
+            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+              <HubSourceRowBody title={entry.panelEmail} subtitle={googleRowSubtitle(entry.sources)}>
+                {#snippet icon()}
+                  <Globe size={16} aria-hidden="true" />
+                {/snippet}
+              </HubSourceRowBody>
+            </div>
+            <div class="hub-source-row-flags mr-2 inline-flex shrink-0 items-center gap-1.5">
+              {#if isDefaultSend}
+                <span
+                  class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
+                  title={$t('settings.settingsConnectionsPage.badges.defaultSendTitle')}
+                >
+                  {$t('settings.settingsConnectionsPage.badges.defaultSendLabel')}
+                </span>
+              {/if}
+              {#if isHidden}
+                <span
+                  class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
+                  title={$t('settings.settingsConnectionsPage.badges.hiddenFromSearchTitle')}
+                >
+                  {$t('settings.settingsConnectionsPage.badges.hiddenFromSearchLabel')}
+                </span>
+              {/if}
+            </div>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        {/if}
       {/each}
     {/if}
     <SettingsSlackConnection />

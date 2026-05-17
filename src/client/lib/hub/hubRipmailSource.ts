@@ -33,6 +33,9 @@ export type HubRipmailSourceRow = {
   kind: string
   displayName: string
   path: string | null
+  /** OAuth cluster id from ripmail config (Google account grouping). */
+  oauthSourceId?: string
+  email?: string
 }
 
 export type HubMailStatusMailbox = {
@@ -172,6 +175,9 @@ export const HUB_MAIL_BACKFILL_WINDOW_OPTIONS = [
 ] as const
 
 export type HubMailBackfillWindow = (typeof HUB_MAIL_BACKFILL_WINDOW_OPTIONS)[number]['value']
+
+/** Default historical span for “download older mail” when the user no longer picks a range in the UI. */
+export const HUB_MAIL_BACKFILL_DEFAULT_SINCE: HubMailBackfillWindow = '1y'
 
 /** Match `historicalSinceToAfterEpochSeconds` in `@server/ripmail/sync/gmail.ts` (day counts × 86400 s). */
 const DAY_MS = 86_400_000 as const

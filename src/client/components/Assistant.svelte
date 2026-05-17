@@ -52,6 +52,7 @@ import AppShell from '@components/app/AppShell.svelte'
   import { routeShowsWorkspaceSplitDetail } from '@client/lib/settings/settingsWorkspaceSplit.js'
   import {
     resolveSettingsPrimaryShell,
+    selectedGoogleAccountEmailFromOverlay,
     selectedHubSourceFromOverlay,
   } from '@client/lib/settings/settingsPrimaryShell.js'
   import { mobileCompactNavCenterTitle } from '@client/lib/mobileCompactNavCenterTitle.js'
@@ -1201,7 +1202,6 @@ import AppShell from '@components/app/AppShell.svelte'
 
   function toggleSidebar() {
     shell.sidebarOpen = !shell.sidebarOpen
-    if (shell.sidebarOpen) void refs.chatHistory?.refresh()
   }
 
   async function selectChatSession(
@@ -1619,9 +1619,31 @@ import AppShell from '@components/app/AppShell.svelte'
   />
   {/snippet}
 
+  {#snippet railContent()}
+    <AssistantHistoryRailHeader onClose={() => { shell.sidebarOpen = false }} />
+    <div class="rail-inner flex min-h-0 flex-1 flex-col">
+      <div class="rail-panel rail-panel--chat flex min-h-0 flex-1 flex-col">
+        <ChatHistory
+          bind:this={refs.chatHistory}
+          activeSessionId={sessionHighlightId}
+          streamingSessionIds={shell.streamingSessionIds}
+          onSelect={selectChatSession}
+          onSelectDoc={selectDocFromHistory}
+          onNewChat={historyNewChat}
+          onOpenAllChats={openChatHistoryPage}
+          onWikiHome={navigateWikiPrimary}
+          selectedTunnelHandle={shell.route.zone === 'tunnels' ? (shell.route.tunnelHandle ?? null) : null}
+          onSelectTunnel={(h) => navigateTunnelRoute(h)}
+          onOpenPendingTunnel={() => void openPendingTunnelFromRail()}
+          onOpenColdTunnelEntry={openColdTunnelEntryFromRail}
+        />
+      </div>
+    </div>
+  {/snippet}
+
   {#snippet sidebar()}
-    {#if shell.sidebarOpen}
-      {#if shell.isMobile}
+    {#if shell.isMobile}
+      {#if shell.sidebarOpen}
         <div
           class="sidebar-backdrop fixed inset-x-0 bottom-0 z-[199] bg-black/40 [top:var(--tab-h)]"
           role="presentation"
@@ -1629,35 +1651,31 @@ import AppShell from '@components/app/AppShell.svelte'
           onclick={() => { shell.sidebarOpen = false }}
         ></div>
       {/if}
+      <!--
+        Always in the DOM on mobile so ChatHistory stays mounted and pre-fetched.
+        CSS transition replaces the Svelte fly — instant open after first render.
+      -->
       <aside
         class={cn(
-          'history-sidebar history-sidebar--slide flex min-h-0 flex-col border-r border-border bg-surface-2',
-          'md:relative md:shrink-0 md:w-sidebar-history md:max-w-[min(var(--sidebar-history-w),92vw)] md:self-stretch',
-          'max-md:fixed max-md:left-0 max-md:bottom-0 max-md:z-[200] max-md:w-sidebar-history-mobile max-md:max-w-full max-md:[top:var(--tab-h)]',
+          'history-sidebar flex min-h-0 flex-col border-r border-border bg-surface-2',
+          'fixed left-0 bottom-0 z-[200] w-sidebar-history-mobile max-w-full [top:var(--tab-h)]',
+          !shell.sidebarOpen && '-translate-x-full invisible pointer-events-none',
         )}
-        in:historySidebarTransition={{ mobile: shell.isMobile, reduce: shell.reduceSidebarMotion }}
-        out:historySidebarTransition={{ mobile: shell.isMobile, reduce: shell.reduceSidebarMotion }}
+        style={`transition: transform ${shell.reduceSidebarMotion ? 0 : SIDEBAR_TRANSITION_MS}ms ease-in-out, visibility ${shell.reduceSidebarMotion ? 0 : SIDEBAR_TRANSITION_MS}ms ease-in-out;`}
+        aria-hidden={!shell.sidebarOpen}
       >
-        <AssistantHistoryRailHeader onClose={() => { shell.sidebarOpen = false }} />
-        <div class="rail-inner flex min-h-0 flex-1 flex-col">
-          <div class="rail-panel rail-panel--chat flex min-h-0 flex-1 flex-col">
-            <ChatHistory
-              bind:this={refs.chatHistory}
-              activeSessionId={sessionHighlightId}
-              streamingSessionIds={shell.streamingSessionIds}
-              onSelect={selectChatSession}
-              onSelectDoc={selectDocFromHistory}
-              onNewChat={historyNewChat}
-              onOpenAllChats={openChatHistoryPage}
-              onWikiHome={navigateWikiPrimary}
-              selectedTunnelHandle={shell.route.zone === 'tunnels' ? (shell.route.tunnelHandle ?? null) : null}
-              onSelectTunnel={(h) => navigateTunnelRoute(h)}
-              onOpenPendingTunnel={() => void openPendingTunnelFromRail()}
-              onOpenColdTunnelEntry={openColdTunnelEntryFromRail}
-            />
-          </div>
-        </div>
+        {@render railContent()}
       </aside>
+    {:else}
+      {#if shell.sidebarOpen}
+        <aside
+          class="history-sidebar history-sidebar--slide flex min-h-0 flex-col border-r border-border bg-surface-2 relative shrink-0 w-sidebar-history max-w-[min(var(--sidebar-history-w),92vw)] self-stretch"
+          in:historySidebarTransition={{ mobile: false, reduce: shell.reduceSidebarMotion }}
+          out:historySidebarTransition={{ mobile: false, reduce: shell.reduceSidebarMotion }}
+        >
+          {@render railContent()}
+        </aside>
+      {/if}
     {/if}
   {/snippet}
 
@@ -1908,6 +1926,9 @@ import AppShell from '@components/app/AppShell.svelte'
                   <SettingsConnectionsPage
                     onSettingsNavigate={navigateFromSettings}
                     selectedHubSourceId={selectedHubSourceFromOverlay(shell.route.overlay)}
+                    selectedGoogleAccountEmail={selectedGoogleAccountEmailFromOverlay(
+                      shell.route.overlay,
+                    )}
                     onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
                   />
                 {:else if settingsPrimaryShell === 'wiki'}
@@ -1933,6 +1954,9 @@ import AppShell from '@components/app/AppShell.svelte'
                     multiTenant={multiTenant}
                     onSettingsNavigate={navigateFromSettings}
                     selectedHubSourceId={selectedHubSourceFromOverlay(shell.route.overlay)}
+                    selectedGoogleAccountEmail={selectedGoogleAccountEmailFromOverlay(
+                      shell.route.overlay,
+                    )}
                   />
                 {/if}
               </div>

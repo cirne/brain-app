@@ -18,7 +18,6 @@
   },
   "hubConnectorSourcePanel": {
     "errors": {
-      "updateVisibility": "Could not update visibility",
       "updateDefaultSendMailbox": "Could not update default send mailbox",
       "loadStatus": "Could not load status",
       "loadSourceDetail": "Could not load source detail",
@@ -39,6 +38,28 @@
     "actions": {
       "removing": "Removing…",
       "removeFromIndex": "Remove from index"
+    }
+  },
+  "googleAccountPanel": {
+    "errors": {
+      "loadSources": "Could not load connections",
+      "noAccount": "No Google account selected.",
+      "emptyAccount": "This Google account is not connected or was removed."
+    },
+    "sections": {
+      "email": "Email",
+      "calendar": "Calendar",
+      "drive": "Google Drive"
+    },
+    "remove": {
+      "email": "Remove email from index",
+      "calendar": "Remove calendar from index",
+      "drive": "Remove Drive from index"
+    },
+    "confirmRemove": {
+      "email": "Remove this mailbox from the search index?\n\nNothing is deleted on disk. Braintunnel will stop searching it.",
+      "calendar": "Remove Google Calendar from the search index?\n\nNothing is deleted on Google. Braintunnel will stop using this calendar.",
+      "drive": "Remove Google Drive from the search index?\n\nNothing is deleted in Drive. Braintunnel will stop searching these files."
     }
   },
   "hubConnectorDriveSection": {

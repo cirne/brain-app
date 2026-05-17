@@ -39,6 +39,12 @@ vi.mock('@server/ripmail/index.js', () => ({
   ripmailGoogleCalendarListCalendars: vi.fn(async () => []),
   loadRipmailConfig: vi.fn(() => ({
     sources: [
+      {
+        id: 'a_gmail_com',
+        kind: 'imap',
+        email: 'a@gmail.com',
+        oauthSourceId: 'mailbox_a',
+      },
       { id: 'drive_x', kind: 'googleDrive', email: 'u@gmail.com', oauthSourceId: 'mailbox_a', includeSharedWithMe: true,
         fileSource: { roots: [{ id: 'abc', name: 'Work', recursive: true }], includeGlobs: [], ignoreGlobs: [], maxFileBytes: 5_000_000, respectGitignore: true } },
     ],
@@ -103,13 +109,26 @@ describe('hub routes', () => {
     const res = await app.request('http://localhost/api/hub/sources')
     expect(res.status).toBe(200)
     const j = (await res.json()) as {
-      sources: Array<{ id: string; kind: string; displayName: string; path: string | null }>
+      sources: Array<{
+        id: string
+        kind: string
+        displayName: string
+        path: string | null
+        oauthSourceId?: string
+        email?: string
+      }>
       error?: string
     }
     expect(j.error).toBeUndefined()
     expect(j.sources).toHaveLength(2)
     expect(j.sources[0]).toMatchObject({ id: 'x_netjets_local', kind: 'localDir', displayName: 'NetJets' })
-    expect(j.sources[1].displayName).toBe('a@gmail.com')
+    expect(j.sources[1]).toMatchObject({
+      id: 'a_gmail_com',
+      kind: 'imap',
+      displayName: 'a@gmail.com',
+      email: 'a@gmail.com',
+      oauthSourceId: 'mailbox_a',
+    })
   })
 
   it('GET /sources/detail merges list and status for a Google Drive source', async () => {

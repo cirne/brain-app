@@ -25,14 +25,12 @@
   let loadError = $state<string | null>(null)
   let removingSource = $state(false)
   let sourceSyncAction = $state<'refresh' | 'backfill' | null>(null)
-  let backfillWindow = $state('1y')
   let mailStatus = $state<HubMailStatusOk | null>(null)
   let mailStatusLoading = $state(false)
   let mailStatusError = $state<string | null>(null)
-  /** Per-source preferences: visibility (default-search) + default send. */
-  let includedInDefault = $state<boolean | null>(null)
+  /** Per-source preferences: default send (IMAP). */
   let isDefaultSend = $state<boolean | null>(null)
-  let prefsBusy = $state<'visibility' | 'default-send' | null>(null)
+  let prefsBusy = $state<'default-send' | null>(null)
   let prefsError = $state<string | null>(null)
   let sourceDetail = $state<HubSourceDetailOk | null>(null)
   let _sourceDetailLoading = $state(false)
@@ -73,40 +71,9 @@
         defaultSendSource?: string | null
       }
       if (!j.ok || !Array.isArray(j.mailboxes)) return
-      const mb = j.mailboxes.find((m) => m.id === id)
-      includedInDefault = mb ? mb.includeInDefault : true
       isDefaultSend = j.defaultSendSource === id
     } catch {
       /* leave previous values */
-    }
-  }
-
-  async function toggleIncludedInDefault() {
-    const id = source?.id
-    if (!id || prefsBusy) return
-    const next = !(includedInDefault ?? true)
-    prefsBusy = 'visibility'
-    prefsError = null
-    try {
-      const res = await fetch('/api/hub/sources/include-in-default', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, included: next }),
-      })
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean
-        error?: string
-        includeInDefault?: boolean
-      }
-      if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.updateVisibility'))
-      }
-      includedInDefault = j.includeInDefault === true
-      emit({ type: 'hub:sources-changed' })
-    } catch (e) {
-      prefsError = e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.updateVisibility')
-    } finally {
-      prefsBusy = null
     }
   }
 
@@ -283,7 +250,6 @@
       mailStatus = null
       mailStatusError = null
       mailStatusLoading = false
-      includedInDefault = null
       isDefaultSend = null
       prefsError = null
       sourceDetail = null
@@ -316,7 +282,6 @@
         return
       }
       source = row
-      backfillWindow = '1y'
       if (!isMailSourceKind(row.kind)) {
         void loadSourceDetail({ keepPreviousDetail: keepExisting })
       }
@@ -400,28 +365,6 @@
     }
   }
 
-  async function hubSourceBackfill() {
-    if (!source) return
-    if (sourceSyncAction) return
-    sourceSyncAction = 'backfill'
-    try {
-      const res = await fetch('/api/hub/sources/backfill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: source.id, since: backfillWindow }),
-      })
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : $t('hub.hubConnectorSourcePanel.errors.startBackfill'))
-      }
-      await load()
-      await loadMailStatus()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : $t('hub.hubConnectorSourcePanel.errors.startBackfill'))
-    } finally {
-      sourceSyncAction = null
-    }
-  }
 
   $effect(() => {
     sourceId
@@ -510,17 +453,10 @@
           {mailStatus}
           {mailStatusLoading}
           {mailStatusError}
-          {includedInDefault}
           {isDefaultSend}
           {prefsBusy}
           {prefsError}
-          bind:backfillWindow
-          {sourceSyncAction}
-          {showInlineRefresh}
-          onToggleIncludedInDefault={() => void toggleIncludedInDefault()}
           onSetDefaultSend={(checked) => void setDefaultSend(checked)}
-          onRefresh={() => void hubSourceRefresh()}
-          onBackfill={() => void hubSourceBackfill()}
         />
       {/if}
       <div

@@ -11,9 +11,11 @@
     /** Currently configured calendar IDs from source detail. */
     configuredIds: string[] | null
     onSaved: () => void
+    /** Omit outer section chrome when a parent already provides the section heading. */
+    compact?: boolean
   }
 
-  let { sourceId, configuredIds, onSaved }: Props = $props()
+  let { sourceId, configuredIds, onSaved, compact = false }: Props = $props()
 
   async function loadHubCalendars(): Promise<CalendarPickerLoadResult> {
     const res = await fetch(`/api/hub/sources/calendars?id=${encodeURIComponent(sourceId)}`)
@@ -48,15 +50,21 @@
 </script>
 
 <section
-  class="hub-source-status-section flex flex-col gap-[0.65rem] border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-[0.85rem]"
+  class={compact
+    ? 'hub-source-status-section-compact flex flex-col gap-[0.65rem]'
+    : 'hub-source-status-section flex flex-col gap-[0.65rem] border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-[0.85rem]'}
   aria-labelledby="hub-cal-heading"
 >
-  <h2
-    id="hub-cal-heading"
-    class="hub-source-status-heading m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
-  >
-    {$t('hub.hubConnectorCalendarSection.heading')}
-  </h2>
+  {#if !compact}
+    <h2
+      id="hub-cal-heading"
+      class="hub-source-status-heading m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
+    >
+      {$t('hub.hubConnectorCalendarSection.heading')}
+    </h2>
+  {:else}
+    <span id="hub-cal-heading" class="sr-only">{$t('hub.hubConnectorCalendarSection.heading')}</span>
+  {/if}
 
   <CalendarPicker
     reloadKey={sourceId}

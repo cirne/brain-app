@@ -16,6 +16,9 @@ vi.mock('../YourWikiDetail.svelte', () => import('../test-stubs/YourWikiDetailSt
 vi.mock('../hub-connector/HubConnectorSourcePanel.svelte', () =>
   import('../test-stubs/HubConnectorSourcePanelStub.svelte'),
 )
+vi.mock('../hub-connector/GoogleAccountPanel.svelte', () =>
+  import('../test-stubs/GoogleAccountPanelStub.svelte'),
+)
 vi.mock('../HubWikiAboutPanel.svelte', () => import('../test-stubs/HubWikiAboutPanelStub.svelte'))
 vi.mock('../HubAddFoldersPanel.svelte', () => import('../test-stubs/HubAddFoldersPanelStub.svelte'))
 vi.mock('../HubAppleMessagesPanel.svelte', () => import('../test-stubs/HubAppleMessagesPanelStub.svelte'))
@@ -189,6 +192,13 @@ describe('SlideOver.svelte', () => {
 
     expect(screen.getByText('Search index source')).toBeInTheDocument()
     expect(screen.getByTestId('hub-source-stub')).toBeInTheDocument()
+  })
+
+  it('renders with google-account overlay', () => {
+    const props = baseProps({ overlay: { type: 'google-account', email: 'a@b.com' } })
+    render(SlideOver, { props })
+
+    expect(screen.getByTestId('google-account-stub')).toHaveTextContent('a@b.com')
   })
 
   it('renders with hub-wiki-about overlay', () => {

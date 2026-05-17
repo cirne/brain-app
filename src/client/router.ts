@@ -20,6 +20,8 @@ export type Overlay =
   | { type: 'messages'; chat?: string }
   | { type: 'your-wiki' }
   | { type: 'hub-source'; id?: string }
+  /** Unified Gmail + Calendar + Drive for one Google account (`/settings?panel=google-account&email=`). */
+  | { type: 'google-account'; email?: string }
   /** Brain Hub admin/settings/status main surface when hub is primary. */
   | { type: 'hub' }
   /** Tunnel policies & collaborators (`/settings/brain-access`). */
@@ -379,6 +381,9 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
     case 'hub-source':
       if (overlay.id) q.set('id', overlay.id)
       break
+    case 'google-account':
+      if (overlay.email) q.set('email', overlay.email)
+      break
     case 'brain-access':
       break
     case 'brain-access-policy':
@@ -456,6 +461,10 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
     case 'hub-source': {
       const id = sp.get('id') ?? undefined
       return id ? { type: 'hub-source', id } : { type: 'hub-source' }
+    }
+    case 'google-account': {
+      const email = sp.get('email')?.trim() ?? undefined
+      return email ? { type: 'google-account', email } : { type: 'google-account' }
     }
     case 'brain-access':
       return { type: 'brain-access' }

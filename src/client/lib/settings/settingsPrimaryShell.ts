@@ -10,7 +10,7 @@ export type SettingsPrimaryShell =
 export function resolveSettingsPrimaryShell(overlay: Overlay | undefined): SettingsPrimaryShell {
   if (!overlay) return 'home'
   const t = overlay.type
-  if (t === 'settings-connections' || t === 'hub-source') return 'connections'
+  if (t === 'settings-connections' || t === 'hub-source' || t === 'google-account') return 'connections'
   if (t === 'settings-wiki') return 'wiki'
   if (t === 'brain-access') return 'brain-access-list'
   if (t === 'brain-access-policy') return 'brain-access-policy'
@@ -19,4 +19,8 @@ export function resolveSettingsPrimaryShell(overlay: Overlay | undefined): Setti
 
 export function selectedHubSourceFromOverlay(overlay: Overlay | undefined): string | undefined {
   return overlay?.type === 'hub-source' ? overlay.id : undefined
+}
+
+export function selectedGoogleAccountEmailFromOverlay(overlay: Overlay | undefined): string | undefined {
+  return overlay?.type === 'google-account' ? overlay.email : undefined
 }

@@ -20,6 +20,9 @@ export type HubRipmailSourceRow = {
   kind: string
   displayName: string
   path: string | null
+  /** Present when config has OAuth (Google bundle grouping). */
+  oauthSourceId?: string
+  email?: string
 }
 
 export type HubRipmailSourcesPayload = {
@@ -92,14 +95,27 @@ export async function removeHubRipmailSource(
 export async function getHubRipmailSourcesList(): Promise<HubRipmailSourcesPayload> {
   try {
     const home = ripmailHomeForBrain()
+    const config = loadRipmailConfig(home)
+    const cfgById = new Map((config.sources ?? []).map((c) => [c.id, c]))
     const { sources } = await ripmailSourcesList(home)
     return {
-      sources: sources.map((s) => ({
-        id: s.id,
-        kind: s.kind,
-        displayName: s.label ?? s.id,
-        path: null,
-      })),
+      sources: sources.map((s) => {
+        const cfg = cfgById.get(s.id)
+        const oauthSourceId =
+          typeof cfg?.oauthSourceId === 'string' && cfg.oauthSourceId.trim()
+            ? cfg.oauthSourceId.trim()
+            : undefined
+        const email =
+          typeof cfg?.email === 'string' && cfg.email.trim() ? cfg.email.trim() : undefined
+        return {
+          id: s.id,
+          kind: s.kind,
+          displayName: s.label ?? s.id,
+          path: null,
+          ...(oauthSourceId ? { oauthSourceId } : {}),
+          ...(email ? { email } : {}),
+        }
+      }),
     }
   } catch (e) {
     return { sources: [], error: e instanceof Error ? e.message : String(e) }

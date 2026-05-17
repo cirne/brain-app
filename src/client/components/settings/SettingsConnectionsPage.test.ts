@@ -110,7 +110,7 @@ describe('SettingsConnectionsPage.svelte', () => {
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'hub-source', id: 'work_x' })
   })
 
-  it('marks the hub source row as selected when selectedHubSourceId matches', async () => {
+  it('marks the Google account row as selected when selectedGoogleAccountEmail matches', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: RequestInfo | URL) => {
@@ -131,14 +131,18 @@ describe('SettingsConnectionsPage.svelte', () => {
                   {
                     id: 'mail_a',
                     kind: 'imap',
-                    displayName: 'a@example.com',
+                    displayName: 'b@example.com',
                     path: null,
+                    oauthSourceId: 'oauth-b',
+                    email: 'b@example.com',
                   },
                   {
                     id: 'cal_b',
                     kind: 'googleCalendar',
                     displayName: 'b@example.com',
                     path: null,
+                    oauthSourceId: 'oauth-b',
+                    email: 'b@example.com',
                   },
                 ],
               }),
@@ -152,7 +156,7 @@ describe('SettingsConnectionsPage.svelte', () => {
     render(SettingsConnectionsPage, {
       props: {
         onSettingsNavigate: vi.fn(),
-        selectedHubSourceId: 'cal_b',
+        selectedGoogleAccountEmail: 'b@example.com',
         onNavigateToSettingsRoot: vi.fn(),
       },
     })
@@ -162,7 +166,63 @@ describe('SettingsConnectionsPage.svelte', () => {
         'true',
       )
     })
-    expect(screen.getByRole('button', { name: /a@example\.com/i })).not.toHaveAttribute('aria-current')
+  })
+
+  it('navigates to google-account when a bundled Google row is clicked', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo | URL) => {
+        const u = requestUrlString(url)
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                sources: [
+                  {
+                    id: 'mail_a',
+                    kind: 'imap',
+                    displayName: 'merge@example.com',
+                    path: null,
+                    oauthSourceId: 'oauth-m',
+                    email: 'merge@example.com',
+                  },
+                  {
+                    id: 'cal_b',
+                    kind: 'googleCalendar',
+                    displayName: 'merge@example.com',
+                    path: null,
+                    oauthSourceId: 'oauth-m',
+                    email: 'merge@example.com',
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+    const onSettingsNavigate = vi.fn()
+    render(SettingsConnectionsPage, {
+      props: { onSettingsNavigate, onNavigateToSettingsRoot: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /merge@example\.com/i })).toBeInTheDocument()
+    })
+    await fireEvent.click(screen.getByRole('button', { name: /merge@example\.com/i }))
+    expect(onSettingsNavigate).toHaveBeenCalledWith({
+      type: 'google-account',
+      email: 'merge@example.com',
+    })
   })
 
   it('shows Google Drive label for googleDrive sources', async () => {

@@ -33,12 +33,14 @@
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
+    selectedGoogleAccountEmail?: string
     multiTenant?: boolean
   }
 
   let {
     onSettingsNavigate,
     selectedHubSourceId,
+    selectedGoogleAccountEmail,
     multiTenant = false,
   }: Props = $props()
 
@@ -194,7 +196,11 @@
           <Link2 size={18} aria-hidden="true" />
         {/snippet}
       </SettingsSectionH2>
-      <SettingsConnectionsList {onSettingsNavigate} {selectedHubSourceId} />
+      <SettingsConnectionsList
+        {onSettingsNavigate}
+        {selectedHubSourceId}
+        {selectedGoogleAccountEmail}
+      />
     </section>
 
     <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-drill-heading">

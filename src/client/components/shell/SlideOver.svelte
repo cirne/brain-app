@@ -35,6 +35,7 @@
   import VisualArtifactImageViewer from '@components/VisualArtifactImageViewer.svelte'
   import YourWikiDetail from '@components/YourWikiDetail.svelte'
   import HubConnectorSourcePanel from '@components/hub-connector/HubConnectorSourcePanel.svelte'
+  import GoogleAccountPanel from '@components/hub-connector/GoogleAccountPanel.svelte'
   import HubWikiAboutPanel from '@components/HubWikiAboutPanel.svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import EmailDraftEditor from '@components/EmailDraftEditor.svelte'
@@ -431,6 +432,16 @@
             )}>
               {hubSourceHdr.current?.title?.trim() ? hubSourceHdr.current.title : titleForOverlay(overlay)}
             </span>
+          {:else if overlay.type === 'google-account'}
+            <span class={cn(
+              'slide-title slide-title-google-account whitespace-nowrap overflow-hidden text-ellipsis normal-case font-bold text-foreground',
+              mobilePanel ? 'text-base' : 'text-[15px]',
+              '[letter-spacing:-0.02em]',
+            )}>
+              {hubSourceHdr.current?.title?.trim()
+                ? hubSourceHdr.current.title
+                : overlay.email?.trim() || titleForOverlay(overlay)}
+            </span>
           {:else}
             {titleForOverlay(overlay)}
           {/if}
@@ -487,7 +498,7 @@
           </span>
         </button>
       {/if}
-      {#if overlay.type === 'hub-source' && hubSourceHdr.current}
+      {#if (overlay.type === 'hub-source' || overlay.type === 'google-account') && hubSourceHdr.current}
         {@const hubSrcHdr = hubSourceHdr.current}
         {@const hubRefreshLabel =
           hubSrcHdr.refreshDisabled && hubSrcHdr.refreshTitle
@@ -787,6 +798,8 @@
       />
     {:else if overlay.type === 'hub-source'}
       <HubConnectorSourcePanel sourceId={overlay.id} onClose={onClose} />
+    {:else if overlay.type === 'google-account'}
+      <GoogleAccountPanel accountEmail={overlay.email} onClose={onClose} />
     {:else if overlay.type === 'hub-wiki-about'}
       <HubWikiAboutPanel />
     {:else if overlay.type === 'calendar'}
@@ -832,7 +845,8 @@
   .slide-body :global(.mail-search-panel),
   .slide-body :global(.hub-bg-agents-detail),
   .slide-body :global(.visual-artifact-viewer),
-  .slide-body :global(.hub-connector-source) {
+  .slide-body :global(.hub-connector-source),
+  .slide-body :global(.google-account-panel) {
     flex: 1;
     min-height: 0;
   }

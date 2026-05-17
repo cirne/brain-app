@@ -518,6 +518,17 @@ describe('parseRoute hub-source', () => {
   })
 })
 
+describe('parseRoute google-account', () => {
+  it('parses google-account with email on /settings', () => {
+    expect(
+      parseRoute('http://localhost/settings?panel=google-account&email=a%40b.com'),
+    ).toEqual({
+      zone: 'settings',
+      overlay: { type: 'google-account', email: 'a@b.com' },
+    })
+  })
+})
+
 describe('routeToUrl', () => {
   const uuid = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -674,6 +685,9 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ zone: 'settings', overlay: { type: 'hub-source', id: 'x' } })).toBe(
       '/settings?panel=hub-source&id=x',
     )
+    expect(
+      routeToUrl({ zone: 'settings', overlay: { type: 'google-account', email: 'a@b.com' } }),
+    ).toBe('/settings?panel=google-account&email=a%40b.com')
     expect(routeToUrl({ zone: 'settings', overlay: { type: 'brain-access' } })).toBe('/settings/brain-access')
     expect(
       routeToUrl({ zone: 'settings', overlay: { type: 'brain-access-policy', policyId: 'trusted' } }),
@@ -768,6 +782,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { zone: 'settings' },
     { zone: 'settings', overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'settings', overlay: { type: 'hub-source', id: 'src-x' } },
+    { zone: 'settings', overlay: { type: 'google-account', email: 'u@example.com' } },
     { overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'hub', overlay: { type: 'chat-history' } },
     { zone: 'wiki', overlay: { type: 'wiki' as const } },

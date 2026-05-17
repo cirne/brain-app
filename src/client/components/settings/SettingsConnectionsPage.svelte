@@ -7,10 +7,16 @@
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
+    selectedGoogleAccountEmail?: string
     onNavigateToSettingsRoot: () => void
   }
 
-  let { onSettingsNavigate, selectedHubSourceId, onNavigateToSettingsRoot }: Props = $props()
+  let {
+    onSettingsNavigate,
+    selectedHubSourceId,
+    selectedGoogleAccountEmail,
+    onNavigateToSettingsRoot,
+  }: Props = $props()
 </script>
 
 <div class="settings-connections-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden text-foreground">
@@ -21,7 +27,11 @@
 
   <div class="settings-connections-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
     <div class="mx-auto flex w-full max-w-[900px] flex-col gap-6 px-8 py-8 pb-10 max-md:px-4 max-md:py-6">
-      <SettingsConnectionsList {onSettingsNavigate} {selectedHubSourceId} />
+      <SettingsConnectionsList
+        {onSettingsNavigate}
+        {selectedHubSourceId}
+        {selectedGoogleAccountEmail}
+      />
     </div>
   </div>
 </div>

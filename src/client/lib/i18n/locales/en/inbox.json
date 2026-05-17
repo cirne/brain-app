@@ -134,7 +134,7 @@
     "loadingStatus": "Loading status…",
     "warnings": {
       "staleLock": "A previous sync stopped unexpectedly. Quit Braintunnel completely and reopen to clear the stale lock.",
-      "needsBackfill": "Some older mail may still be missing from search. Pick how far back to go, then run Download older mail (or wait if it’s already running)."
+      "needsBackfill": "Some older mail may still be missing from search. Run Download older mail (or wait if it’s already running)."
     },
     "status": {
       "backfillRunning": "Downloading older mail…",
@@ -150,18 +150,18 @@
     "preferences": {
       "heading": "This mailbox",
       "description": "Settings for this mailbox only — other accounts in your workspace are unaffected.",
-      "searchByDefaultTitle": "Search this mailbox by default",
-      "searchByDefaultDescription": "When off, Braintunnel only searches this mailbox if you ask it to. It still gets indexed in the background.",
+      "descriptionOnlySend": "Settings for this mailbox only — other accounts in your workspace are unaffected.",
       "sendByDefaultTitle": "Send from this mailbox by default",
       "sendByDefaultDescription": "When you ask Braintunnel to send a message and don't name an account, it uses this one."
     },
     "sync": {
       "description": "Check for new mail grabs recent messages. Download older mail uses the time span below and can take a while.",
+      "descriptionNoWindow": "Check for new mail grabs recent messages. Download older mail pulls about a year of additional history and can take a while.",
       "backfillWindow": "History range",
       "checkNewMail": "Check for new mail",
       "starting": "Starting…",
       "retryBackfill": "Download older mail",
-      "downloadOlderDisabledCoverage": "Braintunnel already indexes mail at least this far back. Choose a longer range to fetch more history."
+      "downloadOlderDisabledCoverage": "Braintunnel already indexes mail at least this far back for the default download range."
     }
   },
   "inboxPanel": {
