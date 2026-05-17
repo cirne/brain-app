@@ -10,6 +10,8 @@ High-level map of **brain-app** (Hono + Svelte + pi-agent-core). Roadmap: [OPPOR
 
 Personal assistant web app: **Chat** (agent), **Wiki** (markdown vault), **Inbox** (indexed mail in **`src/server/ripmail/`**), served from one Node process.
 
+**Architectural risk review (CTO lens):** [architecture/cto-architectural-risk-review.md](architecture/cto-architectural-risk-review.md) — outside-view assessment of decisions that are cheap to revisit now but expensive once we have paying users (schema migrations, idempotency, deletion pipeline, credential storage, agent prompt-injection envelope, per-tenant LLM budgets, audit log, B2B cross-tenant write coupling).
+
 ```
 Browser (Svelte 5)
   ↔  HTTP + SSE
@@ -64,6 +66,7 @@ Deployment topology, isolation, staging, and formal security posture.
 | Tenant filesystem isolation (BUG-012, kernel + app)             | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |
 | **Staging deploy** (DigitalOcean droplet, registry, Watchtower) | [DEPLOYMENT.md](./DEPLOYMENT.md)                                                                   |
 | **Security architecture and risk register**                     | [SECURITY.md](./SECURITY.md)                                                                       |
+| **CTO architectural risk review** (cheap-now / expensive-later) | [architecture/cto-architectural-risk-review.md](architecture/cto-architectural-risk-review.md)     |
 
 
 ---

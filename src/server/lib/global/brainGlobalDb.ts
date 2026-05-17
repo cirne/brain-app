@@ -8,8 +8,10 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
  * Version 9: `brain_query_custom_policies` + grants use XOR `preset_policy_key` | `custom_policy_id`; file recreated.
  * Version 10: `brain_query_custom_policies.label` → `title` (display title for custom policies); file recreated.
  * Version 11: Slack workspace install + per-user Slack identity links (OPP-117).
+ * Version 12: `slack_user_settings` per tenant × workspace (Slack panel prefs).
+ * Version 13: slack `inbound_policy` stores brain-access preset id (`trusted` / `general` / `minimal-disclosure` or `bqc_…`).
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 11
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 13
 
 /**
  * Cross-tenant metadata (brain-query delegation grants; tenant-registry migration later).
@@ -94,6 +96,16 @@ CREATE TABLE slack_user_links (
 );
 CREATE INDEX idx_slack_user_links_tenant ON slack_user_links(tenant_user_id);
 CREATE INDEX idx_slack_user_links_team ON slack_user_links(slack_team_id);
+
+CREATE TABLE slack_user_settings (
+  tenant_user_id   TEXT NOT NULL,
+  slack_team_id    TEXT NOT NULL,
+  autorespond      INTEGER NOT NULL DEFAULT 0,
+  inbound_policy   TEXT NOT NULL DEFAULT 'general',
+  updated_at_ms    INTEGER NOT NULL,
+  PRIMARY KEY (tenant_user_id, slack_team_id)
+);
+CREATE INDEX idx_slack_user_settings_team ON slack_user_settings(slack_team_id);
 `)
   })()
 }

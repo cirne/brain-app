@@ -19,6 +19,9 @@ vi.mock('../hub-connector/HubConnectorSourcePanel.svelte', () =>
 vi.mock('../hub-connector/GoogleAccountPanel.svelte', () =>
   import('../test-stubs/GoogleAccountPanelStub.svelte'),
 )
+vi.mock('../hub-connector/SlackWorkspacePanel.svelte', () =>
+  import('../test-stubs/SlackWorkspacePanelStub.svelte'),
+)
 vi.mock('../HubWikiAboutPanel.svelte', () => import('../test-stubs/HubWikiAboutPanelStub.svelte'))
 vi.mock('../HubAddFoldersPanel.svelte', () => import('../test-stubs/HubAddFoldersPanelStub.svelte'))
 vi.mock('../HubAppleMessagesPanel.svelte', () => import('../test-stubs/HubAppleMessagesPanelStub.svelte'))
@@ -199,6 +202,15 @@ describe('SlideOver.svelte', () => {
     render(SlideOver, { props })
 
     expect(screen.getByTestId('google-account-stub')).toHaveTextContent('a@b.com')
+  })
+
+  it('renders with slack-workspace overlay', () => {
+    const props = baseProps({
+      overlay: { type: 'slack-workspace', teamId: 'T001ABC' },
+    })
+    render(SlideOver, { props })
+
+    expect(screen.getByTestId('slack-workspace-stub')).toHaveTextContent('T001ABC')
   })
 
   it('renders with hub-wiki-about overlay', () => {

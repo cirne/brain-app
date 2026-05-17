@@ -276,6 +276,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 
 ## Related docs
 
+- **[architecture/cto-architectural-risk-review.md](architecture/cto-architectural-risk-review.md)** — broader CTO-lens risks (migrations, idempotency, deletion pipeline, credential encryption at rest, prompt-injection envelope, per-tenant LLM budgets, audit log). Several P-items above (P1, P2, P3, P5, P7, P9) are sequenced inside that review.
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — infrastructure details, IDs, firewall rules
 - [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md) — deeper isolation design (BUG-012)
 - [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) — cell architecture for future scale

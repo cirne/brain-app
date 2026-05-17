@@ -34,6 +34,7 @@
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
     selectedGoogleAccountEmail?: string
+    selectedSlackTeamId?: string
     multiTenant?: boolean
   }
 
@@ -41,6 +42,7 @@
     onSettingsNavigate,
     selectedHubSourceId,
     selectedGoogleAccountEmail,
+    selectedSlackTeamId,
     multiTenant = false,
   }: Props = $props()
 
@@ -200,6 +202,7 @@
         {onSettingsNavigate}
         {selectedHubSourceId}
         {selectedGoogleAccountEmail}
+        {selectedSlackTeamId}
       />
     </section>
 

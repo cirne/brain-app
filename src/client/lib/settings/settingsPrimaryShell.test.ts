@@ -3,6 +3,7 @@ import {
   resolveSettingsPrimaryShell,
   selectedGoogleAccountEmailFromOverlay,
   selectedHubSourceFromOverlay,
+  selectedSlackTeamIdFromOverlay,
 } from './settingsPrimaryShell.js'
 
 describe('resolveSettingsPrimaryShell', () => {
@@ -10,7 +11,12 @@ describe('resolveSettingsPrimaryShell', () => {
     expect(resolveSettingsPrimaryShell(undefined)).toBe('home')
     expect(resolveSettingsPrimaryShell({ type: 'settings-connections' })).toBe('connections')
     expect(resolveSettingsPrimaryShell({ type: 'hub-source', id: 's1' })).toBe('connections')
-    expect(resolveSettingsPrimaryShell({ type: 'google-account', email: 'a@b.com' })).toBe('connections')
+    expect(resolveSettingsPrimaryShell({ type: 'google-account', email: 'a@b.com' })).toBe(
+      'connections',
+    )
+    expect(resolveSettingsPrimaryShell({ type: 'slack-workspace', teamId: 'T1' })).toBe(
+      'connections',
+    )
     expect(resolveSettingsPrimaryShell({ type: 'settings-wiki' })).toBe('wiki')
     expect(resolveSettingsPrimaryShell({ type: 'brain-access' })).toBe('brain-access-list')
     expect(resolveSettingsPrimaryShell({ type: 'brain-access-policy', policyId: 'p' })).toBe(
@@ -28,7 +34,16 @@ describe('selectedHubSourceFromOverlay', () => {
 
 describe('selectedGoogleAccountEmailFromOverlay', () => {
   it('returns google-account email only for that overlay', () => {
-    expect(selectedGoogleAccountEmailFromOverlay({ type: 'google-account', email: 'a@b' })).toBe('a@b')
+    expect(selectedGoogleAccountEmailFromOverlay({ type: 'google-account', email: 'a@b' })).toBe(
+      'a@b',
+    )
     expect(selectedGoogleAccountEmailFromOverlay({ type: 'hub-source', id: 'x' })).toBeUndefined()
+  })
+})
+
+describe('selectedSlackTeamIdFromOverlay', () => {
+  it('returns slack-workspace teamId only for that overlay', () => {
+    expect(selectedSlackTeamIdFromOverlay({ type: 'slack-workspace', teamId: 'T99' })).toBe('T99')
+    expect(selectedSlackTeamIdFromOverlay({ type: 'hub-source', id: 'x' })).toBeUndefined()
   })
 })

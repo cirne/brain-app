@@ -40,6 +40,13 @@ function defaultFetch(): typeof fetch {
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
     }
+    if (u.includes('/api/slack/connection')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: true, oauthConfigured: false, workspaces: [] }), {
+          status: 200,
+        }),
+      )
+    }
     return Promise.resolve(new Response('not found', { status: 404 }))
   }) as unknown as typeof fetch
 }
@@ -263,6 +270,122 @@ describe('SettingsConnectionsPage.svelte', () => {
     })
     await waitFor(() => {
       expect(screen.getByText('Google Drive')).toBeInTheDocument()
+    })
+  })
+
+  it('shows muted Slack setup when oauth is not configured', async () => {
+    render(SettingsConnectionsPage, {
+      props: { onSettingsNavigate: vi.fn(), onNavigateToSettingsRoot: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByText(/Slack is not set up on this server/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Connect another Slack workspace/i)).not.toBeInTheDocument()
+  })
+
+  it('renders Slack workspace row and navigates to slack-workspace overlay', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo | URL) => {
+        const u = requestUrlString(url)
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+        }
+        if (u.includes('/api/slack/connection')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                ok: true,
+                oauthConfigured: true,
+                workspaces: [
+                  {
+                    slackTeamId: 'TEAM_ABC',
+                    teamName: 'Acme HQ',
+                    workspaceConnected: true,
+                    userLinked: true,
+                    slackUserId: 'U123',
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+    const onSettingsNavigate = vi.fn()
+    render(SettingsConnectionsPage, {
+      props: { onSettingsNavigate, onNavigateToSettingsRoot: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Acme HQ/i })).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Connect another Slack workspace/i)).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: /Acme HQ/i }))
+    expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'slack-workspace', teamId: 'TEAM_ABC' })
+  })
+
+  it('marks Slack workspace selected when selectedSlackTeamId matches', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo | URL) => {
+        const u = requestUrlString(url)
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+        }
+        if (u.includes('/api/slack/connection')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                ok: true,
+                oauthConfigured: true,
+                workspaces: [
+                  {
+                    slackTeamId: 'TSEL',
+                    teamName: 'Selected WS',
+                    workspaceConnected: true,
+                    userLinked: true,
+                    slackUserId: 'U999',
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+    render(SettingsConnectionsPage, {
+      props: {
+        onSettingsNavigate: vi.fn(),
+        selectedSlackTeamId: 'TSEL',
+        onNavigateToSettingsRoot: vi.fn(),
+      },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Selected WS/i })).toHaveAttribute(
+        'aria-current',
+        'true',
+      )
     })
   })
 })

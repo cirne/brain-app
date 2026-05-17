@@ -54,6 +54,7 @@ import AppShell from '@components/app/AppShell.svelte'
     resolveSettingsPrimaryShell,
     selectedGoogleAccountEmailFromOverlay,
     selectedHubSourceFromOverlay,
+    selectedSlackTeamIdFromOverlay,
   } from '@client/lib/settings/settingsPrimaryShell.js'
   import { mobileCompactNavCenterTitle } from '@client/lib/mobileCompactNavCenterTitle.js'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
@@ -1929,6 +1930,7 @@ import AppShell from '@components/app/AppShell.svelte'
                     selectedGoogleAccountEmail={selectedGoogleAccountEmailFromOverlay(
                       shell.route.overlay,
                     )}
+                    selectedSlackTeamId={selectedSlackTeamIdFromOverlay(shell.route.overlay)}
                     onNavigateToSettingsRoot={() => navigateShell({ zone: 'settings' })}
                   />
                 {:else if settingsPrimaryShell === 'wiki'}
@@ -1957,6 +1959,7 @@ import AppShell from '@components/app/AppShell.svelte'
                     selectedGoogleAccountEmail={selectedGoogleAccountEmailFromOverlay(
                       shell.route.overlay,
                     )}
+                    selectedSlackTeamId={selectedSlackTeamIdFromOverlay(shell.route.overlay)}
                   />
                 {/if}
               </div>

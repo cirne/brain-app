@@ -161,6 +161,18 @@ export function getWorkspaceBotToken(slackTeamId: string): string | null {
   return env && env.length > 0 ? env : null
 }
 
+/** True when this tenant is the workspace installer or has a Slack user link for the team. */
+export function tenantHasSlackWorkspaceAccess(tenantUserId: string, slackTeamId: string): boolean {
+  const norm = slackTeamId.trim()
+  if (!norm) return false
+  if (
+    listSlackWorkspacesForInstaller(tenantUserId).some((w) => w.slack_team_id === norm)
+  ) {
+    return true
+  }
+  return listSlackUserLinksForTenant(tenantUserId).some((l) => l.slack_team_id === norm)
+}
+
 export function deleteSlackUserLink(params: {
   slackTeamId: string
   tenantUserId: string

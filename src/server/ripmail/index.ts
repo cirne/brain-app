@@ -62,7 +62,13 @@ import { inbox } from './inbox.js'
 import { rulesList, rulesShow, rulesAdd, rulesEdit, rulesRemove, rulesMove, rulesValidate } from './rules.js'
 import { sourcesList, sourcesStatus, sourcesAddLocalDir, sourcesAddGoogleDrive, sourcesEdit, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
 import { archive, unarchive } from './archive.js'
-import { calendarRange, calendarListCalendars, calendarCreateEvent, calendarUpdateEvent } from './calendar.js'
+import {
+  calendarRange,
+  calendarListCalendars,
+  calendarCreateEvent,
+  calendarUpdateEvent,
+  calendarEventCountForSource,
+} from './calendar.js'
 import { draftNew, draftReply, draftForward, draftEdit, draftView, draftList, draftDelete } from './draft.js'
 import { send } from './send.js'
 import { refresh } from './sync/index.js'
@@ -297,6 +303,12 @@ export async function ripmailCalendarRange(
 export async function ripmailCalendarListCalendars(ripmailHome: string, opts?: { sourceIds?: string[] }) {
   const db = await prepareRipmailDb(ripmailHome)
   return calendarListCalendars(db, opts)
+}
+
+/** Count indexed calendar events for one source. */
+export async function ripmailCalendarEventCountForSource(ripmailHome: string, sourceId: string): Promise<number> {
+  const db = await prepareRipmailDb(ripmailHome)
+  return calendarEventCountForSource(db, sourceId)
 }
 
 /** Live Google Calendar calendarList API discovery for a googleCalendar source. */

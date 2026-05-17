@@ -58,6 +58,11 @@ export type EmailDraftRefreshEvent = {
   draftId: string
 }
 
+/** Slack workspace link/disconnect/settings changed — Connections list refetches `/api/slack/connection`. */
+export type SlackConnectionsChangedEvent = {
+  type: 'slack:connections-changed'
+}
+
 export type AppEvent =
   | WikiMutatedEvent
   | SyncCompletedEvent
@@ -69,6 +74,7 @@ export type AppEvent =
   | NavRecentsChangedEvent
   | B2BReviewChangedEvent
   | EmailDraftRefreshEvent
+  | SlackConnectionsChangedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 

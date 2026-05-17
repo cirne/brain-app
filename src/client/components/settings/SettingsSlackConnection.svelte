@@ -1,27 +1,14 @@
 <script lang="ts">
+  import { emit } from '@client/lib/app/appEvents.js'
   import { onMount } from 'svelte'
-  import { MessageSquare, ChevronRight } from '@lucide/svelte'
-  import { cn } from '@client/lib/cn.js'
-  import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import { t } from '@client/lib/i18n/index.js'
 
-  type SlackWorkspaceStatus = {
-    slackTeamId: string
-    teamName: string
-    workspaceConnected: boolean
-    userLinked: boolean
-    slackUserId: string | null
+  type Props = {
+    /** After successful Slack link-from-OAuth confirmation, refetch Slack rows upstream. */
+    onSlackLinkConfirmed?: () => void | Promise<void>
   }
 
-  type SlackConnectionResponse = {
-    ok?: boolean
-    oauthConfigured?: boolean
-    workspaces?: SlackWorkspaceStatus[]
-  }
-
-  let loading = $state(true)
-  let oauthConfigured = $state(false)
-  let workspaces = $state<SlackWorkspaceStatus[]>([])
+  let { onSlackLinkConfirmed }: Props = $props()
 
   let linkConfirmPending = $state(false)
   let confirmEmail = $state('')
@@ -31,26 +18,9 @@
   let confirmError = $state('')
   let confirmLoading = $state(false)
 
-  const linkItemBase =
-    'link-item flex cursor-pointer items-center justify-between border border-transparent border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent p-2 text-left text-foreground transition-[padding,color,background,border-color] duration-150 focus-visible:!border-accent focus-visible:bg-accent-dim focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55'
-
-  async function fetchSlackStatus() {
-    loading = true
-    try {
-      const res = await fetch('/api/slack/connection')
-      if (!res.ok) {
-        workspaces = []
-        oauthConfigured = false
-        return
-      }
-      const j = (await res.json()) as SlackConnectionResponse
-      oauthConfigured = j.oauthConfigured === true
-      workspaces = Array.isArray(j.workspaces) ? j.workspaces : []
-    } catch {
-      workspaces = []
-    } finally {
-      loading = false
-    }
+  async function notifySlackChanged() {
+    emit({ type: 'slack:connections-changed' })
+    await onSlackLinkConfirmed?.()
   }
 
   function checkLinkConfirmParams() {
@@ -78,14 +48,14 @@
         }),
       })
       if (!res.ok) {
-        confirmError = 'Link failed. Please try again.'
+        confirmError = $t('settings.settingsConnectionsPage.slack.linkConfirmError')
         return
       }
       linkConfirmPending = false
       window.history.replaceState({}, '', '/settings')
-      await fetchSlackStatus()
+      await notifySlackChanged()
     } catch {
-      confirmError = 'Link failed. Please try again.'
+      confirmError = $t('settings.settingsConnectionsPage.slack.linkConfirmError')
     } finally {
       confirmLoading = false
     }
@@ -101,126 +71,38 @@
     window.history.replaceState({}, '', '/settings')
   }
 
-  async function disconnectSlack() {
-    if (!primaryWorkspace) return
-    try {
-      await fetch('/api/slack/link', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slackTeamId: primaryWorkspace.slackTeamId }),
-      })
-    } finally {
-      await fetchSlackStatus()
-    }
-  }
-
-  function startInstall() {
-    window.location.assign('/api/slack/oauth/start?mode=install')
-  }
-
-  function startLink() {
-    window.location.assign('/api/slack/oauth/start?mode=link')
-  }
-
-  const primaryWorkspace = $derived(workspaces[0] ?? null)
-  const subtitle = $derived.by(() => {
-    if (loading) return $t('settings.settingsConnectionsPage.slack.statusLoading')
-    if (!oauthConfigured) return $t('settings.settingsConnectionsPage.slack.notConfigured')
-    if (!primaryWorkspace?.workspaceConnected) {
-      return $t('settings.settingsConnectionsPage.slack.workspaceNotConnected')
-    }
-    if (primaryWorkspace.userLinked) {
-      return $t('settings.settingsConnectionsPage.slack.userLinked', {
-        team: primaryWorkspace.teamName,
-      })
-    }
-    return $t('settings.settingsConnectionsPage.slack.workspaceConnectedLinkYou', {
-      team: primaryWorkspace.teamName,
-    })
-  })
-
-  function onRowClick() {
-    if (!primaryWorkspace?.workspaceConnected) startInstall()
-    else startLink()
-  }
-
   onMount(() => {
     checkLinkConfirmParams()
-    void fetchSlackStatus()
   })
 </script>
 
-<div class="settings-slack-block flex flex-col gap-2">
-  <h3 class="m-0 text-[0.8125rem] font-semibold uppercase tracking-[0.06em] text-muted">
-    {$t('settings.settingsConnectionsPage.slack.sectionTitle')}
-  </h3>
-  {#if oauthConfigured}
-    <button
-      type="button"
-      class={cn(linkItemBase, 'hub-source-row')}
-      disabled={loading}
-      onclick={onRowClick}
-    >
-      <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
-        <HubSourceRowBody
-          title={$t('settings.settingsConnectionsPage.slack.rowTitle')}
-          {subtitle}
-        >
-          {#snippet icon()}
-            <MessageSquare size={16} />
-          {/snippet}
-        </HubSourceRowBody>
-      </div>
-      <ChevronRight size={16} aria-hidden="true" />
-    </button>
-    {#if linkConfirmPending}
-      <div class="flex flex-col gap-2 rounded border border-[color-mix(in_srgb,var(--border)_60%,transparent)] p-3 text-[0.9375rem]">
-        <p class="m-0">
-          {$t('settings.settingsConnectionsPage.slack.linkConfirmBody', { slackEmail: confirmEmail })}
-        </p>
-        {#if confirmError}
-          <p class="m-0 text-sm text-destructive">{confirmError}</p>
-        {/if}
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="btn btn-primary text-sm"
-            disabled={confirmLoading}
-            onclick={submitLinkConfirm}
-          >
-            {$t('settings.settingsConnectionsPage.slack.linkAnyway')}
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary text-sm"
-            disabled={confirmLoading}
-            onclick={cancelLinkConfirm}
-          >
-            {$t('settings.settingsConnectionsPage.slack.cancel')}
-          </button>
-        </div>
-      </div>
+{#if linkConfirmPending}
+  <div
+    class="settings-slack-link-confirm mb-4 flex flex-col gap-2 rounded border border-[color-mix(in_srgb,var(--border)_60%,transparent)] p-3 text-[0.9375rem]"
+  >
+    <p class="m-0">
+      {$t('settings.settingsConnectionsPage.slack.linkConfirmBody', { slackEmail: confirmEmail })}
+    </p>
+    {#if confirmError}
+      <p class="m-0 text-sm text-destructive">{confirmError}</p>
     {/if}
-    {#if !loading && !primaryWorkspace?.workspaceConnected}
-      <button type="button" class="btn btn-secondary w-fit text-sm" onclick={startInstall}>
-        {$t('settings.settingsConnectionsPage.slack.connectWorkspace')}
-      </button>
-    {:else if !loading && primaryWorkspace?.workspaceConnected && !primaryWorkspace.userLinked}
-      <button type="button" class="btn btn-secondary w-fit text-sm" onclick={startLink}>
-        {$t('settings.settingsConnectionsPage.slack.linkAccount')}
-      </button>
-    {:else if !loading && primaryWorkspace?.userLinked}
+    <div class="flex gap-2">
       <button
         type="button"
-        class="w-fit bg-transparent p-0 text-sm text-muted underline-offset-2 hover:underline"
-        onclick={disconnectSlack}
+        class="btn btn-primary text-sm"
+        disabled={confirmLoading}
+        onclick={submitLinkConfirm}
       >
-        {$t('settings.settingsConnectionsPage.slack.disconnect')}
+        {$t('settings.settingsConnectionsPage.slack.linkConfirmButton')}
       </button>
-    {/if}
-  {:else}
-    <p class="m-0 text-[0.9375rem] text-muted">
-      {$t('settings.settingsConnectionsPage.slack.notConfigured')}
-    </p>
-  {/if}
-</div>
+      <button
+        type="button"
+        class="btn btn-secondary text-sm"
+        disabled={confirmLoading}
+        onclick={cancelLinkConfirm}
+      >
+        {$t('settings.settingsConnectionsPage.slack.linkConfirmCancel')}
+      </button>
+    </div>
+  </div>
+{/if}

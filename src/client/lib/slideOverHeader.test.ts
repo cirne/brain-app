@@ -19,6 +19,7 @@ describe('titleForOverlay', () => {
     { overlay: { type: 'your-wiki' }, expected: 'Your Wiki' },
     { overlay: { type: 'hub-source', id: 'x' }, expected: 'Search index source' },
     { overlay: { type: 'google-account', email: 'a@b' }, expected: 'Google account' },
+    { overlay: { type: 'slack-workspace', teamId: 'T1' }, expected: 'Slack workspace' },
     { overlay: { type: 'hub-wiki-about' }, expected: 'Your wiki' },
     { overlay: { type: 'calendar' }, expected: 'Calendar' },
     { overlay: { type: 'hub' }, expected: 'Calendar' },

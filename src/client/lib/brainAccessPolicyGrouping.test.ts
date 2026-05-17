@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { getBuiltinPolicyBodiesFromDisk } from '@server/lib/brainQuery/builtinPolicyBodiesFromDisk.js'
 import { templateById } from './brainQueryPolicyTemplates.js'
 import type { BrainAccessCustomPolicy } from './brainAccessCustomPolicies.js'
+import { translateClient } from '@client/lib/i18n/index.js'
 import {
   buildPolicyCardModels,
+  buildPolicyPickerOptions,
+  policyPickerOptionToCardModel,
   classifyGrantPolicy,
   grantsMatchingPolicyId,
   normalizePolicyText,
@@ -89,6 +92,24 @@ describe('brainAccessPolicyGrouping', () => {
     expect(ids).not.toContain('server-default')
     expect(ids).toContain('custom:x')
     expect(ids.some((x) => x.startsWith('adhoc:'))).toBe(true)
+  })
+
+  it('policyPickerOptionToCardModel maps picker rows for PolicyCard select', () => {
+    const opts = buildPolicyPickerOptions(custom, bodies)
+    const card = policyPickerOptionToCardModel(opts[0]!)
+    expect(card.policyId).toBe('trusted')
+    expect(card.grants).toEqual([])
+    expect(card.hint).toBe(translateClient('access.policyPresets.trusted.hint'))
+  })
+
+  it('buildPolicyPickerOptions uses preset hints for built-ins, not custom policy body', () => {
+    const opts = buildPolicyPickerOptions(custom, bodies)
+    const trusted = opts.find((o) => o.policyId === 'trusted')!
+    const legal = opts.find((o) => o.policyId === 'custom:x')!
+    expect(trusted.hint).toBe(translateClient('access.policyPresets.trusted.hint'))
+    expect(trusted.hint).not.toBe(trustedText)
+    expect(legal.hint).toBeUndefined()
+    expect(legal.label).toBe('Legal')
   })
 
   it('grantsMatchingPolicyId lists grants for a policy bucket', () => {

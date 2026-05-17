@@ -33,4 +33,31 @@ describe('PolicyCard.svelte', () => {
     await fireEvent.click(screen.getByRole('link', { name: /open policy/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'brain-access-policy', policyId: tpl.id })
   })
+
+  it('select variant calls onSelect when a different preset is chosen', async () => {
+    const onSelect = vi.fn()
+    const bodies = getBuiltinPolicyBodiesFromDisk()
+    const tpl = templateById(bodies, 'trusted')!
+    render(PolicyCard, {
+      props: {
+        variant: 'select',
+        model: {
+          policyId: tpl.id,
+          kind: 'builtin',
+          builtinId: tpl.id,
+          label: translateClient(tpl.labelKey),
+          hint: translateClient(tpl.hintKey),
+          canonicalText: tpl.text,
+          grants: [],
+        },
+        radioName: 'test-policy',
+        selected: false,
+        onSelect,
+      },
+    })
+    const radio = screen.getByRole('radio', { name: new RegExp(translateClient(tpl.labelKey), 'i') })
+    await fireEvent.click(radio)
+    expect(onSelect).toHaveBeenCalledWith('trusted')
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
 })

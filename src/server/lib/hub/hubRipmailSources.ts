@@ -8,6 +8,7 @@ import {
   ripmailSourcesStatus,
   ripmailCalendarListCalendars,
   ripmailGoogleCalendarListCalendars,
+  ripmailCalendarEventCountForSource,
   loadRipmailConfig,
   saveRipmailConfig,
   listGoogleDriveFolders,
@@ -73,6 +74,13 @@ export type HubRipmailSourceDetailPayload =
   | HubRipmailSourceDetailOk
   | { ok: false; error: string }
 
+const CALENDAR_SOURCE_KINDS = new Set([
+  'googleCalendar',
+  'appleCalendar',
+  'icsSubscription',
+  'icsFile',
+])
+
 function pickDisplayName(r: SourceConfig, id: string): string {
   if (r.label?.trim()) return r.label.trim()
   if (r.email?.trim()) return r.email.trim()
@@ -130,23 +138,27 @@ export async function getHubRipmailSourceDetail(id: string): Promise<HubRipmailS
   const cfgRow = (config.sources ?? []).find((s) => s.id === trimmed)
   if (!cfgRow) return { ok: false, error: 'Source not found' }
 
+  const kind = cfgRow.kind ?? ''
+
   let status: HubRipmailSourceStatusRow | null = null
   let statusError: string | undefined
   try {
     const statusRows = await ripmailSourcesStatus(home)
     const row = statusRows.find((r) => r.sourceId === trimmed)
     if (row) {
+      let calendarEventRows = 0
+      if (CALENDAR_SOURCE_KINDS.has(kind)) {
+        calendarEventRows = await ripmailCalendarEventCountForSource(home, trimmed)
+      }
       status = {
         documentIndexRows: row.docCount,
-        calendarEventRows: 0,
+        calendarEventRows,
         lastSyncedAt: row.lastSyncedAt ?? null,
       }
     }
   } catch (e) {
     statusError = e instanceof Error ? e.message : String(e)
   }
-
-  const kind = cfgRow.kind ?? ''
   const row = cfgRow as unknown as Record<string, unknown>
   const fileSourceRaw = row.fileSource as { roots?: Array<{ id: string; name?: string; recursive?: boolean }>; includeGlobs?: string[]; ignoreGlobs?: string[]; maxFileBytes?: number; respectGitignore?: boolean } | null | undefined
   let fileSource: HubFileSourceConfig | null = null

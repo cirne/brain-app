@@ -158,6 +158,56 @@ export type PolicyCardModel = {
   colorIndex?: number
 }
 
+/** Row for built-in + custom policy pickers (Slack panel, etc.). Subtitles match {@link PolicyCard}. */
+export type PolicyPickerOption = {
+  policyId: string
+  kind: 'builtin' | 'custom'
+  builtinId?: BrainQueryBuiltinPolicyId
+  label: string
+  /** Built-in presets only — same `access.policyPresets.*.hint` copy as policy cards. */
+  hint?: string
+  colorIndex?: number
+}
+
+/** Built-in grant presets plus saved custom policies, ordered like policy cards (no grant rows). */
+export function buildPolicyPickerOptions(
+  customPolicies: BrainAccessCustomPolicy[],
+  builtinBodies: Record<BrainQueryBuiltinPolicyId, string>,
+): PolicyPickerOption[] {
+  const grantTemplates = grantTemplatesFromBodies(builtinBodies)
+  const builtin: PolicyPickerOption[] = grantTemplates.map((t) => ({
+    policyId: t.id,
+    kind: 'builtin',
+    builtinId: t.id,
+    label: translateClient(t.labelKey),
+    hint: translateClient(t.hintKey),
+  }))
+  const customsSorted = [...customPolicies].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  )
+  const custom: PolicyPickerOption[] = customsSorted.map((c) => ({
+    policyId: c.id,
+    kind: 'custom',
+    label: c.name,
+    colorIndex: c.colorIndex,
+  }))
+  return [...builtin, ...custom]
+}
+
+/** {@link PolicyCard} `select` variant — same labels/hints as picker rows, no grants. */
+export function policyPickerOptionToCardModel(opt: PolicyPickerOption): PolicyCardModel {
+  return {
+    policyId: opt.policyId,
+    kind: opt.kind,
+    builtinId: opt.builtinId,
+    label: opt.label,
+    hint: opt.hint,
+    canonicalText: '',
+    grants: [],
+    colorIndex: opt.colorIndex,
+  }
+}
+
 /**
  * Ordered cards: three built-in grant presets, then saved custom policies (by name), then ad-hoc buckets from grants.
  */

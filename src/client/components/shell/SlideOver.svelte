@@ -36,6 +36,7 @@
   import YourWikiDetail from '@components/YourWikiDetail.svelte'
   import HubConnectorSourcePanel from '@components/hub-connector/HubConnectorSourcePanel.svelte'
   import GoogleAccountPanel from '@components/hub-connector/GoogleAccountPanel.svelte'
+  import SlackWorkspacePanel from '@components/hub-connector/SlackWorkspacePanel.svelte'
   import HubWikiAboutPanel from '@components/HubWikiAboutPanel.svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import EmailDraftEditor from '@components/EmailDraftEditor.svelte'
@@ -442,6 +443,16 @@
                 ? hubSourceHdr.current.title
                 : overlay.email?.trim() || titleForOverlay(overlay)}
             </span>
+          {:else if overlay.type === 'slack-workspace'}
+            <span class={cn(
+              'slide-title slide-title-slack-workspace whitespace-nowrap overflow-hidden text-ellipsis normal-case font-bold text-foreground',
+              mobilePanel ? 'text-base' : 'text-[15px]',
+              '[letter-spacing:-0.02em]',
+            )}>
+              {hubSourceHdr.current?.title?.trim()
+                ? hubSourceHdr.current.title
+                : overlay.teamId?.trim() || titleForOverlay(overlay)}
+            </span>
           {:else}
             {titleForOverlay(overlay)}
           {/if}
@@ -498,7 +509,7 @@
           </span>
         </button>
       {/if}
-      {#if (overlay.type === 'hub-source' || overlay.type === 'google-account') && hubSourceHdr.current}
+      {#if (overlay.type === 'hub-source' || overlay.type === 'google-account' || overlay.type === 'slack-workspace') && hubSourceHdr.current}
         {@const hubSrcHdr = hubSourceHdr.current}
         {@const hubRefreshLabel =
           hubSrcHdr.refreshDisabled && hubSrcHdr.refreshTitle
@@ -800,6 +811,8 @@
       <HubConnectorSourcePanel sourceId={overlay.id} onClose={onClose} />
     {:else if overlay.type === 'google-account'}
       <GoogleAccountPanel accountEmail={overlay.email} onClose={onClose} />
+    {:else if overlay.type === 'slack-workspace'}
+      <SlackWorkspacePanel teamId={overlay.teamId} onClose={onClose} />
     {:else if overlay.type === 'hub-wiki-about'}
       <HubWikiAboutPanel />
     {:else if overlay.type === 'calendar'}
@@ -846,7 +859,8 @@
   .slide-body :global(.hub-bg-agents-detail),
   .slide-body :global(.visual-artifact-viewer),
   .slide-body :global(.hub-connector-source),
-  .slide-body :global(.google-account-panel) {
+  .slide-body :global(.google-account-panel),
+  .slide-body :global(.slack-workspace-panel) {
     flex: 1;
     min-height: 0;
   }

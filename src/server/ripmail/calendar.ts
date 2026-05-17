@@ -202,3 +202,11 @@ export function calendarCancelEvent(db: RipmailDb, uid: string): void {
 export function calendarDeleteEvent(db: RipmailDb, uid: string): void {
   db.prepare(`DELETE FROM calendar_events WHERE uid = ?`).run(uid)
 }
+
+/** Indexed event count for a single source (Hub status line). */
+export function calendarEventCountForSource(db: RipmailDb, sourceId: string): number {
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM calendar_events WHERE source_id = ?`)
+    .get(sourceId) as { n: number } | undefined
+  return row?.n ?? 0
+}

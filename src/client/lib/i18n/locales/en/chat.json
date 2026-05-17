@@ -240,7 +240,7 @@
       "repliesHeading": "Replies to their questions",
       "replyHint": {
         "review": "Nothing is sent until you approve each draft in this thread.",
-        "auto": "Your assistant may send answers as soon as they are ready. You can read them here afterward.",
+        "auto": "Your assistant will automatically send answers on your behalf. You can read them here afterward.",
         "ignore": "Their questions will not receive answers through this tunnel.",
         "ignoreActiveHeader": "Not answering their questions — pick Review each or Autosend to resume replies."
       },

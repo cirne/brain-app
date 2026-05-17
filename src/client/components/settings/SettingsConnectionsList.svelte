@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Mail, ChevronRight, Folder, Calendar, HardDrive, Plus, Globe } from '@lucide/svelte'
+  import { Mail, ChevronRight, Folder, Calendar, HardDrive, Plus } from '@lucide/svelte'
+  import ConnectionBrandLogo from '@components/settings/ConnectionBrandLogo.svelte'
+
   import { cn } from '@client/lib/cn.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
@@ -11,22 +13,68 @@
     type HubRipmailSourceRow,
   } from '@client/lib/hub/hubRipmailSource.js'
   import { buildSettingsConnectionListEntries } from '@client/lib/hub/hubGoogleAccountConnections.js'
-  import { t } from '@client/lib/i18n/index.js'
   import SettingsSlackConnection from '@components/settings/SettingsSlackConnection.svelte'
+  import { t } from '@client/lib/i18n/index.js'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
     selectedGoogleAccountEmail?: string
+    selectedSlackTeamId?: string
   }
 
-  let { onSettingsNavigate, selectedHubSourceId, selectedGoogleAccountEmail }: Props = $props()
+  let {
+    onSettingsNavigate,
+    selectedHubSourceId,
+    selectedGoogleAccountEmail,
+    selectedSlackTeamId,
+  }: Props = $props()
 
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
   let mailHiddenFromDefault = $state<Set<string>>(new Set())
   let defaultSendSourceId = $state<string | null>(null)
   let multiTenant = $state(false)
+
+  type SlackWorkspaceStatus = {
+    slackTeamId: string
+    teamName: string
+    workspaceConnected: boolean
+    userLinked: boolean
+    slackUserId: string | null
+  }
+
+  let slackLoading = $state(true)
+  let slackOAuthConfigured = $state(false)
+  let slackWorkspaces = $state<SlackWorkspaceStatus[]>([])
+
+  async function fetchSlackStatus() {
+    slackLoading = true
+    try {
+      const res = await fetch('/api/slack/connection')
+      if (!res.ok) {
+        slackWorkspaces = []
+        slackOAuthConfigured = false
+        return
+      }
+      const j = (await res.json()) as {
+        ok?: boolean
+        oauthConfigured?: boolean
+        workspaces?: SlackWorkspaceStatus[]
+      }
+      slackOAuthConfigured = j.oauthConfigured === true
+      slackWorkspaces = Array.isArray(j.workspaces) ? j.workspaces : []
+    } catch {
+      slackWorkspaces = []
+    } finally {
+      slackLoading = false
+    }
+  }
+
+  async function reloadHubAndSlack() {
+    await fetchData()
+    await fetchSlackStatus()
+  }
 
   function sourceRowSecondary(s: HubRipmailSourceRow): string {
     const k = sourceKindLabel(s.kind, $t)
@@ -83,6 +131,20 @@
     window.location.assign('/api/oauth/google/link/start')
   }
 
+  function startSlackInstall() {
+    window.location.assign('/api/slack/oauth/start?mode=install')
+  }
+
+  function slackSubtitle(w: SlackWorkspaceStatus): string {
+    if (!w.workspaceConnected) return $t('settings.settingsConnectionsPage.slack.workspaceNotConnected')
+    if (w.userLinked) {
+      return $t('settings.settingsConnectionsPage.slack.userLinked', { team: w.teamName })
+    }
+    return $t('settings.settingsConnectionsPage.slack.workspaceConnectedLinkYou', {
+      team: w.teamName,
+    })
+  }
+
   onMount(() => {
     void fetchVaultStatus()
       .then((v) => {
@@ -91,9 +153,15 @@
       .catch(() => {
         multiTenant = false
       })
-    void fetchData()
+    void reloadHubAndSlack()
     const unsub = subscribe((e) => {
-      if (e.type === 'hub:sources-changed' || e.type === 'sync:completed') void fetchData()
+      if (
+        e.type === 'hub:sources-changed' ||
+        e.type === 'sync:completed' ||
+        e.type === 'slack:connections-changed'
+      ) {
+        void reloadHubAndSlack()
+      }
     })
     return () => {
       unsub()
@@ -106,6 +174,7 @@
     'link-item--selected !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-accent-dim focus-visible:!border-accent'
 
   const selG = $derived(selectedGoogleAccountEmail?.trim().toLowerCase() ?? '')
+  const selS = $derived(selectedSlackTeamId?.trim() ?? '')
 </script>
 
 <div class="settings-connections-list flex flex-col gap-6">
@@ -195,7 +264,7 @@
             <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
               <HubSourceRowBody title={entry.panelEmail} subtitle={googleRowSubtitle(entry.sources)}>
                 {#snippet icon()}
-                  <Globe size={16} aria-hidden="true" />
+                  <ConnectionBrandLogo brand="google" size={16} />
                 {/snippet}
               </HubSourceRowBody>
             </div>
@@ -222,7 +291,73 @@
         {/if}
       {/each}
     {/if}
-    <SettingsSlackConnection />
+
+    {#if slackOAuthConfigured}
+      <div class="settings-slack-rows flex flex-col border-t border-transparent">
+        <h3 class="m-0 border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] py-3 text-[0.8125rem] font-semibold uppercase tracking-[0.06em] text-muted">
+          {$t('settings.settingsConnectionsPage.slack.sectionTitle')}
+        </h3>
+        {#if slackLoading}
+          <p class="m-0 py-3 text-[0.9375rem] text-muted">
+            {$t('settings.settingsConnectionsPage.slack.statusLoading')}
+          </p>
+        {:else}
+          <SettingsSlackConnection onSlackLinkConfirmed={() => void fetchSlackStatus()} />
+          {#each slackWorkspaces as w (w.slackTeamId)}
+            <button
+              type="button"
+              class={cn(linkItemBase, 'hub-source-row', selS !== '' && selS === w.slackTeamId && linkItemSelected)}
+              aria-current={selS !== '' && selS === w.slackTeamId ? 'true' : undefined}
+              onclick={() => onSettingsNavigate({ type: 'slack-workspace', teamId: w.slackTeamId })}
+            >
+              <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+                <HubSourceRowBody
+                  title={w.teamName || w.slackTeamId}
+                  subtitle={slackSubtitle(w)}
+                >
+                  {#snippet icon()}
+                    <ConnectionBrandLogo brand="slack" size={16} />
+                  {/snippet}
+                </HubSourceRowBody>
+              </div>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          {/each}
+
+          <button
+            type="button"
+            class={cn(linkItemBase, 'hub-source-row')}
+            onclick={startSlackInstall}
+          >
+              <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+                <HubSourceRowBody
+                  title={slackWorkspaces.length === 0
+                    ? $t('settings.settingsConnectionsPage.slack.connectWorkspace')
+                    : $t('settings.settingsConnectionsPage.slack.connectAnother')}
+                  subtitle={slackWorkspaces.length === 0
+                    ? $t('settings.settingsConnectionsPage.slack.workspaceNotConnected')
+                    : $t('settings.settingsConnectionsPage.slack.connectAnotherSubtitle')}
+                >
+                  {#snippet icon()}
+                    <Plus size={16} aria-hidden="true" />
+                  {/snippet}
+                </HubSourceRowBody>
+              </div>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+        {/if}
+      </div>
+    {:else}
+      <div class="settings-slack-muted flex flex-col gap-2 border-t border-transparent pt-6">
+        <h3 class="m-0 text-[0.8125rem] font-semibold uppercase tracking-[0.06em] text-muted">
+          {$t('settings.settingsConnectionsPage.slack.sectionTitle')}
+        </h3>
+        <p class="m-0 text-[0.9375rem] text-muted">
+          {$t('settings.settingsConnectionsPage.slack.notConfigured')}
+        </p>
+      </div>
+    {/if}
+
     <button type="button" class={cn(linkItemBase, 'hub-source-row')} onclick={startAddAnotherGmail}>
       <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
         <HubSourceRowBody

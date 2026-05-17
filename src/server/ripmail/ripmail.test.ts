@@ -34,7 +34,13 @@ import { inbox, loadRulesFile, getBundledRulesetRevision } from './inbox.js'
 import { archive } from './archive.js'
 import { rulesList, rulesAdd, rulesEdit, rulesRemove, rulesValidate } from './rules.js'
 import { sourcesList, sourcesAddLocalDir, sourcesRemove, ensureSourceRowsFromConfig } from './sources.js'
-import { calendarRange, calendarCreateEvent, calendarDeleteEvent, calendarListCalendars } from './calendar.js'
+import {
+  calendarRange,
+  calendarCreateEvent,
+  calendarDeleteEvent,
+  calendarListCalendars,
+  calendarEventCountForSource,
+} from './calendar.js'
 import { draftNew, draftEdit, draftView } from './draft.js'
 import type { RipmailDb } from './db.js'
 
@@ -1087,6 +1093,18 @@ describe('calendar', () => {
     expect(ids).toContain('primary')
     expect(ids).toContain('work')
     expect(new Set(ids).size).toBe(ids.length) // no duplicates
+    db.close()
+  })
+
+  it('eventCountForSource counts rows for one source only', () => {
+    const db = openMemoryRipmailDb()
+    const now = Math.floor(Date.now() / 1000)
+    calendarCreateEvent(db, { sourceId: 'a', calendarId: 'primary', summary: '1', startAt: now, endAt: now + 3600 })
+    calendarCreateEvent(db, { sourceId: 'a', calendarId: 'primary', summary: '2', startAt: now + 10, endAt: now + 3610 })
+    calendarCreateEvent(db, { sourceId: 'b', calendarId: 'primary', summary: '3', startAt: now, endAt: now + 3600 })
+    expect(calendarEventCountForSource(db, 'a')).toBe(2)
+    expect(calendarEventCountForSource(db, 'b')).toBe(1)
+    expect(calendarEventCountForSource(db, 'missing')).toBe(0)
     db.close()
   })
 

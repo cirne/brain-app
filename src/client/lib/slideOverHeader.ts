@@ -13,6 +13,7 @@ export function titleForOverlay(o: Overlay): string {
   if (o.type === 'your-wiki') return 'Your Wiki'
   if (o.type === 'hub-source') return 'Search index source'
   if (o.type === 'google-account') return 'Google account'
+  if (o.type === 'slack-workspace') return 'Slack workspace'
   if (o.type === 'hub-wiki-about') return 'Your wiki'
   return 'Calendar'
 }

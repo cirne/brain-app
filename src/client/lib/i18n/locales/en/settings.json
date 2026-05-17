@@ -90,7 +90,21 @@
       "linkConfirmCancel": "Cancel",
       "linkConfirmSuccess": "Slack account linked.",
       "linkConfirmError": "Could not confirm link. Try again.",
-      "disconnect": "Disconnect"
+      "disconnect": "Disconnect",
+      "connectAnother": "Connect another Slack workspace",
+      "connectAnotherSubtitle": "Install Braintunnel into another Slack team",
+      "workspaceRowSubtitle": "{{team}}",
+      "panelTitleFallback": "Slack",
+      "panelLoadError": "Could not load this workspace.",
+      "panelForbidden": "You don’t have access to Slack settings for this workspace.",
+      "inboundPolicy": "Inbound policy",
+      "inboundPolicyHint": "How much your assistant may share when someone messages you in this workspace.",
+      "autorespondConfirm": {
+        "title": "Autosend replies in Slack?"
+      },
+      "disconnectAccount": "Disconnect Slack account",
+      "saving": "Saving…",
+      "savingError": "Could not save settings. Try again."
     }
   },
   "settingsWikiPage": {

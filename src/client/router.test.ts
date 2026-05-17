@@ -529,6 +529,15 @@ describe('parseRoute google-account', () => {
   })
 })
 
+describe('parseRoute slack-workspace', () => {
+  it('parses slack-workspace with teamId on /settings', () => {
+    expect(parseRoute('http://localhost/settings?panel=slack-workspace&teamId=T001XYZ')).toEqual({
+      zone: 'settings',
+      overlay: { type: 'slack-workspace', teamId: 'T001XYZ' },
+    })
+  })
+})
+
 describe('routeToUrl', () => {
   const uuid = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -688,6 +697,9 @@ describe('routeToUrl', () => {
     expect(
       routeToUrl({ zone: 'settings', overlay: { type: 'google-account', email: 'a@b.com' } }),
     ).toBe('/settings?panel=google-account&email=a%40b.com')
+    expect(
+      routeToUrl({ zone: 'settings', overlay: { type: 'slack-workspace', teamId: 'T_ABC' } }),
+    ).toBe('/settings?panel=slack-workspace&teamId=T_ABC')
     expect(routeToUrl({ zone: 'settings', overlay: { type: 'brain-access' } })).toBe('/settings/brain-access')
     expect(
       routeToUrl({ zone: 'settings', overlay: { type: 'brain-access-policy', policyId: 'trusted' } }),
@@ -783,6 +795,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { zone: 'settings', overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'settings', overlay: { type: 'hub-source', id: 'src-x' } },
     { zone: 'settings', overlay: { type: 'google-account', email: 'u@example.com' } },
+    { zone: 'settings', overlay: { type: 'slack-workspace', teamId: 'T_TEAM' } },
     { overlay: { type: 'hub-wiki-about' as const } },
     { zone: 'hub', overlay: { type: 'chat-history' } },
     { zone: 'wiki', overlay: { type: 'wiki' as const } },

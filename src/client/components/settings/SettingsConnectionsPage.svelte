@@ -8,6 +8,7 @@
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     selectedHubSourceId?: string
     selectedGoogleAccountEmail?: string
+    selectedSlackTeamId?: string
     onNavigateToSettingsRoot: () => void
   }
 
@@ -15,6 +16,7 @@
     onSettingsNavigate,
     selectedHubSourceId,
     selectedGoogleAccountEmail,
+    selectedSlackTeamId,
     onNavigateToSettingsRoot,
   }: Props = $props()
 </script>
@@ -31,6 +33,7 @@
         {onSettingsNavigate}
         {selectedHubSourceId}
         {selectedGoogleAccountEmail}
+        {selectedSlackTeamId}
       />
     </div>
   </div>
